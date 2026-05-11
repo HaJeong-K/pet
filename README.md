@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 반려동물 동반 식당 맵 배포
+추후 어느 정도의 기반이 쌓이면, 해당 프로젝트 겸 배포 맵의 이름을 정할 예정.
+현재 가칭 : **같이가개**
+<br>
+# 프로젝트 설명
+- 언어 : Nest.js, Supabase with VSCode // 추후 추가될 수 있음!
+- 기간 : 26.05.11 ~ 26.08 (예상)
 
-## Getting Started
+## 프로젝트 개요
+- 해당 프로젝트는 개인적으로 AI를 활용해 반려동물이 동반 가능한 맵을 웹으로 배포하는 것을 목적으로 하고 있다.
+- 전체적인 디자인이나 기능에 대한 부분은 최근 핫하게 뜨고 있는 "거지맵" 에서 영감을 받아 스스로 비슷한 결과물을 내는 것을 목표로 한다.
+- 풀스택과 관련된 지식이나 역량이 없는 상태에서 내가 LLM 프롬프트를 작성하는 것만으로 결과물을 원하는 대로 얻을 수 있는지 확인해보고자 하는 생각에 하는 이유도 있다.
 
-First, run the development server:
+## 프로젝트 목적
+- 반려동물과 함께 가족으로 지내는 사람으로써, 함께 외식을 할 수 있는 장소를 쉽게 알 수 있으면 하는 바람으로 해당 맵을 성공시켜 지역에 상관없이 모든 반려인들이 사용할 수 있으면 하고 만들고자 한다.
+- 네이버 검색으로도 반려동물과 같이 갈 수 있는 식당이 뜨지만, 실질적으로 불가능 한 곳도 같이 뜨거나, 가능한 곳임에도 제대로 뜨지 않는 것을 보고 제대로 활용할 수 있는 무료 사이트를 만들고자 한다.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 예상 흐름도
+> 컴퓨터공학쪽으로 새로 진학했으나, 개발자를 염두에 둔 것이 아니라 인공지능 및 데이터를 다루는 부분에 대한 관심과 취업을 위한 열망으로 진학한 것이라 중점으로 보고 있는 공부 내용이 다르다. 그래서 현재를 기준으로 풀스택과 관련된 실습을 개인적으로 해보기도 하고, 관련 CS 지식들을 같이 겸비하고자 하는 바람이라 프로젝트 기간을 8월 내로 배포가 가능한 맵을 만드는 것이 목표이다.
+- 기본적인 구조는 AI의 도움을 받아 워크플로우를 짜놓은 상태이고, 해당 프로젝트에서 실질적으로 내 미래에 관련된 역량을 함께 쌓기 위해 크롤링을 통해 방문한 사람들의 후기를 수집해 등록하고, 데이터를 관리하는 부분까지 하는 프로젝트로 기획중이다.
+- 6월말까지는 데이터베이스를 구축하고 관리하는 방법에 대해서 공부를 하며 동시에 바이브 코딩을 통해 맵을 만들어가는 과정을 갖는 것이 1차 목표이다.
+- 1차 목표가 달성했다는 과정 하에, 전국의 데이터를 어떤 폭으로 수집해야할지에 대한 방향성을 고려하고, UI/UX에 대한 부분을 건드려보는 시간을 8월초까지 가져보고자 한다.
+- 최종적으로는 8월 말 안으로 해당 서비스가 배포될 수 있게 디자인에 대한 A/B 테스트를 지인들에게 진행하고, 반려인들이 무료로 활용할 수 있게끔 배포를 하고자 한다.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 개발 로그 기록
+> 레포 생성일자를 기준으로 작성됨.(26.05.11)
+<br>
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[2026.05.11]
+- 오늘 한 일
+  + 주제 선정 : 프로젝트 주제 선정 및 워크 플로우 확정
+  + 개발환경 세팅 : git 연동 및 Nest.js 세팅 완료
+  + 카카오맵 연동 : 관련 내용 트러블 슈팅 참고. [트러블슈팅 보러가기](https://forky-develop.tistory.com/entry/pjt-map-with-pet-1)
+ 
+- 오늘 못한 일
+  + 카카오맵 구성 : 마커 표시, 정보창 연동, DB와 카카오맵 데이터 연동
+ 
+- 내일 할 일
+  + 카카오맵 구성 : 마커 표시, 정보창 연동, DB와 카카오맵 데이터 연동
+  + PWA 설정
+ <br>
