@@ -263,10 +263,29 @@ export default function PlaceDetail() {
       await fetchReplies();
       await fetchGalleryImages(); // ✅ [추가 4] 갤러리 이미지 로딩
 
-      const { data: existingUser } = await supabase
-        .from("users").select("*").eq("user_key", userKey).maybeSingle();
-      if (!existingUser) await createRandomNickname();
-      else setMyNickname(existingUser.nickname);
+      // 로그인 상태면 auth 유저 닉네임 사용
+      if (session?.user) {
+        const nickname =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.user_metadata?.nickname ||
+          "회원";
+
+        setMyNickname(nickname);
+      } else {
+        // 비로그인 상태면 랜덤 닉네임 사용
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("user_key", userKey)
+          .maybeSingle();
+
+        if (!existingUser) {
+          await createRandomNickname();
+        } else {
+          setMyNickname(existingUser.nickname);
+        }
+      }
 
       const { data: allReactions } = await supabase
         .from("reactions").select("type").eq("place_id", placeId);
@@ -300,11 +319,12 @@ export default function PlaceDetail() {
     };
 
     fetchData();
-  }, [placeId]);
+  }, [placeId, session]);
 
   // ================= 댓글 등록 =================
   const handleSubmit = async () => {
-    if (!myNickname || !password || !content) return;
+    if (!myNickname || !content) return;
+    if (!session && !password) return;
     const userKey = getUserKey();
     const authUserId = session?.user?.id ?? null;
     const { error } = await supabase.from("reviews").insert([{
@@ -359,11 +379,7 @@ export default function PlaceDetail() {
       setReviews((prev) =>
         prev.map((r) =>
           r.id === reviewId
-            ? {
-                ...r,
-                deleted: true,
-                content: "삭제된 댓글입니다.",
-              }
+            ? { ...r, likes: newLikes }
             : r
         )
       );
@@ -451,8 +467,13 @@ export default function PlaceDetail() {
 
   // ================= 작성자 확인 =================
   const isOwner = (review: any): boolean => {
-    if (session?.user?.id && review.auth_user_id)
+    // 로그인 상태
+    if (session) {
+      // 회원 댓글만 본인 판별
       return session.user.id === review.auth_user_id;
+    }
+
+    // 비회원 상태
     return review.user_key === getUserKey();
   };
 
@@ -465,8 +486,9 @@ export default function PlaceDetail() {
   const handleEdit = async (reviewId: string) => {
     const review = reviews.find((r) => r.id === reviewId);
     if (!review || !editContent.trim()) return;
-    if (!isOwner(review) && editPassword !== review.password) {
-      alert("비밀번호가 일치하지 않습니다."); return;
+    if (!session && editPassword !== review.password) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
     }
     const { error } = await supabase.from("reviews")
       .update({ content: editContent }).eq("id", reviewId);
@@ -526,12 +548,14 @@ export default function PlaceDetail() {
   const handleDelete = async (reviewId: string) => {
     const review = reviews.find((r) => r.id === reviewId);
     if (!review) return;
-    if (!isOwner(review) && deletePassword !== review.password) {
-      alert("비밀번호가 일치하지 않습니다."); return;
+    if (!session && deletePassword !== review.password) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
     }
     const { error } = await supabase.from("reviews").update({deleted: true, content: "삭제된 댓글입니다.", }).eq("id", reviewId)
     if (error) { console.error(error); return; }
     setDeletingId(null);
+    await fetchReviews();
   };
 
   const handleReplyDelete = async (replyId: string) => {
@@ -567,6 +591,10 @@ export default function PlaceDetail() {
 
   // ================= 찜 토글 =================
   const handleBookmark = async () => {
+    if (!session) {
+      router.push(`/login?redirect=/place/${placeId}`);
+      return;
+    }
     if (isBookmarkProcessingRef.current) return;
     isBookmarkProcessingRef.current = true;
     try {
@@ -847,7 +875,22 @@ export default function PlaceDetail() {
 
       {/* 댓글 헤더 */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "28px" }}>
-        <h3 style={{ margin: 0, fontSize: "15px" }}>댓글 {reviews.length}개</h3>
+        <h3 style={{ margin: 0, fontSize: "15px" }}>
+            댓글 {
+            reviews.filter((r) => {
+              const hasReplies = replies.some(
+                (reply) => reply.review_id === r.id
+              );
+
+              // 삭제 + 답글 없음 → 제외
+              if (r.deleted && !hasReplies) {
+                return false;
+              }
+
+              return true;
+            }).length
+          }개
+        </h3>
         <div>
           <button style={sortBtn(sort === "latest")} onClick={() => setSort("latest")}>최신순</button>
           <button style={sortBtn(sort === "like")} onClick={() => setSort("like")}>좋아요순</button>
@@ -859,7 +902,9 @@ export default function PlaceDetail() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "4fr 48px 6fr",
+            gridTemplateColumns: session
+              ? "4fr 6fr"
+              : "4fr 48px 6fr",
             gap: "10px",
             marginBottom: "10px",
             alignItems: "stretch",
@@ -877,8 +922,6 @@ export default function PlaceDetail() {
               overflow: "hidden",
             }}
           >
-
-            {/* 닉네임 */}
             <div
               style={{
                 fontSize: "14px",
@@ -891,41 +934,46 @@ export default function PlaceDetail() {
             </div>
           </div>
 
-          {/* 랜덤 닉네임 버튼 */}
-          <button
-            onClick={createRandomNickname}
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "8px",
-              border: "1px solid #ddd",
-              background: "white",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Shuffle size={18} />
-          </button>
+          {/* 비회원만 랜덤 닉네임 변경 가능 */}
+          {!session && (
+            <button
+              onClick={createRandomNickname}
+              style={{
+                width: "48px",
+                height: "48px",
+                borderRadius: "8px",
+                border: "1px solid #ddd",
+                background: "white",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Shuffle size={18} />
+            </button>
+          )}
 
-          {/* 비밀번호 */}
-          <input
-            placeholder="비밀번호"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "9px 12px",
-              borderRadius: "8px",
-              border: "1px solid #ddd",
-              fontSize: "14px",
-              boxSizing: "border-box",
-            }}
-          />
+          {/* 비로그인 상태일 때만 비밀번호 표시 */}
+          {!session && (
+            <input
+              placeholder="비밀번호"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "9px 12px",
+                borderRadius: "8px",
+                border: "1px solid #ddd",
+                fontSize: "14px",
+                boxSizing: "border-box",
+              }}
+            />
+          )}
         </div>
+
         <div style={{ display: "flex", gap: "10px", alignItems: "stretch" }}>
           <textarea
             placeholder="댓글을 입력하세요"
@@ -935,11 +983,14 @@ export default function PlaceDetail() {
           />
           <button
             onClick={handleSubmit}
-            disabled={!password || !content}
+            disabled={(!session && !password) || !content}
             style={{
               width: "80px", borderRadius: "8px", border: "none",
-              background: !password || !content ? "#ccc" : "#111",
-              color: "white", cursor: !password || !content ? "default" : "pointer",
+              background: ((!session && !password) || !content) ? "#ccc" : "#111",
+              color: "white",
+              cursor: ((!session && !password) || !content)
+                ? "default"
+                : "pointer",
               fontSize: "14px", fontWeight: 600,
             }}
           >
@@ -947,6 +998,99 @@ export default function PlaceDetail() {
           </button>
         </div>
       </div>
+
+      {!session && (
+        <div
+          style={{
+            padding: "16px",
+            background: "#f5f6f8",
+            borderRadius: "12px",
+            marginBottom: "14px",
+            textAlign: "center",
+            border: "1px solid #eee",
+
+            position: "relative",
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              marginBottom: "12px",
+              fontSize: "14px",
+            }}
+          >
+            회원으로 댓글을 작성하고, 찜 기능을 이용해보세요!
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "10px",
+              cursor: "pointer",
+            }}
+          >
+            <button
+              onClick={() =>
+                router.push(
+                  `/login?redirect=/place/${placeId}`
+                )
+              }
+
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.96)";
+              }}
+
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+
+              style={{
+                padding: "10px 18px",
+                borderRadius: "8px",
+                border: "none",
+                background: "#111",
+                color: "white",
+                fontWeight: 700,
+                cursor: "pointer",
+
+                transition: "all 0.15s ease",
+              }}
+            >
+              로그인
+            </button>
+
+            <button
+              onClick={() =>
+                router.push(
+                  `/signup?redirect=/place/${placeId}`
+                )
+              }
+
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = "scale(0.96)";
+              }}
+
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = "scale(1)";
+              }}
+
+              style={{
+                padding: "10px 18px",
+                borderRadius: "8px",
+                border: "1px solid #ddd",
+                background: "white",
+                fontWeight: 700,
+                cursor: "pointer",
+
+                transition: "all 0.15s ease",
+              }}
+            >
+              회원가입
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 댓글 리스트 */}
       <div style={{ marginTop: "16px" }}>
@@ -956,7 +1100,17 @@ export default function PlaceDetail() {
               ? String(b.id).localeCompare(String(a.id))
               : (b.likes || 0) - (a.likes || 0)
           )
-          .map((r) => (
+          .map((r) => {
+            const hasReplies = replies.some(
+              (reply) => reply.review_id === r.id
+            );
+
+            // 삭제됐고 답글 없으면 숨김
+            if (r.deleted && !hasReplies) {
+              return null;
+            }
+
+            return (
             <div
               key={r.id}
               style={{
@@ -1067,63 +1221,135 @@ export default function PlaceDetail() {
                         zIndex: 5,
                       }}
                     >
-                      {/* 신고 */}
-                      <button
-                        onClick={() => {
-                          setReportingId(r.id);
-                          setOpenedMenuId(null);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "11px 14px",
-                          border: "none",
-                          background: "white",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontSize: "13px",
-                        }}
-                      >
-                        신고
-                      </button>
+                      {/* 비회원 상태 */}
+                      {!session ? (
+                        <>
+                          {/* 신고 */}
+                          <button
+                            onClick={() => {
+                              setReportingId(r.id);
+                              setOpenedMenuId(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "11px 14px",
+                              border: "none",
+                              background: "white",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: "13px",
+                            }}
+                          >
+                            신고
+                          </button>
 
-                      {/* 수정 */}
-                      <button
-                        onClick={() => {
-                          startEdit(r);
-                          setOpenedMenuId(null);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "11px 14px",
-                          border: "none",
-                          background: "white",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontSize: "13px",
-                        }}
-                      >
-                        수정
-                      </button>
+                          {/* 수정 */}
+                          <button
+                            onClick={() => {
+                              startEdit(r);
+                              setOpenedMenuId(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "11px 14px",
+                              border: "none",
+                              background: "white",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: "13px",
+                            }}
+                          >
+                            수정
+                          </button>
 
-                      {/* 삭제 */}
-                      <button
-                        onClick={() => {
-                          startDelete(r.id);
-                          setOpenedMenuId(null);
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "11px 14px",
-                          border: "none",
-                          background: "white",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontSize: "13px",
-                          color: "#ef4444",
-                        }}
-                      >
-                        삭제
-                      </button>
+                          {/* 삭제 */}
+                          <button
+                            onClick={() => {
+                              startDelete(r.id);
+                              setOpenedMenuId(null);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "11px 14px",
+                              border: "none",
+                              background: "white",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              fontSize: "13px",
+                              color: "#ef4444",
+                            }}
+                          >
+                            삭제
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* 회원 상태 */}
+                          {isOwner(r) ? (
+                            <>
+                              {/* 수정 */}
+                              <button
+                                onClick={() => {
+                                  startEdit(r);
+                                  setOpenedMenuId(null);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "11px 14px",
+                                  border: "none",
+                                  background: "white",
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  fontSize: "13px",
+                                }}
+                              >
+                                수정
+                              </button>
+
+                              {/* 삭제 */}
+                              <button
+                                onClick={() => {
+                                  startDelete(r.id);
+                                  setOpenedMenuId(null);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "11px 14px",
+                                  border: "none",
+                                  background: "white",
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  fontSize: "13px",
+                                  color: "#ef4444",
+                                }}
+                              >
+                                삭제
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              {/* 신고 */}
+                              <button
+                                onClick={() => {
+                                  setReportingId(r.id);
+                                  setOpenedMenuId(null);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "11px 14px",
+                                  border: "none",
+                                  background: "white",
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  fontSize: "13px",
+                                }}
+                              >
+                                신고
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1146,7 +1372,7 @@ export default function PlaceDetail() {
                     }}
                   />
 
-                  {!isOwner(r) && (
+                  {!session && (
                     <input
                       placeholder="비밀번호 입력"
                       type="password"
@@ -1908,72 +2134,72 @@ export default function PlaceDetail() {
                         </div>
                       </div>
                     )}
-
-                    {/* 신고 확인 */}
-                    {reportingId === r.id && (
-                      <div
-                        style={{
-                          marginTop: "8px",
-                          background: "#fff8f0",
-                          padding: "10px 12px",
-                          borderRadius: "8px",
-                          border: "1px solid #ffe0b2",
-                        }}
-                      >
-                        <p
-                          style={{
-                            margin: "0 0 8px",
-                            fontSize: "13px",
-                            color: "#b45309",
-                          }}
-                        >
-                          신고를 하시겠습니까?
-                        </p>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                          }}
-                        >
-                          {/* 신고하기 */}
-                          <button
-                            onClick={() => {
-                              alert("신고가 접수되었습니다.");
-                              setReportingId(null);
-                            }}
-                            style={{
-                              padding: "6px 14px",
-                              borderRadius: "6px",
-                              border: "none",
-                              background: "#ef4444",
-                              color: "white",
-                              cursor: "pointer",
-                              fontSize: "13px",
-                            }}
-                          >
-                            신고하기
-                          </button>
-
-                          {/* 아니요 */}
-                          <button
-                            onClick={() => setReportingId(null)}
-                            style={{
-                              padding: "6px 14px",
-                              borderRadius: "6px",
-                              border: "1px solid #ddd",
-                              background: "white",
-                              cursor: "pointer",
-                              fontSize: "13px",
-                            }}
-                          >
-                            취소
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
+
+              {/* 신고 확인 */}
+              {reportingId === r.id && (
+                <div
+                  style={{
+                    marginTop: "8px",
+                    background: "#fff8f0",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #ffe0b2",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: "0 0 8px",
+                      fontSize: "13px",
+                      color: "#b45309",
+                    }}
+                  >
+                    신고를 하시겠습니까?
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                    }}
+                  >
+                    {/* 신고하기 */}
+                    <button
+                      onClick={() => {
+                        alert("신고가 접수되었습니다.");
+                        setReportingId(null);
+                      }}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: "6px",
+                        border: "none",
+                        background: "#ef4444",
+                        color: "white",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                      }}
+                    >
+                      신고하기
+                    </button>
+
+                    {/* 아니요 */}
+                    <button
+                      onClick={() => setReportingId(null)}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: "6px",
+                        border: "1px solid #ddd",
+                        background: "white",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                      }}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 삭제 확인 */}
               {deletingId === r.id && (
@@ -1996,7 +2222,7 @@ export default function PlaceDetail() {
                     정말 삭제하시겠습니까?
                   </p>
 
-                  {!isOwner(r) && (
+                  {!session && (
                     <input
                       placeholder="비밀번호 입력"
                       type="password"
@@ -2013,25 +2239,6 @@ export default function PlaceDetail() {
                       }}
                     />
                   )}
-
-                  {/* 비밀번호 */}
-                  <input
-                    placeholder="비밀번호 입력"
-                    type="password"
-                    value={deletePassword}
-                    onChange={(e) =>
-                      setDeletePassword(e.target.value)
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "6px",
-                      border: "1px solid #ddd",
-                      fontSize: "14px",
-                      marginBottom: "8px",
-                      boxSizing: "border-box",
-                    }}
-                  />
 
                   <div
                     style={{
@@ -2074,7 +2281,8 @@ export default function PlaceDetail() {
                 </div>
               )}
             </div>
-          ))}
+          );
+        })}
       </div>
 
       {/* 이미지 확대 모달 */}

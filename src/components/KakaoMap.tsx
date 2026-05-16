@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LocateFixed } from "lucide-react";
 
 declare global {
@@ -27,9 +27,16 @@ const PET_ZONE_LABEL: Record<string, string> = {
 
 export default function KakaoMap() {
   const router = useRouter();
+  const pathname = usePathname();
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const [session, setSession] = useState<any>(null);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
 
   // ✅ window.selectPlace가 stale closure를 갖지 않도록 ref로 최신 함수를 유지
   const selectPlaceRef = useRef<(id: number) => void>(() => {});
@@ -56,6 +63,20 @@ export default function KakaoMap() {
     background: selectedPetZone === type ? "#000" : "white",
     color: selectedPetZone === type ? "white" : "black",
   });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // ================= 데이터 로딩 =================
   useEffect(() => {
@@ -188,6 +209,9 @@ export default function KakaoMap() {
   return (
     <>
       {/* 필터 */}
+      {!pathname.includes("login") &&
+      !pathname.includes("signup") && (
+
       <div
         style={{
           position: "fixed",
@@ -212,6 +236,7 @@ export default function KakaoMap() {
           🏡 실내외 가능
         </button>
       </div>
+      )}
 
       {/* 전체 레이아웃 */}
       <div
@@ -265,6 +290,25 @@ export default function KakaoMap() {
             >
               같이가개
             </div>
+
+            {session && (
+              <button
+                onClick={handleLogout}
+                style={{
+                  marginTop: "14px",
+                  padding: "8px 12px",
+                  borderRadius: "10px",
+                  border: "1px solid #e5e7eb",
+                  background: "white",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#444",
+                }}
+              >
+                로그아웃
+              </button>
+            )}
 
             <div
               style={{
