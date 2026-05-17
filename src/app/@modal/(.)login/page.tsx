@@ -61,25 +61,30 @@ export default function LoginPage() {
 
   const redirect = searchParams.get("redirect") || "/";
 
-  const [id, setId] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   // 로그인
   const handleLogin = async () => {
-    if (!id || !password) {
-      alert("아이디와 비밀번호를 입력해주세요.");
+    if (!email || !password) {
+      alert("이메일과 비밀번호를 입력해주세요.");
       return;
     }
 
-    const fakeEmail = `${id}@gachigagae.com`;
-
     const { error } = await supabase.auth.signInWithPassword({
-      email: fakeEmail,
+      email,
       password,
     });
 
     if (error) {
-      alert("로그인 실패");
+      console.error(error);
+
+      if (error.message.includes("Invalid login credentials")) {
+        alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+      } else {
+        alert(error.message);
+      }
+
       return;
     }
 
@@ -98,14 +103,25 @@ export default function LoginPage() {
 
   // 카카오 로그인
   const loginWithKakao = async () => {
+    // 기존 세션 완전 제거
+    await supabase.auth.signOut({
+      scope: "global",
+    });
+
+    localStorage.clear();
+    sessionStorage.clear();
+
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
         redirectTo: "http://localhost:3000",
+
+        queryParams: {
+          prompt: "select_account",
+        },
       },
     });
   };
-
   return (
     <>
       {/* Google 가이드라인 필수: Roboto Medium 폰트 */}
@@ -171,11 +187,12 @@ export default function LoginPage() {
             로그인
           </h1>
 
-          {/* 아이디 */}
+          {/* 이메일 */}
           <input
-            placeholder="아이디"
-            value={id}
-            onChange={(e) => setId(e.target.value)}
+            type="email"
+            placeholder="이메일"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             style={{
               width: "100%",
               padding: "14px",
@@ -343,7 +360,7 @@ export default function LoginPage() {
                 cursor: "pointer",
               }}
             >
-              회원가입 하러가기
+              이메일로 회원가입
             </button>
           </div>
         </div>
