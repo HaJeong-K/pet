@@ -107,7 +107,12 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { nickname } },
+      options: {
+        data: {
+          full_name: nickname,    // ← 이게 있어야 대시보드 Display name에 표시됨
+          nickname,               // ← KakaoMap.tsx, page.tsx의 user_metadata 읽기용으로 유지
+        },
+      },
     });
 
     if (error) {
@@ -120,7 +125,7 @@ export default function SignupPage() {
       return;
     }
 
-    await supabase.from("users").insert([
+    const { error: insertError } = await supabase.from("users").insert([
       {
         auth_user_id: data.user.id,
         email,
@@ -128,7 +133,12 @@ export default function SignupPage() {
       },
     ]);
 
+    if (insertError) {
+      console.error("users 테이블 insert 실패:", insertError);
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 800));
+
     const { error: loginError } =
       await supabase.auth.signInWithPassword({
         email,
@@ -142,8 +152,7 @@ export default function SignupPage() {
     }
 
     alert("회원가입이 완료되었습니다.\n확인을 누르시면 자동으로 로그인됩니다.");
-
-    router.push(redirect);
+    window.location.href = redirect;
   };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {

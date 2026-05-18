@@ -77,26 +77,28 @@ export default function LoginPage() {
     });
 
     if (error) {
-      console.error(error);
-
       if (error.message.includes("Invalid login credentials")) {
         alert("이메일 또는 비밀번호가 올바르지 않습니다.");
       } else {
-        alert(error.message);
+        alert("로그인에 실패했습니다. 다시 시도해주세요.");
       }
 
       return;
     }
-
-    router.push(redirect);
+    localStorage.setItem("provider", "email");
+    window.location.href = redirect;
   };
 
   // 구글 로그인
   const loginWithGoogle = async () => {
+    localStorage.setItem("provider", "google"); // ← 카카오와 동일하게 추가
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: "http://localhost:3000",
+        queryParams: {
+          prompt: "select_account", // ← 매번 계정 선택창 표시
+        },
       },
     });
   };
@@ -110,6 +112,8 @@ export default function LoginPage() {
 
     localStorage.clear();
     sessionStorage.clear();
+
+    localStorage.setItem("provider", "kakao");
 
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
@@ -209,6 +213,11 @@ export default function LoginPage() {
             placeholder="비밀번호"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleLogin();
+              }
+            }}
             style={{
               width: "100%",
               padding: "14px",
@@ -349,19 +358,48 @@ export default function LoginPage() {
             </button>
 
             {/* 회원가입 */}
-            <button
-              onClick={() => router.push(`/signup?redirect=${redirect}`)}
+            <div
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
                 marginTop: "18px",
-                width: "100%",
-                background: "transparent",
-                border: "none",
-                color: "#666",
-                cursor: "pointer",
               }}
             >
-              이메일로 회원가입
-            </button>
+              {/* 왼쪽 선 */}
+              <div
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#e5e7eb",
+                }}
+              />
+
+              {/* 회원가입 버튼 */}
+              <button
+                onClick={() => router.push(`/signup?redirect=${redirect}`)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#666",
+                  cursor: "pointer",
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                이메일로 회원가입
+              </button>
+
+              {/* 오른쪽 선 */}
+              <div
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#e5e7eb",
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
