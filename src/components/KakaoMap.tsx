@@ -9,12 +9,13 @@ import {
   MapPin,
   MapPinPlus,
   Pencil,
-  Map,
-  Users,
-  Flag,
-  FileText,
-  User,
-  LogIn,
+  ZoomIn,
+  ZoomOut,
+  Link,
+  Upload,
+  MessageCircle,
+  PawPrint,
+  X,
 } from "lucide-react";
 
 declare global {
@@ -41,16 +42,13 @@ export default function KakaoMap() {
   const pathname = usePathname();
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
   const [session, setSession] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const [wideView, setWideView] = useState(false);
   const savedLevelRef = useRef<number>(4);
+  const markersRef = useRef<any[]>([]);
 
-  // 현재 활성 탭 (맵 페이지에 있을 때만 탭 바 표시)
   const getActiveTab = () => {
     if (pathname === "/" || pathname === "") return "map";
     if (pathname.startsWith("/community")) return "community";
@@ -60,38 +58,6 @@ export default function KakaoMap() {
     if (pathname.startsWith("/login")) return "login";
     return "map";
   };
-
-  useEffect(() => {
-    const checkLogin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsLoggedIn(!!session);
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("is_admin")
-          .eq("auth_user_id", session.user.id)
-          .single();
-        setIsAdmin(!!profile?.is_admin);
-      } else {
-        setIsAdmin(false);
-      }
-    };
-    checkLogin();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setIsLoggedIn(!!session);
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("is_admin")
-          .eq("auth_user_id", session.user.id)
-          .single();
-        setIsAdmin(!!profile?.is_admin);
-      } else {
-        setIsAdmin(false);
-      }
-    });
-    return () => { subscription.unsubscribe(); };
-  }, []);
 
   const createUserProfile = async (user: any) => {
     if (!user) return;
@@ -161,10 +127,10 @@ export default function KakaoMap() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        if (session?.user)
-          console.log("user_metadata:", JSON.stringify(session.user.user_metadata, null, 2));
+        // console.log 제거
       }
     );
+
     if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
       (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
     }
@@ -173,12 +139,14 @@ export default function KakaoMap() {
 
   useEffect(() => {
     const fetchPlaces = async () => {
-      const { data, error } = await supabase.from("places").select("*");
+      const { data, error } = await supabase
+        .from("places")
+        .select("id, name, lat, lng, pet_zone, address, image_url, created_at");
       if (error) { console.error(error); return; }
       setPlaces(data || []);
     };
     fetchPlaces();
-  }, []);
+  }, [session]); // ← [] 대신 [session]으로 변경
 
   const filteredPlaces = useMemo(
     () =>
@@ -213,39 +181,20 @@ export default function KakaoMap() {
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
     const map = mapRef.current;
+
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+
     filteredPlaces.forEach((place) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
-      if (isNaN(lat) || isNaN(lng)) {
-        console.warn("❌ 좌표 문제:", place.name, place.lat, place.lng);
-        return;
-      }
+      if (isNaN(lat) || isNaN(lng)) return;
+
       const position = new window.kakao.maps.LatLng(lat, lng);
       const emoji = PET_ZONE_EMOJI[place.pet_zone] || "🐾";
       const overlay = new window.kakao.maps.CustomOverlay({
         position,
-        content: `
-          <div
-            onclick="window.selectPlace(${place.id})"
-            style="
-              background: white;
-              border-radius: 999px;
-              padding: 5px 10px;
-              font-size: 11px;
-              font-weight: 600;
-              font-family: 'Noto Sans KR', sans-serif;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.13);
-              cursor: pointer;
-              white-space: nowrap;
-              user-select: none;
-              border: 1px solid rgba(0,0,0,0.06);
-            "
-          >
-            ${emoji} ${place.name}
-          </div>
-        `,
+        content: `<div onclick="window.selectPlace(${place.id})" style="background:white;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:600;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.13);cursor:pointer;white-space:nowrap;user-select:none;border:1px solid rgba(0,0,0,0.06);">${emoji} ${place.name}</div>`,
         yAnchor: 1,
         zIndex: 3,
       });
@@ -314,15 +263,6 @@ export default function KakaoMap() {
     setShowShareModal(false);
   };
 
-  // 탭 바 숨김 조건: login, signup, place 상세, report 페이지에서는 탭 바 숨김
-  const hideTabBar =
-    pathname.includes("/login") ||
-    pathname.includes("/signup") ||
-    pathname.includes("/place/") ||
-    pathname.includes("/report");
-
-  const activeTab = getActiveTab();
-
   return (
     <>
       {/* ── 폰트 로드 */}
@@ -340,7 +280,164 @@ export default function KakaoMap() {
         .tab-item:active { animation: tabPop 0.18s ease; }
       `}</style>
 
-      {/* ── 플로팅 헤더 */}
+      {/* ── 지도 영역 (가장 아래 레이어) */}
+      <div style={{ position: "fixed", inset: 0, width: "100%", height: "100vh", zIndex: 0 }}>
+        <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+
+        {/* 이 지역 더보기 버튼 */}
+        {mapReady && (
+          <button
+            onClick={handleWideView}
+            className="ggk-body"
+            style={{
+              position: "absolute",
+              top: "122px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 5,
+              padding: "6px 14px",
+              borderRadius: "999px",
+              background: wideView ? "linear-gradient(135deg, #2a2a2a, #111)" : "white",
+              color: wideView ? "white" : "#111",
+              border: wideView ? "none" : "1px solid rgba(0,0,0,0.09)",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              transition: "all 0.18s ease",
+            }}
+          >
+            {wideView ? <><ZoomOut size={13} /> 돌아가기</> : <><ZoomIn size={13} /> 넓게 둘러보기</>}
+          </button>
+        )}
+
+        {/* 공유 버튼 */}
+        <button
+          onClick={() => setShowShareModal(true)}
+          title="공유하기"
+          style={{
+            position: "absolute",
+            bottom: "96px",
+            right: "20px",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            border: "none",
+            background: "white",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.16)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 5,
+          }}
+        >
+          <Share size={17} color="#444" />
+        </button>
+
+        {/* 내 위치 버튼 */}
+        <button
+          onClick={moveToMyLocation}
+          title="내 위치로 이동"
+          style={{
+            position: "absolute",
+            bottom: "42px",
+            right: "20px",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            border: "none",
+            background: "white",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.16)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 5,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.24)")}
+          onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.16)")}
+        >
+          <LocateFixed size={18} color="#444" />
+        </button>
+
+        {/* 마커 클릭 팝업 */}
+        {selectedPlace && (
+          <div
+            className="ggk-body"
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: "80px",
+              transform: "translateX(-50%)",
+              width: "290px",
+              background: "#ffffff",
+              borderRadius: "18px",
+              boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
+              zIndex: 10,
+              overflow: "hidden",
+              animation: "fadeUp 0.2s ease",
+              border: "1px solid #e8eaed",
+            }}
+          >
+            <style>{`
+              @keyframes fadeUp {
+                from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+                to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+              }
+            `}</style>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setSelectedPlace(null)}
+                style={{
+                  position: "absolute", top: "8px", right: "8px",
+                  width: "26px", height: "26px", borderRadius: "50%",
+                  border: "none", background: "rgba(0,0,0,0.45)", color: "white",
+                  cursor: "pointer", display: "flex", alignItems: "center",
+                  justifyContent: "center", zIndex: 1, fontSize: "13px", lineHeight: 1,
+                }}
+              >
+                <X size={12} color="white" />
+              </button>
+            </div>
+            <div style={{ padding: "13px" }}>
+              <div className="ggk-logo" style={{ fontWeight: 700, fontSize: "13px", color: "#111" }}>
+                {selectedPlace.name}
+              </div>
+              <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                  {selectedPlace.pet_zone
+                    ? PET_ZONE_EMOJI[selectedPlace.pet_zone]
+                    : <PawPrint size={11} color="#888" />}
+                </span>{" "}
+                {PET_ZONE_LABEL[selectedPlace.pet_zone] || selectedPlace.pet_zone}
+              </div>
+              <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
+                <MapPin size={10} color="#bbb" />
+                {selectedPlace.address}
+              </div>
+              <button
+                onClick={() => { setSelectedPlace(null); router.push(`/place/${selectedPlace.id}`); }}
+                className="ggk-body"
+                style={{
+                  marginTop: "10px", width: "100%", padding: "9px",
+                  background: "linear-gradient(145deg, #2a2a2a, #111)",
+                  color: "white", border: "none", borderRadius: "10px",
+                  fontWeight: 600, fontSize: "12px", cursor: "pointer",
+                }}
+              >
+                자세히 보기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 플로팅 헤더 (지도 위) */}
       {!pathname.includes("login") && !pathname.includes("signup") && (
         <div
           className="ggk-body"
@@ -352,8 +449,6 @@ export default function KakaoMap() {
             zIndex: 999,
             padding: "10px 16px",
             background: "#ffffff",
-            backdropFilter: "none",
-            WebkitBackdropFilter: "none",
             borderRadius: "14px",
             border: "1px solid #e8eaed",
             boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
@@ -364,15 +459,14 @@ export default function KakaoMap() {
         >
           {/* ── 좌측: 로고 + 소개문구 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
-            <div
-              className="ggk-logo"
-              style={{ fontSize: "17px", fontWeight: 800, color: "#111", letterSpacing: "-0.3px" }}
-            >
-              같이가개
-            </div>
+            <img
+              src="/icons/header_logo_final.png"
+              alt="같이가개"
+              style={{ height: "60px", display: "block", objectFit: "contain" }}
+            />
             <div
               className="ggk-body"
-              style={{ fontSize: "10px", color: "#888", fontWeight: 400, marginTop: "7px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}
+              style={{ fontSize: "10px", color: "#888", fontWeight: 400, marginTop: "6px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}
             >
               나의 가족인 반려동물과 함께 맛있는 추억을 나눌 장소 찾기
             </div>
@@ -398,7 +492,6 @@ export default function KakaoMap() {
 
           {/* ── 우측: 신규 장소 + 제보하기 */}
           <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center" }}>
-            {/* 신규 장소 */}
             <button
               onClick={() => setShowRecentPanel(!showRecentPanel)}
               className="ggk-body"
@@ -422,7 +515,6 @@ export default function KakaoMap() {
               신규 장소
             </button>
 
-            {/* 제보하기 */}
             <button
               onClick={() => router.push("/report")}
               className="ggk-body"
@@ -448,108 +540,101 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* ── 전체 레이아웃 */}
+      {/* ── 리스트 패널 (지도 위, 헤더 아래) */}
       <div
+        className="ggk-body"
         style={{
-          width: "100vw",
-          height: "100vh",
-          position: "relative",
+          position: "fixed",
+          top: "122px",
+          left: "14px",
+          width: "210px",
+          height: "50vh",
+          background: "#ffffff",
+          border: "1px solid #e8eaed",
+          borderRadius: "20px",
           overflow: "hidden",
-          background: "#f5f6f8",
+          zIndex: 20,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          display: "flex",
+          flexDirection: "column",
+          padding: "14px 0",
         }}
       >
-        {/* 리스트 패널 */}
         <div
-          className="ggk-body"
           style={{
-            position: "absolute",
-            top: "80px",
-            left: "14px",
-            width: "210px",
-            height: "50vh",
-            background: "#ffffff",
-            border: "1px solid #e8eaed",
-            borderRadius: "20px",
-            overflow: "hidden",
-            zIndex: 20,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
-            display: "flex",
-            flexDirection: "column",
-            padding: "14px 0",
+            overflowY: "auto",
+            flex: 1,
+            height: "100%",
+            marginTop: "6px",
+            marginBottom: "6px",
+            paddingLeft: "10px",
+            paddingRight: "4px",
+            scrollbarWidth: "thin",
           }}
         >
-          <div
-            style={{
-              overflowY: "auto",
-              flex: 1,
-              height: "100%",
-              marginTop: "6px",
-              marginBottom: "6px",
-              paddingLeft: "10px",
-              paddingRight: "4px",
-              scrollbarWidth: "thin",
-            }}
-          >
-            <div style={{ height: "8px" }} />
-            {filteredPlaces.map((place) => (
-              <div key={place.id}>
-                <div
-                  onClick={() => {
-                    setSelectedPlace(null);
-                    router.push(`/place/${place.id}`);
-                  }}
-                  style={{
-                    marginBottom: "6px",
-                    background: selectedPlace?.id === place.id ? "#eef6ff" : "white",
-                    borderRadius: "12px",
-                    cursor: "pointer",
-                    border:
-                      selectedPlace?.id === place.id
-                        ? "1.5px solid #93c5fd"
-                        : "1px solid #eee",
-                    overflow: "hidden",
-                  }}
-                >
-                  <img
-                    src={place.image_url}
-                    alt={place.name}
-                    style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
-                  />
-                  <div style={{ padding: "6px 9px" }}>
-                    <div style={{ fontWeight: 700, fontSize: "11px", color: "#111" }}>{place.name}</div>
-                    <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>
-                      {PET_ZONE_EMOJI[place.pet_zone] || "🐾"}{" "}
+          <div style={{ height: "8px" }} />
+          {filteredPlaces.map((place) => (
+            <div key={place.id}>
+              <div
+                onClick={() => {
+                  setSelectedPlace(null);
+                  router.push(`/place/${place.id}`);
+                }}
+                style={{
+                  marginBottom: "6px",
+                  background: selectedPlace?.id === place.id ? "#eef6ff" : "white",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  border:
+                    selectedPlace?.id === place.id
+                      ? "1.5px solid #93c5fd"
+                      : "1px solid #eee",
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={place.image_url}
+                  alt={place.name}
+                  style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
+                />
+                <div style={{ padding: "6px 9px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "11px", color: "#111" }}>{place.name}</div>
+                  <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                      {place.pet_zone
+                        ? <span>{PET_ZONE_EMOJI[place.pet_zone]}</span>
+                        : <PawPrint size={10} color="#888" />}
                       {PET_ZONE_LABEL[place.pet_zone] || place.pet_zone}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#999",
-                        marginTop: "1px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "3px",
-                      }}
-                    >
-                      <LocateFixed size={10} />
-                      {place.address}
-                    </div>
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#999",
+                      marginTop: "1px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                    }}
+                  >
+                    <MapPin size={10} color="#bbb" />
+                    {place.address}
                   </div>
                 </div>
               </div>
-            ))}
-            <div style={{ height: "8px" }} />
-          </div>
+            </div>
+          ))}
+          <div style={{ height: "8px" }} />
         </div>
       </div>
 
-      {/* 신규 장소 패널 — 리뉴얼 */}
+      {/* ── 신규 장소 패널 */}
       {showRecentPanel && (
         <div
           className="ggk-body"
           style={{
-            position: "absolute",
-            top: "72px",
+            position: "fixed",
+            top: "122px",
             right: "14px",
             width: "280px",
             maxHeight: "64vh",
@@ -638,7 +723,6 @@ export default function KakaoMap() {
                     (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
                   }}
                 >
-                  {/* 번호 뱃지 — 전체 동일 색상 */}
                   <div
                     style={{
                       width: "28px",
@@ -657,7 +741,6 @@ export default function KakaoMap() {
                     {idx + 1}
                   </div>
 
-                  {/* 장소 정보 */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       className="ggk-logo"
@@ -674,7 +757,11 @@ export default function KakaoMap() {
                       {place.name}
                     </div>
                     <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
-                      <span>{PET_ZONE_EMOJI[place.pet_zone] || "🐾"}</span>
+                      <span>
+                        {place.pet_zone
+                          ? PET_ZONE_EMOJI[place.pet_zone]
+                          : <PawPrint size={10} color="#777" />}
+                      </span>
                       <span>{PET_ZONE_LABEL[place.pet_zone] || place.pet_zone}</span>
                     </div>
                     {place.address && (
@@ -691,7 +778,6 @@ export default function KakaoMap() {
                     )}
                   </div>
 
-                  {/* 화살표 */}
                   <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
                 </div>
               ))}
@@ -699,327 +785,62 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* 지도 영역 */}
-      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100vh" }}>
-        <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
-
-        {/* 이 지역 더보기 버튼 */}
-        {mapReady && (
-          <button
-            onClick={handleWideView}
-            className="ggk-body"
-            style={{
-              position: "absolute",
-              top: "80px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 25,
-              padding: "6px 14px",
-              borderRadius: "999px",
-              background: wideView ? "linear-gradient(135deg, #2a2a2a, #111)" : "white",
-              color: wideView ? "white" : "#111",
-              border: wideView ? "none" : "1px solid rgba(0,0,0,0.09)",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
-              cursor: "pointer",
-              fontSize: "11px",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              transition: "all 0.18s ease",
-            }}
-          >
-            {wideView ? "↩ 돌아가기" : "🔍 이 지역 더보기"}
-          </button>
-        )}
-
-        {/* 공유 버튼 */}
-        <button
-          onClick={() => setShowShareModal(true)}
-          title="공유하기"
-          style={{
-            position: "absolute",
-            bottom: "96px",
-            right: "20px",
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            border: "none",
-            background: "white",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.16)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10,
-          }}
-        >
-          <Share size={17} color="#444" />
-        </button>
-
-        {/* 공유 모달 */}
-        {showShareModal && (
-          <>
-            <div
-              onClick={() => setShowShareModal(false)}
-              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 100 }}
-            />
-            <div
-              className="ggk-body"
-              style={{
-                position: "fixed",
-                bottom: "50%",
-                left: "50%",
-                transform: "translate(-50%, 50%)",
-                background: "white",
-                borderRadius: "20px",
-                padding: "22px 20px",
-                zIndex: 101,
-                boxShadow: "0 -4px 24px rgba(0,0,0,0.15)",
-                width: "320px",
-              }}
-            >
-              <div style={{ fontWeight: 800, fontSize: "16px", marginBottom: "18px" }}>공유하기</div>
-              <div onClick={handleCopyLink} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", marginBottom: "7px", border: "1px solid #eee" }}>
-                <div style={{ fontSize: "20px" }}>🔗</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "13px" }}>링크 복사하기</div>
-                  <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>클립보드에 링크를 복사합니다</div>
-                </div>
-              </div>
-              <div onClick={handleSnsShare} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", marginBottom: "7px", border: "1px solid #eee" }}>
-                <div style={{ fontSize: "20px" }}>📤</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "13px" }}>SNS로 공유하기</div>
-                  <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>인스타그램, X, Thread 등으로 공유합니다</div>
-                </div>
-              </div>
-              <div onClick={() => { handleKakaoShare(); setShowShareModal(false); }} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", border: "1px solid #eee", background: "#FEE500" }}>
-                <div style={{ fontSize: "20px" }}>💬</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "13px" }}>카카오톡으로 공유하기</div>
-                  <div style={{ fontSize: "11px", color: "#7a6000", marginTop: "1px" }}>카카오톡 친구에게 공유합니다</div>
-                </div>
-              </div>
-              <button onClick={() => setShowShareModal(false)} style={{ marginTop: "16px", width: "100%", padding: "12px", background: "#f5f5f5", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
-                닫기
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* 내 위치 버튼 */}
-        <button
-          onClick={moveToMyLocation}
-          title="내 위치로 이동"
-          style={{
-            position: "absolute",
-            bottom: "42px",
-            right: "20px",
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            border: "none",
-            background: "white",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.16)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 10,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.24)")}
-          onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.16)")}
-        >
-          <LocateFixed size={18} color="#444" />
-        </button>
-
-        {/* 마커 클릭 팝업 */}
-        {selectedPlace && (
+      {/* ── 공유 모달 */}
+      {showShareModal && (
+        <>
+          <div
+            onClick={() => setShowShareModal(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 100 }}
+          />
           <div
             className="ggk-body"
-            style={{
-              position: "absolute",
-              left: "50%",
-              bottom: "80px",
-              transform: "translateX(-50%)",
-              width: "290px",
-              background: "#ffffff",
-              borderRadius: "18px",
-              boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
-              zIndex: 30,
-              overflow: "hidden",
-              animation: "fadeUp 0.2s ease",
-              border: "1px solid #e8eaed",
-            }}
-          >
-            <style>{`
-              @keyframes fadeUp {
-                from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-                to   { opacity: 1; transform: translateX(-50%) translateY(0); }
-              }
-            `}</style>
-            <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setSelectedPlace(null)}
-                style={{
-                  position: "absolute", top: "8px", right: "8px",
-                  width: "26px", height: "26px", borderRadius: "50%",
-                  border: "none", background: "rgba(0,0,0,0.45)", color: "white",
-                  cursor: "pointer", display: "flex", alignItems: "center",
-                  justifyContent: "center", zIndex: 1, fontSize: "13px", lineHeight: 1,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <div style={{ padding: "13px" }}>
-              <div className="ggk-logo" style={{ fontWeight: 700, fontSize: "13px", color: "#111" }}>
-                {selectedPlace.name}
-              </div>
-              <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
-                {PET_ZONE_EMOJI[selectedPlace.pet_zone] || "🐾"}{" "}
-                {PET_ZONE_LABEL[selectedPlace.pet_zone] || selectedPlace.pet_zone}
-              </div>
-              <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
-                <MapPin size={10} color="#bbb" />
-                {selectedPlace.address}
-              </div>
-              <button
-                onClick={() => { setSelectedPlace(null); router.push(`/place/${selectedPlace.id}`); }}
-                className="ggk-body"
-                style={{
-                  marginTop: "10px", width: "100%", padding: "9px",
-                  background: "linear-gradient(145deg, #2a2a2a, #111)",
-                  color: "white", border: "none", borderRadius: "10px",
-                  fontWeight: 600, fontSize: "12px", cursor: "pointer",
-                }}
-              >
-                자세히 보기
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── 하단 탭 바 (리뉴얼: 슬라이딩 + 검정 텍스트 + 넓은 너비) */}
-      {!hideTabBar && (() => {
-        const tabs = [
-          { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
-          { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
-          ...(isAdmin ? [
-            { key: "reports", label: "신고",    icon: Flag,     onClick: () => router.push("/admin/reports"),   isReport: true  },
-            { key: "tips",    label: "제보",    icon: FileText, onClick: () => router.push("/admin/tips"),      isReport: false },
-          ] : []),
-          {
-            key:      isLoggedIn ? "mypage" : "login",
-            label:    isLoggedIn ? "마이" : "로그인",
-            icon:     isLoggedIn ? User : LogIn,
-            onClick:  () => router.push(isLoggedIn ? "/mypage" : "/login"),
-            isReport: false,
-          },
-        ];
-        const activeIdx = tabs.findIndex((t) => t.key === activeTab);
-        const TAB_COUNT = tabs.length;
-
-        return (
-          <div
             style={{
               position: "fixed",
-              bottom: "20px",
+              bottom: "50%",
               left: "50%",
-              transform: "translateX(-50%)",
-              width: "450px",
-              maxWidth: "calc(100vw - 28px)",
-              zIndex: 998,
+              transform: "translate(-50%, 50%)",
+              background: "white",
+              borderRadius: "20px",
+              padding: "22px 20px",
+              zIndex: 101,
+              boxShadow: "0 -4px 24px rgba(0,0,0,0.15)",
+              width: "320px",
             }}
           >
-            <div
-              className="ggk-body"
-              style={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-                background: "rgba(255,255,255,0.96)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                borderRadius: "999px",
-                padding: "5px",
-                boxShadow: "0 4px 28px rgba(0,0,0,0.09), 0 1px 6px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)",
-                border: "1px solid rgba(0,0,0,0.07)",
-              }}
-            >
-              {/* 슬라이딩 강조 필 */}
-              {activeIdx >= 0 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "5px",
-                    left: `calc(5px + ${activeIdx} * ((100% - 10px) / ${TAB_COUNT}))`,
-                    width: `calc((100% - 10px) / ${TAB_COUNT})`,
-                    height: "calc(100% - 10px)",
-                    borderRadius: "999px",
-                    background: tabs[activeIdx]?.isReport
-                      ? "linear-gradient(135deg, #FEE2E2, #FECACA)"
-                      : "linear-gradient(135deg, #EEF2FF, #E0E7FF)",
-                    transition: "left 0.38s cubic-bezier(0.34, 1.15, 0.64, 1)",
-                    pointerEvents: "none",
-                    zIndex: 0,
-                  }}
-                />
-              )}
-
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.key;
-                const activeColor   = tab.isReport ? "#DC2626" : "#4263EB";
-                const inactiveColor = "#1a1a1a";
-
-                return (
-                  <button
-                    key={tab.key}
-                    className="tab-item"
-                    onClick={tab.onClick}
-                    style={{
-                      position: "relative",
-                      zIndex: 1,
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "3px",
-                      height: "48px",
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      borderRadius: "999px",
-                      padding: 0,
-                    }}
-                  >
-                    <Icon
-                      size={18}
-                      strokeWidth={isActive ? 2.3 : 1.7}
-                      color={isActive ? activeColor : inactiveColor}
-                    />
-                    <span style={{
-                      fontSize: "9px",
-                      fontWeight: isActive ? 700 : 500,
-                      color: isActive ? activeColor : inactiveColor,
-                      letterSpacing: "0.15px",
-                      lineHeight: 1,
-                      transition: "color 0.2s ease",
-                    }}>
-                      {tab.label}
-                    </span>
-                  </button>
-                );
-              })}
+            <div style={{ fontWeight: 800, fontSize: "16px", marginBottom: "18px" }}>공유하기</div>
+            <div onClick={handleCopyLink} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", marginBottom: "7px", border: "1px solid #eee" }}>
+              <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Link size={16} color="#444" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "13px" }}>링크 복사하기</div>
+                <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>클립보드에 링크를 복사합니다</div>
+              </div>
             </div>
+            <div onClick={handleSnsShare} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", marginBottom: "7px", border: "1px solid #eee" }}>
+              <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Upload size={16} color="#444" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "13px" }}>SNS로 공유하기</div>
+                <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>인스타그램, X, Thread 등으로 공유합니다</div>
+              </div>
+            </div>
+            <div onClick={() => { handleKakaoShare(); setShowShareModal(false); }} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", border: "1px solid #eee", background: "#FEE500" }}>
+              <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "#f0f0f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MessageCircle size={16} color="#7a6000" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "13px" }}>카카오톡으로 공유하기</div>
+                <div style={{ fontSize: "11px", color: "#7a6000", marginTop: "1px" }}>카카오톡 친구에게 공유합니다</div>
+              </div>
+            </div>
+            <button onClick={() => setShowShareModal(false)} style={{ marginTop: "16px", width: "100%", padding: "12px", background: "#f5f5f5", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
+              닫기
+            </button>
           </div>
-        );
-      })()}
+        </>
+      )}
     </>
   );
 }

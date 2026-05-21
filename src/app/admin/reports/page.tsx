@@ -3,16 +3,60 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Flag, CheckCircle, Trash2, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft, Flag, CheckCircle, Trash2,
+  AlertCircle, RefreshCw, MessageSquare, MessageCircle,
+  MapPin,
+} from "lucide-react";
+
+/* ── 폰트/스타일 공통 ── */
+const STYLES = `
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
+  * { box-sizing: border-box; }
+  .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .report-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+  .report-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-1px); }
+  .action-btn { transition: all 0.15s ease; }
+  .action-btn:hover { filter: brightness(0.94); }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+`;
+
+const CATEGORY_LABEL: Record<string, string> = {
+  spam:   "광고/도배",
+  abuse:  "욕설/비방",
+  sexual: "음란물",
+  hate:   "혐오 표현",
+  etc:    "기타",
+};
+
+const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
+  spam:   { bg: "#fef3c7", color: "#92400e" },
+  abuse:  { bg: "#fee2e2", color: "#991b1b" },
+  sexual: { bg: "#fce7f3", color: "#9d174d" },
+  hate:   { bg: "#ede9fe", color: "#5b21b6" },
+  etc:    { bg: "#f0f9ff", color: "#0369a1" },
+};
+
+const formatDate = (s: string) => {
+  const d = new Date(s);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+};
 
 export default function AdminReportsPage() {
   const router = useRouter();
-  const [isAuth, setIsAuth]     = useState(false);
   const [isChecking, setIsChecking] = useState(true);
-  const [reports, setReports]   = useState<any[]>([]);
-  const [loading, setLoading]   = useState(false);
+  const [isAuth,     setIsAuth]     = useState(false);
+  const [reports,    setReports]    = useState<any[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [activeFilter, setActiveFilter] = useState<"pending"|"done">("pending");
+  const [resolvedReports, setResolvedReports] = useState<any[]>([]);
 
-  // 관리자 권한 체크
+  /* ── 관리자 인증 ── */
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -26,48 +70,120 @@ export default function AdminReportsPage() {
     checkAdmin();
   }, []);
 
+  useEffect(() => {
+    if (isAuth) {
+      fetchReports();
+      fetchResolvedReports();
+    }
+  }, [isAuth]);
+
+  /* ── 미처리 신고 불러오기 ── */
   const fetchReports = async () => {
     setLoading(true);
-    const { data: reportsData } = await supabase
+    const { data: reportsData, error } = await supabase
       .from("reports")
       .select("*")
       .eq("is_resolved", false)
       .order("created_at", { ascending: false });
 
-    if (!reportsData) { setLoading(false); return; }
+    if (error || !reportsData) { setLoading(false); return; }
 
-    const result = await Promise.all(
+    const enriched = await Promise.all(
       reportsData.map(async (report) => {
         if (report.type === "review") {
           const { data: review } = await supabase
-            .from("reviews").select("*").eq("id", report.target_id).single();
+            .from("reviews")
+            .select("id, content, nickname, place_id, is_admin_deleted") // ★ 추가
+            .eq("id", report.target_id).single();
           if (!review) return null;
+
+          // ★ 이미 삭제된 댓글이면 DB 정리 후 스킵
+          if (review.is_admin_deleted) {
+            await supabase.from("reports")
+              .update({ is_resolved: true })
+              .eq("type", "review")
+              .eq("target_id", String(report.target_id));
+            return null;
+          }
+
           const { data: place } = await supabase
             .from("places").select("name, address").eq("id", review.place_id).single();
-          return { ...report, content: review.content, nickname: review.nickname, place_name: place?.name || "", place_address: place?.address || "" };
+          return { ...report, content: review.content, nickname: review.nickname,
+            place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         if (report.type === "reply") {
           const { data: reply } = await supabase
-            .from("review_replies").select("*").eq("id", report.target_id).single();
+            .from("review_replies")
+            .select("id, content, nickname, review_id, is_admin_deleted") // ★ 추가
+            .eq("id", report.target_id).single();
           if (!reply) return null;
+
+          // ★ 이미 삭제된 답글이면 DB 정리 후 스킵
+          if (reply.is_admin_deleted) {
+            await supabase.from("reports")
+              .update({ is_resolved: true })
+              .eq("type", "reply")
+              .eq("target_id", String(report.target_id));
+            return null;
+          }
+
           const { data: review } = await supabase
             .from("reviews").select("place_id").eq("id", reply.review_id).single();
           const { data: place } = await supabase
             .from("places").select("name, address").eq("id", review?.place_id).single();
-          return { ...report, content: reply.content, nickname: reply.nickname, place_name: place?.name || "", place_address: place?.address || "" };
+          return { ...report, content: reply.content, nickname: reply.nickname,
+            place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         return null;
       })
     );
-    setReports(result.filter(Boolean));
+
+    setReports(enriched.filter(Boolean));
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (isAuth) fetchReports();
-  }, [isAuth]);
+  /* ── 처리완료 신고 불러오기 ── */
+  const fetchResolvedReports = async () => {
+    const { data: reportsData } = await supabase
+      .from("reports")
+      .select("*")
+      .eq("is_resolved", true)
+      .order("created_at", { ascending: false })
+      .limit(30);
 
-  const handleAdminDelete = async (type: "review" | "reply", targetId: number) => {
+    if (!reportsData) return;
+
+    const enriched = await Promise.all(
+      reportsData.map(async (report) => {
+        if (report.type === "review") {
+          const { data: review } = await supabase
+            .from("reviews").select("id, content, nickname, place_id")
+            .eq("id", report.target_id).single();
+          if (!review) return { ...report, content: "(삭제됨)", nickname: "—", place_name: "—", place_address: "—" };
+          const { data: place } = await supabase
+            .from("places").select("name, address").eq("id", review.place_id).single();
+          return { ...report, content: review.content, nickname: review.nickname, place_name: place?.name || "—", place_address: place?.address || "—" };
+        }
+        if (report.type === "reply") {
+          const { data: reply } = await supabase
+            .from("review_replies").select("id, content, nickname, review_id")
+            .eq("id", report.target_id).single();
+          if (!reply) return { ...report, content: "(삭제됨)", nickname: "—", place_name: "—", place_address: "—" };
+          const { data: review } = await supabase.from("reviews").select("place_id").eq("id", reply.review_id).single();
+          const { data: place } = await supabase.from("places").select("name, address").eq("id", review?.place_id).single();
+          return { ...report, content: reply.content, nickname: reply.nickname, place_name: place?.name || "—", place_address: place?.address || "—" };
+        }
+        return null;
+      })
+    );
+
+    setResolvedReports(enriched.filter(Boolean));
+  };
+
+  /* ── 관리자 삭제 ── */
+  const handleAdminDelete = async (type: "review"|"reply", targetId: number, reportId: number) => {
+    if (!confirm("해당 내용을 삭제하시겠습니까?")) return;
+
     if (type === "review") {
       await supabase.from("reviews").update({
         is_admin_deleted: true,
@@ -79,239 +195,311 @@ export default function AdminReportsPage() {
         content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
       }).eq("id", targetId);
     }
-    await supabase.from("reports").update({ is_resolved: true }).eq("type", type).eq("target_id", targetId);
-    fetchReports();
+
+    // ★ 해당 target_id의 모든 신고를 한꺼번에 처리 (id 하나만 처리하던 것 수정)
+    await supabase.from("reports")
+      .update({ is_resolved: true })
+      .eq("type", type)
+      .eq("target_id", String(targetId));
+
+    const movedItems = reports.filter((r) => r.target_id === targetId);
+    if (movedItems.length > 0) {
+      setReports((prev) => prev.filter((r) => r.target_id !== targetId));
+      setResolvedReports((prev) => [
+        ...movedItems.map((r) => ({ ...r, is_resolved: true })),
+        ...prev,
+      ]);
+    }
   };
 
+  /* ── 보류 처리 ── */
   const handleResolve = async (reportId: number) => {
     await supabase.from("reports").update({ is_resolved: true }).eq("id", reportId);
-    fetchReports();
-  };
 
-  const CATEGORY_LABEL: Record<string, string> = {
-    spam: "광고/도배",
-    abuse: "욕설/비방",
-    sexual: "음란물",
-    hate: "혐오 표현",
-    etc: "기타",
+    // 낙관적 업데이트: 미처리에서 제거하고 처리완료로 이동
+    const moved = reports.find((r) => r.id === reportId);
+    if (moved) {
+      setReports((prev) => prev.filter((r) => r.id !== reportId));
+      setResolvedReports((prev) => [{ ...moved, is_resolved: true }, ...prev]);
+    }
   };
 
   if (isChecking) {
     return (
-      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f6f8" }}>
-        <div style={{ fontSize: "13px", color: "#888" }}>확인 중...</div>
+      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f5" }}>
+        <div className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</div>
       </div>
     );
   }
 
+  const displayReports = activeFilter === "pending" ? reports : resolvedReports;
+
   return (
     <>
-      <style>{`
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-        * { box-sizing: border-box; }
-        .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
-      `}</style>
+      <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ minHeight: "100vh", background: "#f5f6f8", paddingBottom: "80px" }}>
+      {/* 전체 페이지: 중앙 정렬 컨테이너 */}
+      <div className="ggk-body" style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        background: "#f0f2f5",
+        overflow: "hidden",
+        alignItems: "center",      // 수평 중앙
+      }}>
 
-        {/* 헤더 */}
-        <div
-          style={{
+        {/* ── 내부 콘텐츠: 최대 폭 480px ── */}
+        <div style={{
+          width: "100%",
+          maxWidth: "480px",
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
+          overflow: "hidden",
+        }}>
+
+          {/* ── 헤더 ── */}
+          <div style={{
             background: "white",
             borderBottom: "1px solid #e8eaed",
-            padding: "14px 20px",
+            padding: "14px 18px",
             display: "flex",
             alignItems: "center",
             gap: "12px",
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <button
-            onClick={() => router.push("/")}
-            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}
-          >
-            <ArrowLeft size={20} color="#444" />
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Flag size={18} color="#ef4444" />
-            <div className="ggk-logo" style={{ fontSize: "16px", fontWeight: 800, color: "#111" }}>신고 관리</div>
-          </div>
-          {/* 미처리 건수 뱃지 */}
-          {reports.length > 0 && (
-            <div
-              style={{
-                marginLeft: "auto",
-                background: "#ef4444",
-                color: "white",
-                fontSize: "11px",
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: "999px",
-              }}
-            >
-              {reports.length}건
-            </div>
-          )}
-        </div>
+            flexShrink: 0,
+            boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+          }}>
+            <button onClick={() => router.push("/")} style={{ border:"none", background:"transparent", cursor:"pointer", padding:4, borderRadius:8, display:"flex" }}>
+              <ArrowLeft size={20} color="#444" />
+            </button>
 
-        <div style={{ padding: "16px" }}>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "40px 0", color: "#bbb", fontSize: "13px" }}>불러오는 중...</div>
-          ) : reports.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0" }}>
-              <CheckCircle size={40} color="#22c55e" style={{ marginBottom: "12px" }} />
-              <div style={{ fontSize: "14px", color: "#666", fontWeight: 600 }}>처리되지 않은 신고가 없습니다</div>
+            <div style={{ display:"flex", alignItems:"center", gap:"8px", flex:1 }}>
+              <div style={{ width:32, height:32, borderRadius:10, background:"#fee2e2", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Flag size={16} color="#ef4444" />
+              </div>
+              <div className="ggk-logo" style={{ fontSize:16, fontWeight:800, color:"#111" }}>신고 관리</div>
             </div>
-          ) : (
-            reports.map((report) => (
-              <div
-                key={report.id}
-                style={{
-                  background: "white",
-                  borderRadius: "16px",
-                  border: "1px solid #e8eaed",
-                  marginBottom: "12px",
-                  overflow: "hidden",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                }}
-              >
-                {/* 신고 헤더 */}
-                <div
-                  style={{
-                    padding: "12px 16px",
-                    background: "#fef2f2",
-                    borderBottom: "1px solid #fecaca",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        padding: "2px 8px",
-                        borderRadius: "99px",
-                        fontWeight: 700,
-                        background: report.type === "review" ? "#e8f0fe" : "#fef3c7",
-                        color: report.type === "review" ? "#1a73e8" : "#b45309",
-                      }}
-                    >
-                      {report.type === "review" ? "댓글" : "답글"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        padding: "2px 8px",
-                        borderRadius: "99px",
-                        fontWeight: 700,
-                        background: "#fee2e2",
-                        color: "#dc2626",
-                      }}
-                    >
-                      {CATEGORY_LABEL[report.report_category] || report.report_category}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: "11px", color: "#999" }}>
-                    {new Date(report.created_at).toLocaleString("ko-KR")}
-                  </span>
+
+            <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+              {reports.length > 0 && (
+                <div style={{ background:"#ef4444", color:"white", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
+                  미처리 {reports.length}건
                 </div>
+              )}
+              <button
+                onClick={() => { fetchReports(); fetchResolvedReports(); }}
+                style={{ border:"none", background:"#f5f6f8", borderRadius:8, padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600, color:"#555" }}
+              >
+                <RefreshCw size={13} color="#888" />
+                새로고침
+              </button>
+            </div>
+          </div>
 
-                <div style={{ padding: "14px 16px" }}>
-                  {/* 장소 */}
-                  <div
+          {/* ── 필터 탭 ── */}
+          <div style={{ padding:"12px 16px 8px", flexShrink:0 }}>
+            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
+              {([
+                { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#ef4444" },
+                { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#22c55e" },
+              ] as const).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeFilter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveFilter(tab.key)}
+                    className="ggk-body"
                     style={{
-                      padding: "10px 12px",
-                      background: "#f8f9fb",
-                      borderRadius: "10px",
-                      marginBottom: "10px",
-                      border: "1px solid #e8eaed",
+                      flex:1, padding:"9px 14px", borderRadius:10, border:"none",
+                      background: isActive ? "white" : "transparent",
+                      fontWeight:700, fontSize:12,
+                      color: isActive ? "#111" : "#888",
+                      cursor:"pointer",
+                      boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
+                      transition:"all 0.15s ease",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:6,
                     }}
                   >
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#111", marginBottom: "2px" }}>{report.place_name}</div>
-                    <div style={{ fontSize: "11px", color: "#888" }}>{report.place_address}</div>
-                  </div>
+                    <Icon size={13} color={isActive ? tab.color : "#aaa"} />
+                    {tab.label}
+                    <span style={{
+                      fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
+                      background: isActive ? (tab.key === "pending" ? "#fee2e2" : "#dcfce7") : "#f0f2f5",
+                      color: isActive ? (tab.key === "pending" ? "#dc2626" : "#16a34a") : "#999",
+                    }}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                  {/* 신고된 내용 */}
-                  <div style={{ marginBottom: "10px" }}>
-                    <div style={{ fontSize: "11px", color: "#aaa", marginBottom: "4px", fontWeight: 600 }}>신고된 내용</div>
-                    <div style={{ fontSize: "12px", color: "#222", fontWeight: 700, marginBottom: "3px" }}>{report.nickname}</div>
-                    <div style={{ fontSize: "13px", color: "#444", lineHeight: 1.6 }}>{report.content}</div>
-                  </div>
+          {/* ── 리스트 영역 ── */}
+          <div style={{
+            flex:1,
+            minHeight:0,
+            overflowY:"auto",
+            padding:"0 14px 120px",
+            scrollbarWidth:"thin",
+            scrollbarColor:"#d1d5db transparent",
+          }}>
 
-                  {/* 신고 사유 */}
-                  {report.report_reason && (
-                    <div
-                      style={{
-                        padding: "10px 12px",
-                        background: "#fffbeb",
-                        borderRadius: "8px",
-                        border: "1px solid #fde68a",
-                        marginBottom: "12px",
-                      }}
-                    >
-                      <div style={{ fontSize: "11px", color: "#92400e", fontWeight: 600, marginBottom: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <AlertCircle size={11} /> 신고 사유
-                      </div>
-                      <div style={{ fontSize: "12px", color: "#78350f" }}>{report.report_reason}</div>
-                    </div>
-                  )}
-
-                  {/* 액션 버튼 */}
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={() => handleResolve(report.id)}
-                      style={{
-                        flex: 1,
-                        padding: "10px",
-                        borderRadius: "10px",
-                        border: "1px solid #e8eaed",
-                        background: "white",
-                        color: "#444",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "5px",
-                        fontFamily: "'Noto Sans KR', sans-serif",
-                      }}
-                    >
-                      <CheckCircle size={14} color="#22c55e" />
-                      처리완료
-                    </button>
-                    <button
-                      onClick={() => handleAdminDelete(report.type, report.target_id)}
-                      style={{
-                        flex: 1,
-                        padding: "10px",
-                        borderRadius: "10px",
-                        border: "none",
-                        background: "#ef4444",
-                        color: "white",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "5px",
-                        fontFamily: "'Noto Sans KR', sans-serif",
-                      }}
-                    >
-                      <Trash2 size={14} />
-                      삭제하기
-                    </button>
-                  </div>
+            {loading ? (
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
+            ) : displayReports.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"80px 0" }}>
+                <div style={{ width:64, height:64, borderRadius:20, background: activeFilter === "pending" ? "#fee2e2" : "#dcfce7", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+                  {activeFilter === "pending"
+                    ? <Flag size={28} color="#fca5a5" />
+                    : <CheckCircle size={28} color="#22c55e" />}
+                </div>
+                <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222", marginBottom:6 }}>
+                  {activeFilter === "pending" ? "미처리 신고가 없습니다" : "처리완료 내역이 없습니다"}
+                </div>
+                <div style={{ fontSize:12, color:"#999" }}>
+                  {activeFilter === "pending" ? "모든 신고가 처리되었습니다 🎉" : "처리된 신고가 여기에 표시됩니다"}
                 </div>
               </div>
-            ))
-          )}
+            ) : (
+              displayReports.map((report) => {
+                const catStyle = CATEGORY_COLOR[report.report_category] || { bg:"#f5f6f8", color:"#666" };
+                return (
+                  <div
+                    key={report.id}
+                    className="report-card"
+                    style={{
+                      background:"white",
+                      borderRadius:18,
+                      border:`1.5px solid ${activeFilter === "pending" ? "#fecaca" : "#e8eaed"}`,
+                      marginBottom:10,
+                      overflow:"hidden",
+                      boxShadow:"0 2px 10px rgba(0,0,0,0.05)",
+                      opacity: activeFilter === "done" ? 0.82 : 1,
+                    }}
+                  >
+                    {/* 카드 헤더 */}
+                    <div style={{
+                      padding:"10px 14px",
+                      background: activeFilter === "pending" ? "#fef2f2" : "#f8fafc",
+                      borderBottom:`1px solid ${activeFilter === "pending" ? "#fecaca" : "#e8eaed"}`,
+                      display:"flex", alignItems:"center", justifyContent:"space-between", gap:8,
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
+                        {/* 타입 뱃지 */}
+                        <span style={{
+                          fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
+                          background: report.type === "review" ? "#e0f2fe" : "#fef9c3",
+                          color:      report.type === "review" ? "#0369a1" : "#854d0e",
+                          display:"flex", alignItems:"center", gap:3,
+                        }}>
+                          {report.type === "review"
+                            ? <><MessageSquare size={9} />댓글</>
+                            : <><MessageCircle size={9} />답글</>}
+                        </span>
+
+                        {report.report_category && (
+                          <span style={{
+                            fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
+                            background: catStyle.bg, color: catStyle.color,
+                          }}>
+                            {CATEGORY_LABEL[report.report_category] || report.report_category}
+                          </span>
+                        )}
+
+                        {activeFilter === "done" && (
+                          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#dcfce7", color:"#15803d", display:"flex", alignItems:"center", gap:3 }}>
+                            <CheckCircle size={9} /> 처리완료
+                          </span>
+                        )}
+                      </div>
+
+                      <span style={{ fontSize:10, color:"#aaa", whiteSpace:"nowrap", flexShrink:0 }}>
+                        {formatDate(report.created_at)}
+                      </span>
+                    </div>
+
+                    <div style={{ padding:"12px 14px" }}>
+                      {/* 장소 정보 */}
+                      <div style={{
+                        padding:"9px 12px", background:"#f8fafc", borderRadius:11,
+                        border:"1px solid #e8eaed", marginBottom:10,
+                        display:"flex", alignItems:"flex-start", gap:8,
+                      }}>
+                        <div style={{ width:26, height:26, borderRadius:7, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                          <MapPin size={12} color="#8b5cf6" />
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>{report.place_name}</div>
+                          <div style={{ fontSize:11, color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{report.place_address}</div>
+                        </div>
+                      </div>
+
+                      {/* 신고된 내용 */}
+                      <div style={{ marginBottom:10 }}>
+                        <div style={{ fontSize:10, color:"#aaa", fontWeight:700, letterSpacing:"0.3px", marginBottom:4, textTransform:"uppercase" }}>신고된 내용</div>
+                        <div style={{ padding:"10px 12px", background:"#fafafa", borderRadius:10, border:"1px solid #eee" }}>
+                          <div style={{ fontSize:12, fontWeight:700, color:"#333", marginBottom:4 }}>{report.nickname}</div>
+                          <div style={{ fontSize:12, color:"#555", lineHeight:1.7, wordBreak:"break-word" }}>{report.content}</div>
+                        </div>
+                      </div>
+
+                      {/* 신고 사유 */}
+                      {report.report_reason && (
+                        <div style={{
+                          padding:"9px 12px", background:"#fffbeb", borderRadius:10,
+                          border:"1px solid #fde68a", marginBottom:12,
+                          display:"flex", gap:8, alignItems:"flex-start",
+                        }}>
+                          <AlertCircle size={13} color="#f59e0b" style={{ flexShrink:0, marginTop:1 }} />
+                          <div>
+                            <div style={{ fontSize:10, color:"#92400e", fontWeight:700, marginBottom:2 }}>신고 사유</div>
+                            <div style={{ fontSize:12, color:"#78350f", lineHeight:1.6 }}>{report.report_reason}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 액션 버튼 (미처리만) */}
+                      {activeFilter === "pending" && (
+                        <div style={{ display:"flex", gap:7 }}>
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handleResolve(report.id)}
+                            style={{
+                              flex:1, padding:"10px 12px", borderRadius:11,
+                              border:"1px solid #e8eaed", background:"white",
+                              color:"#555", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <CheckCircle size={14} color="#22c55e" />
+                            처리완료 (보류)
+                          </button>
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handleAdminDelete(report.type, report.target_id, report.id)}
+                            style={{
+                              flex:1, padding:"10px 12px", borderRadius:11,
+                              border:"none", background:"linear-gradient(135deg, #ef4444, #dc2626)",
+                              color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <Trash2 size={13} />
+                            내용 삭제
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     </>

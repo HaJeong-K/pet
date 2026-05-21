@@ -282,7 +282,7 @@ export default function AdminPage() {
                     fontSize: "13px",
                   }}
                 >
-                  처리완료
+                  보류하기
                 </button>
 
                 {/* 삭제 */}

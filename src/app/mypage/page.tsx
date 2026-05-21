@@ -83,31 +83,39 @@ export default function MyPage() {
   const [showPrivacy, setShowPrivacy]   = useState(false);
 
   const loadData = async (sess: any) => {
-    const userKey = typeof window !== "undefined" ? localStorage.getItem("user_key") || "" : "";
+    setBookmarks([]);
+    setMyReviews([]);
+    
     const uid = sess.user.id;
 
-    // ── 모든 쿼리를 한 번에 병렬 실행 (직렬 4회 → 병렬 1회)
     const [
       { data: profile },
-      { data: r1 },
-      { data: r2 },
+      { data: bookmarkReactions },
       { data: reviews },
     ] = await Promise.all([
       supabase.from("users").select("*").eq("auth_user_id", uid).single(),
-      supabase.from("reactions").select("place_id").eq("user_key", userKey).eq("type", "bookmark"),
-      supabase.from("reactions").select("place_id").eq("user_key", uid).eq("type", "bookmark"),
-      supabase.from("reviews").select("*, places(name,address)")
-        .eq("auth_user_id", uid).eq("deleted", false)
+      // ✅ auth_user_id 하나로만 조회 (북마크 insert 시 user_key 대신 auth_user_id 저장하도록 통일 필요)
+      supabase.from("reactions")
+        .select("place_id")
+        .eq("user_key", uid)  // 또는 통일된 키
+        .eq("type", "bookmark"),
+      supabase.from("reviews")
+        .select("id, content, created_at, likes, place_id, places(name)")
+        // ✅ select("*") 대신 필요한 컬럼만
+        .eq("auth_user_id", uid)
+        .eq("deleted", false)
         .order("created_at", { ascending: false }),
     ]);
 
     setUserProfile(profile);
     setMyReviews(reviews || []);
 
-    // bookmark place_id 목록 → places 조회 (있을 때만)
-    const ids = [...new Set([...(r1||[]).map((x:any)=>x.place_id), ...(r2||[]).map((x:any)=>x.place_id)])];
+    const ids = (bookmarkReactions || []).map((x: any) => x.place_id);
     if (ids.length > 0) {
-      const { data: places } = await supabase.from("places").select("*").in("id", ids);
+      const { data: places } = await supabase
+        .from("places")
+        .select("id, name, address, image_url, pet_zone") // ✅ * 대신 필요한 것만
+        .in("id", ids);
       setBookmarks(places || []);
     } else {
       setBookmarks([]);
@@ -117,23 +125,15 @@ export default function MyPage() {
   };
 
   useEffect(() => {
-    // onAuthStateChange를 우선 구독해서 캐시된 세션이 있으면 즉시 실행
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setSession(session);
-        subscription.unsubscribe(); // 첫 세션 확인 후 구독 해제
-        loadData(session);
-      }
-    });
-
-    // 동시에 getSession도 호출 (onAuthStateChange보다 빠를 수 있음)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { router.push("/login?redirect=/mypage"); return; }
-      // onAuthStateChange가 먼저 처리했을 수도 있으므로 session만 세팅
+      if (!session) {
+        router.push("/login?redirect=/mypage");
+        return;
+      }
       setSession(session);
+      loadData(session);
     });
-
-    return () => subscription.unsubscribe();
+    // onAuthStateChange 제거 - getSession으로 충분
   }, []);
 
   const handleLogout = async () => {
@@ -216,45 +216,6 @@ export default function MyPage() {
 
   const isOAuthUser = session?.user?.app_metadata?.provider !== "email";
 
-  // 로딩 중엔 스켈레톤 UI (전체 차단 대신 구조만 먼저 보여줌)
-  if (loading) return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
-        @keyframes shimmer {
-          0%   { background-position: -400px 0; }
-          100% { background-position:  400px 0; }
-        }
-        .sk {
-          background: linear-gradient(90deg,#ececec 25%,#f5f5f5 50%,#ececec 75%);
-          background-size: 800px 100%;
-          animation: shimmer 1.4s infinite;
-          border-radius: 8px;
-        }
-      `}</style>
-      <div style={{ display:"flex", minHeight:"100vh", background:"#e8eaed" }}>
-        <div style={{ width:160, flexShrink:0, background:"#f0f1f3", borderRight:"1px solid #e2e4e8" }} />
-        <div style={{ flex:1, background:"#f0f2f5", paddingBottom:80 }}>
-          <div style={{ background:"white", borderBottom:"1px solid #e8eaed", padding:"12px 18px", height:46 }} />
-          <div style={{ background:"linear-gradient(160deg,#1a1a2e,#2d2d44)", padding:"22px 16px 52px", display:"flex", alignItems:"center", gap:14 }}>
-            <div className="sk" style={{ width:56, height:56, borderRadius:"50%", flexShrink:0 }} />
-            <div style={{ flex:1 }}>
-              <div className="sk" style={{ width:"40%", height:16, marginBottom:8 }} />
-              <div className="sk" style={{ width:"60%", height:11 }} />
-            </div>
-          </div>
-          <div style={{ margin:"-26px 14px 12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:9 }}>
-            {[0,1].map(i => <div key={i} className="sk" style={{ height:88, borderRadius:14 }} />)}
-          </div>
-          <div className="sk" style={{ margin:"0 14px 12px", height:36, borderRadius:11 }} />
-          <div style={{ padding:"0 14px" }}>
-            {[0,1,2].map(i => <div key={i} className="sk" style={{ height:84, borderRadius:14, marginBottom:9 }} />)}
-          </div>
-        </div>
-        <div style={{ width:160, flexShrink:0, background:"#f0f1f3", borderLeft:"1px solid #e2e4e8" }} />
-      </div>
-    </>
-  );
 
   return (
     <>
@@ -271,7 +232,7 @@ export default function MyPage() {
       `}</style>
 
       {/* ── 3단 레이아웃 전체 래퍼 */}
-      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background:"#e8eaed" }}>
+      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background:"#e8eaed", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
 
         {/* ── 좌측 광고 바 */}
         <div style={{
@@ -405,6 +366,7 @@ export default function MyPage() {
 										<img
 											src={userProfile.avatar_url}
 											alt={userProfile.nickname}
+                      referrerPolicy="no-referrer"
 											style={{
 												width: "100%",
 												height: "100%",
