@@ -193,10 +193,10 @@ export default function MyPage() {
   };
 
   const handleRemoveBookmark = async (placeId: number) => {
-    const userKey = localStorage.getItem("user_key") || "";
     await supabase.from("reactions").delete()
-      .eq("place_id", placeId).eq("type","bookmark")
-      .or(`user_key.eq.${userKey},user_key.eq.${session.user.id}`);
+      .eq("place_id", placeId)
+      .eq("type", "bookmark")
+      .eq("user_key", session.user.id);
     setBookmarks(prev => prev.filter(p => p.id !== placeId));
     setDeletingBookmarkId(null);
   };
@@ -861,7 +861,7 @@ export default function MyPage() {
               </a>
             </div>
             <div style={{ fontSize: 9, color: "#ccc", marginBottom: 4 }}>
-              © 2025 같이가개. All rights reserved.
+              © 2026 같이가개. All rights reserved.
             </div>
           </div>
 

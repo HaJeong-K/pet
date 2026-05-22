@@ -187,7 +187,7 @@ export default function PlaceDetail() {
 
   // ── 랜덤 닉네임
   const createRandomNickname = async () => {
-    const userKey = getUserKey();
+    const userKey = session.user.id;
     let created = false;
     while (!created) {
       const randomNickname = generateRandomNickname();
@@ -297,6 +297,7 @@ export default function PlaceDetail() {
       await Promise.all([fetchReviews(), fetchReplies(), fetchGalleryImages()]);
       const userKey = getUserKey();
       const currentSession = (await supabase.auth.getSession()).data.session;
+      const reactionsKey = currentSession?.user?.id ?? userKey;
       if (currentSession?.user) {
         const { data: dbUser } = await supabase.from("users").select("nickname").eq("auth_user_id", currentSession.user.id).maybeSingle();
         if (dbUser?.nickname) { setMyNickname(dbUser.nickname); }
@@ -313,7 +314,7 @@ export default function PlaceDetail() {
         supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "like"),
         supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "dislike"),
         supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "bookmark"),
-        supabase.from("reactions").select("type").eq("place_id", placeId).eq("user_key", userKey),
+        supabase.from("reactions").select("type").eq("place_id", placeId).eq("user_key", reactionsKey),
       ]);
       setLikesCount(fetchedLikes || 0);
       setDislikesCount(fetchedDislikes || 0);
@@ -484,7 +485,7 @@ export default function PlaceDetail() {
     if (isBookmarkProcessingRef.current) return;
     isBookmarkProcessingRef.current = true;
     try {
-      const userKey = getUserKey();
+      const userKey = session.user.id;
       if (bookmarked) {
         await supabase.from("reactions").delete().eq("place_id", placeId).eq("user_key", userKey).eq("type", "bookmark");
         setBookmarked(false); setBookmarkCount((prev) => Math.max(0, prev - 1));

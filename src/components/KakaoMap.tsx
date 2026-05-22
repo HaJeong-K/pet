@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed,
   Share,
@@ -40,6 +40,7 @@ const PET_ZONE_LABEL: Record<string, string> = {
 export default function KakaoMap() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<any>(null);
   const [session, setSession] = useState<any>(null);
@@ -146,7 +147,15 @@ export default function KakaoMap() {
       setPlaces(data || []);
     };
     fetchPlaces();
-  }, [session]); // ← [] 대신 [session]으로 변경
+  }, [session]);
+
+  // ── 공유 링크로 진입 시 자동 팝업 오픈
+  useEffect(() => {
+    const placeId = searchParams.get("placeId");
+    if (!placeId || places.length === 0) return;
+    const found = places.find((p) => String(p.id) === placeId);
+    if (found) setSelectedPlace(found);
+  }, [searchParams, places]);
 
   const filteredPlaces = useMemo(
     () =>
@@ -421,7 +430,7 @@ export default function KakaoMap() {
                 {selectedPlace.address}
               </div>
               <button
-                onClick={() => { setSelectedPlace(null); router.push(`/place/${selectedPlace.id}`); }}
+                onClick={() => { setSelectedPlace(null); router.push(`/?placeId=${selectedPlace.id}`); }}
                 className="ggk-body"
                 style={{
                   marginTop: "10px", width: "100%", padding: "9px",
