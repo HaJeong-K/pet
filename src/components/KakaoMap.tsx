@@ -149,12 +149,18 @@ export default function KakaoMap() {
     fetchPlaces();
   }, [session]);
 
+  const hasOpenedRef = useRef(false);
   // ── 공유 링크로 진입 시 자동 팝업 오픈
   useEffect(() => {
     const placeId = searchParams.get("placeId");
     if (!placeId || places.length === 0) return;
+    if (hasOpenedRef.current) return;  // 이미 열었으면 스킵
+
     const found = places.find((p) => String(p.id) === placeId);
-    if (found) setSelectedPlace(found);
+    if (found) {
+      hasOpenedRef.current = true;
+      router.push(`/place/${placeId}`);  // ← 모달로 오픈
+    }
   }, [searchParams, places]);
 
   const filteredPlaces = useMemo(
@@ -381,7 +387,7 @@ export default function KakaoMap() {
             style={{
               position: "absolute",
               left: "50%",
-              bottom: "80px",
+              bottom: "100px",
               transform: "translateX(-50%)",
               width: "290px",
               background: "#ffffff",
@@ -525,7 +531,7 @@ export default function KakaoMap() {
             </button>
 
             <button
-              onClick={() => router.push("/report")}
+              onClick={() => router.push("/jebo")}
               className="ggk-body"
               style={{
                 padding: "5px 10px",

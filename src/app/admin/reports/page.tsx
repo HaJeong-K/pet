@@ -27,19 +27,33 @@ const STYLES = `
 `;
 
 const CATEGORY_LABEL: Record<string, string> = {
-  spam:   "광고/도배",
-  abuse:  "욕설/비방",
-  sexual: "음란물",
-  hate:   "혐오 표현",
-  etc:    "기타",
+  spam:          "광고/도배",
+  abuse:         "욕설/비방",
+  sexual:        "음란물",
+  hate:          "혐오 표현",
+  etc:           "기타",
+  closed:        "폐업",
+  no_pets:       "반려동물 동반 불가",
+  changed:       "업종 변경",
+  wrong_info:    "가게 정보 오류",
+  different:     "실제와 다름",
+  duplicate:     "중복 등록",
+  inappropriate: "허위/부적절 장소",
 };
 
 const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
-  spam:   { bg: "#fef3c7", color: "#92400e" },
-  abuse:  { bg: "#fee2e2", color: "#991b1b" },
-  sexual: { bg: "#fce7f3", color: "#9d174d" },
-  hate:   { bg: "#ede9fe", color: "#5b21b6" },
-  etc:    { bg: "#f0f9ff", color: "#0369a1" },
+  spam:          { bg: "#fef3c7", color: "#92400e" },
+  abuse:         { bg: "#fee2e2", color: "#991b1b" },
+  sexual:        { bg: "#fce7f3", color: "#9d174d" },
+  hate:          { bg: "#ede9fe", color: "#5b21b6" },
+  etc:           { bg: "#f0f9ff", color: "#0369a1" },
+  closed:        { bg: "#f1f5f9", color: "#475569" },
+  no_pets:       { bg: "#fef9c3", color: "#854d0e" },
+  changed:       { bg: "#eff6ff", color: "#1d4ed8" },
+  wrong_info:    { bg: "#fef3c7", color: "#92400e" },
+  different:     { bg: "#f0fdf4", color: "#15803d" },
+  duplicate:     { bg: "#fdf4ff", color: "#7e22ce" },
+  inappropriate: { bg: "#fff1f2", color: "#be123c" },
 };
 
 const formatDate = (s: string) => {
@@ -102,7 +116,7 @@ export default function AdminReportsPage() {
             await supabase.from("reports")
               .update({ is_resolved: true })
               .eq("type", "review")
-              .eq("target_id", String(report.target_id));
+              .eq("target_id", report.target_id);
             return null;
           }
 
@@ -123,7 +137,7 @@ export default function AdminReportsPage() {
             await supabase.from("reports")
               .update({ is_resolved: true })
               .eq("type", "reply")
-              .eq("target_id", String(report.target_id));
+              .eq("target_id", report.target_id);
             return null;
           }
 
@@ -133,6 +147,20 @@ export default function AdminReportsPage() {
             .from("places").select("name, address").eq("id", review?.place_id).single();
           return { ...report, content: reply.content, nickname: reply.nickname,
             place_name: place?.name || "—", place_address: place?.address || "—" };
+        }
+        if (report.type === "place") {
+          const { data: place } = await supabase
+            .from("places")
+            .select("name, address")
+            .eq("id", report.place_id)  // ← target_id 대신 place_id 사용
+            .single();
+          return {
+            ...report,
+            content: "장소 신고",
+            nickname: "—",
+            place_name: place?.name || "—",
+            place_address: place?.address || "—",
+          };
         }
         return null;
       })
@@ -173,6 +201,20 @@ export default function AdminReportsPage() {
           const { data: place } = await supabase.from("places").select("name, address").eq("id", review?.place_id).single();
           return { ...report, content: reply.content, nickname: reply.nickname, place_name: place?.name || "—", place_address: place?.address || "—" };
         }
+        if (report.type === "place") {
+          const { data: place } = await supabase
+            .from("places")
+            .select("name, address")
+            .eq("id", report.place_id)  // ← target_id 대신 place_id 사용
+            .single();
+          return {
+            ...report,
+            content: "장소 신고",
+            nickname: "—",
+            place_name: place?.name || "—",
+            place_address: place?.address || "—",
+          };
+        }
         return null;
       })
     );
@@ -181,7 +223,7 @@ export default function AdminReportsPage() {
   };
 
   /* ── 관리자 삭제 ── */
-  const handleAdminDelete = async (type: "review"|"reply", targetId: number, reportId: number) => {
+  const handleAdminDelete = async (type: "review"|"reply", targetId: string, reportId: number) => {
     if (!confirm("해당 내용을 삭제하시겠습니까?")) return;
 
     if (type === "review") {
@@ -200,7 +242,7 @@ export default function AdminReportsPage() {
     await supabase.from("reports")
       .update({ is_resolved: true })
       .eq("type", type)
-      .eq("target_id", String(targetId));
+      .eq("target_id", targetId);
 
     const movedItems = reports.filter((r) => r.target_id === targetId);
     if (movedItems.length > 0) {
@@ -390,13 +432,15 @@ export default function AdminReportsPage() {
                         {/* 타입 뱃지 */}
                         <span style={{
                           fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
-                          background: report.type === "review" ? "#e0f2fe" : "#fef9c3",
-                          color:      report.type === "review" ? "#0369a1" : "#854d0e",
+                          background: report.type === "review" ? "#e0f2fe" : report.type === "reply" ? "#fef9c3" : "#f0fdf4",
+                          color:      report.type === "review" ? "#0369a1" : report.type === "reply" ? "#854d0e" : "#15803d",
                           display:"flex", alignItems:"center", gap:3,
                         }}>
                           {report.type === "review"
                             ? <><MessageSquare size={9} />댓글</>
-                            : <><MessageCircle size={9} />답글</>}
+                            : report.type === "reply"
+                            ? <><MessageCircle size={9} />답글</>
+                            : <><Flag size={9} />장소</>}
                         </span>
 
                         {report.report_category && (
@@ -477,21 +521,23 @@ export default function AdminReportsPage() {
                             <CheckCircle size={14} color="#22c55e" />
                             처리완료 (보류)
                           </button>
-                          <button
-                            className="action-btn ggk-body"
-                            onClick={() => handleAdminDelete(report.type, report.target_id, report.id)}
-                            style={{
-                              flex:1, padding:"10px 12px", borderRadius:11,
-                              border:"none", background:"linear-gradient(135deg, #ef4444, #dc2626)",
-                              color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
-                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                              boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
-                              fontFamily:"'Noto Sans KR', sans-serif",
-                            }}
-                          >
-                            <Trash2 size={13} />
-                            내용 삭제
-                          </button>
+                          {report.type !== "place" && (
+                            <button
+                              className="action-btn ggk-body"
+                              onClick={() => handleAdminDelete(report.type, report.target_id, report.id)}
+                              style={{
+                                flex:1, padding:"10px 12px", borderRadius:11,
+                                border:"none", background:"linear-gradient(135deg, #ef4444, #dc2626)",
+                                color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
+                                fontFamily:"'Noto Sans KR', sans-serif",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                              내용 삭제
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

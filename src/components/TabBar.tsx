@@ -39,7 +39,8 @@ export default function TabBar() {
     pathname.includes("/login") ||
     pathname.includes("/signup") ||
     pathname.includes("/place/") ||
-    pathname === "/report";
+    pathname === "/report" ||
+    pathname === "/jebo";  
 
   if (hideTabBar) return null;
 

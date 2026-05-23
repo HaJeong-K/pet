@@ -1,24 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   MoreVertical, Link, Upload, MessageCircle as KakaoIcon,
   X, Flag, Share2, AlertTriangle, ChevronDown,
+  DoorOpen, PawPrint, Store, Info, ThumbsDown,
+  Copy, AlertOctagon, MessageSquare,
 } from "lucide-react";
 import PlaceDetail from "@/app/place/[id]/page";
 import { supabase } from "@/lib/supabase";
 
 /* ── 장소 신고 사유 목록 ─────────────────────────────── */
 const PLACE_REPORT_CATEGORIES = [
-  { value: "closed",        label: "🚪 폐업했어요" },
-  { value: "no_pets",       label: "🐾 반려동물 동반이 불가능해졌어요" },
-  { value: "changed",       label: "🏪 업종이 변경되었어요" },
-  { value: "wrong_info",    label: "ℹ️ 사이트의 가게 정보(영업시간, 주소, 전화번호 등)가 잘못되었어요" },
-  { value: "different",     label: "😕 실제 방문 시 정보와 달라요" },
-  { value: "duplicate",     label: "📋 중복 등록된 장소예요" },
-  { value: "inappropriate", label: "⚠️ 허위/부적절한 장소예요" },
-  { value: "etc",           label: "💬 기타" },
+  { value: "closed",        label: "폐업했어요",                                          icon: DoorOpen      },
+  { value: "no_pets",       label: "반려동물 동반이 불가능해졌어요",                         icon: PawPrint      },
+  { value: "changed",       label: "업종이 변경되었어요",                                   icon: Store         },
+  { value: "wrong_info",    label: "가게 정보(영업시간, 주소 등)가 잘못되었어요",              icon: Info          },
+  { value: "different",     label: "실제 방문 시 정보와 달라요",                             icon: ThumbsDown    },
+  { value: "duplicate",     label: "중복 등록된 장소예요",                                  icon: Copy          },
+  { value: "inappropriate", label: "허위/부적절한 장소예요",                                icon: AlertOctagon  },
+  { value: "etc",           label: "기타",                                                icon: MessageSquare },
 ];
 
 /* ── localStorage user_key ───────────────────────────── */
@@ -36,6 +38,22 @@ export default function ModalPage() {
   const router  = useRouter();
   const params  = useParams();
   const placeId = params?.id as string | undefined;
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/?placeId=${placeId}`
+    : `/?placeId=${placeId}`;
+
+  const [placeName, setPlaceName] = useState<string>("");
+  useEffect(() => {
+    if (!placeId) return;
+    supabase
+      .from("places")
+      .select("name")
+      .eq("id", placeId)
+      .single()
+      .then(({ data }) => {
+        if (data?.name) setPlaceName(data.name);
+      });
+  }, [placeId]);
 
   /* 메뉴 & 모달 상태 */
   const [showMenu,        setShowMenu]        = useState(false);
@@ -50,7 +68,7 @@ export default function ModalPage() {
   /* ── 공유 핸들러 ── */
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       alert("링크가 복사되었습니다.");
     } catch {
       alert("링크 복사에 실패했습니다.");
@@ -61,9 +79,11 @@ export default function ModalPage() {
   const handleSnsShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: "같이가개",
-        text: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
-        url: window.location.href,
+        title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
+        text: placeName
+          ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 같이가개에서 확인해보세요.`
+          : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",  // ← 변경
+        url: shareUrl,
       });
     } else {
       alert("SNS 공유가 지원되지 않는 브라우저입니다.");
@@ -79,12 +99,14 @@ export default function ModalPage() {
     (window as any).Kakao.Share.sendDefault({
       objectType: "feed",
       content: {
-        title: "같이가개",
-        description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
+        title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
+        description: placeName
+          ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 같이가개에서 확인해보세요.`
+          : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",  // ← 변경
         imageUrl: "",
         link: {
-          mobileWebUrl: window.location.href,
-          webUrl:       window.location.href,
+          mobileWebUrl: shareUrl,
+          webUrl: shareUrl,
         },
       },
     });
@@ -97,13 +119,21 @@ export default function ModalPage() {
     setIsSubmitting(true);
     try {
       const userKey = getUserKey();
-      const { error } = await supabase.from("reports").insert([{
+      const { data, error } = await supabase.from("reports").insert([{
         type:            "place",
-        target_id:       placeId ? String(placeId) : null,
+        target_id:       null,
+        place_id:        Number(placeId),
         reporter_key:    userKey,
         report_category: reportCategory,
         report_reason:   reportReason.trim(),
-      }]);
+      }]).select();
+
+      console.log("insert 결과 data:", data);
+      console.log("insert 결과 error:", JSON.stringify(error, null, 2));
+      console.log("insert 결과 error message:", error?.message);
+      console.log("insert 결과 error code:", error?.code);
+      console.log("insert 결과 error details:", error?.details);
+      console.log("insert 결과 error hint:", error?.hint);
       if (error) { console.error("장소 신고 오류:", error); return; }
       alert("장소 신고가 정상적으로 접수되었습니다.\n검토 후 처리하겠습니다.");
       setShowReportModal(false);
@@ -158,7 +188,7 @@ export default function ModalPage() {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: "100%", maxWidth: "800px", height: "90vh",
+            width: "100%", maxWidth: "500px", height: "90vh",
             background: "white", borderRadius: "20px",
             position: "relative", display: "flex", flexDirection: "column",
             overflow: "hidden",
@@ -429,29 +459,35 @@ export default function ModalPage() {
                   신고 사유를 선택해주세요 <span style={{ color: "#ef4444" }}>*</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  {PLACE_REPORT_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.value}
-                      className="report-cat-btn"
-                      onClick={() => setReportCategory(cat.value)}
-                      style={{
-                        width: "100%", padding: "11px 13px",
-                        borderRadius: 11, cursor: "pointer",
-                        border: `1.5px solid ${reportCategory === cat.value ? "#111" : "#e2e4e8"}`,
-                        background: reportCategory === cat.value ? "#111" : "white",
-                        color: reportCategory === cat.value ? "white" : "#333",
-                        textAlign: "left", fontSize: 13, fontWeight: reportCategory === cat.value ? 700 : 500,
-                        fontFamily: "'Noto Sans KR', sans-serif",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        transition: "all 0.14s ease",
-                      }}
-                    >
-                      <span>{cat.label}</span>
-                      {reportCategory === cat.value && (
-                        <span style={{ fontSize: 14, flexShrink: 0 }}>✓</span>
-                      )}
-                    </button>
-                  ))}
+                  {PLACE_REPORT_CATEGORIES.map((cat) => {
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={cat.value}
+                        className="report-cat-btn"
+                        onClick={() => setReportCategory(cat.value)}
+                        style={{
+                          width: "100%", padding: "11px 13px",
+                          borderRadius: 11, cursor: "pointer",
+                          border: `1.5px solid ${reportCategory === cat.value ? "#111" : "#e2e4e8"}`,
+                          background: reportCategory === cat.value ? "#111" : "white",
+                          color: reportCategory === cat.value ? "white" : "#333",
+                          textAlign: "left", fontSize: 13, fontWeight: reportCategory === cat.value ? 700 : 500,
+                          fontFamily: "'Noto Sans KR', sans-serif",
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          transition: "all 0.14s ease",
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Icon size={14} color={reportCategory === cat.value ? "white" : "#666"} />
+                          {cat.label}
+                        </span>
+                        {reportCategory === cat.value && (
+                          <span style={{ fontSize: 14, flexShrink: 0 }}>✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

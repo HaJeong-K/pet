@@ -4,23 +4,10 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Heart,
-  ThumbsUp,
-  ThumbsDown,
-  MoreVertical,
-  MessageCircle,
-  Shuffle,
-  MapPin,
-  Clock,
-  PawPrint,
-  Plus,
-  ExternalLink,
-  ImageOff,
-  ChefHat,
-  LandPlot,
-  Dog,
-  Bone,
-  Shield,   // ← 추가: 관리자 삭제 아이콘
+  Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
+  Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink,
+  ImageOff, ChefHat, LandPlot, Dog, Bone, Shield,
+  ChevronLeft, ChevronRight, Phone,
 } from "lucide-react";
 
 // ── 폰트 (Pretendard 제목/로고 + Noto Sans KR 본문)
@@ -161,6 +148,7 @@ export default function PlaceDetail() {
   const isProcessingRef         = useRef(false);
   const isBookmarkProcessingRef = useRef(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
 
   const [openedMenuId, setOpenedMenuId]   = useState<string | null>(null);
   const [reportingId, setReportingId]     = useState<string | null>(null);
@@ -578,8 +566,8 @@ export default function PlaceDetail() {
             </div>
           ) : (
             <div style={{ display:"flex", gap:"8px", overflowX:"auto", paddingBottom:"6px", scrollbarWidth:"thin", scrollbarColor:"#ddd transparent" }}>
-              {allGalleryImages.map((img) => (
-                <div key={img.id} onClick={() => setSelectedImage(img.image_url)} style={{ cursor:"pointer", flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", overflow:"hidden", border:"1px solid #eee" }}>
+              {allGalleryImages.map((img, idx) => (
+                <div key={img.id} onClick={() => { setSelectedImage(img.image_url); setSelectedImageIndex(idx); }} style={{ cursor:"pointer", flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", overflow:"hidden", border:"1px solid #eee" }}>
                   <img src={img.image_url} alt="장소 이미지" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
                 </div>
               ))}
@@ -612,9 +600,30 @@ export default function PlaceDetail() {
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.large_dog ? "✅ 가능" : "❌ 불가"}</div>
             </div>
           </div>
-          <div style={{ padding:"10px 12px" }}>
-            <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}><Bone size={10} />펫 메뉴</div>
-            <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.pet_menu || "—"}</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr" }}>
+            <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}><Bone size={10} />펫 메뉴</div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.pet_menu || "—"}</div>
+            </div>
+            <div style={{ padding:"10px 12px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Phone size={10} />전화번호
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.phone
+                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>{place.phone}</a>
+                  : "—"
+                }
+              </div>
+            </div>
+          </div>
+          <div style={{ padding:"10px 12px", borderTop:"1px solid #eee" }}>
+            <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <MessageCircle size={10} />메모
+            </div>
+            <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+              {place.memo || " "}
+            </div>
           </div>
         </div>
 
@@ -711,7 +720,7 @@ export default function PlaceDetail() {
                       {isOwner(r) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                     </div>
                     <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
-                      {!r.deleted && (
+                      {!r.deleted && !r.is_admin_deleted && (
                         <button onClick={() => { closeAll(); setOpenedMenuId(openedMenuId===r.id?null:r.id); }} style={{ border:"none", background:"transparent", cursor:"pointer", padding:0 }}>
                           <MoreVertical size={15} color="#999" />
                         </button>
@@ -724,13 +733,10 @@ export default function PlaceDetail() {
                               <button onClick={() => { closeAll(); startDelete(r.id); }} style={{ ...dropdownBtnStyle, color:"#ef4444" }}>삭제</button>
                             </>
                           ) : isAdmin ? (
-                            /* ★ 관리자: 신고 + 관리자 삭제 */
-                            <>
-                              <button onClick={() => { closeAll(); setReportingId(r.id); setReportTargetType("review"); setReportTargetId(r.id); setReportCategory(""); setReportReason(""); }} style={dropdownBtnStyle}>신고</button>
-                              <button onClick={() => handleAdminDeleteReview(r.id)} style={{ ...dropdownBtnStyle, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
-                                <Shield size={11} color="#7c3aed" />관리자 삭제
-                              </button>
-                            </>
+                            /* ★ 관리자: 삭제만 */
+                            <button onClick={() => handleAdminDeleteReview(r.id)} style={{ ...dropdownBtnStyle, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
+                              <Shield size={11} color="#7c3aed" />관리자 삭제
+                            </button>
                           ) : (
                             <button onClick={() => { closeAll(); setReportingId(r.id); setReportTargetType("review"); setReportTargetId(r.id); setReportCategory(""); setReportReason(""); }} style={dropdownBtnStyle}>신고</button>
                           )}
@@ -800,9 +806,11 @@ export default function PlaceDetail() {
                           {isOwnerReply(reply) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                         </div>
                         <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
-                          <button onClick={() => { closeAll(); setOpenedReplyMenuId(openedReplyMenuId===reply.id?null:reply.id); }} style={{ border:"none", background:"transparent", cursor:"pointer", padding:0 }}>
-                            <MoreVertical size={13} color="#999" />
-                          </button>
+                          {!reply.is_admin_deleted && (
+                            <button onClick={() => { closeAll(); setOpenedReplyMenuId(openedReplyMenuId===reply.id?null:reply.id); }} style={{ border:"none", background:"transparent", cursor:"pointer", padding:0 }}>
+                              <MoreVertical size={13} color="#999" />
+                            </button>
+                          )}
                           {openedReplyMenuId === reply.id && (
                             <div style={{ position:"absolute", top:"18px", right:0, width:"120px", background:"white", border:"1px solid #eee", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.10)", overflow:"hidden", zIndex:5 }}>
                               {isOwnerReply(reply) ? (
@@ -811,13 +819,10 @@ export default function PlaceDetail() {
                                   <button onClick={() => { closeAll(); setDeletingReplyId(reply.id); }} style={{ ...dropdownBtnStyle, color:"#ef4444" }}>삭제</button>
                                 </>
                               ) : isAdmin ? (
-                                /* ★ 관리자: 신고 + 관리자 삭제 */
-                                <>
-                                  <button onClick={() => { closeAll(); setReportingReplyId(reply.id); setReportTargetType("reply"); setReportTargetId(reply.id); setReportCategory(""); setReportReason(""); }} style={dropdownBtnStyle}>신고</button>
-                                  <button onClick={() => handleAdminDeleteReply(reply.id)} style={{ ...dropdownBtnStyle, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
-                                    <Shield size={11} color="#7c3aed" />관리자 삭제
-                                  </button>
-                                </>
+                                /* ★ 관리자: 삭제만 */
+                                <button onClick={() => handleAdminDeleteReply(reply.id)} style={{ ...dropdownBtnStyle, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
+                                  <Shield size={11} color="#7c3aed" />관리자 삭제
+                                </button>
                               ) : (
                                 <button onClick={() => { closeAll(); setReportingReplyId(reply.id); setReportTargetType("reply"); setReportTargetId(reply.id); setReportCategory(""); setReportReason(""); }} style={dropdownBtnStyle}>신고</button>
                               )}
@@ -920,10 +925,59 @@ export default function PlaceDetail() {
 
         {/* 이미지 확대 모달 */}
         {selectedImage && (
-          <div onClick={() => setSelectedImage(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ position:"relative", display:"inline-block" }}>
-              <button onClick={() => setSelectedImage(null)} style={{ position:"absolute", top:"10px", right:"10px", width:"34px", height:"34px", borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"white", fontSize:"16px", cursor:"pointer", zIndex:2, backdropFilter:"blur(4px)" }}>✕</button>
-              <img src={selectedImage} alt="확대 이미지" style={{ maxWidth:"95vw", maxHeight:"90vh", borderRadius:"14px", objectFit:"contain", display:"block" }} />
+          <div
+            onClick={() => setSelectedImage(null)}
+            style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
+          >
+            <div onClick={(e) => e.stopPropagation()} style={{ position:"relative", display:"flex", alignItems:"center", gap:"12px" }}>
+
+              {/* 닫기 버튼 */}
+              <button
+                onClick={() => setSelectedImage(null)}
+                style={{ position:"absolute", top:"-44px", right:0, width:"34px", height:"34px", borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"white", fontSize:"16px", cursor:"pointer", zIndex:2, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+              >✕</button>
+
+              {/* 이전 버튼 */}
+              <button
+                onClick={() => {
+                  const prevIdx = (selectedImageIndex - 1 + allGalleryImages.length) % allGalleryImages.length;
+                  setSelectedImageIndex(prevIdx);
+                  setSelectedImage(allGalleryImages[prevIdx].image_url);
+                }}
+                style={{ width:"40px", height:"40px", borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", color:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)", flexShrink:0, transition:"background 0.15s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.30)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+              >
+                <ChevronLeft size={22} color="white" />
+              </button>
+
+              {/* 이미지 */}
+              <div style={{ position:"relative" }}>
+                <img
+                  src={selectedImage}
+                  alt="확대 이미지"
+                  style={{ maxWidth:"80vw", maxHeight:"85vh", borderRadius:"14px", objectFit:"contain", display:"block" }}
+                />
+                {/* 인덱스 표시 */}
+                <div style={{ position:"absolute", bottom:"12px", left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.5)", color:"white", fontSize:"12px", fontWeight:600, padding:"4px 12px", borderRadius:"999px", backdropFilter:"blur(4px)", whiteSpace:"nowrap" }}>
+                  {selectedImageIndex + 1} / {allGalleryImages.length}
+                </div>
+              </div>
+
+              {/* 다음 버튼 */}
+              <button
+                onClick={() => {
+                  const nextIdx = (selectedImageIndex + 1) % allGalleryImages.length;
+                  setSelectedImageIndex(nextIdx);
+                  setSelectedImage(allGalleryImages[nextIdx].image_url);
+                }}
+                style={{ width:"40px", height:"40px", borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", color:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)", flexShrink:0, transition:"background 0.15s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.30)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+              >
+                <ChevronRight size={22} color="white" />
+              </button>
+
             </div>
           </div>
         )}
