@@ -4,148 +4,359 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, FileText, CheckCircle, MapPin,
-  Clock, PawPrint, RefreshCw, AlertCircle, ChevronRight,
+  ArrowLeft, FileText, CheckCircle, MapPin, Clock,
+  RefreshCw, AlertCircle, Dog, Bone, Phone, MessageCircle,
+  ChefHat, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
+  X, Pencil, Save, MapPinCheckInside, PauseCircle, LandPlot, User, Trash2,
 } from "lucide-react";
 
+/* ── 스타일 ── */
 const STYLES = `
   @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
   .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
   .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
-  .tip-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
-  .tip-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-1px); }
+  .tip-card  { transition: box-shadow 0.18s ease; }
+  .tip-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; }
   .action-btn { transition: all 0.15s ease; }
-  .action-btn:hover { filter: brightness(0.94); }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+  .action-btn:hover { filter: brightness(0.93); }
+  .edit-input { width:100%; padding:7px 10px; border-radius:8px; border:1.5px solid #8b5cf6; font-size:12px; outline:none; font-family:'Noto Sans KR',sans-serif; background:white; }
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:999px; }
+  .field-rows > div:last-child { border-bottom: none !important; }
 `;
 
-const PET_ZONE_LABEL: Record<string, string> = {
-  indoor:  "실내 가능",
-  terrace: "테라스 가능",
-  both:    "실내외 가능",
-};
+const PET_ZONE_LABEL: Record<string, string> = { indoor:"실내 가능", terrace:"테라스 가능", both:"실내외 가능" };
+const PET_ZONE_EMOJI: Record<string, string> = { indoor:"🏠", terrace:"🌿", both:"🏡" };
 
 const formatDate = (s: string) => {
   const d = new Date(s);
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 };
 
-export default function AdminTipsPage() {
+/* ── 카카오 주소→좌표 변환 ── */
+const geocodeAddress = async (address: string) => {
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
+      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
+    );
+    const data = await res.json();
+    if (data.documents?.length > 0) {
+      return { lat: String(data.documents[0].y), lng: String(data.documents[0].x) };
+    }
+  } catch {}
+  return null;
+};
+
+type ActiveFilter = "pending" | "on_hold" | "approved";
+
+/* ── 필드 행 컴포넌트 ── */
+function FieldRow({
+  icon, label, fieldKey, value, proposalId,
+  editingField, editValue, onEdit, onEditValue, onSave, onCancel,
+  renderEditInput,
+}: {
+  icon: React.ReactNode; label: string; fieldKey: string; value: any;
+  proposalId: number;
+  editingField: { id: number; field: string } | null;
+  editValue: string;
+  onEdit: (id: number, field: string, val: string) => void;
+  onEditValue: (v: string) => void;
+  onSave: (id: number, field: string) => void;
+  onCancel: () => void;
+  renderEditInput?: () => React.ReactNode;
+}) {
+  const isEditing = editingField?.id === proposalId && editingField?.field === fieldKey;
+
+  const displayValue = () => {
+    if (fieldKey === "large_dog") {
+      if (value === true)  return <span style={{ color:"#16a34a", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><CheckCircle2 size={13}/>가능</span>;
+      if (value === false) return <span style={{ color:"#dc2626", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><XCircle size={13}/>불가</span>;
+      return <span style={{ color:"#bbb" }}>미입력</span>;
+    }
+    if (fieldKey === "pet_zone" && value) {
+      return <span>{PET_ZONE_EMOJI[value]} {PET_ZONE_LABEL[value]}</span>;
+    }
+    return value
+      ? <span style={{ color:"#333" }}>{value}</span>
+      : <span style={{ color:"#bbb" }}>미입력</span>;
+  };
+
+  return (
+    <div style={{ padding:"8px 0", borderBottom:"1px solid #f0f2f5" }}>
+      <div style={{ display:"flex", alignItems:"flex-start", gap:6, justifyContent:"space-between" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:5, minWidth:80, paddingTop:2 }}>
+          {icon}
+          <span style={{ fontSize:11, color:"#888", fontWeight:600 }}>{label}</span>
+        </div>
+        <div style={{ flex:1, fontSize:12, lineHeight:1.6 }}>
+          {isEditing ? (
+            renderEditInput ? renderEditInput() : (
+              <input
+                className="edit-input"
+                value={editValue}
+                onChange={(e) => onEditValue(e.target.value)}
+                autoFocus
+              />
+            )
+          ) : displayValue()}
+        </div>
+        <div style={{ display:"flex", gap:4, flexShrink:0, marginLeft:6 }}>
+          {isEditing ? (
+            <>
+              <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#8b5cf6", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+                <Save size={11}/>저장
+              </button>
+              <button onClick={onCancel} style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #ddd", background:"white", color:"#888", fontSize:11, cursor:"pointer" }}>
+                취소
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                let v = value;
+                if (fieldKey === "large_dog") v = value === true ? "true" : value === false ? "false" : "";
+                onEdit(proposalId, fieldKey, String(v ?? ""));
+              }}
+              style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #e2e4e8", background:"#f8fafc", color:"#666", fontSize:11, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}
+            >
+              <Pencil size={11}/>수정
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   메인 컴포넌트
+══════════════════════════════════════════ */
+export default function AdminProposalsPage() {
   const router = useRouter();
   const [isChecking,    setIsChecking]    = useState(true);
-  const [tips,          setTips]          = useState<any[]>([]);
+  const [proposals,     setProposals]     = useState<any[]>([]);
   const [loading,       setLoading]       = useState(false);
-  const [activeFilter,  setActiveFilter]  = useState<"pending"|"done">("pending");
+  const [activeFilter,  setActiveFilter]  = useState<ActiveFilter>("pending");
+  const [reporterEmails, setReporterEmails] = useState<Record<string, string>>({});
+
+  /* ── 인라인 편집 상태 ── */
+  const [editingField, setEditingField] = useState<{ id: number; field: string } | null>(null);
+  const [editValue,    setEditValue]    = useState("");
+
+  /* ── 이미지 라이트박스 ── */
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex,  setLightboxIndex]  = useState(0);
 
   /* ── 관리자 인증 ── */
   useEffect(() => {
-    const checkAdmin = async () => {
+    const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push("/login?redirect=/admin/tips"); return; }
-      const { data: profile } = await supabase
-        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
+      const { data: profile } = await supabase.from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
       if (!profile?.is_admin) { router.push("/"); return; }
       setIsChecking(false);
-      fetchTips();
+      fetchProposals();
     };
-    checkAdmin();
+    check();
   }, []);
 
-  const fetchTips = async () => {
+  /* ── proposals + 제보자 이메일 불러오기 ── */
+  const fetchProposals = async () => {
     setLoading(true);
-    // "tip" 타입 제보를 reports 테이블에서 가져옴
     const { data, error } = await supabase
-      .from("reports")
+      .from("proposals")
       .select("*")
-      .eq("type", "tip")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("제보 불러오기 오류:", error);
-      setLoading(false);
-      return;
+    if (error) { console.error(error); setLoading(false); return; }
+    const list = data || [];
+    setProposals(list);
+
+    /* 로그인 제보자 이메일 조회 */
+    const authIds = list.filter(p => p.auth_user_id).map(p => p.auth_user_id);
+    if (authIds.length > 0) {
+      const { data: users } = await supabase
+        .from("users")
+        .select("auth_user_id, email")
+        .in("auth_user_id", authIds);
+      if (users) {
+        const map: Record<string, string> = {};
+        users.forEach(u => { map[u.auth_user_id] = u.email; });
+        setReporterEmails(map);
+      }
     }
-    setTips(data || []);
     setLoading(false);
   };
 
-  const handleMarkDone = async (tipId: number) => {
-    await supabase.from("reports").update({ is_resolved: true }).eq("id", tipId);
-    fetchTips();
+  /* ── 보류 처리 ── */
+  const handleHold = async (id: number) => {
+    await supabase.from("proposals").update({ status: "on_hold" }).eq("id", id);
+    setProposals(prev => prev.map(p => p.id === id ? { ...p, status: "on_hold" } : p));
   };
 
-  const handleMarkPending = async (tipId: number) => {
-    await supabase.from("reports").update({ is_resolved: false }).eq("id", tipId);
-    fetchTips();
+  const handleDelete = async (id: number) => {
+    if (!confirm("이 제보를 삭제하시겠습니까?")) return;
+    await supabase.from("proposals").delete().eq("id", id);
+    setProposals(prev => prev.filter(p => p.id !== id));
   };
 
-  const pendingTips = tips.filter((t) => !t.is_resolved);
-  const doneTips    = tips.filter((t) =>  t.is_resolved);
-  const displayTips = activeFilter === "pending" ? pendingTips : doneTips;
+  /* ── 승인 → places 테이블에 등록 ── */
+  const handleApprove = async (proposal: any) => {
+    /* lat/lng 없으면 주소로 자동 좌표 추출 시도 */
+    let lat = proposal.lat;
+    let lng = proposal.lng;
 
-  if (isChecking) {
-    return (
-      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f5" }}>
-        <div className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</div>
-      </div>
-    );
-  }
+    if (!lat || !lng) {
+      const coords = await geocodeAddress(proposal.address);
+      if (coords) { lat = coords.lat; lng = coords.lng; }
+    }
+
+    if (!lat || !lng) {
+      alert("좌표(위도/경도)를 확인할 수 없습니다.\n'보류' 탭에서 주소를 다시 저장하거나 좌표를 직접 입력해주세요.");
+      return;
+    }
+
+    /* places 테이블에 INSERT */
+    const { error: insertError } = await supabase.from("places").insert([{
+      name:      proposal.place_name,
+      address:   proposal.address,
+      lat,
+      lng,
+      pet_zone:  proposal.pet_zone,
+      category:  proposal.category,
+      hours:     proposal.hours,
+      large_dog: proposal.large_dog,
+      pet_menu:  proposal.pet_menu,
+      phone:     proposal.phone,
+      memo:      proposal.memo,
+      image_url: proposal.image_urls?.[0] || null,
+    }]);
+
+    if (insertError) {
+      console.error("장소 등록 실패:", JSON.stringify(insertError, null, 2));
+      alert("장소 등록 중 오류가 발생했습니다.");
+      return;
+    }
+
+    /* 나머지 이미지들을 place_images 테이블에 INSERT */
+    const { data: insertedPlace } = await supabase
+      .from("places")
+      .select("id")
+      .eq("name", proposal.place_name)
+      .eq("address", proposal.address)
+      .single();
+
+    if (insertedPlace && proposal.image_urls?.length > 1) {
+      const extraImages = proposal.image_urls.slice(1).map((url: string) => ({
+        place_id: insertedPlace.id,
+        image_url: url,
+      }));
+      await supabase.from("place_images").insert(extraImages);
+    }
+
+    /* proposal 상태 업데이트 */
+    await supabase.from("proposals").update({ status: "approved", is_resolved: true, lat, lng }).eq("id", proposal.id);
+    setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true, lat, lng } : p));
+    alert(`"${proposal.place_name}" 장소가 지도에 등록되었습니다.`);
+  };
+
+  /* ── 인라인 필드 수정 시작 ── */
+  const startEdit = (id: number, field: string, val: string) => {
+    setEditingField({ id, field });
+    setEditValue(val);
+  };
+
+  /* ── 인라인 필드 저장 ── */
+  const saveField = async (id: number, field: string) => {
+    let value: any = editValue.trim() || null;
+
+    if (field === "large_dog") {
+      value = editValue === "true" ? true : editValue === "false" ? false : null;
+    }
+
+    /* 주소 저장 시 좌표 자동 추출 */
+    let extra: any = {};
+    if (field === "address" && value) {
+      const coords = await geocodeAddress(value);
+      if (coords) extra = { lat: coords.lat, lng: coords.lng };
+    }
+
+    await supabase.from("proposals").update({ [field]: value, ...extra }).eq("id", id);
+    setProposals(prev => prev.map(p =>
+      p.id === id ? { ...p, [field]: value, ...extra } : p
+    ));
+    setEditingField(null);
+  };
+
+  const cancelEdit = () => setEditingField(null);
+
+  /* ── 제보자 표시 ── */
+  const getReporterDisplay = (p: any) => {
+    if (p.auth_user_id) {
+      const email = reporterEmails[p.auth_user_id];
+      return { label: "회원", value: email || "이메일 조회 중...", isEmail: true };
+    }
+    if (p.reporter_key) {
+      return { label: "비회원", value: p.reporter_key, isEmail: false };
+    }
+    return { label: "알 수 없음", value: "—", isEmail: false };
+  };
+
+  /* ── 필터별 목록 ── */
+  const pendingList  = proposals.filter(p => p.status === "pending");
+  const onHoldList   = proposals.filter(p => p.status === "on_hold");
+  const approvedList = proposals.filter(p => p.status === "approved");
+  const displayList  =
+    activeFilter === "pending"  ? pendingList  :
+    activeFilter === "on_hold"  ? onHoldList   : approvedList;
+
+  if (isChecking) return (
+    <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f5" }}>
+      <span className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</span>
+    </div>
+  );
 
   return (
     <>
       <style>{STYLES}</style>
 
       <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#f0f2f5", overflow:"hidden", alignItems:"center" }}>
-
-        {/* ── 내부 콘텐츠 래퍼 ── */}
-        <div style={{ width:"100%", maxWidth:"480px", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
+        <div style={{ width:"100%", maxWidth:"600px", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
 
           {/* ── 헤더 ── */}
-          <div style={{
-            background:"white", borderBottom:"1px solid #e8eaed",
-            padding:"14px 20px", display:"flex", alignItems:"center", gap:"12px",
-            flexShrink:0, boxShadow:"0 1px 6px rgba(0,0,0,0.05)", zIndex:10,
-          }}>
+          <div style={{ background:"white", borderBottom:"1px solid #e8eaed", padding:"14px 20px", display:"flex", alignItems:"center", gap:12, flexShrink:0, boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
             <button onClick={() => router.push("/")} style={{ border:"none", background:"transparent", cursor:"pointer", padding:4, borderRadius:8, display:"flex" }}>
               <ArrowLeft size={20} color="#444" />
             </button>
-
-            <div style={{ display:"flex", alignItems:"center", gap:"8px", flex:1 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
               <div style={{ width:32, height:32, borderRadius:10, background:"#ede9fe", display:"flex", alignItems:"center", justifyContent:"center" }}>
                 <FileText size={16} color="#8b5cf6" />
               </div>
               <div className="ggk-logo" style={{ fontSize:16, fontWeight:800, color:"#111" }}>제보 관리</div>
             </div>
-
-            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-              {pendingTips.length > 0 && (
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              {pendingList.length > 0 && (
                 <div style={{ background:"#8b5cf6", color:"white", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
-                  미처리 {pendingTips.length}건
+                  미처리 {pendingList.length}건
                 </div>
               )}
-              <button
-                onClick={fetchTips}
-                style={{ border:"none", background:"#f5f6f8", borderRadius:8, padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600, color:"#555" }}
-              >
-                <RefreshCw size={13} color="#888" />
-                새로고침
+              <button onClick={fetchProposals} style={{ border:"none", background:"#f5f6f8", borderRadius:8, padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600, color:"#555" }}>
+                <RefreshCw size={13} color="#888" />새로고침
               </button>
             </div>
           </div>
 
-          {/* ── 필터 탭 ── */}
+          {/* ── 3단 필터 탭 ── */}
           <div style={{ padding:"14px 16px 10px", flexShrink:0 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
               {([
-                { key:"pending", label:"미처리",  count: pendingTips.length, icon: AlertCircle, color:"#8b5cf6" },
-                { key:"done",    label:"처리완료", count: doneTips.length,   icon: CheckCircle, color:"#22c55e" },
+                { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#8b5cf6", activeBg:"#f3e8ff" },
+                { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
+                { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
               ] as const).map((tab) => {
-                const Icon = tab.icon;
                 const isActive = activeFilter === tab.key;
                 return (
                   <button
@@ -153,25 +364,21 @@ export default function AdminTipsPage() {
                     onClick={() => setActiveFilter(tab.key)}
                     className="ggk-body"
                     style={{
-                      flex:1, padding:"9px 14px", borderRadius:10, border:"none",
+                      flex:1, padding:"9px 8px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
                       fontWeight:700, fontSize:12, color: isActive ? "#111" : "#888",
                       cursor:"pointer",
                       boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                       transition:"all 0.15s ease",
-                      display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                     }}
                   >
-                    <Icon size={13} color={isActive ? tab.color : "#aaa"} />
+                    <span style={{ color: isActive ? tab.activeColor : "#aaa" }}>{tab.icon}</span>
                     {tab.label}
                     <span style={{
                       fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
-                      background: isActive
-                        ? (tab.key === "pending" ? "#f3e8ff" : "#dcfce7")
-                        : "#f0f2f5",
-                      color: isActive
-                        ? (tab.key === "pending" ? "#7c3aed" : "#16a34a")
-                        : "#999",
+                      background: isActive ? tab.activeBg : "#f0f2f5",
+                      color: isActive ? tab.activeColor : "#999",
                     }}>
                       {tab.count}
                     </span>
@@ -181,149 +388,274 @@ export default function AdminTipsPage() {
             </div>
           </div>
 
-          {/* ── 리스트 영역 (스크롤 가능) ── */}
-          <div style={{
-            flex:1, minHeight:0, overflowY:"auto",
-            padding:"0 16px 100px",
-            scrollbarWidth:"thin",
-            scrollbarColor:"#d1d5db transparent",
-          }}>
+          {/* ── 리스트 ── */}
+          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 16px 100px", scrollbarWidth:"thin" }}>
             {loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
-            ) : displayTips.length === 0 ? (
+            ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
-                <div style={{ width:64, height:64, borderRadius:20, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
-                  {activeFilter === "pending"
-                    ? <FileText size={28} color="#d1d5db" />
-                    : <CheckCircle size={28} color="#22c55e" />}
+                <div style={{ width:64, height:64, borderRadius:20, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
+                  <FileText size={28} color="#d1d5db" />
                 </div>
-                <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222", marginBottom:6 }}>
-                  {activeFilter === "pending" ? "미처리 제보가 없습니다" : "처리완료 제보가 없습니다"}
-                </div>
-                <div style={{ fontSize:12, color:"#999" }}>
-                  {activeFilter === "pending" ? "들어온 제보가 없거나 모두 처리되었습니다" : "처리된 제보가 여기에 표시됩니다"}
+                <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222" }}>
+                  {activeFilter === "pending" ? "미처리 제보가 없습니다" :
+                   activeFilter === "on_hold" ? "보류 중인 제보가 없습니다" : "처리완료 내역이 없습니다"}
                 </div>
               </div>
             ) : (
-              displayTips.map((tip) => (
-                <div
-                  key={tip.id}
-                  className="tip-card"
-                  style={{
-                    background:"white",
-                    borderRadius:20,
-                    border:`1.5px solid ${tip.is_resolved ? "#e8eaed" : "#ddd6fe"}`,
-                    marginBottom:12,
-                    overflow:"hidden",
+              displayList.map((tip) => {
+                const reporter = getReporterDisplay(tip);
+                const isOnHold = tip.status === "on_hold";
+
+                return (
+                  <div key={tip.id} className="tip-card" style={{
+                    background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
+                    border:`1.5px solid ${
+                      tip.status === "pending"  ? "#ddd6fe" :
+                      tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
+                    }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
-                    opacity: tip.is_resolved ? 0.8 : 1,
-                  }}
-                >
-                  {/* 카드 헤더 */}
-                  <div style={{
-                    padding:"12px 16px",
-                    background: tip.is_resolved ? "#f8fafc" : "#f5f3ff",
-                    borderBottom:`1px solid ${tip.is_resolved ? "#e8eaed" : "#ddd6fe"}`,
-                    display:"flex", alignItems:"center", justifyContent:"space-between",
                   }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    {/* 카드 헤더 */}
+                    <div style={{
+                      padding:"11px 16px",
+                      background:
+                        tip.status === "pending"  ? "#f5f3ff" :
+                        tip.status === "on_hold"  ? "#fffbeb" : "#f0fdf4",
+                      borderBottom:`1px solid ${
+                        tip.status === "pending"  ? "#ddd6fe" :
+                        tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
+                      }`,
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                    }}>
                       <span style={{
-                        fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:700,
-                        background: tip.is_resolved ? "#dcfce7" : "#ede9fe",
-                        color: tip.is_resolved ? "#15803d" : "#6d28d9",
-                        display:"flex", alignItems:"center", gap:3,
+                        fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
+                        background:
+                          tip.status === "pending"  ? "#ede9fe" :
+                          tip.status === "on_hold"  ? "#fef3c7" : "#dcfce7",
+                        color:
+                          tip.status === "pending"  ? "#6d28d9" :
+                          tip.status === "on_hold"  ? "#92400e" : "#15803d",
+                        display:"flex", alignItems:"center", gap:4,
                       }}>
-                        {tip.is_resolved ? <><CheckCircle size={9}/>처리완료</> : "📋 처리 대기"}
+                        {tip.status === "pending"  && <><AlertCircle size={9}/>검토 대기</>}
+                        {tip.status === "on_hold"  && <><PauseCircle size={9}/>보류 중</>}
+                        {tip.status === "approved" && <><CheckCircle size={9}/>승인 완료</>}
                       </span>
-                    </div>
-                    <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(tip.created_at)}</span>
-                  </div>
-
-                  <div style={{ padding:"14px 16px" }}>
-                    {tip.place_name && (
-                      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                        <div style={{ width:28, height:28, borderRadius:8, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <MapPin size={13} color="#8b5cf6" />
-                        </div>
-                        <div>
-                          <div className="ggk-logo" style={{ fontSize:14, fontWeight:700, color:"#111" }}>{tip.place_name}</div>
-                          {tip.address && <div style={{ fontSize:11, color:"#888", marginTop:1 }}>{tip.address}</div>}
-                        </div>
-                      </div>
-                    )}
-
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom: (tip.content || tip.report_reason) ? 10 : 0 }}>
-                      {tip.category && (
-                        <span style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"#666", background:"#f5f6f8", padding:"4px 9px", borderRadius:999, fontWeight:500 }}>
-                          <PawPrint size={11} color="#8b5cf6" />{tip.category}
-                        </span>
-                      )}
-                      {tip.hours && (
-                        <span style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"#666", background:"#f5f6f8", padding:"4px 9px", borderRadius:999, fontWeight:500 }}>
-                          <Clock size={11} color="#888" />{tip.hours}
-                        </span>
-                      )}
-                      {tip.pet_zone && (
-                        <span style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"#666", background:"#f5f6f8", padding:"4px 9px", borderRadius:999, fontWeight:500 }}>
-                          🐾 {PET_ZONE_LABEL[tip.pet_zone] || tip.pet_zone}
-                        </span>
-                      )}
+                      <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(tip.created_at)}</span>
                     </div>
 
-                    {(tip.content || tip.report_reason || tip.description) && (
-                      <div style={{ padding:"10px 13px", background:"#fafafa", borderRadius:10, border:"1px solid #eee", marginBottom:12 }}>
-                        <div style={{ fontSize:10, color:"#aaa", fontWeight:700, letterSpacing:"0.3px", marginBottom:5 }}>제보 내용</div>
-                        <div style={{ fontSize:13, color:"#333", lineHeight:1.7 }}>
-                          {tip.content || tip.report_reason || tip.description}
+                    <div style={{ padding:"14px 16px" }}>
+
+                      {/* 장소명 */}
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                        <div style={{ width:32, height:32, borderRadius:9, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <MapPin size={15} color="#8b5cf6" />
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>{tip.place_name}</div>
+                          <div style={{ fontSize:11, color:"#777", marginTop:1 }}>{tip.address}</div>
                         </div>
                       </div>
-                    )}
 
-                    {(tip.nickname || tip.reporter_key) && (
-                      <div style={{ fontSize:11, color:"#bbb", marginBottom:12 }}>
-                        제보자: {tip.nickname || (tip.reporter_key?.slice(0,8) + "...")}
+                      {/* ── 보류 탭: 필드별 수정 가능 ── */}
+                      {isOnHold ? (
+                        <div className="field-rows" style={{ background:"#fafafa", borderRadius:12, border:"1px solid #eee", padding:"4px 12px", marginBottom:12 }}>
+
+                          <FieldRow icon={<MapPin size={12} color="#8b5cf6"/>}       label="장소명"   fieldKey="place_name" value={tip.place_name} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MapPin size={12} color="#8b5cf6"/>}       label="주소"     fieldKey="address"    value={tip.address}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<ChefHat size={12} color="#8b5cf6"/>}      label="카테고리" fieldKey="category"   value={tip.category}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+
+                          {/* pet_zone 전용 수정 UI */}
+                          <FieldRow
+                            icon={<LandPlot size={12} color="#8b5cf6"/>} label="동반범위" fieldKey="pet_zone" value={tip.pet_zone}
+                            proposalId={tip.id} editingField={editingField} editValue={editValue}
+                            onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
+                            renderEditInput={() => (
+                              <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                                {(["indoor","terrace","both"] as const).map(v => (
+                                  <button key={v} onClick={() => setEditValue(v)} style={{
+                                    padding:"4px 10px", borderRadius:8, border:`1.5px solid ${editValue===v?"#7c3aed":"#ddd"}`,
+                                    background: editValue===v ? "#7c3aed" : "white",
+                                    color: editValue===v ? "white" : "#555",
+                                    fontSize:11, fontWeight:600, cursor:"pointer",
+                                  }}>
+                                    {PET_ZONE_EMOJI[v]} {PET_ZONE_LABEL[v]}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          />
+
+                          <FieldRow icon={<Clock size={12} color="#8b5cf6"/>}        label="영업시간" fieldKey="hours"      value={tip.hours}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+
+                          {/* large_dog 전용 수정 UI */}
+                          <FieldRow
+                            icon={<Dog size={12} color="#8b5cf6"/>} label="대형견" fieldKey="large_dog" value={tip.large_dog}
+                            proposalId={tip.id} editingField={editingField} editValue={editValue}
+                            onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
+                            renderEditInput={() => (
+                              <div style={{ display:"flex", gap:5 }}>
+                                {[{v:"true",label:"가능"},{v:"false",label:"불가"}].map(opt => (
+                                  <button key={opt.v} onClick={() => setEditValue(opt.v)} style={{
+                                    padding:"4px 14px", borderRadius:8, border:`1.5px solid ${editValue===opt.v?(opt.v==="true"?"#16a34a":"#dc2626"):"#ddd"}`,
+                                    background: editValue===opt.v ? (opt.v==="true"?"#16a34a":"#dc2626") : "white",
+                                    color: editValue===opt.v ? "white" : "#555",
+                                    fontSize:11, fontWeight:600, cursor:"pointer",
+                                    display:"flex", alignItems:"center", gap:4,
+                                  }}>
+                                    {opt.v==="true" ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}{opt.label}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          />
+
+                          <FieldRow icon={<Bone size={12} color="#8b5cf6"/>}         label="펫 메뉴"  fieldKey="pet_menu"   value={tip.pet_menu}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Phone size={12} color="#8b5cf6"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MessageCircle size={12} color="#8b5cf6"/>} label="메모"    fieldKey="memo"      value={tip.memo}       proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                        </div>
+                      ) : (
+                        /* 미처리/처리완료: 읽기 전용 뱃지 */
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
+                          {tip.category && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ChefHat size={11} color="#8b5cf6"/>{tip.category}</span>}
+                          {tip.pet_zone && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999 }}>{PET_ZONE_EMOJI[tip.pet_zone]} {PET_ZONE_LABEL[tip.pet_zone]}</span>}
+                          {tip.hours    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Clock size={11} color="#888"/>{tip.hours}</span>}
+                          {tip.large_dog !== null && tip.large_dog !== undefined && (
+                            <span style={{ fontSize:11, padding:"4px 10px", borderRadius:999, fontWeight:600, background: tip.large_dog?"#dcfce7":"#fee2e2", color: tip.large_dog?"#15803d":"#dc2626", display:"flex", alignItems:"center", gap:4 }}>
+                              {tip.large_dog ? <CheckCircle2 size={11}/>:<XCircle size={11}/>}
+                              {tip.large_dog ? "대형견 가능":"대형견 불가"}
+                            </span>
+                          )}
+                          {tip.pet_menu && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Bone size={11} color="#8b5cf6"/>{tip.pet_menu}</span>}
+                          {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#8b5cf6"/>{tip.phone}</span>}
+                          {tip.memo     && <span style={{ fontSize:11, color:"#555", background:"#f5f6f8", padding:"6px 10px", borderRadius:10, width:"100%", lineHeight:1.6 }}>{tip.memo}</span>}
+                        </div>
+                      )}
+
+                      {/* 이미지 갤러리 */}
+                      {tip.image_urls?.length > 0 && (
+                        <div style={{ marginBottom:12 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:"#888", marginBottom:7 }}>
+                            📷 첨부 사진 {tip.image_urls.length}장
+                          </div>
+                          <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
+                            {tip.image_urls.map((url: string, idx: number) => (
+                              <div key={idx} onClick={() => { setLightboxImages(tip.image_urls); setLightboxIndex(idx); }}
+                                style={{ width:76, height:76, borderRadius:10, overflow:"hidden", border:"1px solid #e2e4e8", cursor:"pointer", flexShrink:0, position:"relative" }}>
+                                <img src={url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                                <div style={{ position:"absolute", bottom:3, left:3, background:"rgba(0,0,0,0.5)", borderRadius:999, padding:"1px 5px", fontSize:9, color:"white", fontWeight:700 }}>
+                                  {idx+1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 제보자 */}
+                      <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:12, padding:"6px 10px", background:"#f8fafc", borderRadius:8, border:"1px solid #e8eaed" }}>
+                        <User size={12} color="#8b5cf6" />
+                        <span style={{ fontSize:10, color:"#888", fontWeight:600 }}>{reporter.label}</span>
+                        <span style={{ fontSize:11, color: reporter.isEmail ? "#2563eb" : "#999", fontWeight: reporter.isEmail ? 600 : 400 }}>
+                          {reporter.value}
+                        </span>
                       </div>
-                    )}
 
-                    {!tip.is_resolved ? (
-                      <button
-                        className="action-btn ggk-body"
-                        onClick={() => handleMarkDone(tip.id)}
-                        style={{
-                          width:"100%", padding:"10px 14px", borderRadius:11, border:"none",
-                          background:"linear-gradient(135deg, #8b5cf6, #7c3aed)",
-                          color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
-                          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                          boxShadow:"0 2px 8px rgba(139,92,246,0.30)",
-                          fontFamily:"'Noto Sans KR', sans-serif",
-                        }}
-                      >
-                        <CheckCircle size={14} />
-                        처리완료 표시
-                      </button>
-                    ) : (
-                      <button
-                        className="action-btn ggk-body"
-                        onClick={() => handleMarkPending(tip.id)}
-                        style={{
-                          width:"100%", padding:"9px 14px", borderRadius:11,
-                          border:"1px solid #e8eaed", background:"white",
-                          color:"#888", fontWeight:600, cursor:"pointer", fontSize:12,
-                          display:"flex", alignItems:"center", justifyContent:"center", gap:6,
-                          fontFamily:"'Noto Sans KR', sans-serif",
-                        }}
-                      >
-                        미처리로 되돌리기
-                      </button>
-                    )}
+                      {/* ── 액션 버튼 ── */}
+                      {tip.status !== "approved" && (
+                        <div style={{ display:"flex", gap:8 }}>
+                          {/* 보류 버튼 (미처리에서만) */}
+                          {tip.status === "pending" && (
+                            <button
+                              className="action-btn ggk-body"
+                              onClick={() => handleHold(tip.id)}
+                              style={{
+                                flex:1, padding:"10px 12px", borderRadius:11,
+                                border:"1.5px solid #fde68a", background:"#fffbeb",
+                                color:"#92400e", fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                fontFamily:"'Noto Sans KR', sans-serif",
+                              }}
+                            >
+                              <PauseCircle size={14} color="#f59e0b" />보류
+                            </button>
+                          )}
+
+                          {/* 승인 버튼 */}
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handleApprove(tip)}
+                            style={{
+                              flex:1, padding:"10px 14px", borderRadius:11, border:"none",
+                              background:"linear-gradient(135deg, #22c55e, #16a34a)",
+                              color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              boxShadow:"0 2px 8px rgba(34,197,94,0.35)",
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <MapPinCheckInside size={14} />
+                            {tip.status === "on_hold" ? "장소 등록" : "승인"}
+                          </button>
+
+                          {/* 삭제 버튼 */}
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handleDelete(tip.id)}
+                            style={{
+                              flex:1, padding:"10px 12px", borderRadius:11, border:"none",
+                              background:"linear-gradient(135deg, #ef4444, #dc2626)",
+                              color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <Trash2 size={14} />삭제
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 처리완료 안내 */}
+                      {tip.status === "approved" && (
+                        <div style={{ padding:"9px 12px", background:"#f0fdf4", borderRadius:10, border:"1px solid #bbf7d0", display:"flex", alignItems:"center", gap:6 }}>
+                          <CheckCircle size={14} color="#16a34a" />
+                          <span style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>지도에 장소가 등록되었습니다</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
+        </div>
+      </div>
 
-        </div>{/* 내부 콘텐츠 래퍼 끝 */}
-      </div>{/* 전체 페이지 끝 */}
+      {/* ── 이미지 라이트박스 ── */}
+      {lightboxImages.length > 0 && (
+        <div onClick={() => setLightboxImages([])}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.88)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position:"relative", display:"flex", alignItems:"center", gap:12 }}>
+            <button onClick={() => setLightboxImages([])} style={{ position:"absolute", top:-44, right:0, width:34, height:34, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <X size={16} color="white" />
+            </button>
+            <button onClick={() => setLightboxIndex((lightboxIndex-1+lightboxImages.length)%lightboxImages.length)} style={{ width:40, height:40, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <ChevronLeft size={22} color="white" />
+            </button>
+            <div style={{ position:"relative" }}>
+              <img src={lightboxImages[lightboxIndex]} alt="" style={{ maxWidth:"75vw", maxHeight:"82vh", borderRadius:14, objectFit:"contain", display:"block" }} />
+              <div style={{ position:"absolute", bottom:12, left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.5)", color:"white", fontSize:12, fontWeight:600, padding:"4px 12px", borderRadius:999 }}>
+                {lightboxIndex+1} / {lightboxImages.length}
+              </div>
+            </div>
+            <button onClick={() => setLightboxIndex((lightboxIndex+1)%lightboxImages.length)} style={{ width:40, height:40, borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <ChevronRight size={22} color="white" />
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

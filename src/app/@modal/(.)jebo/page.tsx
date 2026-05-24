@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, Bone, MessageCircle, Plus, X, AlertCircle,
-  MapPinPlus, CheckCircle2, XCircle,
+  MapPinPlus, CheckCircle2, XCircle, Search,
 } from "lucide-react";
 
 /* ── 이미지 압축 ── */
@@ -83,6 +83,33 @@ export default function JeboModal() {
   const [isSubmitting,  setIsSubmitting]  = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /* ── 카카오 주소 검색 스크립트 로드 ── */
+  useEffect(() => {
+    if (document.getElementById("kakao-postcode-script")) return; // 이미 로드된 경우 스킵
+    const script = document.createElement("script");
+    script.id  = "kakao-postcode-script";
+    script.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
+  /* ── 주소 검색 팝업 열기 ── */
+  const handleAddressSearch = () => {
+    if (!(window as any).daum?.Postcode) {
+      alert("주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
+    new (window as any).daum.Postcode({
+      oncomplete: (data: any) => {
+        // 도로명 주소 우선, 없으면 지번 주소
+        const selectedAddress = data.roadAddress || data.jibunAddress || data.address;
+        setAddress(selectedAddress);
+      },
+      // 팝업 창 위치 설정
+      popupTitle: "주소 검색",
+    }).open();
+  };
+
   /* ── 이미지 추가 ── */
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -136,30 +163,28 @@ export default function JeboModal() {
         if (urlData?.publicUrl) uploadedUrls.push(urlData.publicUrl);
       }
 
-      /* 2. 추가 정보 패킹 */
-      const extraParts = [
-        largeDog !== null ? `대형견 가능: ${largeDog ? "가능" : "불가"}` : "",
-        petMenu.trim() ? `펫 메뉴: ${petMenu.trim()}` : "",
-        phone.trim()   ? `전화번호: ${phone.trim()}`  : "",
-        memo.trim()    ? `메모: ${memo.trim()}`        : "",
-      ].filter(Boolean);
-
+      /* 2. DB 저장 */
       const userKey = getUserKey();
+      const { data: { session } } = await supabase.auth.getSession();
+      const authUserId = session?.user?.id || null;
+      console.log("session 확인:", session);
+      console.log("authUserId 확인:", authUserId);
 
-      /* 3. DB 저장 */
-      const { error } = await supabase.from("reports").insert([{
-        type:          "tip",
-        target_id:     null,
-        place_id:      null,
-        reporter_key:  userKey,
-        place_name:    name.trim(),
-        address:       address.trim(),
-        category:      category.trim() || null,
-        hours:         hours.trim()    || null,
-        pet_zone:      petZone         || null,
-        report_reason: extraParts.join(" | ") || null,
-        image_urls:    uploadedUrls,
-        is_resolved:   false,
+      const { error } = await supabase.from("proposals").insert([{
+        place_name:   name.trim(),
+        address:      address.trim(),
+        category:     category.trim() || null,
+        hours:        hours.trim()    || null,
+        pet_zone:     petZone         || null,
+        large_dog:    largeDog,
+        pet_menu:     petMenu.trim()  || null,
+        phone:        phone.trim()    || null,
+        memo:         memo.trim()     || null,
+        image_urls:   uploadedUrls,
+        reporter_key: userKey,
+        auth_user_id: authUserId,   // ← 추가
+        is_resolved:  false,
+        status:       "pending",    // ← 추가
       }]);
 
       if (error) { console.error("제보 저장 실패:", JSON.stringify(error, null, 2)); alert("제보 저장 중 오류가 발생했습니다."); return; }
@@ -178,7 +203,7 @@ export default function JeboModal() {
 
   const missingItems = [
     !name.trim()          && "장소명을 입력해주세요",
-    !address.trim()       && "주소를 입력해주세요",
+    !address.trim()       && "주소를 검색해주세요",
     !petZone              && "동반 가능 범위를 선택해주세요",
     imageFiles.length < 2 && `사진을 ${2 - imageFiles.length}장 더 첨부해주세요`,
   ].filter(Boolean) as string[];
@@ -196,6 +221,7 @@ export default function JeboModal() {
         .zone-btn:hover { border-color: #888 !important; }
         .add-img-btn { transition: all 0.14s ease; }
         .add-img-btn:hover { border-color: #7c3aed !important; background: #f5f3ff !important; }
+        .addr-search-btn:hover { background: #6d28d9 !important; }
         .submit-btn:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
         .submit-btn { transition: all 0.18s ease; }
         ::-webkit-scrollbar { width: 5px; }
@@ -237,7 +263,6 @@ export default function JeboModal() {
             flexShrink: 0,
             background: "linear-gradient(135deg, #f5f3ff, #ede9fe)",
           }}>
-            {/* 아이콘 + 제목 */}
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 10,
@@ -256,8 +281,6 @@ export default function JeboModal() {
                 </div>
               </div>
             </div>
-
-            {/* 닫기 버튼 (우측 상단) */}
             <button
               onClick={() => router.back()}
               style={{
@@ -286,29 +309,108 @@ export default function JeboModal() {
               <AlertCircle size={13} color="#2563eb" style={{ flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: 11, color: "#1e40af", lineHeight: 1.75 }}>
                 제보해주신 장소는 검토 후 지도에 등록됩니다.<br />
-                <strong>가게명, 주소, 동반 범위, 사진 2장 이상</strong>은 필수 항목입니다.
+                <strong>장소명, 주소, 동반 범위, 사진 2장 이상</strong>은 필수 항목입니다.
               </div>
             </div>
 
-            {/* ── 장소명 * ── */}
+            {/* ────── 장소명 * ────── */}
             <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}><MapPin size={11} color="#8b5cf6" /> 가게명 <span style={{ color: "#ef4444" }}>*</span></div>
-              <input className="jebo-input" placeholder="예: 강아지카페 멍멍이네" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
+              <div style={labelStyle}>
+                <MapPin size={11} color="#8b5cf6" />
+                장소명 <span style={{ color: "#ef4444" }}>*</span>
+              </div>
+              <input
+                className="jebo-input"
+                placeholder="예: 강아지카페 멍멍이네"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle}
+              />
             </div>
 
-            {/* ── 주소 * ── */}
+            {/* ────── 주소 * (카카오 주소 검색) ────── */}
             <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}><MapPin size={11} color="#8b5cf6" /> 주소 <span style={{ color: "#ef4444" }}>*</span></div>
-              <input className="jebo-input" placeholder="예: 서울특별시 마포구 홍대입구로 123" value={address} onChange={(e) => setAddress(e.target.value)} style={inputStyle} />
+              <div style={labelStyle}>
+                <MapPin size={11} color="#8b5cf6" />
+                주소 <span style={{ color: "#ef4444" }}>*</span>
+              </div>
+
+              {/* 검색 버튼 */}
+              <button
+                className="addr-search-btn ggk-body"
+                onClick={handleAddressSearch}
+                style={{
+                  width: "100%", padding: "11px 14px", borderRadius: 10,
+                  border: "none",
+                  background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                  color: "white", fontWeight: 700, fontSize: 13,
+                  cursor: "pointer", marginBottom: 8,
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                  transition: "background 0.14s",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  boxShadow: "0 2px 8px rgba(124,58,237,0.28)",
+                }}
+              >
+                <Search size={14} />
+                주소 검색하기
+              </button>
+
+              {/* 선택된 주소 표시 or 직접 입력 */}
+              <div style={{ position: "relative" }}>
+                <input
+                  readOnly
+                  placeholder="위 버튼을 눌러 주소를 검색해주세요"
+                  value={address}
+                  onClick={handleAddressSearch}
+                  style={{
+                    ...inputStyle,
+                    background: address ? "#f5f3ff" : "#f8fafc",
+                    borderColor: address ? "#c4b5fd" : "#e2e4e8",
+                    paddingRight: address ? "36px" : "13px",
+                    cursor: "pointer",
+                    caretColor: "transparent",
+                  }}
+                />
+                {/* 주소 초기화 버튼 */}
+                {address && (
+                  <button
+                    onClick={() => setAddress("")}
+                    style={{
+                      position: "absolute", right: 10, top: "50%",
+                      transform: "translateY(-50%)",
+                      border: "none", background: "transparent",
+                      cursor: "pointer", padding: 2,
+                      display: "flex", alignItems: "center",
+                    }}
+                  >
+                    <X size={14} color="#a78bfa" />
+                  </button>
+                )}
+              </div>
+
+              {/* 주소 선택 완료 안내 */}
+              {address && (
+                <div style={{
+                  marginTop: 6, padding: "6px 10px",
+                  background: "#f5f3ff", borderRadius: 8,
+                  border: "1px solid #ddd6fe",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}>
+                  <MapPin size={11} color="#7c3aed" />
+                  <span style={{ fontSize: 11, color: "#6d28d9", fontWeight: 600 }}>
+                    {address}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* ── 카테고리 ── */}
+            {/* ────── 카테고리 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><ChefHat size={11} color="#8b5cf6" /> 카테고리</div>
               <input className="jebo-input" placeholder="예: 카페, 레스토랑, 공원, 호텔 등" value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle} />
             </div>
 
-            {/* ── 동반 가능 범위 * (이모티콘 유지) ── */}
+            {/* ────── 동반 가능 범위 * (이모티콘 유지) ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><LandPlot size={11} color="#8b5cf6" /> 동반 가능 범위 <span style={{ color: "#ef4444" }}>*</span></div>
               <div style={{ display: "flex", gap: 7 }}>
@@ -337,13 +439,13 @@ export default function JeboModal() {
               </div>
             </div>
 
-            {/* ── 영업시간 ── */}
+            {/* ────── 영업시간 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><Clock size={11} color="#8b5cf6" /> 영업시간</div>
               <input className="jebo-input" placeholder="예: 매일 10:00–22:00 / 월요일 휴무" value={hours} onChange={(e) => setHours(e.target.value)} style={inputStyle} />
             </div>
 
-            {/* ── 대형견 가능 여부 (lucide 아이콘) ── */}
+            {/* ────── 대형견 가능 여부 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><Dog size={11} color="#8b5cf6" /> 대형견 동반 가능 여부</div>
               <div style={{ display: "flex", gap: 7 }}>
@@ -384,24 +486,24 @@ export default function JeboModal() {
               </div>
             </div>
 
-            {/* ── 펫 메뉴 ── */}
+            {/* ────── 펫 메뉴 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><Bone size={11} color="#8b5cf6" /> 펫 메뉴</div>
-              <input className="jebo-input" placeholder="예: 멍푸치노, 동결건조 간식 등" value={petMenu} onChange={(e) => setPetMenu(e.target.value)} style={inputStyle} />
+              <input className="jebo-input" placeholder="예: 멍푸치노, 수제간식 등" value={petMenu} onChange={(e) => setPetMenu(e.target.value)} style={inputStyle} />
             </div>
 
-            {/* ── 전화번호 ── */}
+            {/* ────── 전화번호 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><Phone size={11} color="#8b5cf6" /> 전화번호</div>
               <input className="jebo-input" placeholder="예: 02-1234-5678" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
             </div>
 
-            {/* ── 추가 메모 ── */}
+            {/* ────── 추가 메모 ────── */}
             <div style={{ marginBottom: 20 }}>
               <div style={labelStyle}><MessageCircle size={11} color="#8b5cf6" /> 추가 메모</div>
               <textarea
                 className="jebo-input"
-                placeholder="기타 방문 팁이나 추가 정보를 자유롭게 작성해주세요.  (예: 방문전 전화 확인 필수)"
+                placeholder="기타 방문 팁이나 추가 정보를 자유롭게 작성해주세요."
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
                 rows={3}
@@ -417,7 +519,6 @@ export default function JeboModal() {
                 <span style={{ fontWeight: 500, color: "#999", marginLeft: 4 }}>({imageFiles.length} / 10장)</span>
               </div>
 
-              {/* 이미지 그리드 */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
                 {imagePreviews.map((src, idx) => (
                   <div key={idx} style={{
@@ -473,7 +574,7 @@ export default function JeboModal() {
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
                   <AlertCircle size={14} color="#dc2626" style={{ flexShrink: 0, marginTop: 1 }} />
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#dc2626", lineHeight: 1.75, fontFamily: "'Noto Sans KR', sans-serif" }}>
-                    사진은 반드시 <strong>가게 내부 사진 1장</strong>과 <strong>반려동물과 함께한 사진 1장</strong>을 포함하여 <strong>최소 2장 이상</strong> 첨부하셔야 검토 후 승인이 가능합니다.
+                    사진은 반드시 <strong>가게 내부 사진 1장</strong>과 <strong>반려동물과 함께 방문한 사진 1장</strong>을 포함해 <strong>최소 2장 이상</strong> 첨부하셔야 검토 후 승인이 가능합니다.
                   </p>
                 </div>
                 <p style={{ margin: "7px 0 0 21px", fontSize: 11, color: "#ef4444", lineHeight: 1.6, fontFamily: "'Noto Sans KR', sans-serif", fontWeight: 500 }}>

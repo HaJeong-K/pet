@@ -119,14 +119,20 @@ export default function ModalPage() {
     setIsSubmitting(true);
     try {
       const userKey = getUserKey();
-      const { data, error } = await supabase.from("reports").insert([{
-        type:            "place",
-        target_id:       null,
-        place_id:        Number(placeId),
-        reporter_key:    userKey,
-        report_category: reportCategory,
-        report_reason:   reportReason.trim(),
-      }]).select();
+
+      const { data, error } = await supabase
+        .from("reports")
+        .insert([
+          {
+            type: "place",
+            target_id: String(placeId),
+            place_id: Number(placeId),
+            reporter_key: userKey,
+            report_category: reportCategory,
+            report_reason: reportReason.trim(),
+          },
+        ])
+        .select();
 
       console.log("insert 결과 data:", data);
       console.log("insert 결과 error:", JSON.stringify(error, null, 2));

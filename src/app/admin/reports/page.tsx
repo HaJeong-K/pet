@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Flag, CheckCircle, Trash2,
   AlertCircle, RefreshCw, MessageSquare, MessageCircle,
-  MapPin,
+  MapPin, X,
 } from "lucide-react";
 
 /* ── 폰트/스타일 공통 ── */
@@ -149,15 +149,61 @@ export default function AdminReportsPage() {
             place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         if (report.type === "place") {
+
+          // 장소 조회
           const { data: place } = await supabase
             .from("places")
             .select("name, address")
-            .eq("id", report.place_id)  // ← target_id 대신 place_id 사용
+            .eq("id", report.place_id)
             .single();
+
+          // 신고자 닉네임 조회
+          let reporterNickname = "—";
+
+          if (report.reporter_key) {
+
+            let reporterNickname = "—";
+
+            /* 1차: 회원 조회 */
+            let { data: user } = await supabase
+              .from("users")
+              .select("nickname")
+              .eq("auth_user_id", report.reporter_key)
+              .single();
+
+            /* 2차: 비회원 조회 */
+            if (!user) {
+              const result = await supabase
+                .from("users")
+                .select("nickname")
+                .eq("user_key", report.reporter_key)
+                .single();
+
+              user = result.data;
+            }
+
+            /* 닉네임 적용 */
+            if (user?.nickname) {
+              reporterNickname = user.nickname;
+            }
+
+            if (user?.nickname) {
+              reporterNickname = user.nickname;
+            }
+          }
+
           return {
             ...report,
-            content: "장소 신고",
-            nickname: "—",
+
+            // ★ 신고 유형 출력
+            content:
+              CATEGORY_LABEL[report.report_category] ||
+              report.report_category ||
+              "장소 신고",
+
+            // ★ 신고자 닉네임
+            nickname: reporterNickname,
+
             place_name: place?.name || "—",
             place_address: place?.address || "—",
           };
@@ -202,15 +248,61 @@ export default function AdminReportsPage() {
           return { ...report, content: reply.content, nickname: reply.nickname, place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         if (report.type === "place") {
+
+          // 장소 조회
           const { data: place } = await supabase
             .from("places")
             .select("name, address")
-            .eq("id", report.place_id)  // ← target_id 대신 place_id 사용
+            .eq("id", report.place_id)
             .single();
+
+          // 신고자 닉네임 조회
+          let reporterNickname = "—";
+
+          if (report.reporter_key) {
+
+            let reporterNickname = "—";
+
+            /* 1차: 회원 조회 */
+            let { data: user } = await supabase
+              .from("users")
+              .select("nickname")
+              .eq("auth_user_id", report.reporter_key)
+              .single();
+
+            /* 2차: 비회원 조회 */
+            if (!user) {
+              const result = await supabase
+                .from("users")
+                .select("nickname")
+                .eq("user_key", report.reporter_key)
+                .single();
+
+              user = result.data;
+            }
+
+            /* 닉네임 적용 */
+            if (user?.nickname) {
+              reporterNickname = user.nickname;
+            }
+
+            if (user?.nickname) {
+              reporterNickname = user.nickname;
+            }
+          }
+
           return {
             ...report,
-            content: "장소 신고",
-            nickname: "—",
+
+            // ★ 신고 유형 출력
+            content:
+              CATEGORY_LABEL[report.report_category] ||
+              report.report_category ||
+              "장소 신고",
+
+            // ★ 신고자 닉네임
+            nickname: reporterNickname,
+
             place_name: place?.name || "—",
             place_address: place?.address || "—",
           };
@@ -254,6 +346,58 @@ export default function AdminReportsPage() {
     }
   };
 
+  const handleAdminDeletePlace = async (placeId: string | number) => {
+    if (!confirm(
+      `이 장소를 완전히 삭제하시겠습니까?\n\n` +
+      `⚠️ 댓글·답글·이미지·반응 데이터가\n` +
+      `모두 삭제되며 복구가 불가능합니다.`
+    )) return;
+
+    try {
+      // 현재 세션에서 access_token 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      const res = await fetch("/api/admin/delete-place", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ placeId: Number(placeId) }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("API 오류:", data);
+        alert(`삭제 실패: ${data.error || "알 수 없는 오류"}`);
+        return;
+      }
+
+      // ── UI 업데이트: 이 장소 관련 신고 제거
+      const removed = reports.filter(
+        (r) => String(r.place_id) === String(placeId)
+      );
+      setReports((prev) =>
+        prev.filter((r) => String(r.place_id) !== String(placeId))
+      );
+      setResolvedReports((prev) => [
+        ...removed.map((r) => ({ ...r, is_resolved: true })),
+        ...prev,
+      ]);
+
+      alert("장소가 완전히 삭제되었습니다.");
+
+    } catch (err: any) {
+      console.error("장소 삭제 중 예외:", err);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
   /* ── 보류 처리 ── */
   const handleResolve = async (reportId: number) => {
     await supabase.from("reports").update({ is_resolved: true }).eq("id", reportId);
@@ -264,6 +408,26 @@ export default function AdminReportsPage() {
       setReports((prev) => prev.filter((r) => r.id !== reportId));
       setResolvedReports((prev) => [{ ...moved, is_resolved: true }, ...prev]);
     }
+  };
+
+  const handleDeleteResolved = async (reportId: number) => {
+    if (!confirm("해당 신고 기록을 완전히 삭제하시겠습니까?")) return;
+
+    const { error } = await supabase
+      .from("reports")
+      .delete()
+      .eq("id", reportId);
+
+    if (error) {
+      alert("삭제 실패");
+      console.error(error);
+      return;
+    }
+
+    // 화면에서도 즉시 제거
+    setResolvedReports((prev) =>
+      prev.filter((r) => r.id !== reportId)
+    );
   };
 
   if (isChecking) {
@@ -459,9 +623,36 @@ export default function AdminReportsPage() {
                         )}
                       </div>
 
-                      <span style={{ fontSize:10, color:"#aaa", whiteSpace:"nowrap", flexShrink:0 }}>
-                        {formatDate(report.created_at)}
-                      </span>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{
+                          fontSize:10,
+                          color:"#aaa",
+                          whiteSpace:"nowrap",
+                          flexShrink:0
+                        }}>
+                          {formatDate(report.created_at)}
+                        </span>
+
+                        {activeFilter === "done" && (
+                          <button
+                            onClick={() => handleDeleteResolved(report.id)}
+                            style={{
+                              width:20,
+                              height:20,
+                              border:"none",
+                              borderRadius:"50%",
+                              background:"#f3f4f6",
+                              cursor:"pointer",
+                              display:"flex",
+                              alignItems:"center",
+                              justifyContent:"center",
+                              padding:0,
+                            }}
+                          >
+                            <X size={11} color="#888" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ padding:"12px 14px" }}>
@@ -506,36 +697,60 @@ export default function AdminReportsPage() {
 
                       {/* 액션 버튼 (미처리만) */}
                       {activeFilter === "pending" && (
-                        <div style={{ display:"flex", gap:7 }}>
+                        <div style={{ display: "flex", gap: 7 }}>
+                          {/* 보류 버튼 */}
                           <button
                             className="action-btn ggk-body"
                             onClick={() => handleResolve(report.id)}
                             style={{
-                              flex:1, padding:"10px 12px", borderRadius:11,
-                              border:"1px solid #e8eaed", background:"white",
-                              color:"#555", fontWeight:700, cursor:"pointer", fontSize:12,
-                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                              fontFamily:"'Noto Sans KR', sans-serif",
+                              flex: 1, padding: "10px 12px", borderRadius: 11,
+                              border: "1px solid #e8eaed", background: "white",
+                              color: "#555", fontWeight: 700, cursor: "pointer", fontSize: 12,
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                              fontFamily: "'Noto Sans KR', sans-serif",
                             }}
                           >
                             <CheckCircle size={14} color="#22c55e" />
-                            처리완료 (보류)
+                            보류
                           </button>
+
+                          {/* 댓글·답글 신고 → 내용 삭제 */}
                           {report.type !== "place" && (
                             <button
                               className="action-btn ggk-body"
                               onClick={() => handleAdminDelete(report.type, report.target_id, report.id)}
                               style={{
-                                flex:1, padding:"10px 12px", borderRadius:11,
-                                border:"none", background:"linear-gradient(135deg, #ef4444, #dc2626)",
-                                color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
-                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                                boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
-                                fontFamily:"'Noto Sans KR', sans-serif",
+                                flex: 1, padding: "10px 12px", borderRadius: 11,
+                                border: "none",
+                                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                                color: "white", fontWeight: 700, cursor: "pointer", fontSize: 12,
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                                boxShadow: "0 2px 8px rgba(239,68,68,0.30)",
+                                fontFamily: "'Noto Sans KR', sans-serif",
                               }}
                             >
                               <Trash2 size={13} />
                               내용 삭제
+                            </button>
+                          )}
+
+                          {/* 장소 신고 → 장소 완전 삭제 */}
+                          {report.type === "place" && (
+                            <button
+                              className="action-btn ggk-body"
+                              onClick={() => handleAdminDeletePlace(report.place_id)}
+                              style={{
+                                flex: 1, padding: "10px 12px", borderRadius: 11,
+                                border: "none",
+                                background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
+                                color: "white", fontWeight: 700, cursor: "pointer", fontSize: 12,
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                                boxShadow: "0 2px 8px rgba(109,40,217,0.30)",
+                                fontFamily: "'Noto Sans KR', sans-serif",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                              장소 삭제
                             </button>
                           )}
                         </div>

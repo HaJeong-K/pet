@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
+import { AuthProvider } from "@/lib/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +25,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" async />
+        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" defer />
+        <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KEY&autoload=false" defer />
       </head>
       <body
         style={{
@@ -32,10 +34,12 @@ export default function RootLayout({
           overflow: "hidden",
         }}
       >
+      <AuthProvider>
         <AuthGuard />
         {children}
         {modal}
         <TabBar />
+      </AuthProvider>
       </body>
     </html>
   );

@@ -21,6 +21,11 @@ const FONT_STYLE = `
 
 const adjectives = ["행복한","귀여운","용감한","졸린","말랑한","똑똑한","신난","배고픈"];
 const animals    = ["강아지","고양이","햄스터","토끼","리트리버","푸들","치와와","코기"];
+const PET_ZONE_LABEL: Record<string, string> = {
+  indoor:  "실내 가능",
+  terrace: "테라스 가능",
+  both:    "실내외 모두 가능",
+};
 
 const profileColors = [
   "#FF6B6B","#F06595","#CC5DE8","#845EF7","#5C7CFA","#339AF0","#22B8CF","#20C997",
@@ -280,9 +285,13 @@ export default function PlaceDetail() {
   useEffect(() => {
     const fetchData = async () => {
       if (!placeId) return;
-      const { data: placeData } = await supabase.from("places").select("*").eq("id", placeId).single();
+      const [{ data: placeData }] = await Promise.all([
+        supabase.from("places").select("*").eq("id", placeId).single(),
+        fetchReviews(),
+        fetchReplies(),
+        fetchGalleryImages(),
+      ]);
       setPlace(placeData);
-      await Promise.all([fetchReviews(), fetchReplies(), fetchGalleryImages()]);
       const userKey = getUserKey();
       const currentSession = (await supabase.auth.getSession()).data.session;
       const reactionsKey = currentSession?.user?.id ?? userKey;
@@ -587,7 +596,7 @@ export default function PlaceDetail() {
             </div>
             <div style={{ padding:"10px 12px" }}>
               <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}><LandPlot size={10} />동반 가능 범위</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.pet_zone || "—"}</div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{PET_ZONE_LABEL[place.pet_zone] || place.pet_zone || "—"}</div>
             </div>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
@@ -911,7 +920,21 @@ export default function PlaceDetail() {
                   disabled={!reportCategory||!reportReason.trim()}
                   onClick={async () => {
                     const userKey = getUserKey();
-                    const { error } = await supabase.from("reports").insert([{ type:reportTargetType, target_id:reportTargetId, reporter_key:userKey, report_category:reportCategory, report_reason:reportReason }]);
+                    const { error } = await supabase
+                      .from("reports")
+                      .insert([
+                        {
+                          type: reportTargetType,
+                          target_id: reportTargetId,
+                          reporter_key: userKey,
+
+                          // 시스템 신고 유형
+                          reason: reportCategory,
+
+                          // 유저 상세 입력
+                          report_reason: reportReason,
+                        },
+                      ]);
                     if (error) { console.error("신고 오류:", JSON.stringify(error, null, 2)); return; }
                     alert("신고가 정상적으로 접수되었습니다.");
                     setReportingId(null); setReportingReplyId(null); setReportCategory(""); setReportReason("");

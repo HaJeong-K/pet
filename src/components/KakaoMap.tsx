@@ -4,18 +4,9 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
-  LocateFixed,
-  Share,
-  MapPin,
-  MapPinPlus,
-  Pencil,
-  ZoomIn,
-  ZoomOut,
-  Link,
-  Upload,
-  MessageCircle,
-  PawPrint,
-  X,
+  LocateFixed, Share, MapPin, MapPinPlus, Pencil,
+  ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
+  Search,
 } from "lucide-react";
 
 declare global {
@@ -37,6 +28,31 @@ const PET_ZONE_LABEL: Record<string, string> = {
   both: "실내외 가능",
 };
 
+const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
+      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
+    );
+    const data = await res.json();
+    const region = data.documents?.[0];
+    if (region) return region.region_2depth_name || "";
+  } catch {}
+  return "";
+};
+
 export default function KakaoMap() {
   const router = useRouter();
   const pathname = usePathname();
@@ -48,17 +64,24 @@ export default function KakaoMap() {
 
   const [wideView, setWideView] = useState(false);
   const savedLevelRef = useRef<number>(4);
-  const markersRef = useRef<any[]>([]);
 
-  const getActiveTab = () => {
-    if (pathname === "/" || pathname === "") return "map";
-    if (pathname.startsWith("/community")) return "community";
-    if (pathname.startsWith("/admin/reports")) return "reports";
-    if (pathname.startsWith("/admin/tips")) return "tips";
-    if (pathname.startsWith("/mypage")) return "mypage";
-    if (pathname.startsWith("/login")) return "login";
-    return "map";
-  };
+  // ── 마커: Map 객체로 관리 (증분 업데이트)
+  const markerMapRef = useRef<Map<number, any>>(new Map());
+  // ── 현위치 오버레이
+  const locationOverlayRef = useRef<any>(null);
+
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [userRegion, setUserRegion] = useState<string>("");
+
+  // ── 검색: 입력값 / 디바운스값 분리
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // 300ms 디바운스
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const createUserProfile = async (user: any) => {
     if (!user) return;
@@ -121,56 +144,140 @@ export default function KakaoMap() {
     fontFamily: "'Noto Sans KR', sans-serif",
   });
 
+  // ── 초기 데이터 로드
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const init = async () => {
+      const [{ data: { session } }, { data: placesData }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.from("places").select("id, name, lat, lng, pet_zone, address, image_url, created_at"),
+      ]);
       setSession(session);
+      setPlaces(placesData || []);
       if (session?.user) await createUserProfile(session.user);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        // console.log 제거
+      if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
+        (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
-    );
-
-    if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
-      (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
-    }
+    };
+    init();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {});
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── 저장된 위치 불러오기 / 현위치 자동 취득
   useEffect(() => {
-    const fetchPlaces = async () => {
-      const { data, error } = await supabase
-        .from("places")
-        .select("id, name, lat, lng, pet_zone, address, image_url, created_at");
-      if (error) { console.error(error); return; }
-      setPlaces(data || []);
-    };
-    fetchPlaces();
-  }, [session]);
+    const savedLat    = localStorage.getItem("user_lat");
+    const savedLng    = localStorage.getItem("user_lng");
+    const savedRegion = localStorage.getItem("user_region");
+
+    if (savedLat && savedLng && savedRegion) {
+      const lat = parseFloat(savedLat);
+      const lng = parseFloat(savedLng);
+      setUserLocation({ lat, lng });
+      setUserRegion(savedRegion);
+      if (mapRef.current) {
+        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
+      }
+    } else {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          const region = await reverseGeocode(latitude, longitude);
+          setUserRegion(region);
+          localStorage.setItem("user_lat", String(latitude));
+          localStorage.setItem("user_lng", String(longitude));
+          localStorage.setItem("user_region", region);
+          if (mapRef.current) {
+            mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
+          }
+        },
+        () => {}
+      );
+    }
+  }, [mapReady]);
+
+  // ── 현위치 파란 점 오버레이
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !userLocation || !window.kakao?.maps) return;
+
+    // 기존 오버레이 제거
+    if (locationOverlayRef.current) {
+      locationOverlayRef.current.setMap(null);
+    }
+
+    const position = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+    const overlay = new window.kakao.maps.CustomOverlay({
+      position,
+      content: `
+        <div style="position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+          <div style="
+            position:absolute;
+            width:36px;height:36px;border-radius:50%;
+            background:rgba(37,99,235,0.18);
+            animation:locationPulse 2s ease-out infinite;
+          "></div>
+          <div style="
+            position:relative;
+            width:14px;height:14px;border-radius:50%;
+            background:#2563eb;
+            border:2.5px solid white;
+            box-shadow:0 2px 8px rgba(37,99,235,0.5);
+            z-index:1;
+          "></div>
+        </div>
+      `,
+      yAnchor: 0.5,
+      xAnchor: 0.5,
+      zIndex: 10,
+    });
+
+    overlay.setMap(mapRef.current);
+    locationOverlayRef.current = overlay;
+  }, [userLocation, mapReady]);
 
   const hasOpenedRef = useRef(false);
-  // ── 공유 링크로 진입 시 자동 팝업 오픈
   useEffect(() => {
     const placeId = searchParams.get("placeId");
     if (!placeId || places.length === 0) return;
-    if (hasOpenedRef.current) return;  // 이미 열었으면 스킵
-
+    if (hasOpenedRef.current) return;
     const found = places.find((p) => String(p.id) === placeId);
     if (found) {
       hasOpenedRef.current = true;
-      router.push(`/place/${placeId}`);  // ← 모달로 오픈
+      router.push(`/place/${placeId}`);
     }
   }, [searchParams, places]);
 
-  const filteredPlaces = useMemo(
-    () =>
-      selectedPetZone === "all"
-        ? places
-        : places.filter((p) => p.pet_zone === selectedPetZone),
-    [places, selectedPetZone]
-  );
+  // ── filteredPlaces: debouncedSearch 사용
+  const filteredPlaces = useMemo(() => {
+    let filtered = selectedPetZone === "all"
+      ? places
+      : places.filter((p) => p.pet_zone === selectedPetZone);
 
+    if (userRegion && !debouncedSearch.trim()) {
+      filtered = filtered.filter((p) => p.address?.includes(userRegion));
+    }
+
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name?.toLowerCase().includes(q) ||
+        p.address?.toLowerCase().includes(q)
+      );
+    }
+
+    if (userLocation) {
+      filtered = [...filtered].sort((a, b) => {
+        const distA = getDistance(userLocation.lat, userLocation.lng, parseFloat(a.lat), parseFloat(a.lng));
+        const distB = getDistance(userLocation.lat, userLocation.lng, parseFloat(b.lat), parseFloat(b.lng));
+        return distA - distB;
+      });
+    }
+
+    return filtered;
+  }, [places, selectedPetZone, userLocation, userRegion, debouncedSearch]);
+
+  // ── 지도 초기화
   useEffect(() => {
     window.selectPlace = (id: number) => selectPlaceRef.current(id);
     const initializeMap = () => {
@@ -185,36 +292,48 @@ export default function KakaoMap() {
       mapRef.current.setZoomable(true);
       setMapReady(true);
     };
-    if (window.kakao && window.kakao.maps) { initializeMap(); return; }
-    const script = document.createElement("script");
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`;
-    script.async = true;
-    document.head.appendChild(script);
-    script.onload = () => { window.kakao.maps.load(() => { initializeMap(); }); };
+    if (window.kakao && window.kakao.maps) {
+      window.kakao.maps.load(() => { initializeMap(); });
+    } else {
+      const script = document.createElement("script");
+      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`;
+      script.async = true;
+      document.head.appendChild(script);
+      script.onload = () => { window.kakao.maps.load(() => { initializeMap(); }); };
+    }
   }, []);
 
+  // ── 마커 증분 업데이트 (변경된 것만 추가/제거)
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
     const map = mapRef.current;
 
-    markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
+    const nextIds = new Set(filteredPlaces.map((p) => p.id));
 
+    // 사라진 마커만 제거
+    markerMapRef.current.forEach((overlay, id) => {
+      if (!nextIds.has(id)) {
+        overlay.setMap(null);
+        markerMapRef.current.delete(id);
+      }
+    });
+
+    // 새로 생긴 마커만 추가
     filteredPlaces.forEach((place) => {
+      if (markerMapRef.current.has(place.id)) return; // 이미 있으면 스킵
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
       if (isNaN(lat) || isNaN(lng)) return;
 
-      const position = new window.kakao.maps.LatLng(lat, lng);
       const emoji = PET_ZONE_EMOJI[place.pet_zone] || "🐾";
       const overlay = new window.kakao.maps.CustomOverlay({
-        position,
+        position: new window.kakao.maps.LatLng(lat, lng),
         content: `<div onclick="window.selectPlace(${place.id})" style="background:white;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:600;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.13);cursor:pointer;white-space:nowrap;user-select:none;border:1px solid rgba(0,0,0,0.06);">${emoji} ${place.name}</div>`,
         yAnchor: 1,
         zIndex: 3,
       });
       overlay.setMap(map);
-      markersRef.current.push(overlay);
+      markerMapRef.current.set(place.id, overlay);
     });
   }, [filteredPlaces, mapReady]);
 
@@ -225,10 +344,16 @@ export default function KakaoMap() {
     }
     if (!mapRef.current) return;
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const { latitude, longitude } = pos.coords;
         mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
         mapRef.current.setLevel(3);
+        setUserLocation({ lat: latitude, lng: longitude });
+        const region = await reverseGeocode(latitude, longitude);
+        setUserRegion(region);
+        localStorage.setItem("user_lat", String(latitude));
+        localStorage.setItem("user_lng", String(longitude));
+        localStorage.setItem("user_region", region);
       },
       () => { alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요."); }
     );
@@ -280,7 +405,6 @@ export default function KakaoMap() {
 
   return (
     <>
-      {/* ── 폰트 로드 */}
       <style>{`
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
@@ -293,13 +417,20 @@ export default function KakaoMap() {
           100% { transform: scale(1); }
         }
         .tab-item:active { animation: tabPop 0.18s ease; }
+
+        /* ── 현위치 파동 애니메이션 */
+        @keyframes locationPulse {
+          0%   { transform: scale(0.8); opacity: 0.9; }
+          70%  { transform: scale(2.4); opacity: 0; }
+          100% { transform: scale(0.8); opacity: 0; }
+        }
       `}</style>
 
-      {/* ── 지도 영역 (가장 아래 레이어) */}
+      {/* ── 지도 영역 */}
       <div style={{ position: "fixed", inset: 0, width: "100%", height: "100vh", zIndex: 0 }}>
         <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 
-        {/* 이 지역 더보기 버튼 */}
+        {/* 넓게 둘러보기 버튼 */}
         {mapReady && (
           <button
             onClick={handleWideView}
@@ -452,7 +583,7 @@ export default function KakaoMap() {
         )}
       </div>
 
-      {/* ── 플로팅 헤더 (지도 위) */}
+      {/* ── 플로팅 헤더 */}
       {!pathname.includes("login") && !pathname.includes("signup") && (
         <div
           className="ggk-body"
@@ -472,7 +603,7 @@ export default function KakaoMap() {
             justifyContent: "space-between",
           }}
         >
-          {/* ── 좌측: 로고 + 소개문구 */}
+          {/* 좌측: 로고 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
             <img
               src="/icons/header_logo_final.png"
@@ -487,7 +618,7 @@ export default function KakaoMap() {
             </div>
           </div>
 
-          {/* ── 중앙 필터 버튼 */}
+          {/* 중앙: 검색창 + 필터 */}
           <div
             style={{
               position: "absolute",
@@ -495,17 +626,52 @@ export default function KakaoMap() {
               top: "50%",
               transform: "translate(-50%, -50%)",
               display: "flex",
-              gap: "4px",
+              flexDirection: "column",
               alignItems: "center",
+              gap: "6px",
             }}
           >
-            <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
-            <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내</button>
-            <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 테라스</button>
-            <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외</button>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              background: "#f5f6f8",
+              borderRadius: "999px",
+              padding: "5px 12px",
+              width: "220px",
+              border: "1px solid #e8eaed",
+            }}>
+              <Search size={12} color="#aaa" style={{ flexShrink: 0 }} />
+              <input
+                placeholder="가게명 또는 주소 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  flex: 1, border: "none", outline: "none",
+                  fontSize: "11px", background: "transparent",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  color: "#111", minWidth: 0,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", flexShrink: 0 }}
+                >
+                  <X size={11} color="#aaa" />
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+              <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
+              <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
+              <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 테라스 가능</button>
+              <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
+            </div>
           </div>
 
-          {/* ── 우측: 신규 장소 + 제보하기 */}
+          {/* 우측: 신규 장소 + 제보하기 */}
           <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center" }}>
             <button
               onClick={() => setShowRecentPanel(!showRecentPanel)}
@@ -555,7 +721,7 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* ── 리스트 패널 (지도 위, 헤더 아래) */}
+      {/* ── 리스트 패널 */}
       <div
         className="ggk-body"
         style={{
@@ -583,11 +749,21 @@ export default function KakaoMap() {
             marginTop: "6px",
             marginBottom: "6px",
             paddingLeft: "10px",
-            paddingRight: "4px",
+            paddingRight: "8px",
             scrollbarWidth: "thin",
           }}
         >
           <div style={{ height: "8px" }} />
+          {filteredPlaces.length === 0 && (
+            <div style={{
+              textAlign: "center", padding: "30px 10px",
+              color: "#bbb", fontSize: "11px", lineHeight: 1.8,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
+            }}>
+              <Search size={22} color="#ddd" />
+              <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "주변 장소가 없습니다"}</div>
+            </div>
+          )}
           {filteredPlaces.map((place) => (
             <div key={place.id}>
               <div
@@ -607,9 +783,11 @@ export default function KakaoMap() {
                   overflow: "hidden",
                 }}
               >
+                {/* lazy loading 추가 */}
                 <img
                   src={place.image_url}
                   alt={place.name}
+                  loading="lazy"
                   style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
                 />
                 <div style={{ padding: "6px 9px" }}>
@@ -663,7 +841,6 @@ export default function KakaoMap() {
             flexDirection: "column",
           }}
         >
-          {/* 헤더 */}
           <div
             style={{
               background: "linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%)",
@@ -700,7 +877,6 @@ export default function KakaoMap() {
             </div>
           </div>
 
-          {/* 리스트 */}
           <div
             style={{
               overflowY: "auto",
