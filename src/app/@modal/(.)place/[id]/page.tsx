@@ -116,9 +116,28 @@ export default function ModalPage() {
   /* ── 신고 핸들러 ── */
   const handleReportSubmit = async () => {
     if (!reportCategory || !reportReason.trim()) return;
+
     setIsSubmitting(true);
+
     try {
       const userKey = getUserKey();
+
+      // ★ 닉네임 가져오기
+      let nickname = "익명";
+
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (sessionData.session?.user?.id) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("nickname")
+          .eq("auth_user_id", sessionData.session.user.id)
+          .maybeSingle();
+
+        if (userData?.nickname) {
+          nickname = userData.nickname;
+        }
+      }
 
       const { data, error } = await supabase
         .from("reports")
@@ -127,7 +146,12 @@ export default function ModalPage() {
             type: "place",
             target_id: String(placeId),
             place_id: Number(placeId),
+
             reporter_key: userKey,
+
+            // ★ 추가
+            nickname: nickname,
+
             report_category: reportCategory,
             report_reason: reportReason.trim(),
           },
@@ -136,15 +160,18 @@ export default function ModalPage() {
 
       console.log("insert 결과 data:", data);
       console.log("insert 결과 error:", JSON.stringify(error, null, 2));
-      console.log("insert 결과 error message:", error?.message);
-      console.log("insert 결과 error code:", error?.code);
-      console.log("insert 결과 error details:", error?.details);
-      console.log("insert 결과 error hint:", error?.hint);
-      if (error) { console.error("장소 신고 오류:", error); return; }
+
+      if (error) {
+        console.error("장소 신고 오류:", error);
+        return;
+      }
+
       alert("장소 신고가 정상적으로 접수되었습니다.\n검토 후 처리하겠습니다.");
+
       setShowReportModal(false);
       setReportCategory("");
       setReportReason("");
+
     } finally {
       setIsSubmitting(false);
     }

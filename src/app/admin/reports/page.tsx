@@ -120,9 +120,14 @@ export default function AdminReportsPage() {
             return null;
           }
 
+          const placeId = report.place_id || report.target_id;
+
           const { data: place } = await supabase
-            .from("places").select("name, address").eq("id", review.place_id).single();
-          return { ...report, content: review.content, nickname: review.nickname,
+            .from("places")
+            .select("name, address")
+            .eq("id", placeId)
+            .single();
+          return { ...report, content: review.content, nickname: report.nickname || "—",
             place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         if (report.type === "reply") {
@@ -150,59 +155,26 @@ export default function AdminReportsPage() {
         }
         if (report.type === "place") {
 
+          const placeId = report.place_id || report.target_id;
+
           // 장소 조회
           const { data: place } = await supabase
             .from("places")
             .select("name, address")
-            .eq("id", report.place_id)
+            .eq("id", placeId)
             .single();
-
-          // 신고자 닉네임 조회
-          let reporterNickname = "—";
-
-          if (report.reporter_key) {
-
-            let reporterNickname = "—";
-
-            /* 1차: 회원 조회 */
-            let { data: user } = await supabase
-              .from("users")
-              .select("nickname")
-              .eq("auth_user_id", report.reporter_key)
-              .single();
-
-            /* 2차: 비회원 조회 */
-            if (!user) {
-              const result = await supabase
-                .from("users")
-                .select("nickname")
-                .eq("user_key", report.reporter_key)
-                .single();
-
-              user = result.data;
-            }
-
-            /* 닉네임 적용 */
-            if (user?.nickname) {
-              reporterNickname = user.nickname;
-            }
-
-            if (user?.nickname) {
-              reporterNickname = user.nickname;
-            }
-          }
 
           return {
             ...report,
 
-            // ★ 신고 유형 출력
+            // 장소 신고 카테고리 표시
             content:
               CATEGORY_LABEL[report.report_category] ||
               report.report_category ||
               "장소 신고",
 
-            // ★ 신고자 닉네임
-            nickname: reporterNickname,
+            // ★ reports 테이블에 저장된 닉네임 사용
+            nickname: report.nickname || "—",
 
             place_name: place?.name || "—",
             place_address: place?.address || "—",
@@ -248,65 +220,31 @@ export default function AdminReportsPage() {
           return { ...report, content: reply.content, nickname: reply.nickname, place_name: place?.name || "—", place_address: place?.address || "—" };
         }
         if (report.type === "place") {
+            const placeId = report.place_id || report.target_id;
 
-          // 장소 조회
-          const { data: place } = await supabase
-            .from("places")
-            .select("name, address")
-            .eq("id", report.place_id)
-            .single();
-
-          // 신고자 닉네임 조회
-          let reporterNickname = "—";
-
-          if (report.reporter_key) {
-
-            let reporterNickname = "—";
-
-            /* 1차: 회원 조회 */
-            let { data: user } = await supabase
-              .from("users")
-              .select("nickname")
-              .eq("auth_user_id", report.reporter_key)
+            // 장소 조회
+            const { data: place } = await supabase
+              .from("places")
+              .select("name, address")
+              .eq("id", placeId)
               .single();
 
-            /* 2차: 비회원 조회 */
-            if (!user) {
-              const result = await supabase
-                .from("users")
-                .select("nickname")
-                .eq("user_key", report.reporter_key)
-                .single();
+            return {
+              ...report,
 
-              user = result.data;
-            }
+              // 장소 신고 카테고리 표시
+              content:
+                CATEGORY_LABEL[report.report_category] ||
+                report.report_category ||
+                "장소 신고",
 
-            /* 닉네임 적용 */
-            if (user?.nickname) {
-              reporterNickname = user.nickname;
-            }
+              // ★ reports 테이블에 저장된 닉네임 사용
+              nickname: report.nickname || "—",
 
-            if (user?.nickname) {
-              reporterNickname = user.nickname;
-            }
+              place_name: place?.name || "—",
+              place_address: place?.address || "—",
+            };
           }
-
-          return {
-            ...report,
-
-            // ★ 신고 유형 출력
-            content:
-              CATEGORY_LABEL[report.report_category] ||
-              report.report_category ||
-              "장소 신고",
-
-            // ★ 신고자 닉네임
-            nickname: reporterNickname,
-
-            place_name: place?.name || "—",
-            place_address: place?.address || "—",
-          };
-        }
         return null;
       })
     );

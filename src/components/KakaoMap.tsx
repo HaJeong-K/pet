@@ -306,35 +306,58 @@ export default function KakaoMap() {
   // ── 마커 증분 업데이트 (변경된 것만 추가/제거)
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+
     const map = mapRef.current;
 
-    const nextIds = new Set(filteredPlaces.map((p) => p.id));
-
-    // 사라진 마커만 제거
-    markerMapRef.current.forEach((overlay, id) => {
-      if (!nextIds.has(id)) {
-        overlay.setMap(null);
-        markerMapRef.current.delete(id);
-      }
+    // 기존 마커 전부 제거
+    markerMapRef.current.forEach((overlay) => {
+      overlay.setMap(null);
     });
 
-    // 새로 생긴 마커만 추가
+    markerMapRef.current.clear();
+
+    // 새 마커 다시 생성
     filteredPlaces.forEach((place) => {
-      if (markerMapRef.current.has(place.id)) return; // 이미 있으면 스킵
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
+
       if (isNaN(lat) || isNaN(lng)) return;
 
       const emoji = PET_ZONE_EMOJI[place.pet_zone] || "🐾";
+
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lat, lng),
-        content: `<div onclick="window.selectPlace(${place.id})" style="background:white;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:600;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.13);cursor:pointer;white-space:nowrap;user-select:none;border:1px solid rgba(0,0,0,0.06);">${emoji} ${place.name}</div>`,
+
+        content: `
+          <div
+            onclick="window.selectPlace(${place.id})"
+            style="
+              background:white;
+              border-radius:999px;
+              padding:5px 10px;
+              font-size:11px;
+              font-weight:600;
+              font-family:'Noto Sans KR',sans-serif;
+              box-shadow:0 2px 6px rgba(0,0,0,0.13);
+              cursor:pointer;
+              white-space:nowrap;
+              user-select:none;
+              border:1px solid rgba(0,0,0,0.06);
+            "
+          >
+            ${emoji} ${place.name}
+          </div>
+        `,
+
         yAnchor: 1,
         zIndex: 3,
       });
+
       overlay.setMap(map);
+
       markerMapRef.current.set(place.id, overlay);
     });
+
   }, [filteredPlaces, mapReady]);
 
   const moveToMyLocation = () => {
