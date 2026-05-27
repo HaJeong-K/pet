@@ -77,7 +77,7 @@ export default function CommunityWritePage() {
 
     if (!files.length) return;
 
-    const nextImages = [...images, ...files].slice(0, 5);
+    const nextImages = [...images, ...files].slice(0, 10);
 
     setImages(nextImages);
 
@@ -238,7 +238,9 @@ export default function CommunityWritePage() {
 
             nickname:
               user.user_metadata?.nickname ||
-              "익명",
+              user.user_metadata?.full_name ||
+              user.email?.split("@")[0] ||
+              "사용자",
 
             avatar_url:
               user.user_metadata?.avatar_url ||
@@ -584,7 +586,7 @@ export default function CommunityWritePage() {
                   }}
                 >
                   <ImagePlus size={16} />
-                  이미지 추가 ({images.length}/5)
+                  이미지 추가 ({images.length}/10)
                 </button>
               </div>
 

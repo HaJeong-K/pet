@@ -1191,7 +1191,7 @@ export default function MyPage() {
               </Section>
 
               <Section title="8. 개인정보 보호 책임자">
-                • <strong>책임자:</strong> 같이가개 운영팀<br/>
+                • <strong>책임자:</strong> 같이가개 관리자<br/>
                 • <strong>이메일:</strong> {ADMIN_EMAIL}<br/>
                 개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
               </Section>

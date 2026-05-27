@@ -180,7 +180,7 @@ export default function PlaceDetail() {
 
   // ── 랜덤 닉네임
   const createRandomNickname = async () => {
-    const userKey = session.user.id;
+    const userKey = getUserKey();
     let created = false;
     while (!created) {
       const randomNickname = generateRandomNickname();
