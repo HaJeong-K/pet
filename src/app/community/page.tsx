@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MessageCircle, Heart, Eye,
-  Pencil, Pin, LogIn,
+  Pencil, Pin, LogIn, X,
 } from "lucide-react";
 
 const FONT_STYLE = `
@@ -16,9 +16,21 @@ const FONT_STYLE = `
   .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
   .post-card { transition: box-shadow 0.14s ease; }
   .post-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.09) !important; }
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 999px; }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 `;
+
+const ADMIN_EMAIL = "infoker12@naver.com";
 
 const BOARDS = [
   { id: "all", label: "전체" },
@@ -89,6 +101,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   useEffect(() => {
     supabase.auth
@@ -133,9 +146,13 @@ export default function CommunityPage() {
           views,
           board_id,
           post_type,
-          image_urls
+          image_urls,
+          deleted,
+          is_admin_deleted
         `)
         .eq("is_notice", false)
+        .eq("deleted", false)
+        .eq("is_admin_deleted", false)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -186,9 +203,13 @@ export default function CommunityPage() {
             display: "flex",
             flexDirection: "column",
 
-            minHeight: "100vh",
+            height: "100vh",
 
             background: "#f0f2f5",
+
+            overflow: "hidden",
+
+            scrollbarWidth: "thin",
           }}
         >
           {/* 헤더 */}
@@ -415,6 +436,9 @@ export default function CommunityPage() {
             style={{
               flex: 1,
               padding: "10px 14px 0px",
+              overflowY: "auto",
+              overflowX: "hidden",
+              scrollbarWidth: "thin",
             }}
           >
             {loading ? (
@@ -642,74 +666,50 @@ export default function CommunityPage() {
                         style={{
                           width: "68px",
                           display: "flex",
-                          flexDirection:
-                            "column",
-                          alignItems:
-                            "center",
-                          justifyContent:
-                            "space-between",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "flex-end",
                           flexShrink: 0,
+                          gap: "8px",
                         }}
                       >
                         {/* 썸네일 */}
-                        <div
-                          style={{
-                            width: "58px",
-                            height: "58px",
-                            borderRadius:
-                              "12px",
-                            overflow:
-                              "hidden",
-                            background:
-                              "#f7f8fa",
-                            border:
-                              Array.isArray(
-                                post.image_urls
-                              ) &&
-                              post.image_urls
-                                .length > 0
-                                ? "1px solid #eee"
-                                : "none",
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            justifyContent:
-                              "center",
-                          }}
-                        >
-                          {Array.isArray(
-                            post.image_urls
-                          ) &&
-                            post.image_urls
-                              .length > 0 && (
+                        {Array.isArray(post.image_urls) &&
+                          post.image_urls.length > 0 &&
+                          post.image_urls[0] && (
+                            <div
+                              style={{
+                                width: "58px",
+                                height: "58px",
+                                borderRadius: "12px",
+                                overflow: "hidden",
+                                background: "#f7f8fa",
+                                border: "1px solid #eee",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
                               <img
-                                src={
-                                  post
-                                    .image_urls[0]
-                                }
+                                src={post.image_urls[0]}
                                 alt="thumbnail"
                                 style={{
                                   width: "100%",
-                                  height:
-                                    "100%",
-                                  objectFit:
-                                    "cover",
+                                  height: "100%",
+
+                                  objectFit: "cover",
                                 }}
                               />
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         {/* 통계 */}
                         <div
                           style={{
                             display: "flex",
-                            alignItems:
-                              "center",
+                            alignItems: "center",
                             gap: "6px",
-                            marginTop: "8px",
-                            fontSize:
-                              "10px",
+                            fontSize: "10px",
                             color: "#bbb",
                           }}
                         >
@@ -783,8 +783,8 @@ export default function CommunityPage() {
                     className="ggk-logo"
                     style={{
                       fontSize: "14px",
-                      fontWeight: 800,
-                      color: "#4b5563",
+                      fontWeight: 600,
+                      color: "#6b7280",
                       marginBottom: "8px",
                     }}
                   >
@@ -873,6 +873,101 @@ export default function CommunityPage() {
           </div>
         </div>
       </div>
+      {showPrivacy && (
+              <>
+                <div onClick={() => setShowPrivacy(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:300, backdropFilter:"blur(4px)" }} />
+                <div className="ggk-body" style={{
+                  position:"fixed", top:"50%", left:"50%",
+                  transform:"translate(-50%, -50%)",
+                  width:"min(480px, 94vw)", maxHeight:"82vh", overflowY:"auto",
+                  background:"white", borderRadius:"20px", zIndex:301,
+                  boxShadow:"0 24px 80px rgba(0,0,0,0.22)",
+                }}>
+                  {/* 모달 헤더 */}
+                  <div style={{ position:"sticky", top:0, background:"white", padding:"16px 18px 12px", borderBottom:"1px solid #f0f2f5", display:"flex", alignItems:"center", justifyContent:"space-between", zIndex:1 }}>
+                    <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>개인정보 처리방침</div>
+                    <button onClick={() => setShowPrivacy(false)} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <X size={14} color="#666" />
+                    </button>
+                  </div>
+      
+                  {/* 본문 */}
+                  <div style={{ padding:"16px 18px 24px", fontSize:12, color:"#444", lineHeight:1.8 }}>
+                    <p style={{ fontSize:11, color:"#999", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
+      
+                    <Section title="1. 개인정보의 수집 및 이용 목적">
+                      같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
+                      • 회원 가입 및 관리: 회원 식별, 서비스 이용 관리<br/>
+                      • 서비스 제공: 장소 정보 제공, 댓글·찜 기능 운영<br/>
+                      • 고객 지원: 문의 응대 및 민원 처리
+                    </Section>
+      
+                    <Section title="2. 수집하는 개인정보 항목">
+                      • <strong>필수 항목:</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br/>
+                      • <strong>소셜 로그인 시:</strong> 소셜 계정 고유 식별자, 프로필 사진(선택)<br/>
+                      • <strong>서비스 이용 시 자동 수집:</strong> 서비스 이용 기록, 접속 로그
+                    </Section>
+      
+                    <Section title="3. 개인정보의 보유 및 이용 기간">
+                      • 회원 탈퇴 시 즉시 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br/>
+                      • 전자상거래 기록: 5년 보관 (전자상거래 등에서의 소비자보호에 관한 법률)<br/>
+                      • 서비스 이용 관련 분쟁 시 분쟁 해결 시까지 보관
+                    </Section>
+      
+                    <Section title="4. 개인정보의 제3자 제공">
+                      서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.<br/>
+                      • 이용자가 사전에 동의한 경우<br/>
+                      • 법령의 규정에 의거하거나 수사 목적으로 관련 기관의 요구가 있는 경우
+                    </Section>
+      
+                    <Section title="5. 개인정보 처리 위탁">
+                      서비스는 원활한 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.<br/>
+                      • <strong>Supabase Inc.:</strong> 데이터베이스 및 인증 서비스<br/>
+                      • <strong>Vercel Inc.:</strong> 서버 호스팅 및 배포
+                    </Section>
+      
+                    <Section title="6. 이용자의 권리 및 행사 방법">
+                      이용자는 다음의 권리를 가집니다.<br/>
+                      • 개인정보 열람, 정정·삭제, 처리 정지 요청권<br/>
+                      • 위 권리 행사는 서비스 내 설정 메뉴 또는 이메일 문의를 통해 가능합니다.<br/>
+                      • 문의 이메일: <strong>{ADMIN_EMAIL}</strong>
+                    </Section>
+      
+                    <Section title="7. 쿠키(Cookie) 운용">
+                      서비스는 로그인 상태 유지 등을 위해 쿠키를 사용합니다. 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 일부 서비스 이용이 제한될 수 있습니다.
+                    </Section>
+      
+                    <Section title="8. 개인정보 보호 책임자">
+                      • <strong>책임자:</strong> 같이가개 관리자<br/>
+                      • <strong>이메일:</strong> {ADMIN_EMAIL}<br/>
+                      개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
+                    </Section>
+      
+                    <Section title="9. 개인정보 처리방침 변경">
+                      본 방침은 법령, 정책 또는 서비스 변경 사항을 반영하기 위해 수정될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 사전 안내합니다.
+                    </Section>
+      
+                    <div style={{ marginTop:16, padding:"12px 14px", background:"#f8f9fb", borderRadius:10, border:"1px solid #e8eaed" }}>
+                      <div style={{ fontSize:11, color:"#888", lineHeight:1.7 }}>
+                        본 개인정보 처리방침은 <strong>2025년 1월 1일</strong>부터 적용됩니다.<br/>
+                        문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
     </>
+  );
+}
+/* 개인정보 처리방침 섹션 컴포넌트 */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 5, fontFamily: "'Pretendard', sans-serif" }}>
+        {title}
+      </div>
+      <div style={{ fontSize: 11, color: "#555", lineHeight: 1.8 }}>{children}</div>
+    </div>
   );
 }

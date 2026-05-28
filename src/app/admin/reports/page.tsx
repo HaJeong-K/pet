@@ -56,6 +56,47 @@ const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
   inappropriate: { bg: "#fff1f2", color: "#be123c" },
 };
 
+const TYPE_BADGE: Record<
+  string,
+  { bg: string; color: string; label: string }
+> = {
+  place: {
+    bg: "#fee2e2",
+    color: "#dc2626",
+    label: "장소 신고",
+  },
+
+  review: {
+    bg: "#ffedd5",
+    color: "#ea580c",
+    label: "장소 댓글",
+  },
+
+  reply: {
+    bg: "#fff7ed",
+    color: "#f97316",
+    label: "장소 답글",
+  },
+
+  community_post: {
+    bg: "#dbeafe",
+    color: "#2563eb",
+    label: "게시글 신고",
+  },
+
+  community_comment: {
+    bg: "#dbeafe",
+    color: "#1d4ed8",
+    label: "게시글 댓글",
+  },
+
+  community_reply: {
+    bg: "#eff6ff",
+    color: "#60a5fa",
+    label: "게시글 답글",
+  },
+};
+
 const formatDate = (s: string) => {
   const d = new Date(s);
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
@@ -74,22 +115,23 @@ export default function AdminReportsPage() {
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push("/login?redirect=/admin/reports"); return; }
+      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin/reports"); return; }
       const { data: profile } = await supabase
         .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { router.push("/"); return; }
+      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
       setIsAuth(true);
       setIsChecking(false);
     };
     checkAdmin();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   useEffect(() => {
     if (isAuth) {
       fetchReports();
       fetchResolvedReports();
     }
-  }, [isAuth]);
+  }, [isAuth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── 미처리 신고 불러오기 ── */
   const fetchReports = async () => {
@@ -180,6 +222,54 @@ export default function AdminReportsPage() {
             place_address: place?.address || "—",
           };
         }
+        if (report.type === "community_post") {
+          const { data: post } = await supabase
+            .from("community_posts")
+            .select("id, title, content, nickname, board_id")
+            .eq("id", report.target_id).single();
+          if (!post) return null;
+          return {
+            ...report,
+            content: post.content,
+            nickname: post.nickname || "—",
+            post_title: post.title,
+            board_id: post.board_id,
+            place_name: null,
+            place_address: null,
+          };
+        }
+
+        if (report.type === "community_comment" || report.type === "community_reply") {
+          const { data: comment } = await supabase
+            .from("community_comments")
+            .select("id, content, nickname, post_id, parent_id, is_admin_deleted") // ★ is_admin_deleted 추가
+            .eq("id", report.target_id).single();
+          if (!comment) return null;
+
+          // ★ 이미 관리자 삭제된 댓글이면 DB 정리 후 스킵
+          if (comment.is_admin_deleted) {
+            await supabase.from("reports")
+              .update({ is_resolved: true })
+              .eq("type", report.type)
+              .eq("target_id", report.target_id);
+            return null;
+          }
+
+          const { data: post } = await supabase
+            .from("community_posts")
+            .select("id, title, board_id")
+            .eq("id", comment.post_id).single();
+          return {
+            ...report,
+            content: comment.content,
+            nickname: comment.nickname || "—",
+            post_title: post?.title || "—",
+            board_id: post?.board_id || "—",
+            post_id: comment.post_id,
+            place_name: null,
+            place_address: null,
+          };
+        }
         return null;
       })
     );
@@ -244,7 +334,41 @@ export default function AdminReportsPage() {
               place_name: place?.name || "—",
               place_address: place?.address || "—",
             };
-          }
+        }
+        if (report.type === "community_post") {
+          const { data: post } = await supabase
+            .from("community_posts")
+            .select("id, title, content, nickname, board_id")
+            .eq("id", report.target_id).single();
+          return {
+            ...report,
+            content: post?.content || "(삭제됨)",
+            nickname: post?.nickname || "—",
+            post_title: post?.title || "(삭제됨)",
+            board_id: post?.board_id || "—",
+            place_name: null,
+            place_address: null,
+          };
+        }
+
+        if (report.type === "community_comment" || report.type === "community_reply") {
+          const { data: comment } = await supabase
+            .from("community_comments")
+            .select("id, content, nickname, post_id")
+            .eq("id", report.target_id).single();
+          const { data: post } = comment
+            ? await supabase.from("community_posts").select("id, title, board_id").eq("id", comment.post_id).single()
+            : { data: null };
+          return {
+            ...report,
+            content: comment?.content || "(삭제됨)",
+            nickname: comment?.nickname || "—",
+            post_title: post?.title || "(삭제됨)",
+            board_id: post?.board_id || "—",
+            place_name: null,
+            place_address: null,
+          };
+        }
         return null;
       })
     );
@@ -282,6 +406,53 @@ export default function AdminReportsPage() {
         ...prev,
       ]);
     }
+  };
+
+  /* ── 커뮤니티 댓글/답글 삭제 ── */
+  const handleAdminDeleteCommunity = async (
+    type: "community_comment" | "community_reply",
+    targetId: string
+  ) => {
+    if (!confirm("해당 내용을 삭제하시겠습니까?")) return;
+
+    // ★ 하드 삭제 → 소프트 삭제로 변경 (장소 댓글/답글과 동일한 구조)
+    await supabase.from("community_comments").update({
+      is_admin_deleted: true,
+      content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
+    }).eq("id", targetId);
+
+    // ★ 해당 target_id의 모든 신고를 일괄 처리완료
+    await supabase.from("reports")
+      .update({ is_resolved: true })
+      .eq("type", type)
+      .eq("target_id", targetId);
+
+    const movedItems = reports.filter(r => r.target_id === targetId);
+    setReports(prev => prev.filter(r => r.target_id !== targetId));
+    setResolvedReports(prev => [
+      ...movedItems.map(r => ({ ...r, is_resolved: true })),
+      ...prev,
+    ]);
+  };
+
+  /* ── 커뮤니티 게시글 삭제 ── */
+  const handleAdminDeletePost = async (targetId: string) => {
+    if (!confirm("게시글을 삭제하시겠습니까?\n댓글도 함께 삭제됩니다.")) return;
+
+    await supabase.from("community_comments").delete().eq("post_id", targetId);
+    await supabase.from("community_posts").delete().eq("id", targetId);
+
+    await supabase.from("reports")
+      .update({ is_resolved: true })
+      .eq("type", "community_post")
+      .eq("target_id", targetId);
+
+    const movedItems = reports.filter(r => r.target_id === targetId);
+    setReports(prev => prev.filter(r => r.target_id !== targetId));
+    setResolvedReports(prev => [
+      ...movedItems.map(r => ({ ...r, is_resolved: true })),
+      ...prev,
+    ]);
   };
 
   const handleAdminDeletePlace = async (placeId: string | number) => {
@@ -513,7 +684,28 @@ export default function AdminReportsPage() {
                   <div
                     key={report.id}
                     className="report-card"
+                    onClick={() => {
+                      // 커뮤니티 이동
+                      if (
+                        report.type === "community_post" ||
+                        report.type === "community_comment" ||
+                        report.type === "community_reply"
+                      ) {
+                        router.push(`/community/${report.post_id || report.target_id}`);
+                        return;
+                      }
+
+                      // 장소 이동
+                      if (
+                        report.type === "place" ||
+                        report.type === "review" ||
+                        report.type === "reply"
+                      ) {
+                        router.push(`/place/${report.place_id}`);
+                      }
+                    }}
                     style={{
+                      cursor: "pointer",
                       background:"white",
                       borderRadius:18,
                       border:`1.5px solid ${activeFilter === "pending" ? "#fecaca" : "#e8eaed"}`,
@@ -532,18 +724,24 @@ export default function AdminReportsPage() {
                     }}>
                       <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
                         {/* 타입 뱃지 */}
-                        <span style={{
-                          fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
-                          background: report.type === "review" ? "#e0f2fe" : report.type === "reply" ? "#fef9c3" : "#f0fdf4",
-                          color:      report.type === "review" ? "#0369a1" : report.type === "reply" ? "#854d0e" : "#15803d",
-                          display:"flex", alignItems:"center", gap:3,
-                        }}>
-                          {report.type === "review"
-                            ? <><MessageSquare size={9} />댓글</>
-                            : report.type === "reply"
-                            ? <><MessageCircle size={9} />답글</>
-                            : <><Flag size={9} />장소</>}
-                        </span>
+                        {(() => {
+                          const t = TYPE_BADGE[report.type] || { bg:"#f5f6f8", color:"#666", label: report.type };
+                          return (
+                            <span style={{
+                              fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
+                              background: t.bg, color: t.color,
+                              display:"flex", alignItems:"center", gap:3,
+                            }}>
+                              {report.type === "community_post"    && <MessageSquare size={9} />}
+                              {report.type === "community_comment" && <MessageCircle size={9} />}
+                              {report.type === "community_reply"   && <MessageCircle size={9} />}
+                              {report.type === "review"            && <MessageSquare size={9} />}
+                              {report.type === "reply"             && <MessageCircle size={9} />}
+                              {report.type === "place"             && <Flag size={9} />}
+                              {t.label}
+                            </span>
+                          );
+                        })()}
 
                         {report.report_category && (
                           <span style={{
@@ -594,18 +792,26 @@ export default function AdminReportsPage() {
                     </div>
 
                     <div style={{ padding:"12px 14px" }}>
-                      {/* 장소 정보 */}
+                      {/* ✅ 장소 or 게시글 정보 */}
                       <div style={{
                         padding:"9px 12px", background:"#f8fafc", borderRadius:11,
                         border:"1px solid #e8eaed", marginBottom:10,
                         display:"flex", alignItems:"flex-start", gap:8,
                       }}>
-                        <div style={{ width:26, height:26, borderRadius:7, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
-                          <MapPin size={12} color="#8b5cf6" />
+                        <div style={{ width:26, height:26, borderRadius:7,
+                          background: report.place_name ? "#f3e8ff" : "#ede9fe",
+                          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
+                          {report.place_name
+                            ? <MapPin size={12} color="#8b5cf6" />
+                            : <MessageSquare size={12} color="#6d28d9" />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>{report.place_name}</div>
-                          <div style={{ fontSize:11, color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{report.place_address}</div>
+                          <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>
+                            {report.place_name || report.post_title || "—"}
+                          </div>
+                          <div style={{ fontSize:11, color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                            {report.place_address || (report.board_id ? `${report.board_id} 게시판` : "—")}
+                          </div>
                         </div>
                       </div>
 
@@ -614,7 +820,173 @@ export default function AdminReportsPage() {
                         <div style={{ fontSize:10, color:"#aaa", fontWeight:700, letterSpacing:"0.3px", marginBottom:4, textTransform:"uppercase" }}>신고된 내용</div>
                         <div style={{ padding:"10px 12px", background:"#fafafa", borderRadius:10, border:"1px solid #eee" }}>
                           <div style={{ fontSize:12, fontWeight:700, color:"#333", marginBottom:4 }}>{report.nickname}</div>
-                          <div style={{ fontSize:12, color:"#555", lineHeight:1.7, wordBreak:"break-word" }}>{report.content}</div>
+                          {(report.type === "community_comment" ||
+                            report.type === "community_reply") ? (
+
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "10px",
+                              }}
+                            >
+                              {/* 부모 게시글 카드 */}
+                              <div
+                                style={{
+                                  padding: "12px",
+                                  borderRadius: "12px",
+                                  background: "#f8fafc",
+                                  border: "1px solid #e5e7eb",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    color: "#888",
+                                    marginBottom: "4px",
+                                  }}
+                                >
+                                  게시글
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontSize: "14px",
+                                    fontWeight: 700,
+                                    color: "#111",
+                                    lineHeight: 1.5,
+                                    wordBreak: "break-word",
+                                  }}
+                                >
+                                  {report.post_title || "(삭제된 게시글)"}
+                                </div>
+                              </div>
+
+                              {/* 신고된 댓글/답글 */}
+                              <div
+                                style={{
+                                  padding: "12px",
+                                  borderRadius: "12px",
+                                  background: "white",
+                                  border: "1px solid #eee",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    color: "#999",
+                                    marginBottom: "5px",
+                                  }}
+                                >
+                                  신고된 내용
+                                </div>
+
+                                <div
+                                  style={{
+                                    color: "#555",
+                                    lineHeight: 1.7,
+                                    wordBreak: "break-word",
+                                    whiteSpace: "pre-wrap",
+                                  }}
+                                >
+                                  {report.content}
+                                </div>
+                              </div>
+                            </div>
+
+                          ) : (
+
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "10px",
+                              }}
+                            >
+                              {(report.type === "place" ||
+                                report.type === "review" ||
+                                report.type === "reply") && (
+
+                                <div
+                                  style={{
+                                    padding: "12px",
+                                    borderRadius: "12px",
+                                    background: "#f8fafc",
+                                    border: "1px solid #e5e7eb",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                      color: "#888",
+                                      marginBottom: "4px",
+                                    }}
+                                  >
+                                    장소
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: "14px",
+                                      fontWeight: 700,
+                                      color: "#111",
+                                      lineHeight: 1.5,
+                                      wordBreak: "break-word",
+                                      marginBottom: "4px",
+                                    }}
+                                  >
+                                    {report.place_name || "(삭제된 장소)"}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#888",
+                                      lineHeight: 1.4,
+                                      wordBreak: "break-word",
+                                    }}
+                                  >
+                                    {report.place_address || ""}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div
+                                style={{
+                                  padding: "12px",
+                                  borderRadius: "12px",
+                                  background: "white",
+                                  border: "1px solid #eee",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    color: "#999",
+                                    marginBottom: "5px",
+                                  }}
+                                >
+                                  신고된 내용
+                                </div>
+
+                                <div
+                                  style={{
+                                    color: "#555",
+                                    lineHeight: 1.7,
+                                    wordBreak: "break-word",
+                                    whiteSpace: "pre-wrap",
+                                  }}
+                                >
+                                  {report.content}
+                                </div>
+                              </div>
+                            </div>
+
+                          )}
                         </div>
                       </div>
 
@@ -633,62 +1005,70 @@ export default function AdminReportsPage() {
                         </div>
                       )}
 
-                      {/* 액션 버튼 (미처리만) */}
                       {activeFilter === "pending" && (
-                        <div style={{ display: "flex", gap: 7 }}>
-                          {/* 보류 버튼 */}
-                          <button
-                            className="action-btn ggk-body"
-                            onClick={() => handleResolve(report.id)}
-                            style={{
-                              flex: 1, padding: "10px 12px", borderRadius: 11,
-                              border: "1px solid #e8eaed", background: "white",
-                              color: "#555", fontWeight: 700, cursor: "pointer", fontSize: 12,
-                              display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                              fontFamily: "'Noto Sans KR', sans-serif",
-                            }}
-                          >
-                            <CheckCircle size={14} color="#22c55e" />
-                            보류
+                        <div style={{ display:"flex", gap:7 }}>
+                          {/* 보류 */}
+                          <button className="action-btn ggk-body" onClick={() => handleResolve(report.id)}
+                            style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"1px solid #e8eaed",
+                              background:"white", color:"#555", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              fontFamily:"'Noto Sans KR', sans-serif" }}>
+                            <CheckCircle size={14} color="#22c55e" />보류
                           </button>
 
-                          {/* 댓글·답글 신고 → 내용 삭제 */}
-                          {report.type !== "place" && (
-                            <button
-                              className="action-btn ggk-body"
+                          {/* 장소 댓글/답글 삭제 */}
+                          {(report.type === "review" || report.type === "reply") && (
+                            <button className="action-btn ggk-body"
                               onClick={() => handleAdminDelete(report.type, report.target_id, report.id)}
-                              style={{
-                                flex: 1, padding: "10px 12px", borderRadius: 11,
-                                border: "none",
-                                background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                                color: "white", fontWeight: 700, cursor: "pointer", fontSize: 12,
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                                boxShadow: "0 2px 8px rgba(239,68,68,0.30)",
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                              }}
-                            >
-                              <Trash2 size={13} />
-                              내용 삭제
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
+                                background:"linear-gradient(135deg,#ef4444,#dc2626)", color:"white",
+                                fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
+                                fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Trash2 size={13} />내용 삭제
                             </button>
                           )}
 
-                          {/* 장소 신고 → 장소 완전 삭제 */}
+                          {/* 장소 삭제 */}
                           {report.type === "place" && (
-                            <button
-                              className="action-btn ggk-body"
+                            <button className="action-btn ggk-body"
                               onClick={() => handleAdminDeletePlace(report.place_id)}
-                              style={{
-                                flex: 1, padding: "10px 12px", borderRadius: 11,
-                                border: "none",
-                                background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                                color: "white", fontWeight: 700, cursor: "pointer", fontSize: 12,
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                                boxShadow: "0 2px 8px rgba(109,40,217,0.30)",
-                                fontFamily: "'Noto Sans KR', sans-serif",
-                              }}
-                            >
-                              <Trash2 size={13} />
-                              장소 삭제
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
+                                background:"linear-gradient(135deg,#7c3aed,#6d28d9)", color:"white",
+                                fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                boxShadow:"0 2px 8px rgba(109,40,217,0.30)",
+                                fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Trash2 size={13} />장소 삭제
+                            </button>
+                          )}
+
+                          {/* 커뮤니티 댓글/답글 삭제 */}
+                          {(report.type === "community_comment" || report.type === "community_reply") && (
+                            <button className="action-btn ggk-body"
+                              onClick={() => handleAdminDeleteCommunity(report.type, report.target_id)}
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
+                                background:"linear-gradient(135deg,#ef4444,#dc2626)", color:"white",
+                                fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
+                                fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Trash2 size={13} />내용 삭제
+                            </button>
+                          )}
+
+                          {/* 커뮤니티 게시글 삭제 */}
+                          {report.type === "community_post" && (
+                            <button className="action-btn ggk-body"
+                              onClick={() => handleAdminDeletePost(report.target_id)}
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
+                                background:"linear-gradient(135deg,#7c3aed,#6d28d9)", color:"white",
+                                fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                boxShadow:"0 2px 8px rgba(109,40,217,0.30)",
+                                fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Trash2 size={13} />게시글 삭제
                             </button>
                           )}
                         </div>

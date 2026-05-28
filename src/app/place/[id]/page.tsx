@@ -469,12 +469,45 @@ export default function PlaceDetail() {
 
   const handleReplyDelete = async (replyId: string) => {
     const reply = replies.find((r) => r.id === replyId);
+
     if (!reply) return;
-    if (!isLoggedIn && reply.password && reply.password !== deleteReplyPassword) { alert("비밀번호가 일치하지 않습니다."); return; }
-    const { error } = await supabase.from("review_replies").delete().eq("id", replyId);
-    if (error) { console.error(error); return; }
-    setReplies((prev) => prev.filter((r) => r.id !== replyId));
-    setDeletingReplyId(null); setDeleteReplyPassword("");
+
+    if (
+      !isLoggedIn &&
+      reply.password &&
+      reply.password !== deleteReplyPassword
+    ) {
+      alert("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("review_replies")
+      .update({
+        deleted: true,
+        content: "삭제된 답글입니다.",
+      })
+      .eq("id", replyId);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setReplies((prev) =>
+      prev.map((r) =>
+        r.id === replyId
+          ? {
+              ...r,
+              deleted: true,
+              content: "삭제된 답글입니다.",
+            }
+          : r
+      )
+    );
+
+    setDeletingReplyId(null);
+    setDeleteReplyPassword("");
   };
 
   const handleBookmark = async () => {
@@ -815,7 +848,7 @@ export default function PlaceDetail() {
                           {isOwnerReply(reply) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                         </div>
                         <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
-                          {!reply.is_admin_deleted && (
+                          {!reply.deleted && !reply.is_admin_deleted && (
                             <button onClick={() => { closeAll(); setOpenedReplyMenuId(openedReplyMenuId===reply.id?null:reply.id); }} style={{ border:"none", background:"transparent", cursor:"pointer", padding:0 }}>
                               <MoreVertical size={13} color="#999" />
                             </button>
@@ -851,7 +884,11 @@ export default function PlaceDetail() {
                         </div>
                       ) : (
                         <div style={{ marginTop:"4px", fontSize:"11px", lineHeight:1.5, color:reply.is_admin_deleted?"#ef4444":"#333", fontStyle:reply.is_admin_deleted?"italic":"normal", opacity:reply.is_admin_deleted?0.6:1, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
-                          {reply.is_admin_deleted ? "부적절한 내용으로 관리자에 의해 삭제되었습니다." : reply.content}
+                          {reply.is_admin_deleted
+                            ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
+                            : reply.deleted
+                              ? "삭제된 답글입니다."
+                              : reply.content}
                         </div>
                       )}
 
@@ -920,19 +957,32 @@ export default function PlaceDetail() {
                   disabled={!reportCategory||!reportReason.trim()}
                   onClick={async () => {
                     const userKey = getUserKey();
+                    const targetReview =
+                      reportTargetType === "review"
+                        ? reviews.find((r) => r.id === reportTargetId)
+                        : replies.find((r) => r.id === reportTargetId);
+
                     const { error } = await supabase
                       .from("reports")
                       .insert([
                         {
                           type: reportTargetType,
-                          target_id: reportTargetId,
+
+                          target_id: String(reportTargetId),
+
+                          // 장소 상세 이동용
+                          place_id: placeId,
+
                           reporter_key: userKey,
 
-                          // 시스템 신고 유형
-                          reason: reportCategory,
+                          // 신고 유형
+                          report_category: reportCategory,
 
-                          // 유저 상세 입력
+                          // 상세 신고 사유
                           report_reason: reportReason,
+
+                          // 신고 대상 작성자
+                          nickname: targetReview?.nickname || "—",
                         },
                       ]);
                     if (error) { console.error("신고 오류:", JSON.stringify(error, null, 2)); return; }

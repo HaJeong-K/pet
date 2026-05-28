@@ -284,17 +284,20 @@ export default function MyPage() {
 
         {/* ── 중앙 콘텐츠 */}
         <div
-					style={{
-						flex: 1,
-						minWidth: 0,
-						height: "100vh",
-						overflow: "hidden",
-						background: "#f0f2f5",
-						paddingBottom: "80px",
-						display: "flex",
-						flexDirection: "column",
-					}}
-				>
+          style={{
+            flex: 1,
+            minWidth: 0,
+            height: "100vh",
+            overflowY: "auto",
+            background: "#f0f2f5",
+            paddingBottom: "80px",
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            maxWidth: "680px",
+            margin: "0 auto",
+          }}
+        >
 
           {/* ── 헤더 (설정 버튼 제거됨) */}
           <div style={{
@@ -574,15 +577,15 @@ export default function MyPage() {
 					</div>
 
 					{/* ── 리스트 영역 (여기만 스크롤) */}
-					<div
-						style={{
-							flex: 1,
-							minHeight: 0,
-							overflowY: "auto",
-							padding: "0 14px 120px",
-							scrollbarWidth: "thin",
-						}}
-					>
+          <div
+            style={{
+              minHeight: 0,
+              width: "100%",
+              padding: "0 24px 120px",
+              scrollbarWidth: "thin",
+              boxSizing: "border-box",
+            }}
+          >
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>
@@ -623,19 +626,21 @@ export default function MyPage() {
 											}}
 										>
 											<div
-												className="card-hover"
-												onClick={() => router.push(`/place/${place.id}`)}
-												style={{
-													display: "flex",
-													gap: 12,
-													padding: 12,
-													background: "white",
-													borderRadius: 18,
-													border: "1px solid #e8eaed",
-													cursor: "pointer",
-													boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
-												}}
-											>
+                        className="card-hover"
+                        onClick={() => router.push(`/place/${place.id}`)}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          gap: 12,
+                          padding: 12,
+                          background: "white",
+                          borderRadius: 18,
+                          border: "1px solid #e8eaed",
+                          cursor: "pointer",
+                          boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                          boxSizing: "border-box",
+                        }}
+                      >
 												<img
 													src={place.image_url}
 													alt={place.name}
@@ -865,7 +870,7 @@ export default function MyPage() {
             </div>
           </div>
 
-        </div>{/* /중앙 콘텐츠 */}
+        </div>
 
         {/* ── 우측 광고 바 */}
         <div style={{
