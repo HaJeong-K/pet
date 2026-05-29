@@ -55,9 +55,14 @@ export default function MyPage() {
   const [myReviews, setMyReviews]       = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<"bookmarks"|"reviews">("bookmarks");
   const [loading, setLoading]           = useState(true);
+  const [myCommunityComments, setMyCommunityComments] = useState<any[]>([]); // 커뮤니티 댓글
+  const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
   const [showSettings, setShowSettings] = useState(false);
   const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw">("menu");
+  const [bookmarkPage, setBookmarkPage] = useState(1);
+  const [reviewPage, setReviewPage]     = useState(1);
+  const PAGE_SIZE = 10;
 
   const [newNickname, setNewNickname]   = useState("");
   const [nickMsg, setNickMsg]           = useState<{ok:boolean;text:string}|null>(null);
@@ -92,23 +97,34 @@ export default function MyPage() {
       { data: profile },
       { data: bookmarkReactions },
       { data: reviews },
+      { data: reviewReplies },
+      { data: communityComments },
     ] = await Promise.all([
       supabase.from("users").select("*").eq("auth_user_id", uid).single(),
-      // ✅ auth_user_id 하나로만 조회 (북마크 insert 시 user_key 대신 auth_user_id 저장하도록 통일 필요)
       supabase.from("reactions")
         .select("place_id")
-        .eq("user_key", uid)  // 또는 통일된 키
+        .eq("user_key", uid)
         .eq("type", "bookmark"),
       supabase.from("reviews")
-        .select("id, content, created_at, likes, place_id, places(name)")
-        // ✅ select("*") 대신 필요한 컬럼만
+        .select("id, content, created_at, likes, place_id, places(name, address, image_url)")
+        .eq("auth_user_id", uid)
+        .eq("deleted", false)
+        .order("created_at", { ascending: false }),
+      supabase.from("review_replies")
+        .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url))")
+        .eq("auth_user_id", uid)
+        .eq("deleted", false)
+        .order("created_at", { ascending: false }),
+      supabase.from("community_comments")
+        .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
         .eq("auth_user_id", uid)
         .eq("deleted", false)
         .order("created_at", { ascending: false }),
     ]);
-
     setUserProfile(profile);
     setMyReviews(reviews || []);
+    setMyReviewReplies(reviewReplies || []);
+    setMyCommunityComments(communityComments || []);
 
     const ids = (bookmarkReactions || []).map((x: any) => x.place_id);
     if (ids.length > 0) {
@@ -216,6 +232,25 @@ export default function MyPage() {
 
   const isOAuthUser = session?.user?.app_metadata?.provider !== "email";
 
+  // 찜한 장소 페이지네이션
+  const bookmarkTotalPages = Math.ceil(bookmarks.length / PAGE_SIZE);
+  const pagedBookmarks = bookmarks.slice((bookmarkPage - 1) * PAGE_SIZE, bookmarkPage * PAGE_SIZE);
+
+  // 댓글 페이지네이션 (장소+커뮤니티 합산)
+  const allReviews = [
+    ...myReviews.map(r => ({ ...r, _type: "place" as const, _subtype: "comment" as const })),
+    ...myReviewReplies.map(r => ({
+      ...r,
+      _type: "place" as const,
+      _subtype: "reply" as const,
+      place_id: r.reviews?.place_id,
+      places: r.reviews?.places,
+    })),
+    ...myCommunityComments.filter(c => !c.parent_id).map(c => ({ ...c, _type: "community" as const, _subtype: "comment" as const })),
+    ...myCommunityComments.filter(c => !!c.parent_id).map(c => ({ ...c, _type: "community" as const, _subtype: "reply" as const })),
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const reviewTotalPages = Math.ceil(allReviews.length / PAGE_SIZE);
+  const pagedReviews = allReviews.slice((reviewPage - 1) * PAGE_SIZE, reviewPage * PAGE_SIZE);
 
   return (
     <>
@@ -232,23 +267,21 @@ export default function MyPage() {
       `}</style>
 
       {/* ── 3단 레이아웃 전체 래퍼 */}
-      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background:"#e8eaed", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
+      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background: "#f0f2f5", justifyContent: "center", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
 
         {/* ── 좌측 광고 바 */}
         <div style={{
           width: "160px",
           flexShrink: 0,
+          alignSelf: "flex-start",  
           position: "sticky",
           top: 0,
-          height: "100vh",
-          background: "#f0f1f3",
-          borderRight: "1px solid #e2e4e8",
+          paddingTop: "60px",  
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
           gap: "12px",
-          padding: "20px 12px",
+          padding: "60px 12px 20px",
         }}>
           {/* 광고 슬롯 1 */}
           <div style={{
@@ -283,21 +316,16 @@ export default function MyPage() {
         </div>
 
         {/* ── 중앙 콘텐츠 */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: "100vh",
-            overflowY: "auto",
-            background: "#f0f2f5",
-            paddingBottom: "80px",
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
-            maxWidth: "680px",
-            margin: "0 auto",
-          }}
-        >
+        <div style={{
+          width: "100%",
+          maxWidth: "680px",   
+          flexShrink: 0,   
+          height: "100vh",
+          overflow: "hidden", 
+          background: "#f0f2f5",
+          display: "flex",
+          flexDirection: "column",
+        }}>
 
           {/* ── 헤더 (설정 버튼 제거됨) */}
           <div style={{
@@ -442,150 +470,91 @@ export default function MyPage() {
 							}}
 						>
 							{/* 찜한 장소 */}
-							<button
-								onClick={() => setActiveSection("bookmarks")}
-								style={{
-									padding: "18px 16px",
-									borderRadius: 22,
-									border: "1px solid #e8eaed",
-									background: "white",
-									textAlign: "left",
-									cursor: "pointer",
-									boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-									transition: "all 0.18s ease",
-								}}
-							>
-								<div
-									style={{
-										width: 42,
-										height: 42,
-										borderRadius: 14,
-										background: "#f3e8ff",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										marginBottom: 14,
-									}}
-								>
-									<Heart
-										size={18}
-										color="#8b5cf6"
-										fill="#8b5cf6"
-									/>
-								</div>
+              <button
+                onClick={() => setActiveSection("bookmarks")}
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: 22,
+                  border: activeSection === "bookmarks" ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
+                  background: "white",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+                  transition: "all 0.18s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 14,
+                  background: "#f3e8ff", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Heart size={18} color="#8b5cf6" fill="#8b5cf6" />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#333", lineHeight: 1 }}>
+                      찜한 장소
+                    </span>
+                    <span className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#111", lineHeight: 1 }}>
+                      {bookmarks.length}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#999" }}>저장한 장소 확인하기</div>
+                </div>
+              </button>
 
-								<div
-									className="ggk-logo"
-									style={{
-										fontSize: 30,
-										fontWeight: 800,
-										lineHeight: 1,
-										color: "#111",
-									}}
-								>
-									{bookmarks.length}
-								</div>
-
-								<div
-									style={{
-										marginTop: 8,
-										fontSize: 14,
-										fontWeight: 700,
-										color: "#333",
-									}}
-								>
-									찜한 장소
-								</div>
-
-								<div
-									style={{
-										marginTop: 4,
-										fontSize: 11,
-										color: "#999",
-									}}
-								>
-									저장한 장소 확인하기
-								</div>
-							</button>
-
-							{/* 작성 댓글 */}
-							<button
-								onClick={() => setActiveSection("reviews")}
-								style={{
-									padding: "18px 16px",
-									borderRadius: 22,
-									border: "1px solid #e8eaed",
-									background: "white",
-									textAlign: "left",
-									cursor: "pointer",
-									boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-									transition: "all 0.18s ease",
-								}}
-							>
-								<div
-									style={{
-										width: 42,
-										height: 42,
-										borderRadius: 14,
-										background: "#f3e8ff",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										marginBottom: 14,
-									}}
-								>
-									<MessageCircle
-										size={18}
-										color="#8b5cf6"
-									/>
-								</div>
-
-								<div
-									className="ggk-logo"
-									style={{
-										fontSize: 30,
-										fontWeight: 800,
-										lineHeight: 1,
-										color: "#111",
-									}}
-								>
-									{myReviews.length}
-								</div>
-
-								<div
-									style={{
-										marginTop: 8,
-										fontSize: 14,
-										fontWeight: 700,
-										color: "#333",
-									}}
-								>
-									작성한 댓글
-								</div>
-
-								<div
-									style={{
-										marginTop: 4,
-										fontSize: 11,
-										color: "#999",
-									}}
-								>
-									내 활동 확인하기
-								</div>
-							</button>
+              {/* 작성 댓글 */}
+              <button
+                onClick={() => setActiveSection("reviews")}
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: 22,
+                  border: activeSection === "reviews" ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
+                  background: "white",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+                  transition: "all 0.18s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 14,
+                  background: "#f3e8ff", flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <MessageCircle size={18} color="#8b5cf6" />
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#333", lineHeight: 1 }}>
+                      작성한 댓글
+                    </span>
+                    <span className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#111", lineHeight: 1 }}>
+                      {allReviews.length}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#999" }}>내 활동 확인하기</div>
+                </div>
+              </button>
 						</div>
 					</div>
 
 					{/* ── 리스트 영역 (여기만 스크롤) */}
-          <div
-            style={{
-              minHeight: 0,
-              width: "100%",
-              padding: "0 24px 120px",
-              scrollbarWidth: "thin",
-              boxSizing: "border-box",
-            }}
-          >
+          <div style={{
+            flex: 1,  
+            minHeight: 0, 
+            overflowY: "auto", 
+            width: "100%",
+            padding: "0 14px 0", 
+            scrollbarWidth: "thin",
+            boxSizing: "border-box",
+          }}>
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>
@@ -617,7 +586,7 @@ export default function MyPage() {
 										</div>
 									</div>
 								) : (
-									bookmarks.map((place) => (
+									pagedBookmarks.map((place) => (
 										<div
 											key={place.id}
 											style={{
@@ -703,130 +672,165 @@ export default function MyPage() {
 								)}
 							</>
 						)}
+            <Pagination page={bookmarkPage} total={bookmarkTotalPages} onChange={p => { setBookmarkPage(p); }} />
 
 						{/* ── 작성한 댓글 */}
-						{activeSection === "reviews" && (
-							<>
-								{myReviews.length === 0 ? (
-									<div style={{ textAlign: "center", padding: "56px 0" }}>
-										<div
-											style={{
-												width: 56,
-												height: 56,
-												borderRadius: 18,
-												background: "#f0f2f5",
-												display: "flex",
-												alignItems: "center",
-												justifyContent: "center",
-												margin: "0 auto 12px",
-											}}
-										>
-											<MessageCircle size={22} color="#d1d5db" />
-										</div>
+            {activeSection === "reviews" && (
+              <>
+                {allReviews.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "56px 0" }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 18, background: "#f0f2f5",
+                      display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
+                    }}>
+                      <MessageCircle size={22} color="#d1d5db" />
+                    </div>
+                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                      아직 작성한 댓글이 없어요
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {pagedReviews.map((item) => (
+                      <div key={`${item._type}-${item.id}`} style={{ marginBottom: 12 }}>
 
-										<div
-											style={{
-												fontSize: 13,
-												color: "#9ca3af",
-												fontWeight: 700,
-											}}
-										>
-											아직 작성한 댓글이 없어요
-										</div>
-									</div>
-								) : (
-									myReviews.map((review) => (
-										<div
-											key={review.id}
-											style={{
-												marginBottom: 12,
-												padding: 14,
-												background: "white",
-												borderRadius: 18,
-												border: "1px solid #e8eaed",
-												boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
-											}}
-										>
-											<div
-												onClick={() =>
-													router.push(`/place/${review.place_id}`)
-												}
-												style={{
-													display: "inline-flex",
-													alignItems: "center",
-													gap: 4,
-													fontSize: 10,
-													color: "#8b5cf6",
-													fontWeight: 700,
-													marginBottom: 8,
-													cursor: "pointer",
-													padding: "3px 8px",
-													background: "#f3e8ff",
-													borderRadius: 99,
-												}}
-											>
-												<MapPin size={9} />
-												{review.places?.name || "장소 보기"}
-											</div>
+                        {/* 장소 댓글/답글 카드 */}
+                        {item._type === "place" && (
+                          <>
+                            {/* 배지 */}
+                            <div style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              background: item._subtype === "reply" ? "#fef9c3" : "#ffedd5",
+                              borderRadius: 99, padding: "3px 9px", marginBottom: 6,
+                            }}>
+                              <MapPin size={10} color="#ea580c" />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "#ea580c" }}>
+                                {item._subtype === "reply" ? "장소 답글" : "장소 댓글"}
+                              </span>
+                            </div>
 
-											<div
-												style={{
-													fontSize: 12,
-													color: "#333",
-													lineHeight: 1.7,
-													marginBottom: 8,
-													whiteSpace: "pre-wrap",
-													wordBreak: "break-word",
-												}}
-											>
-												{review.content}
-											</div>
+                            {/* 장소 정보 카드 */}
+                            <div
+                              className="card-hover"
+                              onClick={() => router.push(`/place/${item.place_id}`)}
+                              style={{
+                                width: "100%", display: "flex", gap: 12, padding: 12,
+                                background: "white", borderRadius: "18px 18px 0 0",
+                                border: "1px solid #e8eaed", borderBottom: "none",
+                                cursor: "pointer", boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                                boxSizing: "border-box",
+                              }}
+                            >
+                              {item.places?.image_url && (
+                                <img
+                                  src={item.places.image_url}
+                                  alt={item.places?.name}
+                                  style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
+                                />
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="ggk-logo" style={{ fontWeight: 700, fontSize: 13, color: "#111", marginBottom: 3 }}>
+                                  {item.places?.name || "장소 보기"}
+                                </div>
+                                <div style={{ fontSize: 11, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {item.places?.address || ""}
+                                </div>
+                              </div>
+                            </div>
 
-											<div
-												style={{
-													display: "flex",
-													justifyContent: "space-between",
-													alignItems: "center",
-												}}
-											>
-												<span
-													style={{
-														fontSize: 10,
-														color: "#bbb",
-													}}
-												>
-													{formatDate(review.created_at)}
-												</span>
+                            {/* 댓글/답글 내용 */}
+                            <div style={{
+                              padding: "10px 14px 12px", background: "#fafafa",
+                              borderRadius: "0 0 18px 18px", border: "1px solid #e8eaed",
+                              borderTop: "1px dashed #eee", boxSizing: "border-box",
+                            }}>
+                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 6 }}>
+                                {item.content}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
+                                <span style={{ fontSize: 10, color: "#bbb", display: "flex", alignItems: "center", gap: 3 }}>
+                                  <Heart size={10} color="#ddd" />{item.likes || 0}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
 
-												<span
-													style={{
-														fontSize: 10,
-														color: "#bbb",
-														display: "flex",
-														alignItems: "center",
-														gap: 3,
-													}}
-												>
-													<Heart size={10} color="#ddd" />
-													{review.likes || 0}
-												</span>
-											</div>
-										</div>
-									))
-								)}
-							</>
-						)}
-					</div>
+                        {/* 커뮤니티 댓글/답글 카드 */}
+                        {item._type === "community" && (
+                          <>
+                            {/* 배지 */}
+                            <div style={{
+                              display: "inline-flex", alignItems: "center", gap: 5,
+                              background: "#dbeafe", borderRadius: 99,
+                              padding: "3px 9px", marginBottom: 6,
+                            }}>
+                              <MessageCircle size={10} color="#2563eb" />
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "#2563eb" }}>
+                                {item._subtype === "reply" ? "커뮤니티 답글" : "커뮤니티 댓글"}
+                              </span>
+                            </div>
 
+                            {/* 게시글 정보 카드 */}
+                            <div
+                              className="card-hover"
+                              onClick={() => router.push(`/community/post/${item.post_id}`)}
+                              style={{
+                                width: "100%", padding: "10px 14px",
+                                background: "white", borderRadius: "18px 18px 0 0",
+                                border: "1px solid #e8eaed", borderBottom: "none",
+                                cursor: "pointer", boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
+                                boxSizing: "border-box",
+                              }}
+                            >
+                              <div style={{ fontSize: 10, color: "#8b5cf6", fontWeight: 700, marginBottom: 3 }}>
+                                {item.community_posts?.board_id || "커뮤니티"}
+                              </div>
+                              <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {item.community_posts?.title || "게시글 보기"}
+                              </div>
+                            </div>
+
+                            {/* 댓글/답글 내용 */}
+                            <div style={{
+                              padding: "10px 14px 12px", background: "#fafafa",
+                              borderRadius: "0 0 18px 18px", border: "1px solid #e8eaed",
+                              borderTop: "1px dashed #eee", boxSizing: "border-box",
+                            }}>
+                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 6 }}>
+                                {item.content}
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
+                                <span style={{ fontSize: 10, color: "#bbb", display: "flex", alignItems: "center", gap: 3 }}>
+                                  <Heart size={10} color="#ddd" />{item.likes || 0}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                      </div>
+                    ))}
+
+                    {/* 페이지네이션 */}
+                    <Pagination page={reviewPage} total={reviewTotalPages} onChange={(p) => setReviewPage(p)} />
+                  </>
+                )}
+              </>
+            )}
           {/* ── 하단 푸터 */}
           <div style={{
             margin: "28px 14px 0",
             paddingTop: "16px",
+            paddingBottom: "90px",  
             borderTop: "1px solid #e2e4e8",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: "10px",
+            flexShrink: 0, 
           }}>
             <div className="ggk-logo" style={{ fontSize: 11, color: "#bbb", fontWeight: 600, letterSpacing: "-0.1px" }}>
               같이가개
@@ -869,24 +873,22 @@ export default function MyPage() {
               © 2026 같이가개. All rights reserved.
             </div>
           </div>
-
+        </div>
         </div>
 
         {/* ── 우측 광고 바 */}
         <div style={{
           width: "160px",
           flexShrink: 0,
+          alignSelf: "flex-start",
           position: "sticky",
           top: 0,
-          height: "100vh",
-          background: "#f0f1f3",
-          borderLeft: "1px solid #e2e4e8",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
           gap: "12px",
-          padding: "20px 12px",
+          padding: "60px 12px 20px",
+          // background, border 완전 제거 ✅
         }}>
           {/* 광고 슬롯 3 */}
           <div style={{
@@ -919,7 +921,6 @@ export default function MyPage() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* ══════════════════════════════════════
@@ -1216,6 +1217,49 @@ export default function MyPage() {
         </>
       )}
     </>
+  );
+}
+
+function Pagination({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) {
+  if (total <= 1) return null;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "16px 0 4px" }}>
+      <button
+        onClick={() => onChange(page - 1)}
+        disabled={page === 1}
+        style={{
+          width: 32, height: 32, borderRadius: "50%", border: "1px solid #e8eaed",
+          background: page === 1 ? "#f0f2f5" : "white", cursor: page === 1 ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", color: page === 1 ? "#ccc" : "#555",
+          fontSize: 14, fontWeight: 700,
+        }}
+      >‹</button>
+
+      {Array.from({ length: total }, (_, i) => i + 1).map(p => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            border: p === page ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
+            background: p === page ? "#8b5cf6" : "white",
+            color: p === page ? "white" : "#555",
+            cursor: "pointer", fontSize: 13, fontWeight: 700,
+          }}
+        >{p}</button>
+      ))}
+
+      <button
+        onClick={() => onChange(page + 1)}
+        disabled={page === total}
+        style={{
+          width: 32, height: 32, borderRadius: "50%", border: "1px solid #e8eaed",
+          background: page === total ? "#f0f2f5" : "white", cursor: page === total ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", color: page === total ? "#ccc" : "#555",
+          fontSize: 14, fontWeight: 700,
+        }}
+      >›</button>
+    </div>
   );
 }
 

@@ -437,20 +437,46 @@ export default function AdminReportsPage() {
 
   /* ── 커뮤니티 게시글 삭제 ── */
   const handleAdminDeletePost = async (targetId: string) => {
-    if (!confirm("게시글을 삭제하시겠습니까?\n댓글도 함께 삭제됩니다.")) return;
+    if (!confirm("게시글을 삭제하시겠습니까?")) return;
 
-    await supabase.from("community_comments").delete().eq("post_id", targetId);
-    await supabase.from("community_posts").delete().eq("id", targetId);
+    // 게시글 soft delete
+    await supabase
+      .from("community_posts")
+      .update({
+        deleted: true,
+        title: "삭제된 게시글입니다.",
+        content: "관리자에 의해 삭제된 게시글입니다.",
+      })
+      .eq("id", targetId);
 
-    await supabase.from("reports")
+    // 댓글/답글 soft delete
+    await supabase
+      .from("community_comments")
+      .update({
+        is_admin_deleted: true,
+        content: "관리자에 의해 삭제된 댓글입니다.",
+      })
+      .eq("post_id", targetId);
+
+    // 관련 신고 처리 완료
+    await supabase
+      .from("reports")
       .update({ is_resolved: true })
-      .eq("type", "community_post")
       .eq("target_id", targetId);
 
-    const movedItems = reports.filter(r => r.target_id === targetId);
-    setReports(prev => prev.filter(r => r.target_id !== targetId));
-    setResolvedReports(prev => [
-      ...movedItems.map(r => ({ ...r, is_resolved: true })),
+    const movedItems = reports.filter(
+      (r) => String(r.target_id) === String(targetId)
+    );
+
+    setReports((prev) =>
+      prev.filter((r) => String(r.target_id) !== String(targetId))
+    );
+
+    setResolvedReports((prev) => [
+      ...movedItems.map((r) => ({
+        ...r,
+        is_resolved: true,
+      })),
       ...prev,
     ]);
   };
