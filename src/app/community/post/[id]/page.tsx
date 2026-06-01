@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft, Heart, Eye, Send, Mail, X,
+  ArrowLeft, Heart, Eye, Send, Mail, X, Shield,
   ChevronLeft, ChevronRight, MessageCircle,
   MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
 } from "lucide-react";
@@ -134,6 +134,7 @@ export default function CommunityDetailPage() {
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [likedReplyIds2, setLikedReplyIds2] = useState<Set<string>>(new Set());
   const [isAdminDeleted, setIsAdminDeleted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminDeletedPopup, setShowAdminDeletedPopup] = useState(false);
 
     // ─────────────────────────────
@@ -319,31 +320,20 @@ export default function CommunityDetailPage() {
 
   // ── 댓글 삭제
   const handleCommentDelete = async (commentId: string) => {
-    const { error } = await supabase
-      .from("community_comments")
-      .update({
-        deleted: true,
-        content: "삭제된 댓글입니다.",
-      })
-      .eq("id", commentId);
+    const { error } = await supabase.from("community_comments").update({
+      deleted: true,
+    }).eq("id", commentId);
+    if (error) { console.error(error); return; }
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setComments(prev =>
-      prev.map(c =>
-        c.id === commentId
-          ? {
-              ...c,
-              deleted: true,
-              content: "삭제된 댓글입니다.",
-            }
-          : c
-      )
+    // 답글이 있으면 "삭제된 댓글" 상태 유지, 없으면 목록에서 완전 제거
+    const hasReplies = comments.some(
+      c => c.parent_id === commentId && !(c as any).deleted
     );
-
+    if (hasReplies) {
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, deleted: true } : c));
+    } else {
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    }
     setDeletingCommentId(null);
   };
 
@@ -361,32 +351,38 @@ export default function CommunityDetailPage() {
 
   // ── 답글 삭제
   const handleReplyDelete2 = async (replyId: string) => {
-    const { error } = await supabase
-      .from("community_comments")
-      .update({
-        deleted: true,
-        content: "삭제된 답글입니다.",
-      })
-      .eq("id", replyId);
+    const { error } = await supabase.from("community_comments").update({
+      deleted: true,
+    }).eq("id", replyId);
+    if (error) { console.error(error); return; }
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setComments(prev =>
-      prev.map(c =>
-        c.id === replyId
-          ? {
-              ...c,
-              deleted: true,
-              content: "삭제된 답글입니다.",
-            }
-          : c
-      )
-    );
-
+    // 답글은 그냥 목록에서 완전 제거
+    setComments(prev => prev.filter(c => c.id !== replyId));
     setDeletingReplyId2(null);
+  };
+
+  // ── 관리자 댓글 삭제
+  const handleAdminDeleteComment = async (commentId: string) => {
+    if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("community_comments").update({
+      is_admin_deleted: true,
+      deleted: true,
+    }).eq("id", commentId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_admin_deleted: true, deleted: true } : c));
+    setOpenedCommentMenuId(null);
+  };
+
+  // ── 관리자 답글 삭제
+  const handleAdminDeleteReply2 = async (replyId: string) => {
+    if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("community_comments").update({
+      is_admin_deleted: true,
+      deleted: true,
+    }).eq("id", replyId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === replyId ? { ...c, is_admin_deleted: true, deleted: true } : c));
+    setOpenedReplyMenuId2(null);
   };
 
   // ── 댓글/답글 신고 제출
@@ -450,6 +446,10 @@ export default function CommunityDetailPage() {
     const init = async () => {
       const { data: { session: sess } } = await supabase.auth.getSession();
       setSession(sess);
+      if (sess?.user) {
+        const { data } = await supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single();
+        setIsAdmin(!!data?.is_admin);
+      }
       await Promise.all([fetchPost(), fetchComments()]);
       setLoading(false);
     };
@@ -1226,7 +1226,13 @@ export default function CommunityDetailPage() {
               {/* 댓글 헤더 */}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
                 <div className="ggk-logo" style={{ fontSize:"15px", fontWeight:800 }}>
-                  댓글 {comments.filter(c => !c.parent_id).length + comments.filter(c => !!c.parent_id).length}개
+                  댓글 {comments.filter(c => 
+                    !c.parent_id && 
+                    !(c as any).deleted
+                  ).length + comments.filter(c => 
+                    !!c.parent_id && 
+                    !(c as any).deleted
+                  ).length}개
                 </div>
                 <div>
                   <button style={sortBtn(sort === "latest")} onClick={() => setSort("latest")}>최신순</button>
@@ -1311,6 +1317,10 @@ export default function CommunityDetailPage() {
                     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
                   })
                   .map((item) => {
+                    const itemReplies = comments.filter(
+                      r => r.parent_id === item.id && !(r as any).deleted
+                    );
+                    if ((item as any).deleted && !(item as any).is_admin_deleted && itemReplies.length === 0) return null;
                     const replies = comments.filter(r => r.parent_id === item.id);
                     return (
                       <div key={item.id} style={{ borderBottom:"1px solid #eee", padding:"10px 0" }}>
@@ -1345,6 +1355,10 @@ export default function CommunityDetailPage() {
                                         <button onClick={() => { setOpenedCommentMenuId(null); setEditingCommentId(item.id); setEditCommentContent(item.content); }} style={dropdownBtnStyleCom}>수정</button>
                                         <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
                                       </>
+                                    ) : isAdmin ? (
+                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
+                                        <Shield size={11} color="#7c3aed" />관리자 삭제
+                                      </button>
                                     ) : (
                                       <button onClick={() => { setOpenedCommentMenuId(null); setCommentReportTargetId(item.id); setCommentReportType("community_comment"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
                                     )}
@@ -1373,21 +1387,13 @@ export default function CommunityDetailPage() {
                             whiteSpace: "pre-wrap",
                             wordBreak: "break-word",
 
-                            color:
-                              (item as any).is_admin_deleted || (item as any).deleted
-                                ? "#bbb"
-                                : "#333",
-
-                            fontStyle:
-                              (item as any).is_admin_deleted || (item as any).deleted
-                                ? "italic"
-                                : "normal",
+                            color: (item as any).is_admin_deleted ? "#ef4444" : "#333",
+                            fontStyle: (item as any).is_admin_deleted ? "italic" : "normal",
+                            opacity: (item as any).is_admin_deleted ? 0.8 : 1,
                           }}>
                             {(item as any).is_admin_deleted
                               ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
-                              : (item as any).deleted
-                                ? "삭제된 댓글입니다."
-                                : item.content}
+                              : item.content}
                           </div>
                         )}
 
@@ -1475,6 +1481,10 @@ export default function CommunityDetailPage() {
                                             <button onClick={() => { setOpenedReplyMenuId2(null); setEditingReplyId2(reply.id); setEditReplyContent2(reply.content); }} style={dropdownBtnStyleCom}>수정</button>
                                             <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
                                           </>
+                                        ) : isAdmin ? (
+                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
+                                            <Shield size={11} color="#7c3aed" />관리자 삭제
+                                          </button>
                                         ) : (
                                           <button onClick={() => { setOpenedReplyMenuId2(null); setCommentReportTargetId(reply.id); setCommentReportType("community_reply"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
                                         )}
@@ -1503,21 +1513,13 @@ export default function CommunityDetailPage() {
                                 whiteSpace: "pre-wrap",
                                 wordBreak: "break-word",
 
-                                color:
-                                  (reply as any).is_admin_deleted || (reply as any).deleted
-                                    ? "#bbb"
-                                    : "#333",
-
-                                fontStyle:
-                                  (reply as any).is_admin_deleted || (reply as any).deleted
-                                    ? "italic"
-                                    : "normal",
+                                color: (reply as any).is_admin_deleted ? "#ef4444" : "#333",
+                                fontStyle: (reply as any).is_admin_deleted ? "italic" : "normal",
+                                opacity: (reply as any).is_admin_deleted ? 0.8 : 1,
                               }}>
                                 {(reply as any).is_admin_deleted
                                   ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
-                                  : (reply as any).deleted
-                                    ? "삭제된 답글입니다."
-                                    : reply.content}
+                                  : reply.content}
                               </div>
                             )}
 

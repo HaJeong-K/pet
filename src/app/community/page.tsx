@@ -96,12 +96,14 @@ const formatDate = (s: string) => {
 export default function CommunityPage() {
   const router = useRouter();
 
+  const PAGE_SIZE = 15;
   const [activeBoard, setActiveBoard] = useState("all");
   const [notices, setNotices] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     supabase.auth
@@ -154,7 +156,7 @@ export default function CommunityPage() {
         .eq("deleted", false)
         .eq("is_admin_deleted", false)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(500);
 
       if (boardId !== "all") {
         q = q.eq("board_id", boardId);
@@ -176,6 +178,7 @@ export default function CommunityPage() {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchPosts(activeBoard);
   }, [activeBoard]);
 
@@ -454,7 +457,12 @@ export default function CommunityPage() {
               </div>
             ) : (
               <>
-                {posts.map((post) => (
+                {(() => {
+                  const totalPages = Math.ceil(posts.length / PAGE_SIZE);
+                  const pagedPosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+                  return (
+                    <>
+                      {pagedPosts.map((post) => (
                   <div
                     key={post.id}
                     className="post-card"
@@ -766,6 +774,64 @@ export default function CommunityPage() {
                     </div>
                   </div>
                 ))}
+
+                      {/* 페이지네이션 */}
+                      {totalPages > 1 && (
+                        <div style={{
+                          display: "flex", justifyContent: "center", alignItems: "center",
+                          gap: 4, padding: "20px 0 8px",
+                        }}>
+                          <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            style={{
+                              width: 34, height: 34, borderRadius: 12,
+                              border: "1px solid #e2e8f0",
+                              background: currentPage === 1 ? "#f8fafc" : "white",
+                              cursor: currentPage === 1 ? "default" : "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: currentPage === 1 ? "#d1d5db" : "#555",
+                              fontSize: 16, fontWeight: 500,
+                              boxShadow: currentPage === 1 ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+                            }}
+                          >‹</button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setCurrentPage(p)}
+                              style={{
+                                width: 34, height: 34, borderRadius: 12,
+                                border: p === currentPage ? "1.5px solid #555" : "1px solid #e2e8f0",
+                                background: p === currentPage ? "#444" : "white",
+                                color: p === currentPage ? "white" : "#666",
+                                cursor: "pointer", fontSize: 13,
+                                fontWeight: p === currentPage ? 700 : 500,
+                                boxShadow: p === currentPage ? "0 2px 8px rgba(0,0,0,0.18)" : "0 1px 4px rgba(0,0,0,0.04)",
+                                transition: "all 0.15s ease",
+                              }}
+                            >{p}</button>
+                          ))}
+
+                          <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            style={{
+                              width: 34, height: 34, borderRadius: 12,
+                              border: "1px solid #e2e8f0",
+                              background: currentPage === totalPages ? "#f8fafc" : "white",
+                              cursor: currentPage === totalPages ? "default" : "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: currentPage === totalPages ? "#d1d5db" : "#555",
+                              fontSize: 16, fontWeight: 500,
+                              boxShadow: currentPage === totalPages ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+                            }}
+                          >›</button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* footer */}
                 <div

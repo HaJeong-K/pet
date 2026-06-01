@@ -13,6 +13,28 @@ import {
 /* ── 상수 ── */
 const ADMIN_EMAIL = "admin@gachigage.com"; // ← 관리자 이메일 변경
 
+const BOARD_LABEL: Record<string, string> = {
+  all: "전체",
+  free: "자유게시판",
+  seoul: "서울",
+  gyeonggi: "경기",
+  incheon: "인천",
+  gangwon: "강원",
+  chungbuk: "충북",
+  daejeon: "대전",
+  chungnam: "충남",
+  gyeongbuk: "경북",
+  daegu: "대구",
+  ulsan: "울산",
+  gyeongnam: "경남",
+  busan: "부산",
+  jeonbuk: "전북",
+  jeonnam: "전남",
+  gwangju: "광주",
+  jeju: "제주",
+};
+const getBoardLabel = (id: string) => BOARD_LABEL[id] || id;
+
 const PET_ZONE_LABEL: Record<string, string> = {
   indoor: "실내 가능",
   terrace: "테라스 가능",
@@ -109,16 +131,19 @@ export default function MyPage() {
         .select("id, content, created_at, likes, place_id, places(name, address, image_url)")
         .eq("auth_user_id", uid)
         .eq("deleted", false)
+        .eq("is_admin_deleted", false)
         .order("created_at", { ascending: false }),
       supabase.from("review_replies")
         .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url))")
         .eq("auth_user_id", uid)
         .eq("deleted", false)
+        .eq("is_admin_deleted", false)
         .order("created_at", { ascending: false }),
       supabase.from("community_comments")
         .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
-        .eq("auth_user_id", uid)
+        .eq("author_auth_key", uid)   // ← auth_user_id → author_auth_key 로 변경
         .eq("deleted", false)
+        .neq("is_admin_deleted", true)
         .order("created_at", { ascending: false }),
     ]);
     setUserProfile(profile);
@@ -218,7 +243,7 @@ export default function MyPage() {
   };
 
   const handleDeleteReview = async (reviewId: string) => {
-    await supabase.from("reviews").update({ deleted: true, content: "삭제된 댓글입니다." }).eq("id", reviewId);
+    await supabase.from("reviews").update({ deleted: true }).eq("id", reviewId);
     setMyReviews(prev => prev.filter(r => r.id !== reviewId));
     setDeletingReviewId(null);
   };
@@ -694,121 +719,116 @@ export default function MyPage() {
                     {pagedReviews.map((item) => (
                       <div key={`${item._type}-${item.id}`} style={{ marginBottom: 12 }}>
 
-                        {/* 장소 댓글/답글 카드 */}
+                        {/* ── 장소 댓글/답글 카드 (시안 A) */}
                         {item._type === "place" && (
-                          <>
-                            {/* 배지 */}
-                            <div style={{
-                              display: "inline-flex", alignItems: "center", gap: 5,
-                              background: item._subtype === "reply" ? "#fef9c3" : "#ffedd5",
-                              borderRadius: 99, padding: "3px 9px", marginBottom: 6,
-                            }}>
-                              <MapPin size={10} color="#ea580c" />
-                              <span style={{ fontSize: 10, fontWeight: 700, color: "#ea580c" }}>
-                                {item._subtype === "reply" ? "장소 답글" : "장소 댓글"}
-                              </span>
-                            </div>
-
-                            {/* 장소 정보 카드 */}
+                          <div style={{
+                            background: "white", borderRadius: 18,
+                            border: "1px solid #e8eaed", overflow: "hidden",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                          }}>
+                            {/* 헤더 */}
                             <div
                               className="card-hover"
                               onClick={() => router.push(`/place/${item.place_id}`)}
                               style={{
-                                width: "100%", display: "flex", gap: 12, padding: 12,
-                                background: "white", borderRadius: "18px 18px 0 0",
-                                border: "1px solid #e8eaed", borderBottom: "none",
-                                cursor: "pointer", boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
-                                boxSizing: "border-box",
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "10px 14px", cursor: "pointer",
+                                background: "#fafafa", borderBottom: "1px solid #f0f0f0",
                               }}
                             >
-                              {item.places?.image_url && (
-                                <img
-                                  src={item.places.image_url}
-                                  alt={item.places?.name}
-                                  style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
-                                />
-                              )}
+                              <div style={{
+                                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                                background: "#fff0e6", display: "flex", alignItems: "center", justifyContent: "center",
+                                overflow: "hidden",
+                              }}>
+                                {item.places?.image_url
+                                  ? <img src={item.places.image_url} alt={item.places?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  : <MapPin size={16} color="#ea580c" />
+                                }
+                              </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div className="ggk-logo" style={{ fontWeight: 700, fontSize: 13, color: "#111", marginBottom: 3 }}>
+                                <div className="ggk-logo" style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   {item.places?.name || "장소 보기"}
                                 </div>
-                                <div style={{ fontSize: 11, color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                <div style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   {item.places?.address || ""}
                                 </div>
                               </div>
+                              <span style={{
+                                flexShrink: 0, fontSize: 10, fontWeight: 700,
+                                color: "#ea580c", background: item._subtype === "reply" ? "#fef9c3" : "#fff0e6",
+                                borderRadius: 99, padding: "2px 8px",
+                              }}>
+                                {item._subtype === "reply" ? "장소 답글" : "장소 댓글"}
+                              </span>
                             </div>
-
-                            {/* 댓글/답글 내용 */}
-                            <div style={{
-                              padding: "10px 14px 12px", background: "#fafafa",
-                              borderRadius: "0 0 18px 18px", border: "1px solid #e8eaed",
-                              borderTop: "1px dashed #eee", boxSizing: "border-box",
-                            }}>
-                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 6 }}>
+                            {/* 본문 */}
+                            <div style={{ padding: "10px 14px 12px" }}>
+                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 8 }}>
                                 {item.content}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
-                                <span style={{ fontSize: 10, color: "#bbb", display: "flex", alignItems: "center", gap: 3 }}>
-                                  <Heart size={10} color="#ddd" />{item.likes || 0}
+                                <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
+                                  <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
                                 </span>
                               </div>
                             </div>
-                          </>
+                          </div>
                         )}
 
-                        {/* 커뮤니티 댓글/답글 카드 */}
+                        {/* ── 커뮤니티 댓글/답글 카드 (시안 A) */}
                         {item._type === "community" && (
-                          <>
-                            {/* 배지 */}
-                            <div style={{
-                              display: "inline-flex", alignItems: "center", gap: 5,
-                              background: "#dbeafe", borderRadius: 99,
-                              padding: "3px 9px", marginBottom: 6,
-                            }}>
-                              <MessageCircle size={10} color="#2563eb" />
-                              <span style={{ fontSize: 10, fontWeight: 700, color: "#2563eb" }}>
-                                {item._subtype === "reply" ? "커뮤니티 답글" : "커뮤니티 댓글"}
-                              </span>
-                            </div>
-
-                            {/* 게시글 정보 카드 */}
+                          <div style={{
+                            background: "white", borderRadius: 18,
+                            border: "1px solid #e8eaed", overflow: "hidden",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                          }}>
+                            {/* 헤더 */}
                             <div
                               className="card-hover"
                               onClick={() => router.push(`/community/post/${item.post_id}`)}
                               style={{
-                                width: "100%", padding: "10px 14px",
-                                background: "white", borderRadius: "18px 18px 0 0",
-                                border: "1px solid #e8eaed", borderBottom: "none",
-                                cursor: "pointer", boxShadow: "0 3px 10px rgba(0,0,0,0.05)",
-                                boxSizing: "border-box",
+                                display: "flex", alignItems: "center", gap: 10,
+                                padding: "10px 14px", cursor: "pointer",
+                                background: "#fafafa", borderBottom: "1px solid #f0f0f0",
                               }}
                             >
-                              <div style={{ fontSize: 10, color: "#8b5cf6", fontWeight: 700, marginBottom: 3 }}>
-                                {item.community_posts?.board_id || "커뮤니티"}
+                              <div style={{
+                                width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                                background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                <MessageCircle size={16} color="#2563eb" />
                               </div>
-                              <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {item.community_posts?.title || "게시글 보기"}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 10, color: "#8b5cf6", fontWeight: 700, marginBottom: 2 }}>
+                                  {getBoardLabel(item.community_posts?.board_id)}
+                                </div>
+                                <div className="ggk-logo" style={{ fontSize: 12, fontWeight: 700, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {item.community_posts?.title || "게시글 보기"}
+                                </div>
                               </div>
+                              <span style={{
+                                flexShrink: 0, fontSize: 10, fontWeight: 700,
+                                color: "#2563eb", background: "#eff6ff",
+                                borderRadius: 99, padding: "2px 8px",
+                              }}>
+                                {item._subtype === "reply" ? "커뮤니티 답글" : "커뮤니티 댓글"}
+                              </span>
                             </div>
-
-                            {/* 댓글/답글 내용 */}
-                            <div style={{
-                              padding: "10px 14px 12px", background: "#fafafa",
-                              borderRadius: "0 0 18px 18px", border: "1px solid #e8eaed",
-                              borderTop: "1px dashed #eee", boxSizing: "border-box",
-                            }}>
-                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 6 }}>
+                            {/* 본문 */}
+                            <div style={{ padding: "10px 14px 12px" }}>
+                              <div style={{ fontSize: 12, color: "#333", lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word", marginBottom: 8 }}>
                                 {item.content}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
-                                <span style={{ fontSize: 10, color: "#bbb", display: "flex", alignItems: "center", gap: 3 }}>
-                                  <Heart size={10} color="#ddd" />{item.likes || 0}
+                                <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
+                                  <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
                                 </span>
                               </div>
                             </div>
-                          </>
+                          </div>
                         )}
 
                       </div>
@@ -1223,40 +1243,58 @@ export default function MyPage() {
 function Pagination({ page, total, onChange }: { page: number; total: number; onChange: (p: number) => void }) {
   if (total <= 1) return null;
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "16px 0 4px" }}>
+    <div style={{
+      display: "flex", justifyContent: "center", alignItems: "center",
+      gap: 4, padding: "20px 0 8px",
+    }}>
+      {/* 이전 버튼 */}
       <button
         onClick={() => onChange(page - 1)}
         disabled={page === 1}
         style={{
-          width: 32, height: 32, borderRadius: "50%", border: "1px solid #e8eaed",
-          background: page === 1 ? "#f0f2f5" : "white", cursor: page === 1 ? "default" : "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center", color: page === 1 ? "#ccc" : "#555",
-          fontSize: 14, fontWeight: 700,
+          width: 34, height: 34, borderRadius: 12,
+          border: "1px solid #ececf3",
+          background: page === 1 ? "#f8fafc" : "white",
+          cursor: page === 1 ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: page === 1 ? "#d1d5db" : "#555",
+          fontSize: 16, fontWeight: 500,
+          boxShadow: page === 1 ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+          transition: "all 0.15s ease",
         }}
       >‹</button>
 
+      {/* 페이지 번호 */}
       {Array.from({ length: total }, (_, i) => i + 1).map(p => (
         <button
           key={p}
           onClick={() => onChange(p)}
           style={{
-            width: 32, height: 32, borderRadius: "50%",
-            border: p === page ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
+            width: 34, height: 34, borderRadius: 12,
+            border: p === page ? "1.5px solid #8b5cf6" : "1px solid #ececf3",
             background: p === page ? "#8b5cf6" : "white",
-            color: p === page ? "white" : "#555",
-            cursor: "pointer", fontSize: 13, fontWeight: 700,
+            color: p === page ? "white" : "#666",
+            cursor: "pointer", fontSize: 13, fontWeight: p === page ? 700 : 500,
+            boxShadow: p === page ? "0 2px 8px rgba(139,92,246,0.25)" : "0 1px 4px rgba(0,0,0,0.04)",
+            transition: "all 0.15s ease",
           }}
         >{p}</button>
       ))}
 
+      {/* 다음 버튼 */}
       <button
         onClick={() => onChange(page + 1)}
         disabled={page === total}
         style={{
-          width: 32, height: 32, borderRadius: "50%", border: "1px solid #e8eaed",
-          background: page === total ? "#f0f2f5" : "white", cursor: page === total ? "default" : "pointer",
-          display: "flex", alignItems: "center", justifyContent: "center", color: page === total ? "#ccc" : "#555",
-          fontSize: 14, fontWeight: 700,
+          width: 34, height: 34, borderRadius: 12,
+          border: "1px solid #ececf3",
+          background: page === total ? "#f8fafc" : "white",
+          cursor: page === total ? "default" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: page === total ? "#d1d5db" : "#555",
+          fontSize: 16, fontWeight: 500,
+          boxShadow: page === total ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+          transition: "all 0.15s ease",
         }}
       >›</button>
     </div>

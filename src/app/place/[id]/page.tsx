@@ -196,7 +196,7 @@ export default function PlaceDetail() {
   const fetchReviews = async () => {
     const { data: reviewData } = await supabase
       .from("reviews")
-      .select("id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url")
+      .select("id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, password")
       .eq("place_id", placeId)
       .order("id", { ascending: false });
     if (!reviewData) { setReviews([]); return; }
@@ -331,10 +331,10 @@ export default function PlaceDetail() {
     if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
     const { error } = await supabase.from("reviews").update({
       is_admin_deleted: true,
-      content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
+      deleted: true,
     }).eq("id", reviewId);
     if (error) { console.error(error); return; }
-    setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, is_admin_deleted: true, content: "부적절한 내용으로 관리자에 의해 삭제되었습니다." } : r));
+    setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, is_admin_deleted: true, deleted: true } : r));
     setOpenedMenuId(null);
   };
 
@@ -342,10 +342,10 @@ export default function PlaceDetail() {
     if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
     const { error } = await supabase.from("review_replies").update({
       is_admin_deleted: true,
-      content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
+      deleted: true,
     }).eq("id", replyId);
     if (error) { console.error(error); return; }
-    setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, is_admin_deleted: true, content: "부적절한 내용으로 관리자에 의해 삭제되었습니다." } : r));
+    setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, is_admin_deleted: true, deleted: true } : r));
     setOpenedReplyMenuId(null);
   };
 
@@ -461,7 +461,9 @@ export default function PlaceDetail() {
     const review = reviews.find((r) => r.id === reviewId);
     if (!review) return;
     if (!session && deletePassword !== review.password) { alert("비밀번호가 일치하지 않습니다."); return; }
-    const { error } = await supabase.from("reviews").update({ deleted: true, content: "삭제된 댓글입니다." }).eq("id", reviewId);
+    const { error } = await supabase.from("reviews")
+      .update({ deleted: true })
+      .eq("id", reviewId);
     if (error) { console.error(error); return; }
     setDeletingId(null);
     await fetchReviews();
@@ -481,12 +483,8 @@ export default function PlaceDetail() {
       return;
     }
 
-    const { error } = await supabase
-      .from("review_replies")
-      .update({
-        deleted: true,
-        content: "삭제된 답글입니다.",
-      })
+    const { error } = await supabase.from("review_replies")
+      .update({ deleted: true })
       .eq("id", replyId);
 
     if (error) {
@@ -494,17 +492,20 @@ export default function PlaceDetail() {
       return;
     }
 
-    setReplies((prev) =>
-      prev.map((r) =>
-        r.id === replyId
-          ? {
-              ...r,
-              deleted: true,
-              content: "삭제된 답글입니다.",
-            }
-          : r
-      )
+    setReplies((prev) => prev.filter((r) => r.id !== replyId));
+
+    // 추가 — 부모 댓글이 deleted 상태이고 이제 살아있는 답글이 없으면 reviews에서도 제거
+    const parentReview = reviews.find(rv => 
+      replies.some(r => r.id === replyId && r.review_id === rv.id)
     );
+    if (parentReview?.deleted) {
+      const remainingReplies = replies.filter(
+        r => r.id !== replyId && r.review_id === parentReview.id && !r.deleted
+      );
+      if (remainingReplies.length === 0) {
+        setReviews(prev => prev.filter(r => r.id !== parentReview.id));
+      }
+    }
 
     setDeletingReplyId(null);
     setDeleteReplyPassword("");
@@ -694,7 +695,9 @@ export default function PlaceDetail() {
           <h3 className="ggk-title" style={{ margin:0, fontSize:"13px", fontWeight:800, color:"#111" }}>
             댓글{" "}
             {reviews.filter((r) => {
-              const hasReplies = replies.some((reply) => reply.review_id === r.id);
+              const hasReplies = replies.some(
+                (reply) => reply.review_id === r.id && !reply.deleted
+              );
               if (r.deleted && !hasReplies) return false;
               return true;
             }).length}개
@@ -748,7 +751,9 @@ export default function PlaceDetail() {
               return diff !== 0 ? diff : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             })
             .map((r) => {
-              const hasReplies = replies.some((reply) => reply.review_id === r.id);
+              const hasReplies = replies.some(
+                (reply) => reply.review_id === r.id && !reply.deleted
+              );
               if (r.deleted && !hasReplies) return null;
               return (
                 <div key={r.id} style={{ borderBottom:"1px solid #eee", padding:"10px 0" }}>
@@ -799,7 +804,7 @@ export default function PlaceDetail() {
                     </div>
                   ) : (
                     <div style={{ marginTop:"4px", fontSize:"12px", fontStyle:(r.deleted||r.is_admin_deleted)?"italic":"normal", opacity:(r.deleted||r.is_admin_deleted)?0.6:1, color:r.is_admin_deleted?"#ef4444":"#333", lineHeight:1.5, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
-                      {r.is_admin_deleted ? "부적절한 내용으로 관리자에 의해 삭제되었습니다." : r.content}
+                      {r.is_admin_deleted ? "부적절한 내용으로 관리자에 의해 삭제되었습니다." : r.deleted ? "삭제된 댓글입니다." : r.content}
                     </div>
                   )}
 
