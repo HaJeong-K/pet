@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, MessageCircle, Heart, Eye,
-  Pencil, Pin, LogIn, X,
+  Pencil, Pin, LogIn, X, Search,
 } from "lucide-react";
 
 const FONT_STYLE = `
@@ -104,6 +104,33 @@ export default function CommunityPage() {
   const [session, setSession] = useState<any>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedPostType, setSelectedPostType] = useState("all");
+
+  // 300ms 디바운스
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 검색어로 필터링된 게시글
+  const POST_TYPES = ["all", "방문후기", "질문", "정보공유", "산책친구"];
+
+  // 말머리 + 검색어 동시 필터링
+  const filteredPosts = posts.filter((p) => {
+    if (selectedPostType !== "all" && p.post_type !== selectedPostType) return false;
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      return (
+        p.title?.toLowerCase().includes(q) ||
+        p.content?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const postTypeOptions = POST_TYPES;
 
   useEffect(() => {
     supabase.auth
@@ -121,65 +148,56 @@ export default function CommunityPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchPosts = async (boardId: string) => {
-    setLoading(true);
-
-    try {
-      const { data: noticeData } = await supabase
-        .from("community_posts")
-        .select("id, title, nickname, created_at, board_id")
-        .eq("is_notice", true)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      setNotices(noticeData || []);
-
-      let q = supabase
-        .from("community_posts")
-        .select(`
-          id,
-          title,
-          content,
-          nickname,
-          avatar_url,
-          created_at,
-          likes,
-          comment_count,
-          views,
-          board_id,
-          post_type,
-          image_urls,
-          deleted,
-          is_admin_deleted
-        `)
-        .eq("is_notice", false)
-        .eq("deleted", false)
-        .eq("is_admin_deleted", false)
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      if (boardId !== "all") {
-        q = q.eq("board_id", boardId);
-      }
-
-      const { data: postData } = await q;
-
-      setPosts(postData || []);
-
-    } catch (err) {
-      console.error(err);
-
-      setPosts([]);
-      setNotices([]);
-
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    setCurrentPage(1);
-    fetchPosts(activeBoard);
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data: noticeData } = await supabase
+          .from("community_posts")
+          .select("id, title, nickname, created_at, board_id")
+          .eq("is_notice", true)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        let q = supabase
+          .from("community_posts")
+          .select(`
+            id, title, content, nickname, avatar_url,
+            created_at, likes, comment_count, views,
+            board_id, post_type, image_urls, deleted, is_admin_deleted
+          `)
+          .eq("is_notice", false)
+          .eq("deleted", false)
+          .eq("is_admin_deleted", false)
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (activeBoard !== "all") {
+          q = q.eq("board_id", activeBoard);
+        }
+
+        const { data: postData } = await q;
+
+        if (!cancelled) {
+          setNotices(noticeData || []);
+          setPosts(postData || []);
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setPosts([]);
+          setNotices([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => { cancelled = true; };
   }, [activeBoard]);
 
   const getBoardLabel = (id: string) =>
@@ -333,9 +351,12 @@ export default function CommunityPage() {
             {BOARDS.map((board) => (
               <button
                 key={board.id}
-                onClick={() =>
-                  setActiveBoard(board.id)
-                }
+                onClick={() => {
+                  setActiveBoard(board.id);
+                  setCurrentPage(1);
+                  setSearchQuery("");
+                  setSelectedPostType("all");
+                }}
                 style={{
                   border: "none",
 
@@ -365,6 +386,95 @@ export default function CommunityPage() {
                 {board.label}
               </button>
             ))}
+          </div>
+
+          {/* 검색창 + 말머리 필터 */}
+          <div
+            style={{
+              background: "#f8f9fb",
+              borderBottom: "1px solid #e8eaed",
+              padding: "8px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "7px",
+            }}
+          >
+            {/* 텍스트 검색 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                background: "white",
+                borderRadius: "10px",
+                padding: "7px 13px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              <Search size={13} color="#c0c4cc" style={{ flexShrink: 0 }} />
+              <input
+                placeholder="제목 또는 내용 검색"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  fontSize: "12px",
+                  background: "transparent",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  color: "#111",
+                  minWidth: 0,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", flexShrink: 0 }}
+                >
+                  <X size={12} color="#c0c4cc" />
+                </button>
+              )}
+            </div>
+
+            {/* 말머리 필터 버튼 — posts에 말머리가 하나라도 있을 때만 표시 */}
+            {postTypeOptions.length > 1 && (
+              <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                {postTypeOptions.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => { setSelectedPostType(type); setCurrentPage(1); }}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "999px",
+                      border: "none",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "'Noto Sans KR', sans-serif",
+                      whiteSpace: "nowrap",
+                      transition: "all 0.15s ease",
+                      background: selectedPostType === type
+                        ? "linear-gradient(145deg, #2a2a2a, #111)"
+                        : "white",
+                      color: selectedPostType === type ? "white" : "#555",
+                      boxShadow: selectedPostType === type
+                        ? "0 1px 5px rgba(0,0,0,0.2)"
+                        : "0 1px 3px rgba(0,0,0,0.07)",
+                      border: selectedPostType === type
+                        ? "none"
+                        : "1px solid #e2e8f0",
+                    }}
+                  >
+                    {type === "all" ? "전체" : `[${type}]`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {!session && (
@@ -458,10 +568,15 @@ export default function CommunityPage() {
             ) : (
               <>
                 {(() => {
-                  const totalPages = Math.ceil(posts.length / PAGE_SIZE);
-                  const pagedPosts = posts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+                  const totalPages = Math.ceil(filteredPosts.length / PAGE_SIZE);
+                  const pagedPosts = filteredPosts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
                   return (
                     <>
+                      {filteredPosts.length === 0 && debouncedSearch.trim() && (
+                        <div style={{ textAlign: "center", padding: "60px 0", color: "#bbb", fontSize: "12px" }}>
+                          "{debouncedSearch}"에 대한 검색 결과가 없습니다.
+                        </div>
+                      )}
                       {pagedPosts.map((post) => (
                   <div
                     key={post.id}

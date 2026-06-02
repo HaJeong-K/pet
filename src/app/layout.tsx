@@ -4,6 +4,7 @@ import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import { AuthProvider } from "@/lib/AuthContext";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,22 +25,27 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <head>
-        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" defer />
-        <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KEY&autoload=false" defer />
-      </head>
+      <head />
       <body
         style={{
           margin: 0,
           overflow: "hidden",
         }}
       >
-      <AuthProvider>
-        <AuthGuard />
-        {children}
-        {modal}
-        <TabBar />
-      </AuthProvider>
+        <Script
+          src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
+          strategy="beforeInteractive"
+        />
+        <Script
+          src={`//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`}
+          strategy="afterInteractive"
+        />
+        <AuthProvider>
+          <AuthGuard />
+          {children}
+          {modal}
+          <TabBar />
+        </AuthProvider>
       </body>
     </html>
   );

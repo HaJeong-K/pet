@@ -53,6 +53,38 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   return "";
 };
 
+// 검색어가 지역명 패턴인지 확인하고 지도를 이동시키는 함수
+const searchRegionAndMoveMap = async (
+  query: string,
+  mapInstance: any
+): Promise<boolean> => {
+  // "@@시 @@구", "@@시 @@군", "@@시 @@동", "@@구 @@동" 등의 패턴 감지
+  const regionPattern = /^[\w가-힣]+시\s+[\w가-힣]+(구|군|동|읍|면)$|^[\w가-힣]+구\s+[\w가-힣]+동$/;
+  if (!regionPattern.test(query.trim())) return false;
+
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`,
+      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
+    );
+    const data = await res.json();
+    const doc = data.documents?.[0];
+    if (!doc) return false;
+
+    const lat = parseFloat(doc.y);
+    const lng = parseFloat(doc.x);
+    if (isNaN(lat) || isNaN(lng)) return false;
+
+    mapInstance.setCenter(new window.kakao.maps.LatLng(lat, lng));
+    // 구/군 단위는 레벨 7, 동/읍/면 단위는 레벨 5
+    const isSmallUnit = /(동|읍|면)$/.test(query.trim());
+    mapInstance.setLevel(isSmallUnit ? 5 : 7);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export default function KakaoMap() {
   const router = useRouter();
   const pathname = usePathname();
@@ -82,6 +114,12 @@ export default function KakaoMap() {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // debouncedSearch 변경 시 지역명이면 지도 이동
+  useEffect(() => {
+    if (!debouncedSearch.trim() || !mapRef.current || !mapReady) return;
+    searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
+  }, [debouncedSearch, mapReady]);
 
   const createUserProfile = async (user: any) => {
     if (!user) return;
@@ -254,7 +292,13 @@ export default function KakaoMap() {
       ? places
       : places.filter((p) => p.pet_zone === selectedPetZone);
 
-    if (userRegion && !debouncedSearch.trim()) {
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name?.toLowerCase().includes(q) ||
+        p.address?.toLowerCase().includes(q)
+      );
+    } else if (userRegion) {
       filtered = filtered.filter((p) => p.address?.includes(userRegion));
     }
 

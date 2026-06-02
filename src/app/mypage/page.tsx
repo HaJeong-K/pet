@@ -759,7 +759,7 @@ export default function MyPage() {
                                 color: "#ea580c", background: item._subtype === "reply" ? "#fef9c3" : "#fff0e6",
                                 borderRadius: 99, padding: "2px 8px",
                               }}>
-                                {item._subtype === "reply" ? "장소 답글" : "장소 댓글"}
+                                {item._subtype === "reply" ? "장소 대댓글" : "장소 댓글"}
                               </span>
                             </div>
                             {/* 본문 */}
@@ -813,7 +813,7 @@ export default function MyPage() {
                                 color: "#2563eb", background: "#eff6ff",
                                 borderRadius: 99, padding: "2px 8px",
                               }}>
-                                {item._subtype === "reply" ? "커뮤니티 답글" : "커뮤니티 댓글"}
+                                {item._subtype === "reply" ? "커뮤니티 대댓글" : "커뮤니티 댓글"}
                               </span>
                             </div>
                             {/* 본문 */}

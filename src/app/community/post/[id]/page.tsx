@@ -293,14 +293,28 @@ export default function CommunityDetailPage() {
       if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
       return k;
     })();
-    await supabase.from("reports").insert([{
-      type: "community_post",
-      target_id: String(postId),
-      reporter_key: userKey,
-      report_category: postReportCategory, // ★ reason → report_category로 통일
-      report_reason: postReportReason,
-      nickname: post?.nickname || "—",     // ★ 신고 대상 작성자 닉네임 저장
-    }]);
+    const { error: reportError, data: reportData, status, statusText } = await supabase
+      .from("reports")
+      .insert([{
+        type: "community_post",
+        target_id: String(postId),
+        reporter_key: userKey,
+        report_category: postReportCategory,
+        report_reason: postReportReason,
+        nickname: post?.nickname || "—",
+        is_resolved: false,
+      }])
+      .select(); // ← .select() 추가
+
+    console.log("status:", status);
+    console.log("statusText:", statusText);
+    console.log("error:", JSON.stringify(reportError, null, 2));
+    console.log("data:", JSON.stringify(reportData, null, 2));
+    if (reportError) {
+      console.error("신고 저장 실패:", reportError);
+      alert("신고 접수에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
     alert("신고가 접수되었습니다.");
     setPostReportOpen(false);
     setPostReportCategory(""); setPostReportReason("");
@@ -397,14 +411,20 @@ export default function CommunityDetailPage() {
     // ★ 신고 대상 댓글/답글의 닉네임 가져오기
     const targetComment = comments.find(c => c.id === commentReportTargetId);
 
-    await supabase.from("reports").insert([{
+    const { error: reportError } = await supabase.from("reports").insert([{
       type: commentReportType,
       target_id: commentReportTargetId,
       reporter_key: userKey,
-      report_category: commentReportCategory, // ★ reason → report_category로 통일
+      report_category: commentReportCategory,
       report_reason: commentReportReason,
-      nickname: targetComment?.nickname || "—", // ★ 신고 대상 작성자 닉네임 저장
+      nickname: targetComment?.nickname || "—",
+      is_resolved: false,  // 명시적으로 false 지정
     }]);
+    if (reportError) {
+      console.error("신고 저장 실패:", reportError);
+      alert("신고 접수에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
     alert("신고가 접수되었습니다.");
     setCommentReportOpen(false);
     setCommentReportCategory(""); setCommentReportReason("");
