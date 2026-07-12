@@ -84,6 +84,7 @@ interface CommentItem {
   avatar_url?: string | null;
   parent_id: string | null;
   created_at: string;
+  likes?: number;
 }
 
 export default function CommunityDetailPage() {
