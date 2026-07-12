@@ -152,8 +152,11 @@ export default function KakaoMap() {
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
 
-  // ── 검색: 입력값 / 디바운스값 분리
-  const [searchQuery, setSearchQuery] = useState("");
+  // ── 검색: 입력값 / 디바운스값 분리 (새로고침해도 마지막 검색어 유지)
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("ggk_search_query") || "";
+  });
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // 300ms 디바운스
@@ -165,9 +168,12 @@ export default function KakaoMap() {
   // debouncedSearch 변경 시 지역명이면 지도 이동 + searchCenter 갱신
   useEffect(() => {
     if (!debouncedSearch.trim()) {
-      setSearchCenter(null); // 검색어 지우면 다시 실제 위치 기준으로 복귀
+      // 이미 null이면 다시 set하지 않음 (불필요한 렌더링 방지)
+      setSearchCenter((prev) => (prev === null ? prev : null));
+      localStorage.removeItem("ggk_search_query");
       return;
     }
+    localStorage.setItem("ggk_search_query", debouncedSearch.trim()); // 새로고침 유지용 저장
     if (!mapRef.current || !mapReady) return;
 
     (async () => {
