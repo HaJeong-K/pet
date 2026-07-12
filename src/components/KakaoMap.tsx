@@ -393,7 +393,7 @@ export default function KakaoMap() {
     });
   }, [filteredPlaces, userLocation, searchCenter]);
 
-  // ── 지도 초기화
+  // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
     window.selectPlace = (id: number) => selectPlaceRef.current(id);
     const initializeMap = () => {
@@ -408,15 +408,20 @@ export default function KakaoMap() {
       mapRef.current.setZoomable(true);
       setMapReady(true);
     };
-    if (window.kakao && window.kakao.maps) {
-      window.kakao.maps.load(() => { initializeMap(); });
-    } else {
-      const script = document.createElement("script");
-      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&autoload=false`;
-      script.async = true;
-      document.head.appendChild(script);
-      script.onload = () => { window.kakao.maps.load(() => { initializeMap(); }); };
-    }
+
+    let cancelled = false;
+    const tryInit = () => {
+      if (cancelled) return;
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => { initializeMap(); });
+      } else {
+        // layout.tsx의 Script가 afterInteractive라 아직 로딩 중일 수 있음 — 100ms마다 재확인
+        setTimeout(tryInit, 100);
+      }
+    };
+    tryInit();
+
+    return () => { cancelled = true; };
   }, []);
 
   // ── 현재 화면 안에 보이는 마커만 표시
