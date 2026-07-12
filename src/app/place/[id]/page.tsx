@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { fetchAwsPlaces } from "@/lib/awsPlaces";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink,
   ImageOff, ChefHat, LandPlot, Dog, Bone, Shield,
   ChevronLeft, ChevronRight, Phone,
+  Car,         // 주차
+  Ticket,      // 입장료
+  Globe,       // 홈페이지
+  CalendarOff, // 휴무일
 } from "lucide-react";
 
 // ── 폰트 (Pretendard 제목/로고 + Noto Sans KR 본문)
@@ -23,7 +28,7 @@ const adjectives = ["행복한","귀여운","용감한","졸린","말랑한","�
 const animals    = ["강아지","고양이","햄스터","토끼","리트리버","푸들","치와와","코기"];
 const PET_ZONE_LABEL: Record<string, string> = {
   indoor:  "실내 가능",
-  terrace: "테라스 가능",
+  terrace: "야외 가능",
   both:    "실내외 모두 가능",
 };
 
@@ -291,7 +296,13 @@ export default function PlaceDetail() {
         fetchReplies(),
         fetchGalleryImages(),
       ]);
-      setPlace(placeData);
+
+      let resolvedPlace = placeData;
+      if (!resolvedPlace) {
+        const awsPlaces = await fetchAwsPlaces();
+        resolvedPlace = awsPlaces.find((p) => p.id === placeId) || null;
+      }
+      setPlace(resolvedPlace);
       const userKey = getUserKey();
       const currentSession = (await supabase.auth.getSession()).data.session;
       const reactionsKey = currentSession?.user?.id ?? userKey;
@@ -623,30 +634,56 @@ export default function PlaceDetail() {
 
         {/* 정보 그리드 */}
         <div style={{ marginTop:"12px", border:"1px solid #eee", borderRadius:"12px", overflow:"hidden" }}>
+
+          {/* 행1: 카테고리 / 동반 가능 범위 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}><ChefHat size={10} />카테고리</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.category || "—"}</div>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
+                <ChefHat size={10} />카테고리
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.category || "—"}
+              </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}><LandPlot size={10} />동반 가능 범위</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{PET_ZONE_LABEL[place.pet_zone] || place.pet_zone || "—"}</div>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
+                <LandPlot size={10} />동반 가능 범위
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {PET_ZONE_LABEL[place.pet_zone] || place.pet_zone || "—"}
+              </div>
             </div>
           </div>
+
+          {/* 행2: 영업시간 / 대형견 가능 여부 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}><Clock size={10} />영업시간</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.hours || "—"}</div>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Clock size={10} />영업시간
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.hours || "—"}
+              </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}><Dog size={10} />대형견 가능 여부</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.large_dog ? "✅ 가능" : "❌ 불가"}</div>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Dog size={10} />대형견 가능 여부
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.large_dog ? "가능" : "불가"}
+              </div>
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr" }}>
+
+          {/* 행3: 펫 메뉴 / 전화번호 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}><Bone size={10} />펫 메뉴</div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>{place.pet_menu || "—"}</div>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Bone size={10} />펫 메뉴
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.pet_menu || "—"}
+              </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
               <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
@@ -654,12 +691,62 @@ export default function PlaceDetail() {
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
                 {place.phone
-                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>{place.phone}</a>
+                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                      {place.phone}
+                    </a>
                   : "—"
                 }
               </div>
             </div>
           </div>
+
+          {/* 행4: 홈페이지 / 휴무일  ← 신규 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+            <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Globe size={10} />홈페이지
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", fontWeight:500 }}>
+                {place.website && place.website !== "정보없음"
+                  ? <a href={place.website} target="_blank" rel="noreferrer"
+                      style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                      바로가기
+                    </a>
+                  : <span style={{ color:"#222" }}>—</span>
+                }
+              </div>
+            </div>
+            <div style={{ padding:"10px 12px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <CalendarOff size={10} />휴무일
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.closed_days || "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* 행5: 주차 / 입장료  ← 신규 */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+            <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Car size={10} />주차
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.parking || "—"}
+              </div>
+            </div>
+            <div style={{ padding:"10px 12px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Ticket size={10} />입장료
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.entry_fee || "—"}
+              </div>
+            </div>
+          </div>
+
+          {/* 행6: 메모 (단독) */}
           <div style={{ padding:"10px 12px", borderTop:"1px solid #eee" }}>
             <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
               <MessageCircle size={10} />메모
@@ -668,6 +755,7 @@ export default function PlaceDetail() {
               {place.memo || " "}
             </div>
           </div>
+
         </div>
 
         {/* 찜/추천/비추천/네이버 */}

@@ -451,7 +451,6 @@ export default function CommunityPage() {
                     style={{
                       padding: "4px 10px",
                       borderRadius: "999px",
-                      border: "none",
                       fontSize: "11px",
                       fontWeight: 700,
                       cursor: "pointer",

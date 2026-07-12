@@ -1,0 +1,482 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Gachi-gage portfolio backend (DynamoDB + Lambda + API Gateway)
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 10
+    MemorySize: 256
+    Architectures:
+    - arm64
+    Environment:
+      Variables:
+        PLACES_TABLE:
+          Ref: PlacesTable
+        REVIEWS_TABLE:
+          Ref: ReviewsTable
+        REPLIES_TABLE:
+          Ref: RepliesTable
+        REACTIONS_TABLE:
+          Ref: ReactionsTable
+        PROPOSALS_TABLE:
+          Ref: ProposalsTable
+        REPORTS_TABLE:
+          Ref: ReportsTable
+        IMAGE_BUCKET:
+          Ref: ImageBucket
+        ADMIN_PASSWORD:
+          Ref: AdminPassword
+Parameters:
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: "\uAD00\uB9AC\uC790 \uD398\uC774\uC9C0 \uC811\uADFC \uBE44\uBC00\uBC88\
+      \uD638"
+Resources:
+  PlacesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Places
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: placeId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: placeId
+        KeyType: HASH
+  ReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Reviews
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: reviewId
+        AttributeType: S
+      - AttributeName: placeId
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
+      KeySchema:
+      - AttributeName: reviewId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: placeId-index
+        KeySchema:
+        - AttributeName: placeId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+  RepliesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Replies
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: replyId
+        AttributeType: S
+      - AttributeName: reviewId
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
+      KeySchema:
+      - AttributeName: replyId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: reviewId-index
+        KeySchema:
+        - AttributeName: reviewId
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+  ReactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Reactions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: targetId
+        AttributeType: S
+      - AttributeName: sk
+        AttributeType: S
+      KeySchema:
+      - AttributeName: targetId
+        KeyType: HASH
+      - AttributeName: sk
+        KeyType: RANGE
+  ProposalsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Proposals
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: proposalId
+        AttributeType: S
+      - AttributeName: status
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
+      KeySchema:
+      - AttributeName: proposalId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: status-index
+        KeySchema:
+        - AttributeName: status
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+  ReportsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Gachigage-Reports
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: reportId
+        AttributeType: S
+      - AttributeName: isResolved
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
+      KeySchema:
+      - AttributeName: reportId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: resolved-index
+        KeySchema:
+        - AttributeName: isResolved
+          KeyType: HASH
+        - AttributeName: createdAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: gachigage-images-${AWS::AccountId}
+      CorsConfiguration:
+        CorsRules:
+        - AllowedOrigins:
+          - '*'
+          AllowedMethods:
+          - GET
+          - PUT
+          - POST
+          AllowedHeaders:
+          - '*'
+          MaxAge: 3000
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+  ImageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: ImageBucket
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal: '*'
+          Action: s3:GetObject
+          Resource:
+            Fn::Sub: arn:aws:s3:::${ImageBucket}/*
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+        - '*'
+        AllowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+        AllowHeaders:
+        - Content-Type
+  PlacesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: PlacesFunction
+      Handler: places/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PlacesTable
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places
+            Method: GET
+        Get:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places/{placeId}
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places/{placeId}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places/{placeId}
+            Method: DELETE
+    Metadata:
+      SamResourceId: PlacesFunction
+  ReviewsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ReviewsFunction
+      Handler: reviews/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ReviewsTable
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places/{placeId}/reviews
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /places/{placeId}/reviews
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reviews/{reviewId}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reviews/{reviewId}
+            Method: DELETE
+    Metadata:
+      SamResourceId: ReviewsFunction
+  RepliesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: RepliesFunction
+      Handler: replies/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RepliesTable
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reviews/{reviewId}/replies
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reviews/{reviewId}/replies
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /replies/{replyId}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /replies/{replyId}
+            Method: DELETE
+    Metadata:
+      SamResourceId: RepliesFunction
+  ReactionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ReactionsFunction
+      Handler: reactions/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ReactionsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PlacesTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ReviewsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RepliesTable
+      Events:
+        Toggle:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reactions
+            Method: POST
+        Mine:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reactions
+            Method: GET
+    Metadata:
+      SamResourceId: ReactionsFunction
+  ProposalsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ProposalsFunction
+      Handler: proposals/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ProposalsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: PlacesTable
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /proposals
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /proposals
+            Method: POST
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /proposals/{proposalId}
+            Method: PUT
+        Delete:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /proposals/{proposalId}
+            Method: DELETE
+        Approve:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /proposals/{proposalId}/approve
+            Method: POST
+    Metadata:
+      SamResourceId: ProposalsFunction
+  ReportsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ReportsFunction
+      Handler: reports/index.handler
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ReportsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ReviewsTable
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: RepliesTable
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reports
+            Method: GET
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reports
+            Method: POST
+        Resolve:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /reports/{reportId}/resolve
+            Method: PUT
+    Metadata:
+      SamResourceId: ReportsFunction
+  UploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: UploadFunction
+      Handler: upload/index.handler
+      Policies:
+      - S3CrudPolicy:
+          BucketName:
+            Ref: ImageBucket
+      Events:
+        GetUrl:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: HttpApi
+            Path: /upload-url
+            Method: POST
+    Metadata:
+      SamResourceId: UploadFunction
+Outputs:
+  ApiUrl:
+    Description: "API Gateway \uC5D4\uB4DC\uD3EC\uC778\uD2B8"
+    Value:
+      Fn::Sub: https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  ImageBucketName:
+    Value:
+      Ref: ImageBucket

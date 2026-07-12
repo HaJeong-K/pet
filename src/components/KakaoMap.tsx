@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { getPlaces } from "@/lib/api";
+import { fetchAwsPlaces } from "@/lib/awsPlaces";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
@@ -22,10 +24,85 @@ const PET_ZONE_EMOJI: Record<string, string> = {
   both: "🏡",
 };
 
+// ── 카테고리 기반 이모지 (pet_zone과 무관하게 category로 결정되는 장소용)
+const CATEGORY_EMOJI: Record<string, string> = {
+  "동물병원": "🏥",
+};
+
+const getPlaceEmoji = (place: any) =>
+  CATEGORY_EMOJI[place?.category] || PET_ZONE_EMOJI[place?.pet_zone] || null;
+
+const getPlaceLabel = (place: any) =>
+  CATEGORY_EMOJI[place?.category]
+    ? place.category
+    : PET_ZONE_LABEL[place?.pet_zone] || place?.pet_zone || "";
+
 const PET_ZONE_LABEL: Record<string, string> = {
   indoor: "실내 가능",
-  terrace: "테라스 가능",
+  terrace: "야외 가능",
   both: "실내외 가능",
+};
+
+// ── 지역 검색: 하드코딩 좌표표 없이 Kakao 주소 검색 API에
+// 흔한 행정구역 접미사를 순서대로 붙여가며 물어봐서 전국 어디든 커버합니다.
+const REGION_SUFFIXES = [
+  "광역시",
+  "특별시",
+  "특별자치시",
+  "특별자치도",
+  "도",
+  "시",
+  "군",
+  "구",
+];
+
+const tryKakaoAddressSearch = async (
+  query: string
+): Promise<{ lat: number; lng: number } | null> => {
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`,
+      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
+    );
+    const data = await res.json();
+    const doc = data.documents?.[0];
+    if (!doc) return null;
+
+    const lat = parseFloat(doc.y);
+    const lng = parseFloat(doc.x);
+    if (isNaN(lat) || isNaN(lng)) return null;
+
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+};
+
+const searchRegionAndMoveMap = async (
+  query: string,
+  mapInstance: any
+): Promise<{ lat: number; lng: number } | null> => {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+
+  // 이미 행정구역 접미사(시/도/군/구/읍/면/동)로 끝나면 그대로 한 번만 시도
+  const alreadyHasSuffix = /(시|도|군|구|읍|면|동)$/.test(trimmed);
+  const candidates = alreadyHasSuffix
+    ? [trimmed]
+    : [trimmed, ...REGION_SUFFIXES.map((suf) => `${trimmed}${suf}`)];
+
+  for (const candidate of candidates) {
+    const result = await tryKakaoAddressSearch(candidate);
+    if (result) {
+      mapInstance.setCenter(new window.kakao.maps.LatLng(result.lat, result.lng));
+      // "OO구 OO동"처럼 세부 단위면 좁게, 시/도 단위면 넓게
+      const isDetailed = /\s/.test(trimmed) || /(동|읍|면)$/.test(trimmed);
+      mapInstance.setLevel(isDetailed ? 5 : 8);
+      return result;
+    }
+  }
+
+  return null;
 };
 
 const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -53,38 +130,6 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   return "";
 };
 
-// 검색어가 지역명 패턴인지 확인하고 지도를 이동시키는 함수
-const searchRegionAndMoveMap = async (
-  query: string,
-  mapInstance: any
-): Promise<boolean> => {
-  // "@@시 @@구", "@@시 @@군", "@@시 @@동", "@@구 @@동" 등의 패턴 감지
-  const regionPattern = /^[\w가-힣]+시\s+[\w가-힣]+(구|군|동|읍|면)$|^[\w가-힣]+구\s+[\w가-힣]+동$/;
-  if (!regionPattern.test(query.trim())) return false;
-
-  try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`,
-      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-    );
-    const data = await res.json();
-    const doc = data.documents?.[0];
-    if (!doc) return false;
-
-    const lat = parseFloat(doc.y);
-    const lng = parseFloat(doc.x);
-    if (isNaN(lat) || isNaN(lng)) return false;
-
-    mapInstance.setCenter(new window.kakao.maps.LatLng(lat, lng));
-    // 구/군 단위는 레벨 7, 동/읍/면 단위는 레벨 5
-    const isSmallUnit = /(동|읍|면)$/.test(query.trim());
-    mapInstance.setLevel(isSmallUnit ? 5 : 7);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 export default function KakaoMap() {
   const router = useRouter();
   const pathname = usePathname();
@@ -104,6 +149,8 @@ export default function KakaoMap() {
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userRegion, setUserRegion] = useState<string>("");
+  // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   // ── 검색: 입력값 / 디바운스값 분리
   const [searchQuery, setSearchQuery] = useState("");
@@ -115,10 +162,18 @@ export default function KakaoMap() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // debouncedSearch 변경 시 지역명이면 지도 이동
+  // debouncedSearch 변경 시 지역명이면 지도 이동 + searchCenter 갱신
   useEffect(() => {
-    if (!debouncedSearch.trim() || !mapRef.current || !mapReady) return;
-    searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
+    if (!debouncedSearch.trim()) {
+      setSearchCenter(null); // 검색어 지우면 다시 실제 위치 기준으로 복귀
+      return;
+    }
+    if (!mapRef.current || !mapReady) return;
+
+    (async () => {
+      const center = await searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
+      if (center) setSearchCenter(center);
+    })();
   }, [debouncedSearch, mapReady]);
 
   const createUserProfile = async (user: any) => {
@@ -185,12 +240,13 @@ export default function KakaoMap() {
   // ── 초기 데이터 로드
   useEffect(() => {
     const init = async () => {
-      const [{ data: { session } }, { data: placesData }] = await Promise.all([
+      const [{ data: { session } }, { data: placesData }, awsPlacesData] = await Promise.all([
         supabase.auth.getSession(),
-        supabase.from("places").select("id, name, lat, lng, pet_zone, address, image_url, created_at"),
+        supabase.from("places").select("id, name, lat, lng, pet_zone, category, address, image_url, created_at"),
+        fetchAwsPlaces(),
       ]);
       setSession(session);
-      setPlaces(placesData || []);
+      setPlaces([...(placesData || []), ...awsPlacesData]);
       if (session?.user) await createUserProfile(session.user);
       if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
@@ -288,38 +344,54 @@ export default function KakaoMap() {
 
   // ── filteredPlaces: debouncedSearch 사용
   const filteredPlaces = useMemo(() => {
-    let filtered = selectedPetZone === "all"
-      ? places
-      : places.filter((p) => p.pet_zone === selectedPetZone);
-
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.trim().toLowerCase();
-      filtered = filtered.filter((p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.address?.toLowerCase().includes(q)
-      );
-    } else if (userRegion) {
-      filtered = filtered.filter((p) => p.address?.includes(userRegion));
+    let filtered = places;
+    if (selectedPetZone === "vet") {
+      filtered = places.filter((p) => p.category === "동물병원");
+    } else if (selectedPetZone !== "all") {
+      filtered = places.filter((p) => p.pet_zone === selectedPetZone);
     }
 
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.trim().toLowerCase();
+    // 검색어 없을 때만 현재 지역 필터
+    if (!debouncedSearch.trim() && userRegion) {
       filtered = filtered.filter((p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.address?.toLowerCase().includes(q)
+        p.address?.includes(userRegion)
       );
     }
 
     if (userLocation) {
       filtered = [...filtered].sort((a, b) => {
-        const distA = getDistance(userLocation.lat, userLocation.lng, parseFloat(a.lat), parseFloat(a.lng));
-        const distB = getDistance(userLocation.lat, userLocation.lng, parseFloat(b.lat), parseFloat(b.lng));
+        const distA = getDistance(
+          userLocation.lat,
+          userLocation.lng,
+          parseFloat(a.lat),
+          parseFloat(a.lng)
+        );
+
+        const distB = getDistance(
+          userLocation.lat,
+          userLocation.lng,
+          parseFloat(b.lat),
+          parseFloat(b.lng)
+        );
+
         return distA - distB;
       });
     }
 
     return filtered;
   }, [places, selectedPetZone, userLocation, userRegion, debouncedSearch]);
+
+  // ── 리스트 패널 전용: 검색 중이면 검색된 좌표, 아니면 실제 위치 기준 반경 5km 이내만
+  const nearbyPlaces = useMemo(() => {
+    const center = searchCenter || userLocation;
+    if (!center) return filteredPlaces;
+    return filteredPlaces.filter((place) => {
+      const lat = parseFloat(place.lat);
+      const lng = parseFloat(place.lng);
+      if (isNaN(lat) || isNaN(lng)) return false;
+      return getDistance(center.lat, center.lng, lat, lng) <= 5;
+    });
+  }, [filteredPlaces, userLocation, searchCenter]);
 
   // ── 지도 초기화
   useEffect(() => {
@@ -347,61 +419,89 @@ export default function KakaoMap() {
     }
   }, []);
 
-  // ── 마커 증분 업데이트 (변경된 것만 추가/제거)
+  // ── 현재 화면 안에 보이는 마커만 표시
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
 
     const map = mapRef.current;
 
-    // 기존 마커 전부 제거
-    markerMapRef.current.forEach((overlay) => {
-      overlay.setMap(null);
-    });
+    const updateMarkers = () => {
+      const bounds = map.getBounds();
 
-    markerMapRef.current.clear();
-
-    // 새 마커 다시 생성
-    filteredPlaces.forEach((place) => {
-      const lat = parseFloat(place.lat);
-      const lng = parseFloat(place.lng);
-
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      const emoji = PET_ZONE_EMOJI[place.pet_zone] || "🐾";
-
-      const overlay = new window.kakao.maps.CustomOverlay({
-        position: new window.kakao.maps.LatLng(lat, lng),
-
-        content: `
-          <div
-            onclick="window.selectPlace(${place.id})"
-            style="
-              background:white;
-              border-radius:999px;
-              padding:5px 10px;
-              font-size:11px;
-              font-weight:600;
-              font-family:'Noto Sans KR',sans-serif;
-              box-shadow:0 2px 6px rgba(0,0,0,0.13);
-              cursor:pointer;
-              white-space:nowrap;
-              user-select:none;
-              border:1px solid rgba(0,0,0,0.06);
-            "
-          >
-            ${emoji} ${place.name}
-          </div>
-        `,
-
-        yAnchor: 1,
-        zIndex: 3,
+      markerMapRef.current.forEach((overlay) => {
+        overlay.setMap(null);
       });
 
-      overlay.setMap(map);
+      markerMapRef.current.clear();
 
-      markerMapRef.current.set(place.id, overlay);
-    });
+      filteredPlaces.forEach((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
 
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const position =
+          new window.kakao.maps.LatLng(lat, lng);
+
+        // 현재 화면 안에 없으면 마커 생성 안함
+        if (!bounds.contain(position)) return;
+
+        const emoji = getPlaceEmoji(place) || "🐾";
+
+        const overlay =
+          new window.kakao.maps.CustomOverlay({
+            position,
+
+            content: `
+              <div
+                onclick="window.selectPlace(${place.id})"
+                style="
+                  background:white;
+                  border-radius:999px;
+                  padding:5px 10px;
+                  font-size:11px;
+                  font-weight:600;
+                  font-family:'Noto Sans KR',sans-serif;
+                  box-shadow:0 2px 6px rgba(0,0,0,0.13);
+                  cursor:pointer;
+                  white-space:nowrap;
+                  user-select:none;
+                  border:1px solid rgba(0,0,0,0.06);
+                "
+              >
+                ${emoji} ${place.name}
+              </div>
+            `,
+
+            yAnchor: 1,
+            zIndex: 3,
+          });
+
+        overlay.setMap(map);
+
+        markerMapRef.current.set(place.id, overlay);
+      });
+    };
+
+    updateMarkers();
+
+    const idleHandler = () => {
+      updateMarkers();
+    };
+
+    window.kakao.maps.event.addListener(
+      map,
+      "idle",
+      idleHandler
+    );
+
+    return () => {
+      window.kakao.maps.event.removeListener(
+        map,
+        "idle",
+        idleHandler
+      );
+    };
   }, [filteredPlaces, mapReady]);
 
   const moveToMyLocation = () => {
@@ -416,6 +516,8 @@ export default function KakaoMap() {
         mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
         mapRef.current.setLevel(3);
         setUserLocation({ lat: latitude, lng: longitude });
+        setSearchCenter(null); // 내 위치로 이동하면 검색 기준은 초기화
+        setSearchQuery("");
         const region = await reverseGeocode(latitude, longitude);
         setUserRegion(region);
         localStorage.setItem("user_lat", String(latitude));
@@ -623,18 +725,18 @@ export default function KakaoMap() {
               </div>
               <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                  {selectedPlace.pet_zone
-                    ? PET_ZONE_EMOJI[selectedPlace.pet_zone]
+                  {getPlaceEmoji(selectedPlace)
+                    ? getPlaceEmoji(selectedPlace)
                     : <PawPrint size={11} color="#888" />}
                 </span>{" "}
-                {PET_ZONE_LABEL[selectedPlace.pet_zone] || selectedPlace.pet_zone}
+                {getPlaceLabel(selectedPlace)}
               </div>
               <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
                 <MapPin size={10} color="#bbb" />
                 {selectedPlace.address}
               </div>
               <button
-                onClick={() => { setSelectedPlace(null); router.push(`/?placeId=${selectedPlace.id}`); }}
+                onClick={() => { setSelectedPlace(null); router.push(`/place/${selectedPlace.id}`); }}
                 className="ggk-body"
                 style={{
                   marginTop: "10px", width: "100%", padding: "9px",
@@ -733,8 +835,9 @@ export default function KakaoMap() {
             <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
               <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
               <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
-              <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 테라스 가능</button>
+              <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
               <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
+              <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
             </div>
           </div>
 
@@ -788,7 +891,7 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* ── 리스트 패널 */}
+      {/* ── 리스트 패널 (반경 5km 이내: nearbyPlaces 사용) */}
       <div
         className="ggk-body"
         style={{
@@ -821,17 +924,17 @@ export default function KakaoMap() {
           }}
         >
           <div style={{ height: "8px" }} />
-          {filteredPlaces.length === 0 && (
+          {nearbyPlaces.length === 0 && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
               color: "#bbb", fontSize: "11px", lineHeight: 1.8,
               display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
             }}>
               <Search size={22} color="#ddd" />
-              <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "주변 장소가 없습니다"}</div>
+              <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "반경 5km 이내에 장소가 없습니다"}</div>
             </div>
           )}
-          {filteredPlaces.map((place) => (
+          {nearbyPlaces.map((place) => (
             <div key={place.id}>
               <div
                 onClick={() => {
@@ -850,21 +953,22 @@ export default function KakaoMap() {
                   overflow: "hidden",
                 }}
               >
-                {/* lazy loading 추가 */}
+                {/* lazy loading + 기본 이미지 fallback */}
                 <img
-                  src={place.image_url}
+                  src={place.image_url || "/images/default-place.png"}
                   alt={place.name}
                   loading="lazy"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
                   style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
                 />
                 <div style={{ padding: "6px 9px" }}>
                   <div style={{ fontWeight: 700, fontSize: "11px", color: "#111" }}>{place.name}</div>
                   <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                      {place.pet_zone
-                        ? <span>{PET_ZONE_EMOJI[place.pet_zone]}</span>
+                      {getPlaceEmoji(place)
+                        ? <span>{getPlaceEmoji(place)}</span>
                         : <PawPrint size={10} color="#888" />}
-                      {PET_ZONE_LABEL[place.pet_zone] || place.pet_zone}
+                      {getPlaceLabel(place)}
                     </span>
                   </div>
                   <div
@@ -1016,11 +1120,11 @@ export default function KakaoMap() {
                     </div>
                     <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
                       <span>
-                        {place.pet_zone
-                          ? PET_ZONE_EMOJI[place.pet_zone]
+                        {getPlaceEmoji(place)
+                          ? getPlaceEmoji(place)
                           : <PawPrint size={10} color="#777" />}
                       </span>
-                      <span>{PET_ZONE_LABEL[place.pet_zone] || place.pet_zone}</span>
+                      <span>{getPlaceLabel(place)}</span>
                     </div>
                     {place.address && (
                       <div style={{

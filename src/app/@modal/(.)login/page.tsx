@@ -274,7 +274,7 @@ export default function LoginPage() {
             ─────────────────────────────────────────────────────────── */}
             <button
               onClick={loginWithGoogle}
-              aria-label="Google로 로그인"
+              aria-label="Google 로그인"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -310,7 +310,7 @@ export default function LoginPage() {
                 <GoogleGLogo />
               </span>
               <span style={{ paddingLeft: "10px", paddingRight: "12px" }}>
-                Google로 로그인
+                Google 로그인
               </span>
             </button>
 
