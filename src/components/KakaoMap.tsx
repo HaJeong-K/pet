@@ -142,8 +142,11 @@ export default function KakaoMap() {
   const [wideView, setWideView] = useState(false);
   const savedLevelRef = useRef<number>(4);
 
-  // ── 마커: Map 객체로 관리 (증분 업데이트)
+  // ── 마커: Map 객체로 관리 (증분 업데이트) — 상세 pill 마커(CustomOverlay)용
   const markerMapRef = useRef<Map<number, any>>(new Map());
+  // ── 클러스터링용: 넓은 줌에서 쓰는 경량 Marker + MarkerClusterer
+  const clustererRef = useRef<any>(null);
+  const clusterMarkersRef = useRef<any[]>([]);
   // ── 현위치 오버레이
   const locationOverlayRef = useRef<any>(null);
 
@@ -153,11 +156,17 @@ export default function KakaoMap() {
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   // ── 검색: 입력값 / 디바운스값 분리 (새로고침해도 마지막 검색어 유지)
-  const [searchQuery, setSearchQuery] = useState(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("ggk_search_query") || "";
-  });
+  // ⚠️ 서버 렌더링 시점엔 localStorage가 없으므로 항상 빈 문자열로 시작해야
+  //   서버/클라이언트 첫 렌더가 일치합니다 (hydration mismatch 방지).
+  //   저장된 검색어는 아래 useEffect에서 마운트 이후에 반영합니다.
+  const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // 마운트 이후(클라이언트에서만)에 저장된 검색어 복원
+  useEffect(() => {
+    const saved = localStorage.getItem("ggk_search_query");
+    if (saved) setSearchQuery(saved);
+  }, []);
 
   // 300ms 디바운스
   useEffect(() => {
@@ -430,88 +439,131 @@ export default function KakaoMap() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── 현재 화면 안에 보이는 마커만 표시
+  // ── 줌 레벨 7 이상(넓게 볼 때)이면 클러스터링, 그보다 좁으면 지금까지의 pill 마커
+  // 카카오맵 레벨은 숫자가 클수록 더 넓게(축소) 보이는 상태입니다.
+  const CLUSTER_ZOOM_THRESHOLD = 7;
+
+  // ── 줌 레벨에 따라 상세 pill 마커 / 클러스터링 마커를 전환
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
 
     const map = mapRef.current;
 
-    const updateMarkers = () => {
-      const bounds = map.getBounds();
-
-      markerMapRef.current.forEach((overlay) => {
-        overlay.setMap(null);
+    // 클러스터러는 한 번만 만들어서 재사용 (libraries=clusterer 파라미터가 SDK 로드 URL에 없으면 undefined)
+    if (!clustererRef.current && window.kakao.maps.MarkerClusterer) {
+      clustererRef.current = new window.kakao.maps.MarkerClusterer({
+        map: null, // 처음엔 지도에 안 붙이고, 모드 전환될 때만 붙임
+        averageCenter: true,
+        minLevel: CLUSTER_ZOOM_THRESHOLD,
+        disableClickZoom: false,
+        calculator: [10, 50, 100],
+        styles: [
+          { width: "34px", height: "34px", background: "rgba(76,110,245,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "34px", fontSize: "12px", fontWeight: "700" },
+          { width: "44px", height: "44px", background: "rgba(59,90,220,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "44px", fontSize: "13px", fontWeight: "700" },
+          { width: "54px", height: "54px", background: "rgba(37,70,190,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "54px", fontSize: "14px", fontWeight: "700" },
+        ],
       });
+    }
 
+    const clearDetailMarkers = () => {
+      markerMapRef.current.forEach((overlay) => overlay.setMap(null));
       markerMapRef.current.clear();
+    };
+
+    const clearClusterMarkers = () => {
+      clustererRef.current?.clear();
+      clusterMarkersRef.current = [];
+    };
+
+    // ── 좁은 줌: 지금까지 쓰던 이름표 pill (CustomOverlay) + 뷰포트 필터링
+    const renderDetailMarkers = () => {
+      clearClusterMarkers();
+
+      const bounds = map.getBounds();
+      clearDetailMarkers();
 
       filteredPlaces.forEach((place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
-
         if (isNaN(lat) || isNaN(lng)) return;
 
-        const position =
-          new window.kakao.maps.LatLng(lat, lng);
-
-        // 현재 화면 안에 없으면 마커 생성 안함
-        if (!bounds.contain(position)) return;
+        const position = new window.kakao.maps.LatLng(lat, lng);
+        if (!bounds.contain(position)) return; // 화면 안에 없으면 생성 안 함
 
         const emoji = getPlaceEmoji(place) || "🐾";
-
-        const overlay =
-          new window.kakao.maps.CustomOverlay({
-            position,
-
-            content: `
-              <div
-                onclick="window.selectPlace(${place.id})"
-                style="
-                  background:white;
-                  border-radius:999px;
-                  padding:5px 10px;
-                  font-size:11px;
-                  font-weight:600;
-                  font-family:'Noto Sans KR',sans-serif;
-                  box-shadow:0 2px 6px rgba(0,0,0,0.13);
-                  cursor:pointer;
-                  white-space:nowrap;
-                  user-select:none;
-                  border:1px solid rgba(0,0,0,0.06);
-                "
-              >
-                ${emoji} ${place.name}
-              </div>
-            `,
-
-            yAnchor: 1,
-            zIndex: 3,
-          });
+        const overlay = new window.kakao.maps.CustomOverlay({
+          position,
+          content: `
+            <div
+              onclick="window.selectPlace(${place.id})"
+              style="
+                background:white;
+                border-radius:999px;
+                padding:5px 10px;
+                font-size:11px;
+                font-weight:600;
+                font-family:'Noto Sans KR',sans-serif;
+                box-shadow:0 2px 6px rgba(0,0,0,0.13);
+                cursor:pointer;
+                white-space:nowrap;
+                user-select:none;
+                border:1px solid rgba(0,0,0,0.06);
+              "
+            >
+              ${emoji} ${place.name}
+            </div>
+          `,
+          yAnchor: 1,
+          zIndex: 3,
+        });
 
         overlay.setMap(map);
-
         markerMapRef.current.set(place.id, overlay);
       });
     };
 
-    updateMarkers();
+    // ── 넓은 줌: 경량 Marker + MarkerClusterer (뷰포트 밖도 전부 넘겨야 클러스터러가 안팎을 알아서 계산함)
+    const renderClusterMarkers = () => {
+      clearDetailMarkers();
+      clearClusterMarkers();
+      if (!clustererRef.current) return; // libraries=clusterer 누락 시 여기서 조용히 중단
 
-    const idleHandler = () => {
-      updateMarkers();
+      const markers = filteredPlaces
+        .map((place) => {
+          const lat = parseFloat(place.lat);
+          const lng = parseFloat(place.lng);
+          if (isNaN(lat) || isNaN(lng)) return null;
+
+          const marker = new window.kakao.maps.Marker({
+            position: new window.kakao.maps.LatLng(lat, lng),
+          });
+          window.kakao.maps.event.addListener(marker, "click", () => {
+            selectPlaceRef.current(place.id);
+          });
+          return marker;
+        })
+        .filter(Boolean);
+
+      clustererRef.current.addMarkers(markers);
+      clusterMarkersRef.current = markers;
     };
 
-    window.kakao.maps.event.addListener(
-      map,
-      "idle",
-      idleHandler
-    );
+    const updateByZoom = () => {
+      const level = map.getLevel();
+      if (level >= CLUSTER_ZOOM_THRESHOLD) {
+        renderClusterMarkers();
+      } else {
+        renderDetailMarkers();
+      }
+    };
 
+    updateByZoom();
+
+    window.kakao.maps.event.addListener(map, "idle", updateByZoom);
     return () => {
-      window.kakao.maps.event.removeListener(
-        map,
-        "idle",
-        idleHandler
-      );
+      window.kakao.maps.event.removeListener(map, "idle", updateByZoom);
+      clearDetailMarkers();
+      clearClusterMarkers();
     };
   }, [filteredPlaces, mapReady]);
 
