@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
@@ -26,7 +26,7 @@ const BOARDS = [
   { id: "jeju", label: "제주" },
 ];
 
-export default function CommunityWritePage() {
+function CommunityWritePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -831,6 +831,14 @@ export default function CommunityWritePage() {
             
           )}
     </>
+  );
+}
+
+export default function CommunityWritePage() {
+  return (
+    <Suspense fallback={null}>
+      <CommunityWritePageContent />
+    </Suspense>
   );
 }
 
