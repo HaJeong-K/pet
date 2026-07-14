@@ -367,11 +367,11 @@ export default function KakaoMap() {
     }
 
     // 검색어 없을 때만 현재 지역 필터
-    if (!debouncedSearch.trim() && userRegion) {
-      filtered = filtered.filter((p) =>
-        p.address?.includes(userRegion)
-      );
-    }
+    // if (!debouncedSearch.trim() && userRegion) {
+    //   filtered = filtered.filter((p) =>
+    //     p.address?.includes(userRegion)
+    //   );
+    // }
 
     if (userLocation) {
       filtered = [...filtered].sort((a, b) => {
