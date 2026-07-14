@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { fetchAwsPlaces } from "@/lib/awsPlaces";
+import { fetchAwsPlaces, isAwsPlaceId, fetchAwsReviews, createAwsReview } from "@/lib/awsPlaces";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
@@ -130,6 +130,9 @@ export default function PlaceDetail() {
   const [isAdmin, setIsAdmin]         = useState(false); // ★ 관리자 상태 추가
   const isLoggedIn = !!session?.user;
 
+  const [awsPlaceRefId, setAwsPlaceRefId] = useState<string | null>(null); // AWS 장소면 원본 place_id 문자열
+  const isAwsPlace = isAwsPlaceId(placeId);
+
   const [myNickname, setMyNickname] = useState("");
   const [password, setPassword]     = useState("");
   const [content, setContent]       = useState("");
@@ -197,8 +200,14 @@ export default function PlaceDetail() {
     }
   };
 
-  // ── 리뷰 불러오기
-  const fetchReviews = async () => {
+  const fetchReviews = async (awsRefId?: string | null) => {
+    if (isAwsPlace) {
+      const refId = awsRefId ?? awsPlaceRefId;
+      if (!refId) { setReviews([]); return; }
+      const data = await fetchAwsReviews(refId);
+      setReviews(data);
+      return;
+    }
     const { data: reviewData } = await supabase
       .from("reviews")
       .select("id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, password")
@@ -290,18 +299,29 @@ export default function PlaceDetail() {
   useEffect(() => {
     const fetchData = async () => {
       if (!placeId) return;
-      const [{ data: placeData }] = await Promise.all([
-        supabase.from("places").select("*").eq("id", placeId).single(),
-        fetchReviews(),
-        fetchReplies(),
-        fetchGalleryImages(),
-      ]);
+      let resolvedPlace: any = null;
+      let resolvedAwsRefId: string | null = null;
 
-      let resolvedPlace = placeData;
-      if (!resolvedPlace) {
+      if (isAwsPlace) {
         const awsPlaces = await fetchAwsPlaces();
         resolvedPlace = awsPlaces.find((p) => p.id === placeId) || null;
+        resolvedAwsRefId = resolvedPlace?.awsPlaceId ?? null;
+        setAwsPlaceRefId(resolvedAwsRefId);
+        await Promise.all([
+          fetchReviews(resolvedAwsRefId),
+          fetchGalleryImages(), // AWS 장소는 place_images가 비어있어도 안전 (빈 배열 반환)
+        ]);
+        setReplies([]); // AWS 장소는 아직 답글 미지원
+      } else {
+        const [{ data: placeData }] = await Promise.all([
+          supabase.from("places").select("*").eq("id", placeId).single(),
+          fetchReviews(),
+          fetchReplies(),
+          fetchGalleryImages(),
+        ]);
+        resolvedPlace = placeData;
       }
+
       setPlace(resolvedPlace);
       const userKey = getUserKey();
       const currentSession = (await supabase.auth.getSession()).data.session;
@@ -363,7 +383,23 @@ export default function PlaceDetail() {
   // ── 댓글 등록
   const handleSubmit = async () => {
     if (!myNickname || !content) return;
-    if (!session && !password) return;
+    if (!session && !password && !isAwsPlace) return; // AWS 장소는 비밀번호 없이도 작성 가능(편집/삭제 미지원이라 무의미)
+
+    if (isAwsPlace) {
+      if (!awsPlaceRefId) { alert("장소 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."); return; }
+      const userKey = getUserKey();
+      const ok = await createAwsReview(awsPlaceRefId, {
+        nickname: myNickname,
+        content,
+        user_key: isLoggedIn ? null : userKey,
+        auth_user_id: session?.user?.id ?? null,
+      });
+      if (!ok) { alert("리뷰 등록에 실패했습니다. 다시 시도해주세요."); return; }
+      setContent("");
+      await fetchReviews();
+      return;
+    }
+
     const userKey    = getUserKey();
     const authUserId = session?.user?.id ?? null;
     const { error } = await supabase.from("reviews").insert([{ place_id: placeId, nickname: myNickname, password: isLoggedIn ? null : password, content, likes: 0, user_key: isLoggedIn ? null : userKey, auth_user_id: authUserId }]);

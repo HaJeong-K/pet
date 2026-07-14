@@ -81,6 +81,7 @@ export async function fetchAwsPlaces(): Promise<any[]> {
 
     const mapped = raw.map((item) => ({
       id: toNumericId(item.place_id),
+      awsPlaceId: item.place_id,
       name: item.name ?? "",
       category: item.category ?? null,
       address: item.address ?? "",
@@ -108,5 +109,64 @@ export async function fetchAwsPlaces(): Promise<any[]> {
   } catch (e) {
     console.error("AWS places fetch 실패:", e);
     return cachedPlaces ?? [];
+  }
+}
+
+// ── AWS 장소 판별 & 리뷰 API ──────────────────────────────
+
+export function isAwsPlaceId(id: number): boolean {
+  return id >= AWS_ID_OFFSET;
+}
+
+function getAwsApiBase(): string | null {
+  const placesUrl = process.env.NEXT_PUBLIC_AWS_PLACES_API;
+  if (!placesUrl) return null;
+  // "https://xxx.execute-api.region.amazonaws.com/places" → base만 추출
+  return placesUrl.replace(/\/places\/?$/, "");
+}
+
+export async function fetchAwsReviews(awsPlaceId: string): Promise<any[]> {
+  const base = getAwsApiBase();
+  if (!base) return [];
+  try {
+    const res = await fetch(`${base}/places/${encodeURIComponent(awsPlaceId)}/reviews`, { cache: "no-store" });
+    if (!res.ok) return [];
+    const raw: any[] = await res.json();
+    return raw.map((r) => ({
+      id: r.review_id,
+      nickname: r.nickname,
+      content: r.content,
+      likes: r.likes ?? 0,
+      created_at: r.created_at,
+      auth_user_id: r.auth_user_id ?? null,
+      user_key: r.user_key ?? null,
+      deleted: !!r.deleted,
+      is_edited: false,
+      is_admin_deleted: false,
+      avatar_url: null,
+      source: "aws" as const,
+    }));
+  } catch (e) {
+    console.error("AWS reviews fetch 실패:", e);
+    return [];
+  }
+}
+
+export async function createAwsReview(
+  awsPlaceId: string,
+  payload: { nickname: string; content: string; user_key?: string | null; auth_user_id?: string | null }
+): Promise<boolean> {
+  const base = getAwsApiBase();
+  if (!base) return false;
+  try {
+    const res = await fetch(`${base}/places/${encodeURIComponent(awsPlaceId)}/reviews`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("AWS review 등록 실패:", e);
+    return false;
   }
 }
