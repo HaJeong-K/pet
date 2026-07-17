@@ -610,7 +610,7 @@ export default function KakaoMap() {
       content: {
         title: "같이가개",
         description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
-        imageUrl: "",
+        imageUrl: `${window.location.origin}/icons/header_logo_final.png`,
         link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
       },
     });

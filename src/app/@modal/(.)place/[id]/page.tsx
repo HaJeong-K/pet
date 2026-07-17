@@ -103,7 +103,7 @@ export default function ModalPage() {
         description: placeName
           ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 같이가개에서 확인해보세요.`
           : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",  // ← 변경
-        imageUrl: "",
+        imageUrl: `${window.location.origin}/icons/header_logo_final.png`,
         link: {
           mobileWebUrl: shareUrl,
           webUrl: shareUrl,
