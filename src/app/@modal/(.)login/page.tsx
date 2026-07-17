@@ -95,7 +95,7 @@ function LoginPageContent() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "http://localhost:3000",
+        redirectTo: window.location.origin,
         queryParams: {
           prompt: "select_account", // ← 매번 계정 선택창 표시
         },
@@ -118,7 +118,7 @@ function LoginPageContent() {
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
-        redirectTo: "http://localhost:3000",
+        redirectTo: window.location.origin,
 
         queryParams: {
           prompt: "select_account",
