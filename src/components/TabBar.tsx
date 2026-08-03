@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, Flag, FileText, User, LogIn } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function TabBar() {
@@ -47,8 +47,7 @@ export default function TabBar() {
   const getActiveTab = () => {
     if (pathname === "/" || pathname === "") return "map";
     if (pathname.startsWith("/community")) return "community";
-    if (pathname.startsWith("/admin/reports")) return "reports";
-    if (pathname.startsWith("/admin/tips")) return "tips";
+    if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/mypage")) return "mypage";
     if (pathname.startsWith("/login")) return "login";
     return "map";
@@ -60,8 +59,7 @@ export default function TabBar() {
     { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
     { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
     ...(isAdmin ? [
-      { key: "reports", label: "신고",    icon: Flag,     onClick: () => router.push("/admin/reports"),   isReport: true  },
-      { key: "tips",    label: "제보",    icon: FileText, onClick: () => router.push("/admin/tips"),      isReport: false },
+      { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
     ] : []),
     {
       key:      isLoggedIn ? "mypage" : "login",
@@ -78,7 +76,6 @@ export default function TabBar() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
         @keyframes tabPop {
           0%   { transform: scale(1); }
           40%  { transform: scale(0.86); }
@@ -130,7 +127,7 @@ export default function TabBar() {
                 borderRadius: "999px",
                 background: tabs[activeIdx]?.isReport
                   ? "linear-gradient(135deg, #FEE2E2, #FECACA)"
-                  : "linear-gradient(135deg, #EEF2FF, #E0E7FF)",
+                  : "linear-gradient(135deg, #E4EBDC, #DCE7CD)",
                 transition: "left 0.38s cubic-bezier(0.34, 1.15, 0.64, 1)",
                 pointerEvents: "none",
                 zIndex: 0,
@@ -142,7 +139,7 @@ export default function TabBar() {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
-            const activeColor   = tab.isReport ? "#DC2626" : "#4263EB";
+            const activeColor   = tab.isReport ? "#DC2626" : "#5C7A4A";
             const inactiveColor = "#1a1a1a";
 
             return (

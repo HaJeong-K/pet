@@ -7,7 +7,19 @@ import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, Bone, MessageCircle, Plus, X, AlertCircle,
   MapPinPlus, CheckCircle2, XCircle, Search,
+  Stethoscope, PawPrint, Pencil, Pill, Coffee, Trees, Hotel,
+  Home, Building2,
 } from "lucide-react";
+
+// ── 카테고리 빠른 선택: 동물병원·동물약국 제보 시 전용 필드가 함께 열립니다.
+const QUICK_CATEGORIES = [
+  { value: "동물병원", label: "동물병원", icon: Stethoscope },
+  { value: "동물약국", label: "동물약국", icon: Pill },
+  { value: "카페/식당", label: "카페/식당", icon: Coffee },
+  { value: "공원", label: "공원", icon: Trees },
+  { value: "숙소", label: "숙소", icon: Hotel },
+] as const;
+const CUSTOM_CATEGORY = "__custom__";
 
 /* ── 이미지 압축 ── */
 const compressImage = (file: File): Promise<Blob> =>
@@ -76,6 +88,12 @@ export default function JeboModal() {
   const [petMenu,  setPetMenu]  = useState("");
   const [phone,    setPhone]    = useState("");
   const [memo,     setMemo]     = useState("");
+  const [useCustomCategory, setUseCustomCategory] = useState(false);
+
+  /* ── 동물병원 전용: 진료과목 · 가능 동물 ── */
+  const [specialtyDepartment, setSpecialtyDepartment] = useState("");
+  const [treatableAnimals,   setTreatableAnimals]     = useState("");
+  const isVetHospitalTip = category === "동물병원";
 
   /* ── 이미지 ── */
   const [imageFiles,    setImageFiles]    = useState<File[]>([]);
@@ -167,8 +185,16 @@ export default function JeboModal() {
       const userKey = getUserKey();
       const { data: { session } } = await supabase.auth.getSession();
       const authUserId = session?.user?.id || null;
-      console.log("session 확인:", session);
-      console.log("authUserId 확인:", authUserId);
+
+      // ★ 인증된 사장님이 직접 하는 제보는 관리자 제보관리 페이지에서 최우선으로
+      //   노출되도록 표시해둡니다(요청: "사장님이 직접 신청했다는 걸 보여주면서
+      //   가장 우선으로 처리를 원하도록 상단에 노출").
+      let isOwnerRequest = false;
+      if (authUserId) {
+        const { data: ownerProfile } = await supabase
+          .from("users").select("owner_status").eq("auth_user_id", authUserId).maybeSingle();
+        isOwnerRequest = ownerProfile?.owner_status === "verified";
+      }
 
       const { error } = await supabase.from("proposals").insert([{
         place_name:   name.trim(),
@@ -180,11 +206,15 @@ export default function JeboModal() {
         pet_menu:     petMenu.trim()  || null,
         phone:        phone.trim()    || null,
         memo:         memo.trim()     || null,
+        // 동물병원 제보 전용 필드(그 외 카테고리는 null로 저장)
+        specialty_department: isVetHospitalTip ? (specialtyDepartment.trim() || null) : null,
+        treatable_animals:    isVetHospitalTip ? (treatableAnimals.trim() || null) : null,
         image_urls:   uploadedUrls,
         reporter_key: userKey,
         auth_user_id: authUserId,   // ← 추가
         is_resolved:  false,
         status:       "pending",    // ← 추가
+        is_owner_request: isOwnerRequest, // ★ 인증된 사장님 본인 제보 여부
       }]);
 
       if (error) { console.error("제보 저장 실패:", JSON.stringify(error, null, 2)); alert("제보 저장 중 오류가 발생했습니다."); return; }
@@ -211,11 +241,7 @@ export default function JeboModal() {
   return (
     <>
       <style>{`
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
         .jebo-input:focus { border-color: #7c3aed !important; background: white !important; }
         .zone-btn { transition: all 0.14s ease; }
         .zone-btn:hover { border-color: #888 !important; }
@@ -407,35 +433,125 @@ export default function JeboModal() {
             {/* ────── 카테고리 ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><ChefHat size={11} color="#8b5cf6" /> 카테고리</div>
-              <input className="jebo-input" placeholder="예: 카페, 레스토랑, 공원, 호텔 등" value={category} onChange={(e) => setCategory(e.target.value)} style={inputStyle} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {QUICK_CATEGORIES.map((opt) => {
+                  const Icon = opt.icon;
+                  const active = category === opt.value && !useCustomCategory;
+                  return (
+                    <button
+                      key={opt.value}
+                      className="zone-btn ggk-body"
+                      onClick={() => { setCategory(opt.value); setUseCustomCategory(false); }}
+                      style={{
+                        padding: "7px 12px", borderRadius: 999,
+                        border: `1.5px solid ${active ? "#7c3aed" : "#e2e4e8"}`,
+                        background: active ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "white",
+                        color: active ? "white" : "#555",
+                        fontWeight: 600, fontSize: 11, cursor: "pointer",
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                      }}
+                    >
+                      <Icon size={12} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <button
+                  className="zone-btn ggk-body"
+                  onClick={() => { setUseCustomCategory(true); setCategory(""); }}
+                  style={{
+                    padding: "7px 12px", borderRadius: 999,
+                    border: `1.5px solid ${useCustomCategory ? "#7c3aed" : "#e2e4e8"}`,
+                    background: useCustomCategory ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "white",
+                    color: useCustomCategory ? "white" : "#555",
+                    fontWeight: 600, fontSize: 11, cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 4,
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                  }}
+                >
+                  <Pencil size={10} />직접입력
+                </button>
+              </div>
+              {useCustomCategory && (
+                <input
+                  className="jebo-input"
+                  placeholder="예: 카페, 레스토랑, 공원, 호텔 등"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  style={{ ...inputStyle, marginTop: 8 }}
+                  autoFocus
+                />
+              )}
             </div>
+
+            {/* ────── 동물병원 전용: 진료과목 · 가능 동물 ────── */}
+            {isVetHospitalTip && (
+              <div style={{
+                marginBottom: 14, padding: "12px 13px", borderRadius: 12,
+                background: "#eff6ff", border: "1px solid #bfdbfe",
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                  <Stethoscope size={12} color="#1d4ed8" /> 동물병원 상세 정보 (선택)
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ ...labelStyle, color: "#1e40af" }}>
+                    <Stethoscope size={11} color="#2563eb" /> 진료과목
+                  </div>
+                  <input
+                    className="jebo-input"
+                    placeholder="예: 심장내과 (특정 전문과가 없다면 비워두세요 → '종합진료'로 등록됩니다)"
+                    value={specialtyDepartment}
+                    onChange={(e) => setSpecialtyDepartment(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, color: "#1e40af" }}>
+                    <PawPrint size={11} color="#2563eb" /> 가능 동물
+                  </div>
+                  <input
+                    className="jebo-input"
+                    placeholder="예: 강아지, 고양이, 소동물"
+                    value={treatableAnimals}
+                    onChange={(e) => setTreatableAnimals(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* ────── 동반 가능 범위 * (이모티콘 유지) ────── */}
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}><LandPlot size={11} color="#8b5cf6" /> 동반 가능 범위 <span style={{ color: "#ef4444" }}>*</span></div>
               <div style={{ display: "flex", gap: 7 }}>
                 {([
-                  { value: "indoor",  label: "🏠 실내 가능" },
-                  { value: "terrace", label: "🌿 테라스 가능" },
-                  { value: "both",    label: "🏡 실내외 가능" },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    className="zone-btn ggk-body"
-                    onClick={() => setPetZone(opt.value)}
-                    style={{
-                      flex: 1, padding: "9px 0", borderRadius: 10,
-                      border: `1.5px solid ${petZone === opt.value ? "#7c3aed" : "#e2e4e8"}`,
-                      background: petZone === opt.value ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "white",
-                      color: petZone === opt.value ? "white" : "#555",
-                      fontWeight: 600, fontSize: 11, cursor: "pointer",
-                      fontFamily: "'Noto Sans KR', sans-serif",
-                      boxShadow: petZone === opt.value ? "0 2px 8px rgba(124,58,237,0.28)" : "none",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                  { value: "indoor",  label: "실내 가능", icon: Home },
+                  { value: "terrace", label: "테라스 가능", icon: Trees },
+                  { value: "both",    label: "실내외 가능", icon: Building2 },
+                ] as const).map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      className="zone-btn ggk-body"
+                      onClick={() => setPetZone(opt.value)}
+                      style={{
+                        flex: 1, padding: "9px 0", borderRadius: 10,
+                        border: `1.5px solid ${petZone === opt.value ? "#7c3aed" : "#e2e4e8"}`,
+                        background: petZone === opt.value ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "white",
+                        color: petZone === opt.value ? "white" : "#555",
+                        fontWeight: 600, fontSize: 11, cursor: "pointer",
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        boxShadow: petZone === opt.value ? "0 2px 8px rgba(124,58,237,0.28)" : "none",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                      }}
+                    >
+                      <Icon size={12} />
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

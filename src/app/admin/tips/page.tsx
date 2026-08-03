@@ -3,25 +3,31 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import AdminNav from "@/components/AdminNav";
+import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, FileText, CheckCircle, MapPin, Clock,
   RefreshCw, AlertCircle, Dog, Bone, Phone, MessageCircle,
   ChefHat, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
   X, Pencil, Save, MapPinCheckInside, PauseCircle, LandPlot, User, Trash2,
+  Stethoscope, PawPrint, Home, Trees, Building2, ImageIcon, BadgeCheck,
 } from "lucide-react";
+
+function PetZoneIcon({ zone, size = 11 }: { zone: string; size?: number }) {
+  if (zone === "indoor") return <Home size={size} />;
+  if (zone === "terrace") return <Trees size={size} />;
+  if (zone === "both") return <Building2 size={size} />;
+  return null;
+}
 
 /* ── 스타일 ── */
 const STYLES = `
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
-  .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-  .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
   .tip-card  { transition: box-shadow 0.18s ease; }
   .tip-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; }
   .action-btn { transition: all 0.15s ease; }
   .action-btn:hover { filter: brightness(0.93); }
-  .edit-input { width:100%; padding:7px 10px; border-radius:8px; border:1.5px solid #8b5cf6; font-size:12px; outline:none; font-family:'Noto Sans KR',sans-serif; background:white; }
+  .edit-input { width:100%; padding:7px 10px; border-radius:8px; border:1.5px solid #5C7A4A; font-size:12px; outline:none; font-family:'Noto Sans KR',sans-serif; background:white; }
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:999px; }
   .field-rows > div:last-child { border-bottom: none !important; }
@@ -77,7 +83,7 @@ function FieldRow({
       return <span style={{ color:"#bbb" }}>미입력</span>;
     }
     if (fieldKey === "pet_zone" && value) {
-      return <span>{PET_ZONE_EMOJI[value]} {PET_ZONE_LABEL[value]}</span>;
+      return <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><PetZoneIcon zone={value} /> {PET_ZONE_LABEL[value]}</span>;
     }
     return value
       ? <span style={{ color:"#333" }}>{value}</span>
@@ -106,7 +112,7 @@ function FieldRow({
         <div style={{ display:"flex", gap:4, flexShrink:0, marginLeft:6 }}>
           {isEditing ? (
             <>
-              <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#8b5cf6", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+              <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#5C7A4A", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                 <Save size={11}/>저장
               </button>
               <button onClick={onCancel} style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #ddd", background:"white", color:"#888", fontSize:11, cursor:"pointer" }}>
@@ -166,12 +172,18 @@ export default function AdminProposalsPage() {
   /* ── proposals + 제보자 이메일 불러오기 ── */
   const fetchProposals = async () => {
     setLoading(true);
+    // ★ 인증된 사장님이 직접 한 제보(is_owner_request)를 최우선으로 위에 노출
     const { data, error } = await supabase
       .from("proposals")
       .select("*")
+      .order("is_owner_request", { ascending: false })
       .order("created_at", { ascending: false });
 
-    if (error) { console.error(error); setLoading(false); return; }
+    if (error) {
+      console.error("[admin/tips] proposals 조회 실패:", error.message, error.details, error.hint);
+      setLoading(false);
+      return;
+    }
     const list = data || [];
     setProposals(list);
 
@@ -233,6 +245,9 @@ export default function AdminProposalsPage() {
       phone:     proposal.phone,
       memo:      proposal.memo,
       image_url: proposal.image_urls?.[0] || null,
+      // 동물병원 전용 필드 (해당 없으면 null)
+      specialty_department: proposal.specialty_department || null,
+      treatable_animals:    proposal.treatable_animals || null,
     }]);
 
     if (insertError) {
@@ -314,7 +329,7 @@ export default function AdminProposalsPage() {
     activeFilter === "on_hold"  ? onHoldList   : approvedList;
 
   if (isChecking) return (
-    <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f5" }}>
+    <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#F7F3E8" }}>
       <span className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</span>
     </div>
   );
@@ -323,37 +338,15 @@ export default function AdminProposalsPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#f0f2f5", overflow:"hidden", alignItems:"center" }}>
-        <div style={{ width:"100%", maxWidth:"600px", display:"flex", flexDirection:"column", height:"100%", overflow:"hidden" }}>
-
-          {/* ── 헤더 ── */}
-          <div style={{ background:"white", borderBottom:"1px solid #e8eaed", padding:"14px 20px", display:"flex", alignItems:"center", gap:12, flexShrink:0, boxShadow:"0 1px 6px rgba(0,0,0,0.05)" }}>
-            <button onClick={() => router.push("/")} style={{ border:"none", background:"transparent", cursor:"pointer", padding:4, borderRadius:8, display:"flex" }}>
-              <ArrowLeft size={20} color="#444" />
-            </button>
-            <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
-              <div style={{ width:32, height:32, borderRadius:10, background:"#ede9fe", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <FileText size={16} color="#8b5cf6" />
-              </div>
-              <div className="ggk-logo" style={{ fontSize:16, fontWeight:800, color:"#111" }}>제보 관리</div>
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-              {pendingList.length > 0 && (
-                <div style={{ background:"#8b5cf6", color:"white", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
-                  미처리 {pendingList.length}건
-                </div>
-              )}
-              <button onClick={fetchProposals} style={{ border:"none", background:"#f5f6f8", borderRadius:8, padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600, color:"#555" }}>
-                <RefreshCw size={13} color="#888" />새로고침
-              </button>
-            </div>
-          </div>
+      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
+        <AdminNav active="tips" onRefresh={fetchProposals} />
+        <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
 
           {/* ── 3단 필터 탭 ── */}
-          <div style={{ padding:"14px 16px 10px", flexShrink:0 }}>
+          <div style={{ padding:"16px 28px 10px", flexShrink:0 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
               {([
-                { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#8b5cf6", activeBg:"#f3e8ff" },
+                { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#5C7A4A", activeBg:"#E4EBDC" },
                 { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
                 { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
               ] as const).map((tab) => {
@@ -389,13 +382,13 @@ export default function AdminProposalsPage() {
           </div>
 
           {/* ── 리스트 ── */}
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 16px 100px", scrollbarWidth:"thin" }}>
+          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 28px 60px", scrollbarWidth:"thin" }}>
             {loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
-                <div style={{ width:64, height:64, borderRadius:20, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
-                  <FileText size={28} color="#d1d5db" />
+                <div style={{ width:64, height:64, borderRadius:20, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
+                  <PetIllustration variant="empty" width={44} />
                 </div>
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222" }}>
                   {activeFilter === "pending" ? "미처리 제보가 없습니다" :
@@ -411,7 +404,7 @@ export default function AdminProposalsPage() {
                   <div key={tip.id} className="tip-card" style={{
                     background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
                     border:`1.5px solid ${
-                      tip.status === "pending"  ? "#ddd6fe" :
+                      tip.status === "pending"  ? "#8FA876" :
                       tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
                     }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
@@ -420,27 +413,38 @@ export default function AdminProposalsPage() {
                     <div style={{
                       padding:"11px 16px",
                       background:
-                        tip.status === "pending"  ? "#f5f3ff" :
+                        tip.status === "pending"  ? "#F7F3E8" :
                         tip.status === "on_hold"  ? "#fffbeb" : "#f0fdf4",
                       borderBottom:`1px solid ${
-                        tip.status === "pending"  ? "#ddd6fe" :
+                        tip.status === "pending"  ? "#8FA876" :
                         tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
                       }`,
                       display:"flex", alignItems:"center", justifyContent:"space-between",
                     }}>
-                      <span style={{
-                        fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
-                        background:
-                          tip.status === "pending"  ? "#ede9fe" :
-                          tip.status === "on_hold"  ? "#fef3c7" : "#dcfce7",
-                        color:
-                          tip.status === "pending"  ? "#6d28d9" :
-                          tip.status === "on_hold"  ? "#92400e" : "#15803d",
-                        display:"flex", alignItems:"center", gap:4,
-                      }}>
-                        {tip.status === "pending"  && <><AlertCircle size={9}/>검토 대기</>}
-                        {tip.status === "on_hold"  && <><PauseCircle size={9}/>보류 중</>}
-                        {tip.status === "approved" && <><CheckCircle size={9}/>승인 완료</>}
+                      <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        {tip.is_owner_request && (
+                          <span style={{
+                            fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:800,
+                            background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
+                            display:"flex", alignItems:"center", gap:3,
+                          }}>
+                            <BadgeCheck size={10}/>사장님 직접 신청
+                          </span>
+                        )}
+                        <span style={{
+                          fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
+                          background:
+                            tip.status === "pending"  ? "#E4EBDC" :
+                            tip.status === "on_hold"  ? "#fef3c7" : "#dcfce7",
+                          color:
+                            tip.status === "pending"  ? "#48603A" :
+                            tip.status === "on_hold"  ? "#92400e" : "#15803d",
+                          display:"flex", alignItems:"center", gap:4,
+                        }}>
+                          {tip.status === "pending"  && <><AlertCircle size={9}/>검토 대기</>}
+                          {tip.status === "on_hold"  && <><PauseCircle size={9}/>보류 중</>}
+                          {tip.status === "approved" && <><CheckCircle size={9}/>승인 완료</>}
+                        </span>
                       </span>
                       <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(tip.created_at)}</span>
                     </div>
@@ -449,8 +453,8 @@ export default function AdminProposalsPage() {
 
                       {/* 장소명 */}
                       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                        <div style={{ width:32, height:32, borderRadius:9, background:"#f3e8ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <MapPin size={15} color="#8b5cf6" />
+                        <div style={{ width:32, height:32, borderRadius:9, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <MapPin size={15} color="#5C7A4A" />
                         </div>
                         <div style={{ flex:1 }}>
                           <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>{tip.place_name}</div>
@@ -462,36 +466,36 @@ export default function AdminProposalsPage() {
                       {isOnHold ? (
                         <div className="field-rows" style={{ background:"#fafafa", borderRadius:12, border:"1px solid #eee", padding:"4px 12px", marginBottom:12 }}>
 
-                          <FieldRow icon={<MapPin size={12} color="#8b5cf6"/>}       label="장소명"   fieldKey="place_name" value={tip.place_name} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<MapPin size={12} color="#8b5cf6"/>}       label="주소"     fieldKey="address"    value={tip.address}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<ChefHat size={12} color="#8b5cf6"/>}      label="카테고리" fieldKey="category"   value={tip.category}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MapPin size={12} color="#5C7A4A"/>}       label="장소명"   fieldKey="place_name" value={tip.place_name} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MapPin size={12} color="#5C7A4A"/>}       label="주소"     fieldKey="address"    value={tip.address}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<ChefHat size={12} color="#5C7A4A"/>}      label="카테고리" fieldKey="category"   value={tip.category}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
 
                           {/* pet_zone 전용 수정 UI */}
                           <FieldRow
-                            icon={<LandPlot size={12} color="#8b5cf6"/>} label="동반범위" fieldKey="pet_zone" value={tip.pet_zone}
+                            icon={<LandPlot size={12} color="#5C7A4A"/>} label="동반범위" fieldKey="pet_zone" value={tip.pet_zone}
                             proposalId={tip.id} editingField={editingField} editValue={editValue}
                             onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
                             renderEditInput={() => (
                               <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                                 {(["indoor","terrace","both"] as const).map(v => (
                                   <button key={v} onClick={() => setEditValue(v)} style={{
-                                    padding:"4px 10px", borderRadius:8, border:`1.5px solid ${editValue===v?"#7c3aed":"#ddd"}`,
-                                    background: editValue===v ? "#7c3aed" : "white",
+                                    padding:"4px 10px", borderRadius:8, border:`1.5px solid ${editValue===v?"#5C7A4A":"#ddd"}`,
+                                    background: editValue===v ? "#5C7A4A" : "white",
                                     color: editValue===v ? "white" : "#555",
                                     fontSize:11, fontWeight:600, cursor:"pointer",
                                   }}>
-                                    {PET_ZONE_EMOJI[v]} {PET_ZONE_LABEL[v]}
+                                    <PetZoneIcon zone={v} /> {PET_ZONE_LABEL[v]}
                                   </button>
                                 ))}
                               </div>
                             )}
                           />
 
-                          <FieldRow icon={<Clock size={12} color="#8b5cf6"/>}        label="영업시간" fieldKey="hours"      value={tip.hours}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Clock size={12} color="#5C7A4A"/>}        label="영업시간" fieldKey="hours"      value={tip.hours}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
 
                           {/* large_dog 전용 수정 UI */}
                           <FieldRow
-                            icon={<Dog size={12} color="#8b5cf6"/>} label="대형견" fieldKey="large_dog" value={tip.large_dog}
+                            icon={<Dog size={12} color="#5C7A4A"/>} label="대형견" fieldKey="large_dog" value={tip.large_dog}
                             proposalId={tip.id} editingField={editingField} editValue={editValue}
                             onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
                             renderEditInput={() => (
@@ -511,15 +515,21 @@ export default function AdminProposalsPage() {
                             )}
                           />
 
-                          <FieldRow icon={<Bone size={12} color="#8b5cf6"/>}         label="펫 메뉴"  fieldKey="pet_menu"   value={tip.pet_menu}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<Phone size={12} color="#8b5cf6"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<MessageCircle size={12} color="#8b5cf6"/>} label="메모"    fieldKey="memo"      value={tip.memo}       proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Bone size={12} color="#5C7A4A"/>}         label="펫 메뉴"  fieldKey="pet_menu"   value={tip.pet_menu}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Phone size={12} color="#5C7A4A"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          {tip.category === "동물병원" && (
+                            <>
+                              <FieldRow icon={<Stethoscope size={12} color="#5C7A4A"/>} label="진료과목" fieldKey="specialty_department" value={tip.specialty_department} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                              <FieldRow icon={<PawPrint size={12} color="#5C7A4A"/>}    label="가능 동물" fieldKey="treatable_animals" value={tip.treatable_animals} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                            </>
+                          )}
+                          <FieldRow icon={<MessageCircle size={12} color="#5C7A4A"/>} label="메모"    fieldKey="memo"      value={tip.memo}       proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                         </div>
                       ) : (
                         /* 미처리/처리완료: 읽기 전용 뱃지 */
                         <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
-                          {tip.category && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ChefHat size={11} color="#8b5cf6"/>{tip.category}</span>}
-                          {tip.pet_zone && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999 }}>{PET_ZONE_EMOJI[tip.pet_zone]} {PET_ZONE_LABEL[tip.pet_zone]}</span>}
+                          {tip.category && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ChefHat size={11} color="#5C7A4A"/>{tip.category}</span>}
+                          {tip.pet_zone && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"inline-flex", alignItems:"center", gap:4 }}><PetZoneIcon zone={tip.pet_zone} /> {PET_ZONE_LABEL[tip.pet_zone]}</span>}
                           {tip.hours    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Clock size={11} color="#888"/>{tip.hours}</span>}
                           {tip.large_dog !== null && tip.large_dog !== undefined && (
                             <span style={{ fontSize:11, padding:"4px 10px", borderRadius:999, fontWeight:600, background: tip.large_dog?"#dcfce7":"#fee2e2", color: tip.large_dog?"#15803d":"#dc2626", display:"flex", alignItems:"center", gap:4 }}>
@@ -527,8 +537,18 @@ export default function AdminProposalsPage() {
                               {tip.large_dog ? "대형견 가능":"대형견 불가"}
                             </span>
                           )}
-                          {tip.pet_menu && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Bone size={11} color="#8b5cf6"/>{tip.pet_menu}</span>}
-                          {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#8b5cf6"/>{tip.phone}</span>}
+                          {tip.pet_menu && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Bone size={11} color="#5C7A4A"/>{tip.pet_menu}</span>}
+                          {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#5C7A4A"/>{tip.phone}</span>}
+                          {tip.category === "동물병원" && (
+                            <span style={{ fontSize:11, color:"#1d4ed8", background:"#eff6ff", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
+                              <Stethoscope size={11} color="#2563eb"/>{tip.specialty_department || "종합진료"}
+                            </span>
+                          )}
+                          {tip.category === "동물병원" && tip.treatable_animals && (
+                            <span style={{ fontSize:11, color:"#1d4ed8", background:"#eff6ff", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
+                              <PawPrint size={11} color="#2563eb"/>{tip.treatable_animals}
+                            </span>
+                          )}
                           {tip.memo     && <span style={{ fontSize:11, color:"#555", background:"#f5f6f8", padding:"6px 10px", borderRadius:10, width:"100%", lineHeight:1.6 }}>{tip.memo}</span>}
                         </div>
                       )}
@@ -537,7 +557,7 @@ export default function AdminProposalsPage() {
                       {tip.image_urls?.length > 0 && (
                         <div style={{ marginBottom:12 }}>
                           <div style={{ fontSize:11, fontWeight:700, color:"#888", marginBottom:7 }}>
-                            📷 첨부 사진 {tip.image_urls.length}장
+                            <ImageIcon size={11} style={{ display: "inline", verticalAlign: "-2px", marginRight: 4 }} />첨부 사진 {tip.image_urls.length}장
                           </div>
                           <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
                             {tip.image_urls.map((url: string, idx: number) => (
@@ -555,7 +575,7 @@ export default function AdminProposalsPage() {
 
                       {/* 제보자 */}
                       <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:12, padding:"6px 10px", background:"#f8fafc", borderRadius:8, border:"1px solid #e8eaed" }}>
-                        <User size={12} color="#8b5cf6" />
+                        <User size={12} color="#5C7A4A" />
                         <span style={{ fontSize:10, color:"#888", fontWeight:600 }}>{reporter.label}</span>
                         <span style={{ fontSize:11, color: reporter.isEmail ? "#2563eb" : "#999", fontWeight: reporter.isEmail ? 600 : 400 }}>
                           {reporter.value}

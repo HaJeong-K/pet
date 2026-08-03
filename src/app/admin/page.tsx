@@ -2,312 +2,228 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import AdminNav from "@/components/AdminNav";
+import PetIllustration from "@/components/illustrations/PetIllustration";
+import {
+  ArrowLeft, Flag, FileText,
+  MapPin, MessageCircle, Users, RefreshCw, ChevronRight,
+} from "lucide-react";
 
-export default function AdminPage() {
-  const [password, setPassword] = useState("");
+const STYLES = `
+  * { box-sizing: border-box; }
+  .dash-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+  .dash-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-2px); }
+`;
+
+// ── 관리자 대시보드
+// 예전에는 이 페이지가 댓글/답글 신고만 별도로 처리했지만, 그 기능은 모든 신고 유형
+// (장소/댓글/답글/커뮤니티)을 통합해서 다루는 /admin/reports 에 이미 포함되어 있어
+// 중복이었습니다. 그래서 이 페이지는 "신고 관리"와 "제보 관리"를 한눈에 보고
+// 바로 이동할 수 있는 허브(대시보드)로 재구성했습니다.
+export default function AdminDashboard() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
   const [isAuth, setIsAuth] = useState(false);
-  const [reports, setReports] = useState<any[]>([]);
-  const [reviews, setReviews] = useState<Record<number, any>>({});
-  const [replies, setReplies] = useState<Record<number, any>>({});
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      setIsAuth(true);
-    } else {
-      alert("비밀번호가 틀렸습니다.");
-    }
-  };
+  const [stats, setStats] = useState({
+    pendingReports: 0,
+    pendingTips: 0,
+    totalPlaces: 0,
+    totalMembers: 0, // auth_user_id가 있는 실제 가입 회원
+    totalGuests: 0,  // user_key만 있는 비회원(익명 닉네임)
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  const fetchReports = async () => {
-    const { data: reportsData } = await supabase
-      .from("reports")
-      .select("*")
-      .eq("is_resolved", false)
-      .order("created_at", { ascending: false });
-
-    if (!reportsData) return;
-
-    const result = await Promise.all(
-      reportsData.map(async (report) => {
-
-        // 댓글 신고
-        if (report.type === "review") {
-          const { data: review } = await supabase
-            .from("reviews")
-            .select("*")
-            .eq("id", report.target_id)
-            .single();
-
-          if (!review) return null;
-
-          const { data: place } = await supabase
-            .from("places")
-            .select("name, address")
-            .eq("id", review.place_id)
-            .single();
-
-          return {
-            ...report,
-            content: review.content,
-            nickname: review.nickname,
-            place_name: place?.name || "",
-            place_address: place?.address || "",
-          };
-        }
-
-        // 답글 신고
-        if (report.type === "reply") {
-          const { data: reply } = await supabase
-            .from("review_replies")
-            .select("*")
-            .eq("id", report.target_id)
-            .single();
-
-          if (!reply) return null;
-
-          const { data: review } = await supabase
-            .from("reviews")
-            .select("place_id")
-            .eq("id", reply.review_id)
-            .single();
-
-          const { data: place } = await supabase
-            .from("places")
-            .select("name, address")
-            .eq("id", review?.place_id)
-            .single();
-
-          return {
-            ...report,
-            content: reply.content,
-            nickname: reply.nickname,
-            place_name: place?.name || "",
-            place_address: place?.address || "",
-          };
-        }
-
-        return null;
-      })
-    );
-
-    setReports(result.filter(Boolean));
-  };
-
+  /* ── 관리자 인증 (세션 + is_admin) — 다른 관리자 페이지들과 동일한 방식으로 통일 ── */
   useEffect(() => {
-    if (isAuth) fetchReports();
-  }, [isAuth]);
+    const checkAdmin = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin"); return; }
+      const { data: profile } = await supabase
+        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
+      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
+      setIsAuth(true);
+      setIsChecking(false);
+      fetchStats();
+    };
+    checkAdmin();
+  }, []);
 
-  const handleAdminDelete = async (type: "review" | "reply", targetId: number) => {
-    if (type === "review") {
-      await supabase
-        .from("reviews")
-        .update({
-          is_admin_deleted: true,
-          content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
-        })
-        .eq("id", targetId);
-    } else {
-      await supabase
-        .from("review_replies")
-        .update({
-          is_admin_deleted: true,
-          content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
-        })
-        .eq("id", targetId);
-    }
+  const fetchStats = async () => {
+    setLoading(true);
+    // 가입 회원 = auth_user_id가 저장된 행(실제 로그인 계정), 비회원 = user_key만
+    // 저장된 행(리뷰·댓글 작성용 익명 닉네임). 두 값은 upsert 시 conflict 키가
+    // 서로 달라(auth_user_id / user_key) 겹치지 않지만, 혹시 모를 중복을 막기 위해
+    // 비회원 카운트는 auth_user_id가 비어있는 행만 셉니다.
+    const [
+      { count: pendingReports },
+      { count: pendingTips },
+      { count: totalPlaces },
+      { count: totalMembers },
+      { count: totalGuests },
+    ] = await Promise.all([
+      supabase.from("reports").select("*", { count: "exact", head: true }).eq("is_resolved", false),
+      supabase.from("proposals").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      supabase.from("places").select("*", { count: "exact", head: true }),
+      supabase.from("users").select("*", { count: "exact", head: true }).not("auth_user_id", "is", null),
+      supabase.from("users").select("*", { count: "exact", head: true }).not("user_key", "is", null).is("auth_user_id", null),
+    ]);
+    setStats({
+      pendingReports: pendingReports ?? 0,
+      pendingTips: pendingTips ?? 0,
+      totalPlaces: totalPlaces ?? 0,
+      totalMembers: totalMembers ?? 0,
+      totalGuests: totalGuests ?? 0,
+    });
 
-    // 신고 처리 완료 표시
-    await supabase
-      .from("reports")
-      .update({ reason: "처리완료" })
-      .eq("type", type)
-      .eq("target_id", targetId);
+    // ── 최근 제보·신고 — 시안 .panel "최근 제보·신고" 리스트용
+    const [{ data: recentReports }, { data: recentTips }] = await Promise.all([
+      supabase.from("reports").select("*").eq("is_resolved", false).order("created_at", { ascending: false }).limit(5),
+      supabase.from("proposals").select("*").eq("status", "pending").order("created_at", { ascending: false }).limit(5),
+    ]);
+    const REPORT_TYPE_LABEL: Record<string, string> = {
+      place: "장소 신고", review: "댓글 신고", reply: "답글 신고", community: "커뮤니티 신고",
+    };
+    // admin/reports 페이지와 동일한 사유 코드 → 한글 라벨 매핑 (영문 원본 코드가 그대로
+    // 노출되지 않도록 대시보드 "최근 제보·신고" 목록에도 동일하게 적용)
+    const CATEGORY_LABEL: Record<string, string> = {
+      spam: "광고/도배", abuse: "욕설/비방", sexual: "음란물", hate: "혐오 표현", etc: "기타",
+      closed: "폐업", no_pets: "반려동물 동반 불가", changed: "업종 변경", wrong_info: "가게 정보 오류",
+      different: "실제와 다름", duplicate: "중복 등록", inappropriate: "허위/부적절 장소",
+    };
+    const merged = [
+      ...(recentReports || []).map((r: any) => ({
+        id: `report-${r.id}`,
+        title: `${REPORT_TYPE_LABEL[r.type] || "신고"} · ${CATEGORY_LABEL[r.report_category] || r.report_category || "기타"}`,
+        status: "신고", statusColor: "#ef4444",
+        created_at: r.created_at,
+      })),
+      ...(recentTips || []).map((t: any) => ({
+        id: `tip-${t.id}`,
+        title: t.place_name || "제보 장소",
+        status: "제보", statusColor: "#5C7A4A",
+        created_at: t.created_at,
+      })),
+    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6);
+    setRecentActivity(merged);
 
-    alert("삭제되었습니다.");
-    fetchReports();
+    setLoading(false);
   };
 
-  if (!isAuth) {
+  if (isChecking) {
     return (
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "center",
-        height: "100vh", flexDirection: "column", gap: "12px",
-      }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800 }}>관리자 로그인</h1>
-        <input
-          type="password"
-          placeholder="관리자 비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          style={{
-            padding: "12px 16px", borderRadius: "10px",
-            border: "1px solid #ddd", fontSize: "14px", width: "280px",
-          }}
-        />
-        <button
-          onClick={handleLogin}
-          style={{
-            padding: "12px 24px", borderRadius: "10px",
-            border: "none", background: "#111", color: "white",
-            fontWeight: 700, cursor: "pointer", width: "280px",
-          }}
-        >
-          로그인
-        </button>
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}>
+        <span className="ggk-body" style={{ fontSize: 13, color: "#888" }}>권한 확인 중...</span>
       </div>
     );
   }
 
+  if (!isAuth) return null;
+
   return (
-    <div style={{ padding: "40px", maxWidth: "800px", margin: "0 auto" }}>
-      <h1 style={{ fontSize: "24px", fontWeight: 800, marginBottom: "24px" }}>
-        신고 관리
-      </h1>
+    <>
+      <style>{STYLES}</style>
+      <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#F7F3E8", overflow: "hidden" }}>
+        <AdminNav active="dashboard" onRefresh={fetchStats} />
 
-      {reports.length === 0 && (
-        <p style={{ color: "#888" }}>신고된 내용이 없습니다.</p>
-      )}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", scrollbarWidth: "thin" }}>
+          <div style={{ width: "100%", maxWidth: "1200px", padding: "24px 28px 60px", boxSizing: "border-box" }}>
 
-      {reports.map((report) => {
-        const target =
-          report.type === "review"
-            ? reviews[report.target_id]
-            : replies[report.target_id];
-
-        const isDeleted = target?.is_admin_deleted;
-
-        return (
-          <div
-            key={report.id}
-            style={{
-              padding: "20px", borderRadius: "16px",
-              border: "1px solid #eee", marginBottom: "16px",
-              background: isDeleted ? "#f9f9f9" : "white",
-            }}
-          >
-            {/* 신고 정보 */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-              <span style={{
-                fontSize: "12px", padding: "3px 10px",
-                borderRadius: "99px", fontWeight: 700,
-                background: report.type === "review" ? "#e8f0fe" : "#fef3c7",
-                color: report.type === "review" ? "#1a73e8" : "#b45309",
-              }}>
-                {report.type === "review" ? "댓글" : "답글"}
-              </span>
-              <span style={{ fontSize: "12px", color: "#999" }}>
-                {new Date(report.created_at).toLocaleString("ko-KR")}
-              </span>
-            </div>
-
-            {/* 신고된 내용 */}
+            {/* ── 웰컴 배너 — 시안 .hero 스펙: solid primaryDark, no radius ── */}
             <div style={{
-              padding: "12px",
-              background: "#f5f6f8",
-              borderRadius: "10px",
-              marginBottom: "12px",
-              fontSize: "14px",
-              color: "#333",
+              position: "relative", overflow: "hidden",
+              background: "#48603A",
+              padding: "48px 40px", marginBottom: 24,
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
             }}>
-
-              {/* 가게 정보 */}
-              <div
-                style={{
-                  marginBottom: "12px",
-                  padding: "10px 12px",
-                  background: "white",
-                  borderRadius: "10px",
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 700,
-                    color: "#111",
-                    marginBottom: "4px",
-                  }}
-                >
-                  {report.place_name}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#666",
-                  }}
-                >
-                  {report.place_address}
-                </div>
-              </div>
-
-              {/* 작성자 */}
-              <div style={{ fontWeight: 700, marginBottom: "4px" }}>
-                {target?.nickname || "알 수 없음"}
-              </div>
-
-              {/* 댓글 내용 */}
               <div>
-                {target?.content || "삭제되었거나 찾을 수 없는 내용입니다."}
+                <div className="ggk-logo" style={{ fontSize: 28, fontWeight: 700, color: "white", marginBottom: 8 }}>
+                  안녕하세요, 관리자님
+                </div>
+                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>
+                  오늘도 같이가개 커뮤니티를 안전하게 지켜주셔서 감사합니다.
+                </div>
               </div>
             </div>
 
-            {/* 처리 상태 / 삭제 버튼 */}
-            {isDeleted || report.reason === "처리완료" ? (
-              <span style={{ fontSize: "13px", color: "#22c55e", fontWeight: 700 }}>
-                ✅ 처리완료
-              </span>
-            ) : (
-              <div style={{ display: "flex", gap: "8px" }}>
-
-                {/* 처리완료 */}
-                <button
-                  onClick={async () => {
-                    await supabase
-                      .from("reports")
-                      .update({ is_resolved: true })
-                      .eq("id", report.id);
-
-                    fetchReports();
-                  }}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "8px",
-                    border: "1px solid #ddd",
-                    background: "white",
-                    color: "#111",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: "13px",
-                  }}
-                >
-                  보류하기
-                </button>
-
-                {/* 삭제 */}
-                <button
-                  onClick={() =>
-                    handleAdminDelete(report.type, report.target_id)
-                  }
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "8px",
-                    border: "none",
-                    background: "#ef4444",
-                    color: "white",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: "13px",
-                  }}
-                >
-                  삭제하기
-                </button>
+            {/* ── 시안 .stat-grid 스펙: 아이콘 없는 4개 플랫 카드 ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/reports")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>미처리 신고</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
+                  {loading ? "–" : stats.pendingReports}
+                </div>
+              </button>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/tips")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>미처리 제보</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
+                  {loading ? "–" : stats.pendingTips}
+                </div>
+              </button>
+              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>등록된 장소</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
+                  {loading ? "–" : stats.totalPlaces}
+                </div>
               </div>
-            )}
+              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>가입 회원</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
+                  {loading ? "–" : stats.totalMembers}
+                </div>
+              </div>
+            </div>
+
+            {/* ── 시안 .panel "최근 제보·신고" ── */}
+            <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 24 }}>
+              <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 14 }}>
+                최근 제보·신고
+              </div>
+              {recentActivity.length === 0 ? (
+                <div style={{ fontSize: 12, color: "#bbb", padding: "20px 0", textAlign: "center" }}>
+                  {loading ? "불러오는 중..." : "최근 접수된 제보·신고가 없습니다."}
+                </div>
+              ) : (
+                recentActivity.map((item, i) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "12px 0",
+                      borderTop: i === 0 ? "none" : "1px solid #f2f3f5",
+                    }}
+                  >
+                    <div style={{ fontSize: 13, color: "#333", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0, marginRight: 12 }}>
+                      {item.title}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 999,
+                        color: item.statusColor, background: item.statusColor + "22",
+                      }}>
+                        {item.status}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#aaa" }}>
+                        {new Date(item.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-        );
-      })}
-    </div>
+        </div>
+      </div>
+    </>
   );
 }

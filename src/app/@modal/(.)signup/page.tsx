@@ -368,6 +368,20 @@ function SignupPageContent() {
         >
           회원가입
         </button>
+
+        {/* 사장님(업주) 가입 안내 */}
+        <button
+          type="button"
+          onClick={() => router.push(`/signup-owner?redirect=${redirect}`)}
+          style={{
+            width: "100%", padding: "12px", borderRadius: "10px",
+            border: "1px solid #E4EBDC", background: "#F7F9F4",
+            color: "#48603A", fontWeight: 700, fontSize: 13,
+            cursor: "pointer", marginTop: "10px",
+          }}
+        >
+          반려동물 동반 업장 사장님이신가요? 사장님으로 가입하기
+        </button>
       </div>
     </div>
   );

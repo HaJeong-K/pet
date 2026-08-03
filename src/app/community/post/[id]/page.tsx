@@ -11,11 +11,7 @@ import {
 const ADMIN_EMAIL = "infoker12@naver.com";
 
 const FONT_STYLE = `
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
-  .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-  .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 
   /* 세로 스크롤 */
   .post-scroll { overflow-y: auto; }
@@ -50,7 +46,7 @@ const sortBtn = (active: boolean) => ({
   padding: "5px 11px",
   borderRadius: "8px",
   border: "none",
-  background: active ? "linear-gradient(145deg,#2a2a2a,#111)" : "linear-gradient(145deg,#f5f6f8,#eaebee)",
+  background: active ? "linear-gradient(145deg,#5C7A4A,#48603A)" : "linear-gradient(145deg,#f5f6f8,#eaebee)",
   color: active ? "white" : "#555",
   cursor: "pointer",
   marginLeft: "5px",
@@ -132,6 +128,7 @@ export default function CommunityDetailPage() {
 
   const [session, setSession] = useState<any>(null);
   const [sort, setSort] = useState<"latest" | "like">("latest");
+  const [likedPost, setLikedPost] = useState(false);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [likedReplyIds2, setLikedReplyIds2] = useState<Set<string>>(new Set());
   const [isAdminDeleted, setIsAdminDeleted] = useState(false);
@@ -155,11 +152,60 @@ export default function CommunityDetailPage() {
         setShowAdminDeletedPopup(true);
         return;
       }
-      setPost(data);
+      // 조회수는 여기서 바로 +1 해서 화면에 최신값을 보여주고, DB에도 반영합니다.
+      // (기존에는 증가시키기 전 값을 화면에 표시해서 새로고침 전까지 1씩 낮게 보이는 문제가 있었습니다.)
+      const newViews = (data.views || 0) + 1;
+      setPost({ ...data, views: newViews });
       await supabase
         .from("community_posts")
-        .update({ views: (data.views || 0) + 1 })
+        .update({ views: newViews })
         .eq("id", Number(postId));
+    }
+  };
+
+  // ─────────────────────────────
+  // 사용자 식별 키 — 회원은 auth uid, 비회원은 로컬스토리지에 저장된 익명 키
+  // ─────────────────────────────
+  const getUserKey = () => {
+    if (session?.user?.id) return session.user.id;
+    let k = localStorage.getItem("user_key");
+    if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+    return k;
+  };
+
+  // ─────────────────────────────
+  // 게시글 좋아요 여부 불러오기
+  // ─────────────────────────────
+  const fetchPostLikeStatus = async () => {
+    const userKey = getUserKey();
+    const { data } = await supabase
+      .from("community_post_likes")
+      .select("id")
+      .eq("post_id", Number(postId))
+      .eq("user_key", userKey)
+      .maybeSingle();
+    setLikedPost(!!data);
+  };
+
+  // ─────────────────────────────
+  // 게시글 좋아요 토글 — 댓글 좋아요와 동일한 방식(좋아요 테이블 + 카운터 컬럼)
+  // ─────────────────────────────
+  const handlePostLike = async () => {
+    if (!post) return;
+    const userKey = getUserKey();
+    if (likedPost) {
+      await supabase.from("community_post_likes").delete().eq("post_id", Number(postId)).eq("user_key", userKey);
+      const newLikes = Math.max(0, (post.likes || 0) - 1);
+      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
+      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
+      setLikedPost(false);
+    } else {
+      const { error } = await supabase.from("community_post_likes").insert([{ post_id: Number(postId), user_key: userKey }]);
+      if (error) { console.error(error); return; }
+      const newLikes = (post.likes || 0) + 1;
+      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
+      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
+      setLikedPost(true);
     }
   };
 
@@ -189,6 +235,17 @@ export default function CommunityDetailPage() {
   };
 
   // ─────────────────────────────
+  // 게시글의 댓글 수 카운터 증감 — 댓글/답글 작성·삭제 시 함께 호출해
+  // community_posts.comment_count가 실제 댓글 수와 어긋나지 않도록 합니다.
+  // ─────────────────────────────
+  const bumpCommentCount = async (delta: number) => {
+    setPost((prev: any) => prev ? { ...prev, comment_count: Math.max(0, (prev.comment_count || 0) + delta) } : prev);
+    const { data } = await supabase.from("community_posts").select("comment_count").eq("id", Number(postId)).single();
+    const newCount = Math.max(0, (data?.comment_count || 0) + delta);
+    await supabase.from("community_posts").update({ comment_count: newCount }).eq("id", Number(postId));
+  };
+
+  // ─────────────────────────────
   // 댓글 작성
   // ─────────────────────────────
   const handleComment = async () => {
@@ -215,6 +272,7 @@ export default function CommunityDetailPage() {
 
     if (error) { console.error(error); return; }
     setComment("");
+    await bumpCommentCount(1);
     fetchComments();
   };
 
@@ -247,6 +305,7 @@ export default function CommunityDetailPage() {
     if (error) { console.error(error); return; }
     setReplyMap((prev) => ({ ...prev, [parentId]: "" }));
     setReplyTarget(null);
+    await bumpCommentCount(1);
     fetchComments();
   };
 
@@ -350,6 +409,7 @@ export default function CommunityDetailPage() {
       setComments(prev => prev.filter(c => c.id !== commentId));
     }
     setDeletingCommentId(null);
+    await bumpCommentCount(-1);
   };
 
   // ── 답글 수정
@@ -374,6 +434,7 @@ export default function CommunityDetailPage() {
     // 답글은 그냥 목록에서 완전 제거
     setComments(prev => prev.filter(c => c.id !== replyId));
     setDeletingReplyId2(null);
+    await bumpCommentCount(-1);
   };
 
   // ── 관리자 댓글 삭제
@@ -386,6 +447,7 @@ export default function CommunityDetailPage() {
     if (error) { console.error(error); return; }
     setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_admin_deleted: true, deleted: true } : c));
     setOpenedCommentMenuId(null);
+    await bumpCommentCount(-1);
   };
 
   // ── 관리자 답글 삭제
@@ -398,6 +460,7 @@ export default function CommunityDetailPage() {
     if (error) { console.error(error); return; }
     setComments(prev => prev.map(c => c.id === replyId ? { ...c, is_admin_deleted: true, deleted: true } : c));
     setOpenedReplyMenuId2(null);
+    await bumpCommentCount(-1);
   };
 
   // ── 댓글/답글 신고 제출
@@ -471,7 +534,7 @@ export default function CommunityDetailPage() {
         const { data } = await supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single();
         setIsAdmin(!!data?.is_admin);
       }
-      await Promise.all([fetchPost(), fetchComments()]);
+      await Promise.all([fetchPost(), fetchComments(), fetchPostLikeStatus()]);
       setLoading(false);
     };
     init();
@@ -1041,10 +1104,17 @@ export default function CommunityDetailPage() {
                           gap: "10px",
                         }}
                       >
-                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-                          <Heart size={12} />
+                        <button
+                          onClick={handlePostLike}
+                          style={{
+                            display: "flex", alignItems: "center", gap: "3px",
+                            border: "none", background: "transparent", padding: 0, cursor: "pointer",
+                            color: likedPost ? "#e0574c" : "#999",
+                          }}
+                        >
+                          <Heart size={12} fill={likedPost ? "#e0574c" : "none"} color={likedPost ? "#e0574c" : "#999"} />
                           {post.likes || 0}
-                        </span>
+                        </button>
 
                         <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
                           <Eye size={12} />
@@ -1289,7 +1359,7 @@ export default function CommunityDetailPage() {
                       style={{
                         width: "100%", height: "44px", marginTop: "10px",
                         borderRadius: "12px", border: "none",
-                        background: "linear-gradient(145deg, #2a2a2a, #111)",
+                        background: "linear-gradient(145deg, #5C7A4A, #48603A)",
                         color: "white", fontWeight: 700, cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                         fontFamily: "'Noto Sans KR', sans-serif",
@@ -1377,8 +1447,8 @@ export default function CommunityDetailPage() {
                                         <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
                                       </>
                                     ) : isAdmin ? (
-                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
-                                        <Shield size={11} color="#7c3aed" />관리자 삭제
+                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
+                                        <Shield size={11} color="#5C7A4A" />관리자 삭제
                                       </button>
                                     ) : (
                                       <button onClick={() => { setOpenedCommentMenuId(null); setCommentReportTargetId(item.id); setCommentReportType("community_comment"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
@@ -1463,7 +1533,7 @@ export default function CommunityDetailPage() {
                               <button
                                 disabled={!(replyMap[item.id] || "").trim()}
                                 onClick={() => handleReply(item.id)}
-                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#2a2a2a,#111)", color:"white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
+                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
                                 등록
                               </button>
                             </div>
@@ -1503,8 +1573,8 @@ export default function CommunityDetailPage() {
                                             <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
                                           </>
                                         ) : isAdmin ? (
-                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#7c3aed", display:"flex", alignItems:"center", gap:5 }}>
-                                            <Shield size={11} color="#7c3aed" />관리자 삭제
+                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
+                                            <Shield size={11} color="#5C7A4A" />관리자 삭제
                                           </button>
                                         ) : (
                                           <button onClick={() => { setOpenedReplyMenuId2(null); setCommentReportTargetId(reply.id); setCommentReportType("community_reply"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
@@ -1612,7 +1682,12 @@ export default function CommunityDetailPage() {
                 </button>
                 <span style={{ fontSize: 10, color: "#ccc" }}>|</span>
                 <a
-                  href={`mailto:${ADMIN_EMAIL}?subject=[같이가개] 문의하기&body=안녕하세요, 문의 내용을 입력해주세요.`}
+                  href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent("[같이가개] 문의하기")}&body=${encodeURIComponent("안녕하세요, 문의 내용을 입력해주세요.")}`}
+                  onClick={() => {
+                    if (navigator.clipboard) {
+                      navigator.clipboard.writeText(ADMIN_EMAIL).catch(() => {});
+                    }
+                  }}
                   className="ggk-body"
                   style={{
                     background: "transparent", border: "none",
@@ -1623,9 +1698,10 @@ export default function CommunityDetailPage() {
                     fontFamily: "'Noto Sans KR',sans-serif",
                     textDecorationColor: "#ccc",
                   }}
+                  title={`메일 앱이 열리지 않으면 이 주소로 직접 보내주세요: ${ADMIN_EMAIL} (클릭 시 클립보드에 복사됩니다)`}
                 >
                   <Mail size={10} color="#bbb" />
-                  이메일로 문의하기
+                  이메일로 문의하기 ({ADMIN_EMAIL})
                 </a>
               </div>
               <div style={{ fontSize: 9, color: "#ccc", marginBottom: 4 }}>
@@ -1927,7 +2003,7 @@ const dropdownBtnStyleCom: React.CSSProperties = {
 };
 const saveBtnCom: React.CSSProperties = {
   padding: "5px 12px", borderRadius: "5px", border: "none",
-  background: "linear-gradient(145deg,#2a2a2a,#111)", color: "white",
+  background: "linear-gradient(145deg,#5C7A4A,#48603A)", color: "white",
   cursor: "pointer", fontSize: "12px", fontFamily: "'Noto Sans KR', sans-serif",
 };
 const cancelBtnCom: React.CSSProperties = {

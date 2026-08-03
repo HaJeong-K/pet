@@ -7,11 +7,12 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, Mail,
+  Eye, EyeOff, BadgeCheck,
 } from "lucide-react";
-
-/* ── 상수 ── */
-const ADMIN_EMAIL = "admin@gachigage.com"; // ← 관리자 이메일 변경
+import { openPlaceDetail } from "@/lib/openPlace";
+import PetIllustration from "@/components/illustrations/PetIllustration";
+import SiteFooter from "@/components/SiteFooter";
+import SideAdRail from "@/components/SideAdRail";
 
 const BOARD_LABEL: Record<string, string> = {
   all: "전체",
@@ -106,9 +107,6 @@ export default function MyPage() {
   const [deletingBookmarkId, setDeletingBookmarkId] = useState<number|null>(null);
   const [deletingReviewId, setDeletingReviewId]     = useState<string|null>(null);
 
-  /* 개인정보 처리방침 모달 */
-  const [showPrivacy, setShowPrivacy]   = useState(false);
-
   const loadData = async (sess: any) => {
     setBookmarks([]);
     setMyReviews([]);
@@ -128,13 +126,13 @@ export default function MyPage() {
         .eq("user_key", uid)
         .eq("type", "bookmark"),
       supabase.from("reviews")
-        .select("id, content, created_at, likes, place_id, places(name, address, image_url)")
+        .select("id, content, created_at, likes, place_id, places(name, address, image_url, category)")
         .eq("auth_user_id", uid)
         .eq("deleted", false)
         .eq("is_admin_deleted", false)
         .order("created_at", { ascending: false }),
       supabase.from("review_replies")
-        .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url))")
+        .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url, category))")
         .eq("auth_user_id", uid)
         .eq("deleted", false)
         .eq("is_admin_deleted", false)
@@ -233,7 +231,9 @@ export default function MyPage() {
     window.location.href = "/";
   };
 
-  const handleRemoveBookmark = async (placeId: number) => {
+  const handleRemoveBookmark = async (placeId: number, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!confirm("찜 목록에서 삭제하시겠습니까?")) return;
     await supabase.from("reactions").delete()
       .eq("place_id", placeId)
       .eq("type", "bookmark")
@@ -246,6 +246,24 @@ export default function MyPage() {
     await supabase.from("reviews").update({ deleted: true }).eq("id", reviewId);
     setMyReviews(prev => prev.filter(r => r.id !== reviewId));
     setDeletingReviewId(null);
+  };
+
+  const handleDeleteReply = async (replyId: string) => {
+    await supabase.from("review_replies").update({ deleted: true }).eq("id", replyId);
+    setMyReviewReplies(prev => prev.filter(r => r.id !== replyId));
+  };
+
+  const handleDeleteCommunityComment = async (commentId: string) => {
+    await supabase.from("community_comments").update({ deleted: true }).eq("id", commentId);
+    setMyCommunityComments(prev => prev.filter(c => c.id !== commentId));
+  };
+
+  /* ── 작성한 댓글/답글 목록(장소+커뮤니티 통합)에서 항목 유형에 맞게 삭제 ── */
+  const handleDeleteListItem = (item: any) => {
+    if (!confirm("삭제하시겠습니까? 삭제한 내용은 복구할 수 없습니다.")) return;
+    if (item._type === "place" && item._subtype === "comment") handleDeleteReview(item.id);
+    else if (item._type === "place" && item._subtype === "reply") handleDeleteReply(item.id);
+    else if (item._type === "community") handleDeleteCommunityComment(item.id);
   };
 
   const closeSettings = () => {
@@ -280,113 +298,59 @@ export default function MyPage() {
   return (
     <>
       <style>{`
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .ggk-body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
         .card-hover { transition: box-shadow 0.15s, transform 0.15s; }
         .card-hover:hover { box-shadow: 0 5px 16px rgba(0,0,0,0.09); transform: translateY(-1px); }
         .tab-btn { transition: all 0.15s ease; }
         .setting-row:hover { background: #f0f2f5 !important; }
       `}</style>
 
-      {/* ── 3단 레이아웃 전체 래퍼 */}
-      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background: "#f0f2f5", justifyContent: "center", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
-
-        {/* ── 좌측 광고 바 */}
-        <div style={{
-          width: "160px",
-          flexShrink: 0,
-          alignSelf: "flex-start",  
-          position: "sticky",
-          top: 0,
-          paddingTop: "60px",  
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "12px",
-          padding: "60px 12px 20px",
-        }}>
-          {/* 광고 슬롯 1 */}
-          <div style={{
-            width: "132px", height: "280px",
-            background: "linear-gradient(160deg,#f8f9fb,#eef0f3)",
-            borderRadius: "12px",
-            border: "1.5px dashed #d0d3d9",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: "6px",
-          }}>
-            <div style={{ fontSize: "18px" }}>📢</div>
-            <div style={{ fontSize: "10px", color: "#bbb", fontWeight: 600, textAlign: "center", lineHeight: 1.5 }}>
-              광고 영역
-            </div>
-          </div>
-          {/* 광고 슬롯 2 */}
-          <div style={{
-            width: "132px", height: "132px",
-            background: "linear-gradient(160deg,#f8f9fb,#eef0f3)",
-            borderRadius: "12px",
-            border: "1.5px dashed #d0d3d9",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: "6px",
-          }}>
-            <div style={{ fontSize: "16px" }}>📣</div>
-            <div style={{ fontSize: "10px", color: "#bbb", fontWeight: 600, textAlign: "center" }}>
-              광고 영역
-            </div>
-          </div>
-        </div>
+      {/* ── 전체 래퍼 — 광고는 더 이상 이 flex row 안에서 폭을 차지하지 않고, 커뮤니티
+            페이지와 동일한 SideAdRail(고정 오버레이, 1600px 이상에서만 노출)을 재사용합니다. */}
+      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background: "#F7F3E8", justifyContent: "center", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
 
         {/* ── 중앙 콘텐츠 */}
         <div style={{
           width: "100%",
-          maxWidth: "680px",   
-          flexShrink: 0,   
+          maxWidth: "1200px",
+          flexShrink: 0,
           height: "100vh",
-          overflow: "hidden", 
-          background: "#f0f2f5",
+          overflow: "hidden",
+          background: "#F7F3E8",
           display: "flex",
           flexDirection: "column",
         }}>
 
-          {/* ── 헤더 (설정 버튼 제거됨) */}
+          {/* ── 헤더 — 커뮤니티/관리자 페이지와 동일한 사이트형 상단바 구성 */}
           <div style={{
             background: "white", borderBottom: "1px solid #e8eaed",
-            padding: "12px 18px", display: "flex", alignItems: "center",
+            padding: "16px 28px", display: "flex", alignItems: "center",
             justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50,
             boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
           }}>
-            <button onClick={() => router.push("/")} style={{ border:"none", background:"transparent", cursor:"pointer", padding:3, borderRadius:7, display:"flex" }}>
-              <ArrowLeft size={18} color="#444" />
-            </button>
-            <div className="ggk-logo" style={{ fontSize:"14px", fontWeight:800, color:"#111" }}>마이페이지</div>
-            {/* 헤더 우측 빈 공간 균형용 */}
-            <div style={{ width: 26 }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div className="ggk-logo" style={{ fontSize:"15px", fontWeight:800, color:"#111" }}>마이페이지</div>
+            </div>
           </div>
 
-          {/* ── 프로필 카드 */}
+          {/* ── 프로필 히어로 배너 — 시안 .mypage-hero 스펙: solid primary, full-bleed, no radius ── */}
 					<div
 						style={{
-							margin: "14px 14px 0",
-							background: "white",
-							borderRadius: "28px",
-							padding: "22px 24px",
-							border: "1px solid #ececf3",
-							boxShadow: "0 4px 18px rgba(0,0,0,0.05)",
+							position: "relative",
+							overflow: "hidden",
+							background: "#5C7A4A",
+							padding: "26px 40px",
 							flexShrink: 0,
 						}}
 					>
 						<div
 							style={{
 								width: "100%",
-								padding: "0 6px",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "space-between",
 								gap: "18px",
+								position: "relative",
 							}}
 						>
 							{/* 좌측 */}
@@ -394,27 +358,27 @@ export default function MyPage() {
 								style={{
 									display: "flex",
 									alignItems: "center",
-									gap: "14px",
+									gap: "16px",
 									minWidth: 0,
 								}}
 							>
 								{/* 프로필 이미지 */}
 								<div
 									style={{
-										width: "58px",
-										height: "58px",
+										width: "48px",
+										height: "48px",
 										borderRadius: "50%",
 										overflow: "hidden",
 										flexShrink: 0,
 										background: userProfile?.avatar_url
 											? "transparent"
-											: "#f3e8ff",
-										border: "1px solid #ececf3",
+											: "rgba(255,255,255,0.16)",
+										border: "2px solid rgba(255,255,255,0.55)",
 										display: "flex",
 										alignItems: "center",
 										justifyContent: "center",
-										color: "#8b5cf6",
-										fontSize: "24px",
+										color: "white",
+										fontSize: "17px",
 										fontWeight: 800,
 									}}
 								>
@@ -439,26 +403,52 @@ export default function MyPage() {
 									<div
 										className="ggk-logo"
 										style={{
-											fontSize: "20px",
-											fontWeight: 800,
-											color: "#111",
-											marginBottom: "5px",
+											fontSize: "17px",
+											fontWeight: 700,
+											color: "white",
+											marginBottom: "3px",
+											display: "flex",
+											alignItems: "center",
+											gap: 5,
 										}}
 									>
+										{userProfile?.owner_status === "verified" && (
+											<BadgeCheck size={18} color="#8FA876" fill="white" title="인증된 사장님 계정" />
+										)}
 										{userProfile?.nickname}
 									</div>
 
 									<div
 										style={{
-											fontSize: "12px",
-											color: "#888",
+											fontSize: "11px",
+											color: "rgba(255,255,255,0.72)",
 											overflow: "hidden",
 											textOverflow: "ellipsis",
 											whiteSpace: "nowrap",
+											marginBottom: "3px",
 										}}
 									>
 										{session?.user?.email}
 									</div>
+
+									{/* 카카오/구글 간편가입 회원 배지 — 일러스트 없이 텍스트 배지만 */}
+									{(session?.user?.app_metadata?.provider === "kakao" || session?.user?.app_metadata?.provider === "google") && (
+										<span
+											style={{
+												display: "inline-flex",
+												alignItems: "center",
+												fontSize: "10px",
+												fontWeight: 700,
+												color: "white",
+												background: session?.user?.app_metadata?.provider === "kakao" ? "rgba(254,229,0,0.28)" : "rgba(255,255,255,0.22)",
+												border: "1px solid rgba(255,255,255,0.35)",
+												borderRadius: "999px",
+												padding: "3px 9px",
+											}}
+										>
+											{session?.user?.app_metadata?.provider === "kakao" ? "카카오 계정 가입자" : "구글 계정 가입자"}
+										</span>
+									)}
 								</div>
 							</div>
 
@@ -466,11 +456,11 @@ export default function MyPage() {
 							<button
 								onClick={() => setShowSettings(true)}
 								style={{
-									width: "40px",
-									height: "40px",
+									width: "32px",
+									height: "32px",
 									borderRadius: "50%",
-									border: "1px solid #ececf3",
-									background: "#f3e8ff",
+									border: "1px solid rgba(255,255,255,0.4)",
+									background: "rgba(255,255,255,0.14)",
 									display: "flex",
 									alignItems: "center",
 									justifyContent: "center",
@@ -478,7 +468,7 @@ export default function MyPage() {
 									flexShrink: 0,
 								}}
 							>
-								<Settings size={18} color="#8b5cf6" />
+								<Settings size={15} color="white" />
 							</button>
 						</div>
 					</div>
@@ -488,46 +478,39 @@ export default function MyPage() {
 						{/* ── 통계 카드 */}
 						<div
 							style={{
-								margin: "14px 14px 14px",
+								margin: "20px auto",
+									maxWidth: "760px",
+									padding: "0 28px",
+									boxSizing: "border-box",
 								display: "grid",
 								gridTemplateColumns: "1fr 1fr",
 								gap: 12,
 							}}
 						>
-							{/* 찜한 장소 */}
+							{/* 찜한 장소 — 시안 .toggle-card 스펙: 아이콘 없이 중앙정렬, 선택 시 solid primary */}
               <button
                 onClick={() => setActiveSection("bookmarks")}
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: 22,
-                  border: activeSection === "bookmarks" ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
-                  background: "white",
-                  textAlign: "left",
+                  padding: 20,
+                  borderRadius: 16,
+                  border: activeSection === "bookmarks" ? "none" : "1px solid #e8eaed",
+                  background: activeSection === "bookmarks" ? "#5C7A4A" : "white",
+                  textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: activeSection === "bookmarks" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
                   transition: "all 0.18s ease",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 12,
+                  justifyContent: "center",
+                  gap: 6,
                 }}
               >
-                <div style={{
-                  width: 42, height: 42, borderRadius: 14,
-                  background: "#f3e8ff", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <Heart size={18} color="#8b5cf6" fill="#8b5cf6" />
+                <div style={{ fontSize: 12, fontWeight: 600, color: activeSection === "bookmarks" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                  찜한 장소
                 </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#333", lineHeight: 1 }}>
-                      찜한 장소
-                    </span>
-                    <span className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#111", lineHeight: 1 }}>
-                      {bookmarks.length}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#999" }}>저장한 장소 확인하기</div>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "bookmarks" ? "white" : "#333", lineHeight: 1 }}>
+                  {bookmarks.length}
                 </div>
               </button>
 
@@ -535,48 +518,41 @@ export default function MyPage() {
               <button
                 onClick={() => setActiveSection("reviews")}
                 style={{
-                  padding: "14px 16px",
-                  borderRadius: 22,
-                  border: activeSection === "reviews" ? "1.5px solid #8b5cf6" : "1px solid #e8eaed",
-                  background: "white",
-                  textAlign: "left",
+                  padding: 20,
+                  borderRadius: 16,
+                  border: activeSection === "reviews" ? "none" : "1px solid #e8eaed",
+                  background: activeSection === "reviews" ? "#5C7A4A" : "white",
+                  textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: activeSection === "reviews" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
                   transition: "all 0.18s ease",
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  gap: 12,
+                  justifyContent: "center",
+                  gap: 6,
                 }}
               >
-                <div style={{
-                  width: 42, height: 42, borderRadius: 14,
-                  background: "#f3e8ff", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <MessageCircle size={18} color="#8b5cf6" />
+                <div style={{ fontSize: 12, fontWeight: 600, color: activeSection === "reviews" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                  작성한 댓글
                 </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#333", lineHeight: 1 }}>
-                      작성한 댓글
-                    </span>
-                    <span className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#111", lineHeight: 1 }}>
-                      {allReviews.length}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#999" }}>내 활동 확인하기</div>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "reviews" ? "white" : "#333", lineHeight: 1 }}>
+                  {allReviews.length}
                 </div>
               </button>
 						</div>
 					</div>
 
-					{/* ── 리스트 영역 (여기만 스크롤) */}
+					{/* ── 리스트 영역 (여기만 스크롤) — 로그인 정보가 나오는 프로필 히어로 영역과
+              동일한 폭(전체 컨테이너 폭, 40px 인셋)을 갖도록 확장했습니다. */}
           <div style={{
-            flex: 1,  
-            minHeight: 0, 
-            overflowY: "auto", 
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
             width: "100%",
-            padding: "0 14px 0", 
+            maxWidth: "1200px",
+            margin: "0 auto",
+            padding: "0 40px 0",
             scrollbarWidth: "thin",
             boxSizing: "border-box",
           }}>
@@ -597,7 +573,7 @@ export default function MyPage() {
 												margin: "0 auto 12px",
 											}}
 										>
-											<Heart size={22} color="#d1d5db" />
+											<PetIllustration variant="empty" width={40} />
 										</div>
 
 										<div
@@ -611,17 +587,31 @@ export default function MyPage() {
 										</div>
 									</div>
 								) : (
-									pagedBookmarks.map((place) => (
+									<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+									{pagedBookmarks.map((place) => (
 										<div
 											key={place.id}
 											style={{
 												position: "relative",
-												marginBottom: 12,
 											}}
 										>
+											<button
+												onClick={(e) => handleRemoveBookmark(place.id, e)}
+												title="찜 해제"
+												style={{
+													position: "absolute", top: 8, right: 8, zIndex: 2,
+													width: 24, height: 24, borderRadius: "50%",
+													border: "none", background: "rgba(255,255,255,0.92)",
+													boxShadow: "0 1px 5px rgba(0,0,0,0.15)",
+													cursor: "pointer", display: "flex",
+													alignItems: "center", justifyContent: "center",
+												}}
+											>
+												<Trash2 size={12} color="#f87171" />
+											</button>
 											<div
                         className="card-hover"
-                        onClick={() => router.push(`/place/${place.id}`)}
+                        onClick={() => openPlaceDetail(router, place)}
                         style={{
                           width: "100%",
                           display: "flex",
@@ -638,6 +628,7 @@ export default function MyPage() {
 												<img
 													src={place.image_url}
 													alt={place.name}
+													loading="lazy"
 													style={{
 														width: 70,
 														height: 70,
@@ -693,7 +684,8 @@ export default function MyPage() {
 												</div>
 											</div>
 										</div>
-									))
+									))}
+									</div>
 								)}
 							</>
 						)}
@@ -708,7 +700,7 @@ export default function MyPage() {
                       width: 56, height: 56, borderRadius: 18, background: "#f0f2f5",
                       display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
                     }}>
-                      <MessageCircle size={22} color="#d1d5db" />
+                      <PetIllustration variant="empty" width={40} />
                     </div>
                     <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
                       아직 작성한 댓글이 없어요
@@ -729,7 +721,7 @@ export default function MyPage() {
                             {/* 헤더 */}
                             <div
                               className="card-hover"
-                              onClick={() => router.push(`/place/${item.place_id}`)}
+                              onClick={() => openPlaceDetail(router, { id: item.place_id, category: item.places?.category })}
                               style={{
                                 display: "flex", alignItems: "center", gap: 10,
                                 padding: "10px 14px", cursor: "pointer",
@@ -742,7 +734,7 @@ export default function MyPage() {
                                 overflow: "hidden",
                               }}>
                                 {item.places?.image_url
-                                  ? <img src={item.places.image_url} alt={item.places?.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  ? <img src={item.places.image_url} alt={item.places?.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                   : <MapPin size={16} color="#ea580c" />
                                 }
                               </div>
@@ -769,9 +761,21 @@ export default function MyPage() {
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
-                                <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
-                                  <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
+                                    <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
+                                  </span>
+                                  <button
+                                    onClick={() => handleDeleteListItem(item)}
+                                    title="삭제"
+                                    style={{
+                                      border: "none", background: "transparent", cursor: "pointer",
+                                      padding: 2, display: "flex", alignItems: "center",
+                                    }}
+                                  >
+                                    <Trash2 size={12} color="#d1d5db" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -801,7 +805,7 @@ export default function MyPage() {
                                 <MessageCircle size={16} color="#2563eb" />
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 10, color: "#8b5cf6", fontWeight: 700, marginBottom: 2 }}>
+                                <div style={{ fontSize: 10, color: "#5C7A4A", fontWeight: 700, marginBottom: 2 }}>
                                   {getBoardLabel(item.community_posts?.board_id)}
                                 </div>
                                 <div className="ggk-logo" style={{ fontSize: 12, fontWeight: 700, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -823,9 +827,21 @@ export default function MyPage() {
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
-                                <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
-                                  <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
-                                </span>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
+                                    <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
+                                  </span>
+                                  <button
+                                    onClick={() => handleDeleteListItem(item)}
+                                    title="삭제"
+                                    style={{
+                                      border: "none", background: "transparent", cursor: "pointer",
+                                      padding: 2, display: "flex", alignItems: "center",
+                                    }}
+                                  >
+                                    <Trash2 size={12} color="#d1d5db" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -840,108 +856,24 @@ export default function MyPage() {
                 )}
               </>
             )}
-          {/* ── 하단 푸터 */}
-          <div style={{
-            margin: "28px 14px 0",
-            paddingTop: "16px",
-            paddingBottom: "90px",  
-            borderTop: "1px solid #e2e4e8",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "10px",
-            flexShrink: 0, 
-          }}>
-            <div className="ggk-logo" style={{ fontSize: 11, color: "#bbb", fontWeight: 600, letterSpacing: "-0.1px" }}>
-              같이가개
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              {/* 개인정보 처리방침 버튼 */}
-              <button
-                onClick={() => setShowPrivacy(true)}
-                className="ggk-body"
-                style={{
-                  background: "transparent", border: "none",
-                  fontSize: 10, color: "#999", cursor: "pointer",
-                  fontWeight: 500, padding: "2px 4px",
-                  textDecoration: "underline", textUnderlineOffset: "2px",
-                  fontFamily: "'Noto Sans KR',sans-serif",
-                }}
-              >
-                개인정보 처리방침
-              </button>
-              <span style={{ fontSize: 10, color: "#ccc" }}>|</span>
-              {/* 이메일 문의 버튼 */}
-              <a
-                href={`mailto:${ADMIN_EMAIL}?subject=[같이가개] 문의하기&body=안녕하세요, 문의 내용을 입력해주세요.`}
-                className="ggk-body"
-                style={{
-                  background: "transparent", border: "none",
-                  fontSize: 10, color: "#999", cursor: "pointer",
-                  fontWeight: 500, padding: "2px 4px",
-                  textDecoration: "underline", textUnderlineOffset: "2px",
-                  display: "inline-flex", alignItems: "center", gap: "3px",
-                  fontFamily: "'Noto Sans KR',sans-serif",
-                  textDecorationColor: "#ccc",
-                }}
-              >
-                <Mail size={10} color="#bbb" />
-                이메일로 문의하기
-              </a>
-            </div>
-            <div style={{ fontSize: 9, color: "#ccc", marginBottom: 4 }}>
-              © 2026 같이가개. All rights reserved.
-            </div>
           </div>
-        </div>
+
+          {/* ── 하단 푸터 — 리스트 영역 밖(스크롤 대상 아님)으로 빼서 항상 보이도록 고정하고,
+                하단 탭바(플로팅 필, 약 78px)에 가려지지 않도록 그만큼 아래쪽 여백을 둡니다. */}
+          <div style={{
+            flexShrink: 0, background: "white", borderTop: "1px solid #eee",
+            padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
+          }}>
+            <SiteFooter />
+          </div>
         </div>
 
-        {/* ── 우측 광고 바 */}
-        <div style={{
-          width: "160px",
-          flexShrink: 0,
-          alignSelf: "flex-start",
-          position: "sticky",
-          top: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "12px",
-          padding: "60px 12px 20px",
-          // background, border 완전 제거 ✅
-        }}>
-          {/* 광고 슬롯 3 */}
-          <div style={{
-            width: "132px", height: "280px",
-            background: "linear-gradient(160deg,#f8f9fb,#eef0f3)",
-            borderRadius: "12px",
-            border: "1.5px dashed #d0d3d9",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: "6px",
-          }}>
-            <div style={{ fontSize: "18px" }}>📢</div>
-            <div style={{ fontSize: "10px", color: "#bbb", fontWeight: 600, textAlign: "center", lineHeight: 1.5 }}>
-              광고 영역
-            </div>
-          </div>
-          {/* 광고 슬롯 4 */}
-          <div style={{
-            width: "132px", height: "132px",
-            background: "linear-gradient(160deg,#f8f9fb,#eef0f3)",
-            borderRadius: "12px",
-            border: "1.5px dashed #d0d3d9",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: "6px",
-          }}>
-            <div style={{ fontSize: "16px" }}>📣</div>
-            <div style={{ fontSize: "10px", color: "#bbb", fontWeight: 600, textAlign: "center" }}>
-              광고 영역
-            </div>
-          </div>
-        </div>
       </div>
+
+      {/* 광고는 콘텐츠 컬럼 안에서 폭을 차지하지 않고, 커뮤니티 페이지와 동일한
+          SideAdRail(화면 좌우 고정, 1600px 이상에서만 노출)을 그대로 재사용합니다.
+          rightMode="ad"라 오른쪽도 보호소 공고 대신 왼쪽과 같은 광고 자리입니다. */}
+      <SideAdRail rightMode="ad" />
 
       {/* ══════════════════════════════════════
           설정 모달
@@ -974,12 +906,18 @@ export default function MyPage() {
                       : userProfile?.nickname?.charAt(0)||"?"}
                   </div>
                   <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:"#111" }}>{userProfile?.nickname}</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#111", display:"flex", alignItems:"center", gap:4 }}>
+                      {userProfile?.owner_status === "verified" && <BadgeCheck size={13} color="#5C7A4A" />}
+                      {userProfile?.nickname}
+                    </div>
                     <div style={{ fontSize:10, color:"#999" }}>{session?.user?.email}</div>
                   </div>
                 </div>
 
                 <div style={{ padding:"0 14px 18px" }}>
+                  {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장 형식이 고정되므로
+                      닉네임 변경 메뉴 자체를 숨깁니다. */}
+                  {!userProfile?.nickname_locked && (
                   <button className="setting-row" onClick={() => setSettingView("nickname")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:"#eef2ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                       <User size={15} color="#5C7CFA" />
@@ -987,6 +925,7 @@ export default function MyPage() {
                     <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>닉네임 변경</div>
                     <ChevronRight size={14} color="#bbb" />
                   </button>
+                  )}
 
                   {!isOAuthUser && (
                     <button className="setting-row" onClick={() => setSettingView("password")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
@@ -1044,7 +983,7 @@ export default function MyPage() {
                     {nickMsg.ok && <Check size={12}/>}{nickMsg.text}
                   </div>
                 )}
-                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#2a2a2a,#111)", color:"white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
               </div>
@@ -1079,7 +1018,7 @@ export default function MyPage() {
                     {pwMsg.ok && <Check size={12}/>}{pwMsg.text}
                   </div>
                 )}
-                <button onClick={handlePasswordChange} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"linear-gradient(145deg,#2a2a2a,#111)", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                <button onClick={handlePasswordChange} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
               </div>
@@ -1149,93 +1088,6 @@ export default function MyPage() {
         </>
       )}
 
-      {/* ══════════════════════════════════════
-          개인정보 처리방침 모달
-      ══════════════════════════════════════ */}
-      {showPrivacy && (
-        <>
-          <div onClick={() => setShowPrivacy(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:300, backdropFilter:"blur(4px)" }} />
-          <div className="ggk-body" style={{
-            position:"fixed", top:"50%", left:"50%",
-            transform:"translate(-50%, -50%)",
-            width:"min(480px, 94vw)", maxHeight:"82vh", overflowY:"auto",
-            background:"white", borderRadius:"20px", zIndex:301,
-            boxShadow:"0 24px 80px rgba(0,0,0,0.22)",
-          }}>
-            {/* 모달 헤더 */}
-            <div style={{ position:"sticky", top:0, background:"white", padding:"16px 18px 12px", borderBottom:"1px solid #f0f2f5", display:"flex", alignItems:"center", justifyContent:"space-between", zIndex:1 }}>
-              <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>개인정보 처리방침</div>
-              <button onClick={() => setShowPrivacy(false)} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <X size={14} color="#666" />
-              </button>
-            </div>
-
-            {/* 본문 */}
-            <div style={{ padding:"16px 18px 24px", fontSize:12, color:"#444", lineHeight:1.8 }}>
-              <p style={{ fontSize:11, color:"#999", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
-
-              <Section title="1. 개인정보의 수집 및 이용 목적">
-                같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
-                • 회원 가입 및 관리: 회원 식별, 서비스 이용 관리<br/>
-                • 서비스 제공: 장소 정보 제공, 댓글·찜 기능 운영<br/>
-                • 고객 지원: 문의 응대 및 민원 처리
-              </Section>
-
-              <Section title="2. 수집하는 개인정보 항목">
-                • <strong>필수 항목:</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br/>
-                • <strong>소셜 로그인 시:</strong> 소셜 계정 고유 식별자, 프로필 사진(선택)<br/>
-                • <strong>서비스 이용 시 자동 수집:</strong> 서비스 이용 기록, 접속 로그
-              </Section>
-
-              <Section title="3. 개인정보의 보유 및 이용 기간">
-                • 회원 탈퇴 시 즉시 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br/>
-                • 전자상거래 기록: 5년 보관 (전자상거래 등에서의 소비자보호에 관한 법률)<br/>
-                • 서비스 이용 관련 분쟁 시 분쟁 해결 시까지 보관
-              </Section>
-
-              <Section title="4. 개인정보의 제3자 제공">
-                서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.<br/>
-                • 이용자가 사전에 동의한 경우<br/>
-                • 법령의 규정에 의거하거나 수사 목적으로 관련 기관의 요구가 있는 경우
-              </Section>
-
-              <Section title="5. 개인정보 처리 위탁">
-                서비스는 원활한 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.<br/>
-                • <strong>Supabase Inc.:</strong> 데이터베이스 및 인증 서비스<br/>
-                • <strong>Vercel Inc.:</strong> 서버 호스팅 및 배포
-              </Section>
-
-              <Section title="6. 이용자의 권리 및 행사 방법">
-                이용자는 다음의 권리를 가집니다.<br/>
-                • 개인정보 열람, 정정·삭제, 처리 정지 요청권<br/>
-                • 위 권리 행사는 서비스 내 설정 메뉴 또는 이메일 문의를 통해 가능합니다.<br/>
-                • 문의 이메일: <strong>{ADMIN_EMAIL}</strong>
-              </Section>
-
-              <Section title="7. 쿠키(Cookie) 운용">
-                서비스는 로그인 상태 유지 등을 위해 쿠키를 사용합니다. 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 일부 서비스 이용이 제한될 수 있습니다.
-              </Section>
-
-              <Section title="8. 개인정보 보호 책임자">
-                • <strong>책임자:</strong> 같이가개 관리자<br/>
-                • <strong>이메일:</strong> {ADMIN_EMAIL}<br/>
-                개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
-              </Section>
-
-              <Section title="9. 개인정보 처리방침 변경">
-                본 방침은 법령, 정책 또는 서비스 변경 사항을 반영하기 위해 수정될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 사전 안내합니다.
-              </Section>
-
-              <div style={{ marginTop:16, padding:"12px 14px", background:"#f8f9fb", borderRadius:10, border:"1px solid #e8eaed" }}>
-                <div style={{ fontSize:11, color:"#888", lineHeight:1.7 }}>
-                  본 개인정보 처리방침은 <strong>2025년 1월 1일</strong>부터 적용됩니다.<br/>
-                  문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </>
   );
 }
@@ -1271,11 +1123,11 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
           onClick={() => onChange(p)}
           style={{
             width: 34, height: 34, borderRadius: 12,
-            border: p === page ? "1.5px solid #8b5cf6" : "1px solid #ececf3",
-            background: p === page ? "#8b5cf6" : "white",
+            border: p === page ? "1.5px solid #5C7A4A" : "1px solid #ececf3",
+            background: p === page ? "#5C7A4A" : "white",
             color: p === page ? "white" : "#666",
             cursor: "pointer", fontSize: 13, fontWeight: p === page ? 700 : 500,
-            boxShadow: p === page ? "0 2px 8px rgba(139,92,246,0.25)" : "0 1px 4px rgba(0,0,0,0.04)",
+            boxShadow: p === page ? "0 2px 8px rgba(92,122,74,0.25)" : "0 1px 4px rgba(0,0,0,0.04)",
             transition: "all 0.15s ease",
           }}
         >{p}</button>
@@ -1297,18 +1149,6 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
           transition: "all 0.15s ease",
         }}
       >›</button>
-    </div>
-  );
-}
-
-/* 개인정보 처리방침 섹션 컴포넌트 */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 5, fontFamily: "'Pretendard', sans-serif" }}>
-        {title}
-      </div>
-      <div style={{ fontSize: 11, color: "#555", lineHeight: 1.8 }}>{children}</div>
     </div>
   );
 }

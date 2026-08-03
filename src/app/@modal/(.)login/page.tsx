@@ -245,6 +245,25 @@ function LoginPageContent() {
             로그인
           </button>
 
+          {/* 업장 사장님 가입 버튼 — 이메일 로그인 바로 아래 */}
+          <button
+            onClick={() => router.push(`/signup-owner?redirect=${redirect}`)}
+            style={{
+              width: "100%",
+              padding: "13px",
+              marginTop: "10px",
+              borderRadius: "10px",
+              border: "1.5px solid #5C7A4A",
+              background: "white",
+              color: "#5C7A4A",
+              fontWeight: 700,
+              fontSize: "14px",
+              cursor: "pointer",
+            }}
+          >
+            업장 사장님으로 가입하기
+          </button>
+
           {/* 구분선 */}
           <div
             style={{

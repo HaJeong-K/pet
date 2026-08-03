@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   MoreVertical, Link, Upload, MessageCircle as KakaoIcon,
   X, Flag, Share2, AlertTriangle, ChevronDown,
   DoorOpen, PawPrint, Store, Info, ThumbsDown,
-  Copy, AlertOctagon, MessageSquare,
+  Copy, AlertOctagon, MessageSquare, Trash2,
 } from "lucide-react";
 import PlaceDetail from "@/app/place/[id]/page";
 import { supabase } from "@/lib/supabase";
@@ -59,6 +59,23 @@ export default function ModalPage() {
   const [showMenu,        setShowMenu]        = useState(false);
   const [showShareModal,  setShowShareModal]  = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+
+  /* ── 관리자 삭제 메뉴 — PlaceDetail 내부 상태를 이 헤더의 기존 점세개 버튼으로
+     끌어올립니다(중복 버튼 방지). deletePlace 함수는 매 렌더마다 새로 만들어지므로
+     ref에 담아 최신 함수만 갖고 있고, 리렌더를 유발하는 건 원시값(불리언) state뿐입니다. */
+  const [placeIsAdmin,   setPlaceIsAdmin]   = useState(false);
+  const [placeCanDelete, setPlaceCanDelete] = useState(false);
+  const [placeDeleting,  setPlaceDeleting]  = useState(false);
+  const deletePlaceRef = useRef<() => void>(() => {});
+  const handleAdminMenu = useCallback(
+    (menu: { isAdmin: boolean; canDelete: boolean; deleting: boolean; deletePlace: () => void }) => {
+      setPlaceIsAdmin(menu.isAdmin);
+      setPlaceCanDelete(menu.canDelete);
+      setPlaceDeleting(menu.deleting);
+      deletePlaceRef.current = menu.deletePlace;
+    },
+    []
+  );
 
   /* 신고 폼 */
   const [reportCategory, setReportCategory] = useState("");
@@ -187,7 +204,6 @@ export default function ModalPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
         .modal-menu-item { transition: background 0.12s ease; }
         .modal-menu-item:hover { background: #f5f6f8 !important; }
         .share-row { transition: background 0.12s ease; }
@@ -312,6 +328,24 @@ export default function ModalPage() {
                         </div>
                         <span>장소 신고하기</span>
                       </button>
+
+                      {/* 관리자 전용 — 장소 자체 삭제. 일반 회원에게는 보이지 않습니다. */}
+                      {placeIsAdmin && placeCanDelete && (
+                        <>
+                          <div style={{ height: 1, background: "#f0f2f5", margin: "2px 12px" }} />
+                          <button
+                            className="modal-menu-item"
+                            disabled={placeDeleting}
+                            onClick={() => { setShowMenu(false); deletePlaceRef.current(); }}
+                            style={{ ...dropdownItemStyle, color: "#ef4444" }}
+                          >
+                            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#fff1f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <Trash2 size={13} color="#ef4444" />
+                            </div>
+                            <span>{placeDeleting ? "삭제 중..." : "장소 삭제하기 (관리자)"}</span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -338,7 +372,7 @@ export default function ModalPage() {
 
           {/* ────────────── 스크롤 콘텐츠 ────────────── */}
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "20px 24px" }}>
-            <PlaceDetail />
+            <PlaceDetail onAdminMenu={handleAdminMenu} />
           </div>
         </div>
       </div>

@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { fetchAwsPlaces } from "@/lib/awsPlaces";
+import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
+import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
+import {
+  calculateAffinityBreakdown,
+  getAffinityTier,
+  AFFINITY_TIER_LABEL,
+  AFFINITY_TIER_COLOR,
+  AFFINITY_TIER_BG,
+} from "@/lib/affinityScore";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
@@ -13,15 +22,17 @@ import {
   Ticket,      // 입장료
   Globe,       // 홈페이지
   CalendarOff, // 휴무일
+  Stethoscope, // 진료과목 (동물병원)
+  Trash2,      // 관리자 장소 삭제
 } from "lucide-react";
+
+// ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
+const DEFAULT_VET_DEPARTMENT = "종합진료";
 
 // ── 폰트 (Pretendard 제목/로고 + Noto Sans KR 본문)
 const FONT_STYLE = `
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
   .ggk-title { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-  .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 `;
 
 const adjectives = ["행복한","귀여운","용감한","졸린","말랑한","똑똑한","신난","배고픈"];
@@ -118,12 +129,29 @@ const compressImage = (file: File): Promise<Blob> => {
   });
 };
 
-export default function PlaceDetail() {
+// 모달(@modal/(.)place/[id]/page.tsx)에서 이 컴포넌트를 감싸 쓸 때는 onAdminMenu를
+// 넘겨서 관리자 삭제 메뉴를 모달 자체의 헤더 점세개 버튼 안으로 합칩니다(중복 버튼 방지).
+// onAdminMenu가 없으면(=직접 URL 접속 등 standalone) 아래에서 자체적으로 점세개
+// 버튼을 렌더링합니다.
+type AdminMenuState = {
+  isAdmin: boolean;
+  canDelete: boolean;
+  deleting: boolean;
+  deletePlace: () => void;
+};
+
+export default function PlaceDetail({
+  onAdminMenu,
+}: {
+  onAdminMenu?: (menu: AdminMenuState) => void;
+} = {}) {
   const params  = useParams();
   const router  = useRouter();
   const placeId = Number(params.id);
-  const [isAwsPlace, setIsAwsPlace] = useState(false);
-  const AWS_API_BASE = process.env.NEXT_PUBLIC_AWS_API_BASE!;
+  // 실시간 공공데이터(식품안전나라·한국관광공사·한국문화정보원) 출처 장소인지 여부.
+  // 이런 장소는 Supabase `places` 테이블에 실제 행이 없는 클라이언트 합성 ID라
+  // 리뷰 답글·갤러리 이미지 등 부가 기능은 건너뜁니다.
+  const [isPublicDataPlace, setIsPublicDataPlace] = useState(false);
 
   const [place, setPlace]             = useState<any>(null);
   const [reviews, setReviews]         = useState<any[]>([]);
@@ -165,6 +193,10 @@ export default function PlaceDetail() {
   const [openedMenuId, setOpenedMenuId]   = useState<string | null>(null);
   const [reportingId, setReportingId]     = useState<string | null>(null);
 
+  // ★ 관리자 전용 — 장소 자체 삭제(폐업 등으로 실제 존재하지 않는 장소 정리용)
+  const [showPlaceMenu, setShowPlaceMenu]     = useState(false);
+  const [deletingPlace, setDeletingPlace]     = useState(false);
+
   const [replyingId, setReplyingId]       = useState<string | null>(null);
   const [replyContent, setReplyContent]   = useState("");
   const [replyPassword, setReplyPassword] = useState("");
@@ -200,40 +232,10 @@ export default function PlaceDetail() {
   };
 
   // ── 리뷰 불러오기
-  const fetchReviews = async (aws: boolean = isAwsPlace) => {
-
-    if (aws) {
-      const res = await fetch(
-        `${AWS_API_BASE}/places/${placeId}/reviews`
-      );
-
-      if (!res.ok) {
-        setReviews([]);
-        return;
-      }
-
-      const data = await res.json();
-
-      setReviews(
-        data.map((r: any) => ({
-          id: r.review_id,
-          nickname: r.nickname,
-          content: r.content,
-          likes: r.likes ?? 0,
-          created_at: r.created_at,
-          deleted: false,
-          is_edited: false,
-          is_admin_deleted: false,
-          avatar_url: null,
-          password: null,
-          auth_user_id: null,
-          user_key: null,
-        }))
-      );
-
-      return;
-    }
-
+  // AWS(DynamoDB+Lambda) 리뷰 백엔드는 정식 배포 전이라 실제 데이터가 없어
+  // 코드 자체를 걷어냈습니다. 이제 모든 장소(공공데이터 출처 포함)의 리뷰는
+  // Supabase reviews 테이블 하나로 통일됩니다.
+  const fetchReviews = async () => {
     const { data: reviewData } = await supabase
       .from("reviews")
       .select(
@@ -359,25 +361,28 @@ export default function PlaceDetail() {
         .single();
 
       let resolvedPlace = placeData;
-      let awsPlace = false;
+      let publicDataPlace = false;
 
+      // AWS(DynamoDB+Lambda) 전국 데이터는 Supabase `places` 테이블로 이관 완료되어
+      // 위 Supabase 조회 한 번으로 커버됩니다. 아래는 이관 대상이 아닌, 실시간
+      // 공공데이터(식품안전나라·한국관광공사·한국문화정보원) 출처 장소 폴백입니다.
       if (!resolvedPlace) {
-          const awsPlaces = await fetchAwsPlaces();
+          const publicDataPlaces = await fetchPublicDataPlaces();
 
           resolvedPlace =
-              awsPlaces.find((p) => p.id === placeId) || null;
+              publicDataPlaces.find((p) => p.id === placeId) || null;
 
           if (resolvedPlace) {
-              awsPlace = true;
-              setIsAwsPlace(true);
+              publicDataPlace = true;
+              setIsPublicDataPlace(true);
           }
       }
 
       setPlace(resolvedPlace);
 
-      await fetchReviews(awsPlace);
+      await fetchReviews();
 
-      if (!awsPlace) {
+      if (!publicDataPlace) {
           await fetchReplies();
           await fetchGalleryImages();
       }
@@ -414,7 +419,18 @@ export default function PlaceDetail() {
     };
     fetchData();
   }, [placeId]);
-  
+
+  // 관리자 통계 분석 탭의 "지역별 인기 장소 TOP10" 계산용 — 상세페이지 조회 이벤트
+  useEffect(() => {
+    if (!place) return;
+    trackEvent("place_view", {
+      placeId: place.id,
+      placeName: place.name,
+      region: extractRegion(place.address),
+      subRegion: extractSubRegion(place.address),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place?.id]);
 
   // ── ★ 관리자 댓글/답글 삭제
   const handleAdminDeleteReview = async (reviewId: string) => {
@@ -439,41 +455,63 @@ export default function PlaceDetail() {
     setOpenedReplyMenuId(null);
   };
 
+  // ── 관리자: 장소 자체 삭제 (폐업 등으로 실제 존재하지 않는 장소 정리용)
+  // 공공데이터(식품안전나라·관광공사·문화정보원) 출처 장소는 Supabase에 실제 행이
+  // 없는 합성 ID라 삭제할 수 없어, isPublicDataPlace가 아닐 때만 노출합니다.
+  const handleDeletePlace = async () => {
+    if (!confirm("이 장소를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.")) return;
+    setDeletingPlace(true);
+    try {
+      // ★ 클라이언트(anon key)로 직접 delete()를 호출하면 RLS 정책에 막혀
+      //   에러 없이 0건 삭제로 조용히 실패했습니다. service role 키를 쓰는
+      //   서버 라우트(/api/admin/delete-place — 관리자 신고관리 페이지에서
+      //   쓰는 것과 동일)를 통해 삭제합니다.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+      const res = await fetch("/api/admin/delete-place", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ placeId: Number(placeId) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[handleDeletePlace] API 오류:", data);
+        alert(`삭제 실패: ${data.error || "알 수 없는 오류"}`);
+        return;
+      }
+      setShowPlaceMenu(false);
+      router.push("/");
+    } finally {
+      setDeletingPlace(false);
+    }
+  };
+
+  // 모달 헤더의 기존 점세개 버튼에 관리자 삭제 메뉴를 실어 보냅니다.
+  useEffect(() => {
+    if (!onAdminMenu) return;
+    onAdminMenu({
+      isAdmin,
+      canDelete: isAdmin && !isPublicDataPlace,
+      deleting: deletingPlace,
+      deletePlace: handleDeletePlace,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, isPublicDataPlace, deletingPlace]);
+
   // ── 댓글 등록
   const handleSubmit = async () => {
     if (!myNickname || !content) return;
 
     if (!session && !password) return;
 
-    // ===== AWS 장소 =====
-    if (isAwsPlace) {
-      const res = await fetch(
-        `${AWS_API_BASE}/places/${placeId}/reviews`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            nickname: myNickname,
-            content,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        alert("댓글 저장 실패");
-        return;
-      }
-
-      setContent("");
-
-      await fetchReviews();
-
-      return;
-    }
-
-    // ===== Supabase 장소 =====
+    // 모든 장소는 Supabase reviews 테이블 하나로 저장합니다
+    // (예전 AWS 리뷰 백엔드는 정식 배포 전이라 실제 데이터 없이 코드만 걷어냄).
     const userKey = getUserKey();
     const authUserId = session?.user?.id ?? null;
 
@@ -553,7 +591,7 @@ export default function PlaceDetail() {
   const closeAll = () => {
     setOpenedMenuId(null); setEditingId(null); setDeletingId(null); setReportingId(null);
     setOpenedReplyMenuId(null); setEditingReplyId(null); setDeletingReplyId(null);
-    setReportingReplyId(null); setReplyingId(null);
+    setReportingReplyId(null); setReplyingId(null); setShowPlaceMenu(false);
   };
 
   useEffect(() => {
@@ -694,9 +732,39 @@ export default function PlaceDetail() {
 
   const hasImages = allGalleryImages.length > 0;
 
+  // ── 반려동물 친화도 점수 (0~100, Rule-based) — 신청서 1.2) AI 기술 활용 항목 구현
+  const affinity = useMemo(() => {
+    if (!place) return null;
+    return calculateAffinityBreakdown({
+      reviews: reviews
+        .filter((r) => !r.deleted)
+        .map((r) => ({ content: r.content, likes: r.likes })),
+      likesCount,
+      dislikesCount,
+      bookmarkCount,
+      isPublicDataVerified: isPublicDataPlace, // 공공데이터(전국 데이터셋) 출처 여부
+      amenities: {
+        largeDog: place.large_dog,
+        petMenu: place.pet_menu,
+        petZone: place.pet_zone,
+      },
+    });
+  }, [place, reviews, likesCount, dislikesCount, bookmarkCount, isPublicDataPlace]);
+
   if (!place) return (
     <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}>로딩중...</div>
   );
+
+  // ── 동물병원 전용 파생 값
+  // 세부 진료과목이 입력돼 있으면 그대로("심장내과" 등), 특정과 중심이 아니거나
+  // 확인이 안 된 경우엔 '종합진료'로 기본 표기합니다.
+  const isVetHospital = place.category === "동물병원";
+  const vetDepartment = place.specialty_department?.trim()
+    ? place.specialty_department.trim()
+    : DEFAULT_VET_DEPARTMENT;
+  const vetTreatableAnimals = place.treatable_animals?.trim()
+    ? place.treatable_animals.trim()
+    : "—";
 
   return (
     <>
@@ -709,15 +777,75 @@ export default function PlaceDetail() {
         style={{ padding: "4px 0 20px" }}
       >
         {/* 장소명 */}
-        <h1 className="ggk-title" style={{ fontSize: "18px", fontWeight: 800, marginBottom: "2px", color: "#111", letterSpacing: "-0.3px" }}>
-          {place.name}
-        </h1>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+          <h1 className="ggk-title" style={{ fontSize: "18px", fontWeight: 800, marginBottom: "2px", color: "#111", letterSpacing: "-0.3px" }}>
+            {place.name}
+          </h1>
+
+          {/* ★ 관리자 전용 — 폐업 등으로 실제 존재하지 않는 장소를 정리하기 위한 삭제 메뉴.
+              공공데이터(식품안전나라·관광공사·문화정보원) 출처 장소는 Supabase에 실제 행이
+              없는 합성 ID라 삭제할 수 없어서 노출하지 않습니다.
+              onAdminMenu가 전달된 경우(모달 안에서 렌더링될 때)는 모달 자체의 헤더
+              점세개 버튼이 이 메뉴를 대신 보여주므로, 여기서는 중복 렌더링하지 않습니다. */}
+          {!onAdminMenu && isAdmin && !isPublicDataPlace && (
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <button
+                onClick={() => { closeAll(); setShowPlaceMenu((v) => !v); }}
+                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 2 }}
+              >
+                <MoreVertical size={17} color="#999" />
+              </button>
+              {showPlaceMenu && (
+                <div style={{ position: "absolute", top: "22px", right: 0, width: "120px", background: "white", border: "1px solid #eee", borderRadius: "10px", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", overflow: "hidden", zIndex: 5 }}>
+                  <button
+                    onClick={handleDeletePlace}
+                    disabled={deletingPlace}
+                    style={{ ...dropdownBtnStyle, color: "#ef4444", display: "flex", alignItems: "center", gap: 5 }}
+                  >
+                    <Trash2 size={12} color="#ef4444" />
+                    {deletingPlace ? "삭제 중..." : "삭제하기"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 주소 */}
         <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#888", display: "flex", alignItems: "center", gap: "3px" }}>
           <MapPin size={11} color="#bbb" />
           {place.address}
         </p>
+
+        {/* 반려동물 친화도 점수 — 0~100점 + 신호등(초록/노랑/빨강) 배지 */}
+        {affinity && (() => {
+          const tier = getAffinityTier(affinity.total);
+          return (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 12px", borderRadius: 12, marginBottom: 10,
+              background: AFFINITY_TIER_BG[tier],
+              border: `1px solid ${AFFINITY_TIER_COLOR[tier]}33`,
+            }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                background: AFFINITY_TIER_COLOR[tier],
+                color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 800, fontSize: 13,
+              }}>
+                {affinity.total}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="ggk-title" style={{ fontSize: 12, fontWeight: 800, color: "#222" }}>
+                  반려동물 친화도 {affinity.total}점 · {AFFINITY_TIER_LABEL[tier]}
+                </div>
+                <div className="ggk-body" style={{ fontSize: 10, color: "#888", marginTop: 2 }}>
+                  리뷰 만족도 {affinity.reviewSatisfaction} · 공공데이터 검증 {affinity.governmentVerification} · 사용자 반응 {affinity.userReaction} · 편의시설 {affinity.amenity}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 관리자 표시 배지 ★ */}
         {isAdmin && (
@@ -731,6 +859,16 @@ export default function PlaceDetail() {
             <Shield size={11} />
             관리자 모드
           </div>
+        )}
+
+        {/* 사장님 본인 업장 수정 패널 — 인증된 사장님이 본인 업장을 볼 때만 노출 ★ */}
+        {userProfile?.owner_status === "verified" &&
+          userProfile?.owner_place_id != null &&
+          String(userProfile.owner_place_id) === String(place.id) && (
+            <OwnerPlaceEditPanel
+              place={place}
+              onUpdated={(fields) => setPlace((p: any) => ({ ...p, ...fields }))}
+            />
         )}
 
         {/* 이미지 갤러리 */}
@@ -802,6 +940,28 @@ export default function PlaceDetail() {
               </div>
             </div>
           </div>
+
+          {/* 행2-1: 동물병원 전용 — 진료과목 / 가능 동물 */}
+          {isVetHospital && (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+              <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <Stethoscope size={10} />진료과목
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {vetDepartment}
+                </div>
+              </div>
+              <div style={{ padding:"10px 12px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <PawPrint size={10} />가능 동물
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {vetTreatableAnimals}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 행3: 펫 메뉴 / 전화번호 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
@@ -1228,8 +1388,8 @@ export default function PlaceDetail() {
               {/* 닫기 버튼 */}
               <button
                 onClick={() => setSelectedImage(null)}
-                style={{ position:"absolute", top:"-44px", right:0, width:"34px", height:"34px", borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"white", fontSize:"16px", cursor:"pointer", zIndex:2, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center" }}
-              >✕</button>
+                style={{ position:"absolute", top:"-44px", right:0, width:"34px", height:"34px", borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"white", cursor:"pointer", zIndex:2, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+              ><X size={16} color="white" /></button>
 
               {/* 이전 버튼 */}
               <button

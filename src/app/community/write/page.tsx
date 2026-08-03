@@ -6,9 +6,13 @@ import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 
+// community/page.tsx의 BOARDS와 반드시 동일한 지역 목록을 유지해야 합니다.
+// (이전엔 전북·전남이 여기 빠져있어서, 조회 화면엔 있는데 글쓰기에서는 선택이
+//  불가능한 불일치가 있었습니다 — 코드 점검 중 발견해 수정.)
 const BOARDS = [
   { id: "all", label: "게시판 선택" },
   { id: "free", label: "자유게시판" },
+  { id: "business", label: "사장님 게시판" },
 
   { id: "seoul", label: "서울" },
   { id: "gyeonggi", label: "경기" },
@@ -22,6 +26,8 @@ const BOARDS = [
   { id: "ulsan", label: "울산" },
   { id: "gyeongnam", label: "경남" },
   { id: "busan", label: "부산" },
+  { id: "jeonbuk", label: "전북" },
+  { id: "jeonnam", label: "전남" },
   { id: "gwangju", label: "광주" },
   { id: "jeju", label: "제주" },
 ];
@@ -46,6 +52,10 @@ function CommunityWritePageContent() {
   const ADMIN_EMAIL = "infoker12@naver.com";
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // 사장님 게시판 글쓰기 권한 — 인증된 사장님(owner_status==='verified') 또는
+  // 관리자만 작성 가능하고, 일반 회원은 댓글로만 참여할 수 있습니다.
+  const [canWriteBusiness, setCanWriteBusiness] = useState(false);
+
   // ─────────────────────────────
   // 비회원 차단
   // ─────────────────────────────
@@ -57,7 +67,15 @@ function CommunityWritePageContent() {
 
       if (!session) {
         router.replace("/login?redirect=/community/write");
+        return;
       }
+
+      const { data: profile } = await supabase
+        .from("users")
+        .select("is_admin, owner_status")
+        .eq("auth_user_id", session.user.id)
+        .single();
+      setCanWriteBusiness(!!profile?.is_admin || profile?.owner_status === "verified");
     };
 
     check();
@@ -111,6 +129,11 @@ function CommunityWritePageContent() {
 
     if (boardId === "all") {
       alert("게시판을 선택해주세요.");
+      return;
+    }
+
+    if (boardId === "business" && !canWriteBusiness) {
+      alert("사장님 게시판은 인증된 사장님 또는 관리자만 글을 작성할 수 있습니다.");
       return;
     }
 
@@ -421,7 +444,7 @@ function CommunityWritePageContent() {
                     background: "#f8fafc",
                   }}
                 >
-                  {BOARDS.map((board) => (
+                  {BOARDS.filter((board) => board.id !== "business" || canWriteBusiness).map((board) => (
                     <option
                       key={board.id}
                       value={board.id}
@@ -463,6 +486,7 @@ function CommunityWritePageContent() {
                   <option value="질문">질문</option>
                   <option value="정보공유">정보공유</option>
                   <option value="산책친구">산책친구</option>
+                  <option value="업체소식">업체소식</option>
                 </select>
               </div>
 
@@ -666,7 +690,7 @@ function CommunityWritePageContent() {
                   border: "none",
 
                   background:
-                    "linear-gradient(145deg, #2a2a2a, #111)",
+                    "linear-gradient(145deg, #5C7A4A, #48603A)",
 
                   color: "white",
 

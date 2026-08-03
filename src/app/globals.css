@@ -1,4 +1,15 @@
+/* ── 공통 웹폰트 ──
+   이전에는 커뮤니티/관리자/마이페이지 등 9개 이상의 페이지가 각자 <style> 태그
+   안에서 동일한 폰트 CSS를 매번 @import 했습니다(중복 네트워크 요청으로 느려지는
+   원인). 폰트 자체는 src/app/layout.tsx의 <head>에 <link rel="stylesheet">로
+   한 번만 로드하도록 옮겼습니다 — CSS @import는 Tailwind v4의 PostCSS 처리 과정에서
+   "@import rules must precede all rules" 빌드 에러를 일으켜서(빌드 시 tailwindcss
+   내용이 먼저 전개되며 순서가 꼬임), HTML <link>로 로드하는 게 더 안전하고 실제로도
+   더 빠릅니다. 아래는 그 폰트를 가리키는 클래스 이름만 남겨둔 것입니다.*/
 @import "tailwindcss";
+
+.ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+.ggk-body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 
 :root {
   --background: #ffffff;

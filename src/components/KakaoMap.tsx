@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { getPlaces } from "@/lib/api";
-import { fetchAwsPlaces } from "@/lib/awsPlaces";
+import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { calculateRecommendScore } from "@/lib/recommend";
+import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
+import { trackEvent } from "@/lib/analytics";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
   ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
-  Search,
+  Search, Bot,
 } from "lucide-react";
 
 declare global {
@@ -27,6 +30,7 @@ const PET_ZONE_EMOJI: Record<string, string> = {
 // ── 카테고리 기반 이모지 (pet_zone과 무관하게 category로 결정되는 장소용)
 const CATEGORY_EMOJI: Record<string, string> = {
   "동물병원": "🏥",
+  "동물약국": "💊",
 };
 
 const getPlaceEmoji = (place: any) =>
@@ -132,6 +136,9 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
 
 export default function KakaoMap() {
   const router = useRouter();
+
+  // ── 장소 상세로 이동: 동물병원·동물약국은 새 창(팝업)으로, 그 외는 기존 인앱 모달로
+  const openPlaceDetail = (place: any) => openPlaceDetailShared(router, place);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mapReady, setMapReady] = useState(false);
@@ -174,22 +181,15 @@ export default function KakaoMap() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // debouncedSearch 변경 시 지역명이면 지도 이동 + searchCenter 갱신
+  // 관리자 통계 분석 탭의 "검색어 추이" 계산용 — 실제로 입력을 멈춘 검색어만 기록
   useEffect(() => {
-    if (!debouncedSearch.trim()) {
-      // 이미 null이면 다시 set하지 않음 (불필요한 렌더링 방지)
-      setSearchCenter((prev) => (prev === null ? prev : null));
-      localStorage.removeItem("ggk_search_query");
-      return;
+    if (debouncedSearch.trim().length >= 2) {
+      trackEvent("search", { query: debouncedSearch.trim() });
     }
-    localStorage.setItem("ggk_search_query", debouncedSearch.trim()); // 새로고침 유지용 저장
-    if (!mapRef.current || !mapReady) return;
+  }, [debouncedSearch]);
 
-    (async () => {
-      const center = await searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
-      if (center) setSearchCenter(center);
-    })();
-  }, [debouncedSearch, mapReady]);
+  // (검색 시 지도 이동 로직은 nameSearchResults가 정의된 아래쪽으로 옮겼습니다 —
+  // 가게명 매칭 결과를 우선 확인해야 하기 때문입니다. 관련 useEffect는 하단 참고.)
 
   const createUserProfile = async (user: any) => {
     if (!user) return;
@@ -223,6 +223,7 @@ export default function KakaoMap() {
   const selectPlaceRef = useRef<(id: number) => void>(() => {});
   const [places, setPlaces] = useState<any[]>([]);
   const [selectedPetZone, setSelectedPetZone] = useState("all");
+  const [showRecommendPanel, setShowRecommendPanel] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [showRecentPanel, setShowRecentPanel] = useState(false);
 
@@ -255,13 +256,16 @@ export default function KakaoMap() {
   // ── 초기 데이터 로드
   useEffect(() => {
     const init = async () => {
-      const [{ data: { session } }, { data: placesData }, awsPlacesData] = await Promise.all([
+      // AWS(DynamoDB+Lambda) 전국 데이터는 scripts/migrate-aws-to-supabase.mjs로
+      // Supabase `places` 테이블에 이관 완료되어, 더 이상 fetchAwsPlaces()를 따로
+      // 호출하지 않고 Supabase 조회 한 번으로 통합해서 가져옵니다.
+      const [{ data: { session } }, { data: placesData }, publicDataPlaces] = await Promise.all([
         supabase.auth.getSession(),
         supabase.from("places").select("id, name, lat, lng, pet_zone, category, address, image_url, created_at"),
-        fetchAwsPlaces(),
+        fetchPublicDataPlaces(),
       ]);
       setSession(session);
-      setPlaces([...(placesData || []), ...awsPlacesData]);
+      setPlaces([...(placesData || []), ...publicDataPlaces]);
       if (session?.user) await createUserProfile(session.user);
       if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
@@ -353,7 +357,7 @@ export default function KakaoMap() {
     const found = places.find((p) => String(p.id) === placeId);
     if (found) {
       hasOpenedRef.current = true;
-      router.push(`/place/${placeId}`);
+      openPlaceDetail(found);
     }
   }, [searchParams, places]);
 
@@ -362,6 +366,8 @@ export default function KakaoMap() {
     let filtered = places;
     if (selectedPetZone === "vet") {
       filtered = places.filter((p) => p.category === "동물병원");
+    } else if (selectedPetZone === "pharmacy") {
+      filtered = places.filter((p) => p.category === "동물약국");
     } else if (selectedPetZone !== "all") {
       filtered = places.filter((p) => p.pet_zone === selectedPetZone);
     }
@@ -407,6 +413,89 @@ export default function KakaoMap() {
       return getDistance(center.lat, center.lng, lat, lng) <= 5;
     });
   }, [filteredPlaces, userLocation, searchCenter]);
+
+  // ── 가게명 검색 결과: 검색어가 가게명에 일부라도 포함되면 매칭하고, 실제 위치
+  // 기준으로 가까운 순으로 정렬합니다. 반경 5km 제한 없이(찾는 가게가 멀리 있어도
+  // 나오도록) 전체 매칭 결과를 보여줍니다.
+  const nameSearchResults = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return [];
+    return [...filteredPlaces]
+      .filter((p) => p.name?.toLowerCase().includes(q))
+      .sort((a, b) => {
+        if (!userLocation) return 0;
+        const distA = getDistance(userLocation.lat, userLocation.lng, parseFloat(a.lat), parseFloat(a.lng));
+        const distB = getDistance(userLocation.lat, userLocation.lng, parseFloat(b.lat), parseFloat(b.lng));
+        return distA - distB;
+      });
+  }, [filteredPlaces, debouncedSearch, userLocation]);
+
+  // ── 리스트 패널에 실제로 표시할 목록: 가게명 검색 결과가 있으면 그걸 우선,
+  // 없으면(검색어가 없거나 지역명 검색인 경우) 기존 반경 기반 목록을 보여줍니다.
+  const displayedPlaces = useMemo(() => {
+    if (debouncedSearch.trim() && nameSearchResults.length > 0) return nameSearchResults;
+    return nearbyPlaces;
+  }, [debouncedSearch, nameSearchResults, nearbyPlaces]);
+
+  // ── debouncedSearch 변경 시 지도 이동 + searchCenter 갱신
+  // 1순위: 가게명이 일부라도 일치하는 곳이 있으면 그중 가장 가까운 곳을 지도
+  //        중심으로 이동시킵니다(실제 위치 기준 거리순 정렬 결과의 맨 앞).
+  // 2순위: 이름 매칭이 없으면 기존처럼 지역명(주소) 검색을 시도합니다.
+  useEffect(() => {
+    if (!debouncedSearch.trim()) {
+      // 이미 null이면 다시 set하지 않음 (불필요한 렌더링 방지)
+      setSearchCenter((prev) => (prev === null ? prev : null));
+      localStorage.removeItem("ggk_search_query");
+      return;
+    }
+    localStorage.setItem("ggk_search_query", debouncedSearch.trim()); // 새로고침 유지용 저장
+    if (!mapRef.current || !mapReady) return;
+
+    if (nameSearchResults.length > 0) {
+      const nearest = nameSearchResults[0];
+      const lat = parseFloat(nearest.lat);
+      const lng = parseFloat(nearest.lng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
+        mapRef.current.setLevel(5);
+        setSearchCenter({ lat, lng });
+      }
+      return;
+    }
+
+    (async () => {
+      const center = await searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
+      if (center) setSearchCenter(center);
+    })();
+  }, [debouncedSearch, mapReady, nameSearchResults]);
+
+  // ── AI 추천 장소: 거리 + 현재 선택된 필터 일치도 + 편의시설 + 신규 등록 여부를 종합한
+  // Content-Based 스코어링(calculateRecommendScore)으로 정렬한 Top 10. "추천 장소" 우측 패널에서 사용.
+  const recommendedPlaces = useMemo(() => {
+    const center = searchCenter || userLocation;
+    const filterCategory =
+      selectedPetZone === "vet" ? "동물병원" : selectedPetZone === "pharmacy" ? "동물약국" : null;
+    const scoreOf = (place: any) => {
+      const lat = parseFloat(place.lat);
+      const lng = parseFloat(place.lng);
+      const distanceKm =
+        center && !isNaN(lat) && !isNaN(lng) ? getDistance(center.lat, center.lng, lat, lng) : null;
+      const matchesSelectedFilter =
+        selectedPetZone !== "all" &&
+        (place.pet_zone === selectedPetZone || (filterCategory && place.category === filterCategory));
+      return calculateRecommendScore({
+        distanceKm,
+        matchesSelectedFilter: !!matchesSelectedFilter,
+        largeDog: place.large_dog,
+        petMenu: place.pet_menu,
+        createdAt: place.created_at,
+      });
+    };
+    return [...filteredPlaces]
+      .map((place) => ({ place, score: scoreOf(place) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  }, [filteredPlaces, userLocation, searchCenter, selectedPetZone]);
 
   // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
@@ -638,11 +727,7 @@ export default function KakaoMap() {
   return (
     <>
       <style>{`
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-        .ggk-body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
         @keyframes tabPop {
           0% { transform: scale(1); }
           50% { transform: scale(0.88); }
@@ -799,7 +884,7 @@ export default function KakaoMap() {
                 {selectedPlace.address}
               </div>
               <button
-                onClick={() => { setSelectedPlace(null); router.push(`/place/${selectedPlace.id}`); }}
+                onClick={() => { const p = selectedPlace; setSelectedPlace(null); openPlaceDetail(p); }}
                 className="ggk-body"
                 style={{
                   marginTop: "10px", width: "100%", padding: "9px",
@@ -901,13 +986,14 @@ export default function KakaoMap() {
               <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
               <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
               <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
+              <button onClick={() => setSelectedPetZone("pharmacy")} style={getButtonStyle("pharmacy")}>💊 동물약국</button>
             </div>
           </div>
 
           {/* 우측: 신규 장소 + 제보하기 */}
           <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center" }}>
             <button
-              onClick={() => setShowRecentPanel(!showRecentPanel)}
+              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); }}
               className="ggk-body"
               style={{
                 padding: "5px 10px",
@@ -927,6 +1013,28 @@ export default function KakaoMap() {
             >
               <MapPinPlus size={11} />
               신규 장소
+            </button>
+
+            <button
+              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); }}
+              className="ggk-body"
+              style={{
+                padding: "5px 10px",
+                fontSize: "11px",
+                borderRadius: "8px",
+                border: "1px solid rgba(92,122,74,0.35)",
+                background: "linear-gradient(145deg, #DCE7CD, #A9C48A)",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: "#3F5230",
+                boxShadow: "0 1px 5px rgba(92,122,74,0.22)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Bot size={12} />추천 장소
             </button>
 
             <button
@@ -954,7 +1062,7 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* ── 리스트 패널 (반경 5km 이내: nearbyPlaces 사용) */}
+      {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 반경 5km 이내: displayedPlaces 사용) */}
       <div
         className="ggk-body"
         style={{
@@ -962,7 +1070,7 @@ export default function KakaoMap() {
           top: "122px",
           left: "14px",
           width: "210px",
-          height: "50vh",
+          height: "60vh",
           background: "#ffffff",
           border: "1px solid #e8eaed",
           borderRadius: "20px",
@@ -987,7 +1095,7 @@ export default function KakaoMap() {
           }}
         >
           <div style={{ height: "8px" }} />
-          {nearbyPlaces.length === 0 && (
+          {displayedPlaces.length === 0 && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
               color: "#bbb", fontSize: "11px", lineHeight: 1.8,
@@ -997,12 +1105,12 @@ export default function KakaoMap() {
               <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "반경 5km 이내에 장소가 없습니다"}</div>
             </div>
           )}
-          {nearbyPlaces.map((place) => (
+          {displayedPlaces.map((place) => (
             <div key={place.id}>
               <div
                 onClick={() => {
                   setSelectedPlace(null);
-                  router.push(`/place/${place.id}`);
+                  openPlaceDetail(place);
                 }}
                 style={{
                   marginBottom: "6px",
@@ -1126,7 +1234,7 @@ export default function KakaoMap() {
               .map((place, idx) => (
                 <div
                   key={place.id}
-                  onClick={() => router.push(`/place/${place.id}`)}
+                  onClick={() => openPlaceDetail(place)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1206,6 +1314,152 @@ export default function KakaoMap() {
                   <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
                 </div>
               ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 추천 장소 패널 (우측): Content-Based 스코어링(calculateRecommendScore)
+          거리·현재 필터 일치도·편의시설·신규 등록 여부를 종합해 정렬한 Top 10 */}
+      {showRecommendPanel && (
+        <div
+          className="ggk-body"
+          style={{
+            position: "fixed",
+            top: "122px",
+            right: "14px",
+            width: "280px",
+            maxHeight: "64vh",
+            background: "#ffffff",
+            borderRadius: "22px",
+            overflow: "hidden",
+            zIndex: 30,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              background: "linear-gradient(135deg, #DCE7CD 0%, #A9C48A 100%)",
+              padding: "16px 18px 14px",
+              flexShrink: 0,
+              borderBottom: "1px solid rgba(92,122,74,0.2)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div
+                  className="ggk-logo"
+                  style={{ fontSize: "15px", fontWeight: 800, color: "#3b0764", letterSpacing: "-0.2px" }}
+                >
+                  추천 장소
+                </div>
+                <div style={{ fontSize: "10px", color: "#48603A", marginTop: "3px", fontWeight: 500 }}>
+                  위치·선호·편의시설 기반 AI 추천순
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(92,122,74,0.18)",
+                  color: "#3F5230",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                AI
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              padding: "10px 10px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#ddd transparent",
+            }}
+          >
+            {recommendedPlaces.length === 0 && (
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
+                추천할 장소가 없습니다
+              </div>
+            )}
+            {recommendedPlaces.map(({ place, score }, idx) => (
+              <div
+                key={place.id}
+                onClick={() => openPlaceDetail(place)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "11px",
+                  padding: "10px 11px",
+                  borderRadius: "14px",
+                  marginBottom: "6px",
+                  cursor: "pointer",
+                  border: "1px solid rgba(0,0,0,0.05)",
+                  background: "#faf9fe",
+                  transition: "background 0.15s ease, box-shadow 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "#f3e8ff";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 10px rgba(92,122,74,0.10)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "#faf9fe";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+                }}
+              >
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "9px",
+                    background: "rgba(92,122,74,0.18)",
+                    color: "#3F5230",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    fontSize: "11px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {idx + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    className="ggk-logo"
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "13px",
+                      color: "#111",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      letterSpacing: "-0.1px",
+                    }}
+                  >
+                    {place.name}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span>
+                      {getPlaceEmoji(place)
+                        ? getPlaceEmoji(place)
+                        : <PawPrint size={10} color="#777" />}
+                    </span>
+                    <span>{getPlaceLabel(place)}</span>
+                    <span style={{ color: "#A9C48A" }}>·</span>
+                    <span style={{ color: "#5C7A4A", fontWeight: 700 }}>추천점수 {score}</span>
+                  </div>
+                </div>
+                <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
+              </div>
+            ))}
           </div>
         </div>
       )}

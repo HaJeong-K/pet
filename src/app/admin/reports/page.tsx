@@ -3,19 +3,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import AdminNav from "@/components/AdminNav";
 import {
-  ArrowLeft, Flag, CheckCircle, Trash2,
+  ArrowLeft, Flag, CheckCircle, Trash2, PartyPopper,
   AlertCircle, RefreshCw, MessageSquare, MessageCircle,
   MapPin, X,
 } from "lucide-react";
 
 /* ── 폰트/스타일 공통 ── */
 const STYLES = `
-  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css');
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
-  .ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
-  .ggk-body  { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
   .report-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
   .report-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-1px); }
   .action-btn { transition: all 0.15s ease; }
@@ -45,14 +42,14 @@ const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
   spam:          { bg: "#fef3c7", color: "#92400e" },
   abuse:         { bg: "#fee2e2", color: "#991b1b" },
   sexual:        { bg: "#fce7f3", color: "#9d174d" },
-  hate:          { bg: "#ede9fe", color: "#5b21b6" },
+  hate:          { bg: "#e1f5ee", color: "#0f6e56" },
   etc:           { bg: "#f0f9ff", color: "#0369a1" },
   closed:        { bg: "#f1f5f9", color: "#475569" },
   no_pets:       { bg: "#fef9c3", color: "#854d0e" },
   changed:       { bg: "#eff6ff", color: "#1d4ed8" },
   wrong_info:    { bg: "#fef3c7", color: "#92400e" },
   different:     { bg: "#f0fdf4", color: "#15803d" },
-  duplicate:     { bg: "#fdf4ff", color: "#7e22ce" },
+  duplicate:     { bg: "#f3ede4", color: "#6b4a2f" },
   inappropriate: { bg: "#fff1f2", color: "#be123c" },
 };
 
@@ -567,7 +564,7 @@ export default function AdminReportsPage() {
 
   if (isChecking) {
     return (
-      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#f0f2f5" }}>
+      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#F7F3E8" }}>
         <div className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</div>
       </div>
     );
@@ -584,62 +581,27 @@ export default function AdminReportsPage() {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        background: "#f0f2f5",
+        background: "#F7F3E8",
         overflow: "hidden",
         alignItems: "center",      // 수평 중앙
       }}>
 
-        {/* ── 내부 콘텐츠: 최대 폭 480px ── */}
+        <AdminNav active="reports" onRefresh={() => { fetchReports(); fetchResolvedReports(); }} />
+
+        {/* ── 내부 콘텐츠: 관리자 대시보드와 동일한 최대 폭 1200px ── */}
         <div style={{
           width: "100%",
-          maxWidth: "480px",
+          maxWidth: "1200px",
           display: "flex",
           flexDirection: "column",
-          height: "100%",
+          flex: 1,
+          minHeight: 0,
           overflow: "hidden",
         }}>
 
-          {/* ── 헤더 ── */}
-          <div style={{
-            background: "white",
-            borderBottom: "1px solid #e8eaed",
-            padding: "14px 18px",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            flexShrink: 0,
-            boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
-          }}>
-            <button onClick={() => router.push("/")} style={{ border:"none", background:"transparent", cursor:"pointer", padding:4, borderRadius:8, display:"flex" }}>
-              <ArrowLeft size={20} color="#444" />
-            </button>
-
-            <div style={{ display:"flex", alignItems:"center", gap:"8px", flex:1 }}>
-              <div style={{ width:32, height:32, borderRadius:10, background:"#fee2e2", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Flag size={16} color="#ef4444" />
-              </div>
-              <div className="ggk-logo" style={{ fontSize:16, fontWeight:800, color:"#111" }}>신고 관리</div>
-            </div>
-
-            <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-              {reports.length > 0 && (
-                <div style={{ background:"#ef4444", color:"white", fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
-                  미처리 {reports.length}건
-                </div>
-              )}
-              <button
-                onClick={() => { fetchReports(); fetchResolvedReports(); }}
-                style={{ border:"none", background:"#f5f6f8", borderRadius:8, padding:"6px 10px", cursor:"pointer", display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:600, color:"#555" }}
-              >
-                <RefreshCw size={13} color="#888" />
-                새로고침
-              </button>
-            </div>
-          </div>
-
           {/* ── 필터 탭 ── */}
-          <div style={{ padding:"12px 16px 8px", flexShrink:0 }}>
-            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
+          <div style={{ padding:"16px 28px 8px", flexShrink:0, display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", flex: 1 }}>
               {([
                 { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#ef4444" },
                 { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#22c55e" },
@@ -682,7 +644,7 @@ export default function AdminReportsPage() {
             flex:1,
             minHeight:0,
             overflowY:"auto",
-            padding:"0 14px 120px",
+            padding:"0 28px 60px",
             scrollbarWidth:"thin",
             scrollbarColor:"#d1d5db transparent",
           }}>
@@ -699,8 +661,8 @@ export default function AdminReportsPage() {
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222", marginBottom:6 }}>
                   {activeFilter === "pending" ? "미처리 신고가 없습니다" : "처리완료 내역이 없습니다"}
                 </div>
-                <div style={{ fontSize:12, color:"#999" }}>
-                  {activeFilter === "pending" ? "모든 신고가 처리되었습니다 🎉" : "처리된 신고가 여기에 표시됩니다"}
+                <div style={{ fontSize:12, color:"#999", display:"flex", alignItems:"center", justifyContent:"center", gap:4 }}>
+                  {activeFilter === "pending" ? (<>모든 신고가 처리되었습니다 <PartyPopper size={12} color="#999" /></>) : "처리된 신고가 여기에 표시됩니다"}
                 </div>
               </div>
             ) : (
@@ -825,11 +787,11 @@ export default function AdminReportsPage() {
                         display:"flex", alignItems:"flex-start", gap:8,
                       }}>
                         <div style={{ width:26, height:26, borderRadius:7,
-                          background: report.place_name ? "#f3e8ff" : "#ede9fe",
+                          background: report.place_name ? "#E4EBDC" : "#E4EBDC",
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
                           {report.place_name
-                            ? <MapPin size={12} color="#8b5cf6" />
-                            : <MessageSquare size={12} color="#6d28d9" />}
+                            ? <MapPin size={12} color="#5C7A4A" />
+                            : <MessageSquare size={12} color="#48603A" />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>
@@ -1061,10 +1023,10 @@ export default function AdminReportsPage() {
                             <button className="action-btn ggk-body"
                               onClick={() => handleAdminDeletePlace(report.place_id)}
                               style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
-                                background:"linear-gradient(135deg,#7c3aed,#6d28d9)", color:"white",
+                                background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
                                 fontWeight:700, cursor:"pointer", fontSize:12,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                                boxShadow:"0 2px 8px rgba(109,40,217,0.30)",
+                                boxShadow:"0 2px 8px rgba(92,122,74,0.30)",
                                 fontFamily:"'Noto Sans KR', sans-serif" }}>
                               <Trash2 size={13} />장소 삭제
                             </button>
@@ -1089,10 +1051,10 @@ export default function AdminReportsPage() {
                             <button className="action-btn ggk-body"
                               onClick={() => handleAdminDeletePost(report.target_id)}
                               style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
-                                background:"linear-gradient(135deg,#7c3aed,#6d28d9)", color:"white",
+                                background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
                                 fontWeight:700, cursor:"pointer", fontSize:12,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                                boxShadow:"0 2px 8px rgba(109,40,217,0.30)",
+                                boxShadow:"0 2px 8px rgba(92,122,74,0.30)",
                                 fontFamily:"'Noto Sans KR', sans-serif" }}>
                               <Trash2 size={13} />게시글 삭제
                             </button>
