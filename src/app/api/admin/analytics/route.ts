@@ -93,20 +93,41 @@ export async function GET(req: NextRequest) {
       { data: allUsers },
       { data: events },
       { data: allPlaces },
+      { data: hiddenPlaceRows },
     ] = await Promise.all([
       supabaseAdmin.from("users").select("auth_user_id, user_key, created_at"),
       supabaseAdmin
         .from("analytics_events")
-        .select("event_type, user_key, auth_user_id, query, place_name, region, sub_region, created_at")
+        .select("event_type, user_key, auth_user_id, query, place_id, place_name, region, sub_region, created_at")
         .gte("created_at", eventsSinceIso)
         .limit(50000),
       // 지역별 인기 장소 드릴다운 select가 방문 이벤트 유무와 무관하게 항상 동작하도록,
       // 실제 등록된 places의 주소에서 시/도·시/군/구를 뽑아 옵션을 만듭니다.
-      supabaseAdmin.from("places").select("address").limit(20000),
+      // id도 함께 받아서, 삭제된 장소의 예전 방문 기록을 통계에서 걸러내는 데 씁니다.
+      supabaseAdmin.from("places").select("id, address").limit(20000),
+      // 숨김 처리된 공공데이터 출처 장소(scripts/sql/add-hidden-public-places.sql)도
+      // 같은 이유로 걸러내야 합니다.
+      supabaseAdmin.from("hidden_public_places").select("place_id"),
     ]);
 
     const users = allUsers || [];
     const allEvents = events || [];
+
+    // ── 삭제/숨김된 장소는 "인기 장소" 집계에서 제외 ──
+    // DB에 실제 행이 있던 장소가 관리자에 의해 삭제되면 places 테이블에서 아예 사라지고,
+    // 공공데이터 출처 장소가 숨김 처리되면 hidden_public_places에 올라갑니다. 두 경우 다
+    // analytics_events에는 예전 방문 기록(place_id 포함)이 그대로 남아있어서, 아무 조치가
+    // 없으면 이미 없어진 장소가 계속 "인기 장소"로 집계되는 문제가 있었습니다.
+    const existingPlaceIds = new Set((allPlaces || []).map((p: any) => p.id));
+    const hiddenPlaceIds = new Set((hiddenPlaceRows || []).map((h: any) => Number(h.place_id)));
+    // toNumericId(src/lib/publicDataPlaces.ts)가 공공데이터 출처 장소에는 10억 이상의
+    // id를 부여하므로, 이 기준으로 "DB 장소"와 "공공데이터 장소"를 구분합니다.
+    const PUBLIC_DATA_ID_THRESHOLD = 1_000_000_000;
+    const isPlaceStillVisible = (placeId: number | null | undefined) => {
+      if (placeId == null) return true; // place_id가 없는 예전 이벤트는 그대로 집계
+      if (placeId >= PUBLIC_DATA_ID_THRESHOLD) return !hiddenPlaceIds.has(placeId);
+      return existingPlaceIds.has(placeId);
+    };
     const events30 = allEvents.filter((e) => e.created_at >= since30);
 
     // ── 가입자 통계 ──
@@ -187,7 +208,9 @@ export async function GET(req: NextRequest) {
       .map(([query, count]) => ({ query, count }));
 
     // ── 지역별 인기 장소 TOP 10 (최근 30일, 시/도 → 시/군구 드릴다운) ──
-    const placeViewEvents30 = events30.filter((e) => e.event_type === "place_view" && e.place_name);
+    const placeViewEvents30 = events30.filter(
+      (e) => e.event_type === "place_view" && e.place_name && isPlaceStillVisible(e.place_id)
+    );
 
     // sido가 선택되면 그 안의 시군구 옵션 목록도 같이 내려줘서 프론트가 2단계 select를 구성할 수 있게 합니다.
     // 방문 이벤트(analytics_events)가 아직 쌓이지 않아도 select 자체는 항상 동작하도록,

@@ -132,7 +132,12 @@ function toPetZone(indoorYN, outdoorYN) {
 
 async function main() {
   console.log("CSV 읽는 중...");
-  const text = readFileSync(CSV_PATH, "utf-8");
+  // ⚠ 원본 CSV가 UTF-8 BOM(맨 앞 보이지 않는 EF BB BF 마커)으로 시작합니다.
+  // readFileSync(..., "utf-8")는 BOM을 자동으로 제거해주지 않아서, 그대로 두면 첫 번째
+  // 헤더 컬럼("시설명")에 BOM이 들러붙어 "﻿시설명"이 되고 header.indexOf("시설명")가
+  // 못 찾습니다(-1). 그 결과 모든 행의 name이 undefined가 되어 조용히 0건으로 끝났습니다.
+  let text = readFileSync(CSV_PATH, "utf-8");
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   const rows = parseCSV(text);
   const header = rows[0];
   console.log(`총 ${rows.length - 1}행 (헤더 제외). 컬럼 수: ${header.length}`);
@@ -177,7 +182,11 @@ async function main() {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const category = [row[iCat2], row[iCat3]].filter(Boolean).join(" · ") || "문화시설";
+    // 카테고리는 카테고리3(소분류)만 사용합니다(카테고리2와 합치지 않음). 카테고리3이 빈 값인
+    // 행만 "문화시설"로 대체합니다.
+    const category = row[iCat3]?.trim() || "문화시설";
+    // 메모 항목이 여러 개면 " / "로 이어붙이는 대신 항목마다 줄바꿈해서 보여줍니다.
+    // place/[id]/page.tsx의 메모 영역이 이미 white-space:pre-wrap이라 \n이 그대로 줄바꿈으로 렌더링됩니다.
     const memoParts = [row[iDesc], row[iRestriction] && row[iRestriction] !== "제한사항 없음" ? `제한사항: ${row[iRestriction]}` : "", row[iExtraFee] && row[iExtraFee] !== "없음" ? `추가요금: ${row[iExtraFee]}` : ""].filter(Boolean);
 
     out.push({
@@ -195,7 +204,7 @@ async function main() {
       entry_fee: row[iFee] || null,
       pet_zone: toPetZone(row[iIndoor], row[iOutdoor]),
       large_dog: row[iSize] === "모두 가능" || row[iSize]?.includes("대형"),
-      memo: memoParts.join(" / ") || null,
+      memo: memoParts.join("\n") || null,
     });
   }
 

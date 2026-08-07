@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { approveProposal } from "@/lib/approveProposal";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, Bone, MessageCircle, Plus, X, AlertCircle,
@@ -196,28 +197,64 @@ export default function JeboModal() {
         isOwnerRequest = ownerProfile?.owner_status === "verified";
       }
 
-      const { error } = await supabase.from("proposals").insert([{
-        place_name:   name.trim(),
-        address:      address.trim(),
-        category:     category.trim() || null,
-        hours:        hours.trim()    || null,
-        pet_zone:     petZone         || null,
-        large_dog:    largeDog,
-        pet_menu:     petMenu.trim()  || null,
-        phone:        phone.trim()    || null,
-        memo:         memo.trim()     || null,
-        // 동물병원 제보 전용 필드(그 외 카테고리는 null로 저장)
-        specialty_department: isVetHospitalTip ? (specialtyDepartment.trim() || null) : null,
-        treatable_animals:    isVetHospitalTip ? (treatableAnimals.trim() || null) : null,
-        image_urls:   uploadedUrls,
-        reporter_key: userKey,
-        auth_user_id: authUserId,   // ← 추가
-        is_resolved:  false,
-        status:       "pending",    // ← 추가
-        is_owner_request: isOwnerRequest, // ★ 인증된 사장님 본인 제보 여부
-      }]);
+      // ── 3. 필수 사진 2장(① 내부 전경 ② 반려동물 동반) AI 비전 자동 검증
+      // 두 사진 모두 "적합"이고 확신도가 high일 때만 자동 승인 — 애매하면 항상
+      // 기존처럼 관리자 수동 검토(status: "pending")로 넘깁니다. 이 호출이 실패하거나
+      // (API 키 미설정 등) 타임아웃돼도 제보 접수 자체는 절대 막지 않습니다.
+      let aiVerdict: { autoApprove: boolean; interiorOk: boolean; petOk: boolean; confidence: string; reasoning: string; skipped: boolean } | null = null;
+      try {
+        const verifyRes = await fetch("/api/jebo/verify-images", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ interiorImageUrl: uploadedUrls[0], petImageUrl: uploadedUrls[1] }),
+        });
+        if (verifyRes.ok) aiVerdict = await verifyRes.json();
+      } catch (e) {
+        console.error("AI 이미지 검증 호출 실패(수동 검토로 진행):", e);
+      }
 
-      if (error) { console.error("제보 저장 실패:", JSON.stringify(error, null, 2)); alert("제보 저장 중 오류가 발생했습니다."); return; }
+      const autoApprove = !!aiVerdict?.autoApprove;
+
+      const { data: insertedProposal, error } = await supabase
+        .from("proposals")
+        .insert([{
+          place_name:   name.trim(),
+          address:      address.trim(),
+          category:     category.trim() || null,
+          hours:        hours.trim()    || null,
+          pet_zone:     petZone         || null,
+          large_dog:    largeDog,
+          pet_menu:     petMenu.trim()  || null,
+          phone:        phone.trim()    || null,
+          memo:         memo.trim()     || null,
+          // 동물병원 제보 전용 필드(그 외 카테고리는 null로 저장)
+          specialty_department: isVetHospitalTip ? (specialtyDepartment.trim() || null) : null,
+          treatable_animals:    isVetHospitalTip ? (treatableAnimals.trim() || null) : null,
+          image_urls:   uploadedUrls,
+          reporter_key: userKey,
+          auth_user_id: authUserId,   // ← 추가
+          is_resolved:  false,
+          status:       "pending",    // ← 항상 pending으로 저장 후, 자동승인 대상이면 아래에서 approveProposal이 approved로 갱신
+          is_owner_request: isOwnerRequest, // ★ 인증된 사장님 본인 제보 여부
+          ai_verified: false,
+          ai_review: aiVerdict ? { ...aiVerdict } : null,
+        }])
+        .select()
+        .single();
+
+      if (error || !insertedProposal) { console.error("제보 저장 실패:", JSON.stringify(error, null, 2)); alert("제보 저장 중 오류가 발생했습니다."); return; }
+
+      // ── 4. AI가 확실히 적합하다고 판단했으면 관리자 검토 없이 바로 지도에 등록
+      if (autoApprove) {
+        const approveResult = await approveProposal(supabase, insertedProposal, { autoApprovedByAi: true });
+        if (approveResult.ok) {
+          alert("사진 확인 결과 바로 등록 가능한 제보로 판단되어, 검토 없이 지도에 바로 등록되었습니다!\n제보해주셔서 감사합니다.");
+          router.back();
+          return;
+        }
+        // 좌표를 못 찾는 등으로 자동 등록에 실패하면 조용히 수동 검토(pending)로 남겨둡니다.
+        console.error("AI 자동 승인 후 등록 실패, 수동 검토로 넘어갑니다:", approveResult);
+      }
 
       alert("제보가 성공적으로 접수되었습니다!\n검토 후 지도에 등록하겠습니다. 감사합니다.");
       router.back();

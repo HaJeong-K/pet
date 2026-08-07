@@ -314,7 +314,7 @@ function CommunityWritePageContent() {
       <div
         style={{
           height: "100vh",
-          background: "#f5f6f8",
+          background: "#F7F3E8", // 커뮤니티 목록/게시글 상세와 동일한 배경색으로 통일
 
           overflow: "hidden",
 

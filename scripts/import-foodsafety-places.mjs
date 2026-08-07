@@ -150,7 +150,10 @@ async function main() {
   console.log(`기존 culture_facilities ${existingKeys.size}건 확인됨.`);
 
   console.log("CSV 읽는 중...");
-  const text = readFileSync(CSV_PATH, "utf-8");
+  // 이 CSV도 UTF-8 BOM으로 시작합니다. 지금은 첫 컬럼("연번")을 안 써서 우연히 문제가
+  // 안 됐지만, culture-places 스크립트에서 실제로 0건 버그를 냈던 원인이라 동일하게 방어합니다.
+  let text = readFileSync(CSV_PATH, "utf-8");
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   const rows = parseCSV(text);
   const header = rows[0];
   const iName = header.indexOf("업소명");

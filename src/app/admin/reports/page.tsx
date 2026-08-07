@@ -34,6 +34,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   changed:       "업종 변경",
   wrong_info:    "가게 정보 오류",
   different:     "실제와 다름",
+  wrong_image:   "이미지 오류",
   duplicate:     "중복 등록",
   inappropriate: "허위/부적절 장소",
 };
@@ -49,8 +50,41 @@ const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
   changed:       { bg: "#eff6ff", color: "#1d4ed8" },
   wrong_info:    { bg: "#fef3c7", color: "#92400e" },
   different:     { bg: "#f0fdf4", color: "#15803d" },
+  wrong_image:   { bg: "#ede9fe", color: "#6d28d9" },
   duplicate:     { bg: "#f3ede4", color: "#6b4a2f" },
   inappropriate: { bg: "#fff1f2", color: "#be123c" },
+};
+
+/* ── 신고 유형을 4개 큰 그룹으로 묶어서(장소/댓글·답글/게시글/이미지) 한눈에 필터링할 수
+   있게 합니다. "이미지 오류"는 데이터상으로는 type="place"지만(장소 신고와 같은 모델),
+   report_category가 wrong_image인 것만 따로 뽑아 관리자가 바로 찾아볼 수 있게 별도
+   그룹으로 취급합니다. */
+type ReportGroup = "all" | "place" | "image" | "comment" | "community";
+
+const isImageReport = (report: any) => report.type === "place" && report.report_category === "wrong_image";
+
+const REPORT_GROUPS: { key: ReportGroup; label: string; icon: any; match: (r: any) => boolean }[] = [
+  { key: "all",       label: "전체",         icon: Flag,           match: () => true },
+  { key: "image",     label: "이미지 오류",   icon: AlertCircle,    match: (r) => isImageReport(r) },
+  { key: "place",     label: "장소 정보",     icon: MapPin,         match: (r) => r.type === "place" && !isImageReport(r) },
+  { key: "comment",   label: "댓글/답글",     icon: MessageSquare,  match: (r) => r.type === "review" || r.type === "reply" },
+  { key: "community", label: "커뮤니티",     icon: MessageCircle,  match: (r) => r.type === "community_post" || r.type === "community_comment" || r.type === "community_reply" },
+];
+
+/* ── 카드 왼쪽 색띠: 유형별로 색을 구분해서 스크롤하면서도 한눈에 종류를 구분할 수 있게 */
+const GROUP_ACCENT: Record<ReportGroup, string> = {
+  all:       "#999",
+  image:     "#7c3aed",
+  place:     "#dc2626",
+  comment:   "#ea580c",
+  community: "#2563eb",
+};
+
+const groupOf = (report: any): ReportGroup => {
+  if (isImageReport(report)) return "image";
+  if (report.type === "place") return "place";
+  if (report.type === "review" || report.type === "reply") return "comment";
+  return "community";
 };
 
 const TYPE_BADGE: Record<
@@ -101,34 +135,19 @@ const formatDate = (s: string) => {
 
 export default function AdminReportsPage() {
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuth,     setIsAuth]     = useState(false);
   const [reports,    setReports]    = useState<any[]>([]);
   const [loading,    setLoading]    = useState(false);
   const [activeFilter, setActiveFilter] = useState<"pending"|"done">("pending");
   const [resolvedReports, setResolvedReports] = useState<any[]>([]);
+  const [activeGroup, setActiveGroup] = useState<ReportGroup>("all");
 
-  /* ── 관리자 인증 ── */
+  // ⚠ 관리자 인증은 이제 src/app/admin/layout.tsx가 한 번만 확인하고, 통과한
+  // 뒤에만 이 페이지가 마운트됩니다 — 여기서 다시 확인할 필요가 없습니다.
   useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin/reports"); return; }
-      const { data: profile } = await supabase
-        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
-      setIsAuth(true);
-      setIsChecking(false);
-    };
-    checkAdmin();
+    fetchReports();
+    fetchResolvedReports();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
-  useEffect(() => {
-    if (isAuth) {
-      fetchReports();
-      fetchResolvedReports();
-    }
-  }, [isAuth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── 미처리 신고 불러오기 ── */
   const fetchReports = async () => {
@@ -196,12 +215,21 @@ export default function AdminReportsPage() {
 
           const placeId = report.place_id || report.target_id;
 
-          // 장소 조회
-          const { data: place } = await supabase
-            .from("places")
-            .select("name, address")
-            .eq("id", placeId)
-            .single();
+          // ⚠ 신고 접수 시점에 place_name/place_address를 함께 저장해두므로
+          // (scripts/sql/add-reports-place-snapshot.sql) 우선 그 값을 씁니다.
+          // 이 컬럼이 비어있는 예전 신고 건만 places 테이블 조회로 한 번 더
+          // 시도합니다 — 공공데이터 출처 장소는 여기서도 못 찾아 "—"로 남습니다.
+          let placeName = report.place_name;
+          let placeAddress = report.place_address;
+          if (!placeName) {
+            const { data: place } = await supabase
+              .from("places")
+              .select("name, address")
+              .eq("id", placeId)
+              .single();
+            placeName = place?.name;
+            placeAddress = place?.address;
+          }
 
           return {
             ...report,
@@ -215,8 +243,8 @@ export default function AdminReportsPage() {
             // ★ reports 테이블에 저장된 닉네임 사용
             nickname: report.nickname || "—",
 
-            place_name: place?.name || "—",
-            place_address: place?.address || "—",
+            place_name: placeName || "—",
+            place_address: placeAddress || "—",
           };
         }
         if (report.type === "community_post") {
@@ -309,12 +337,18 @@ export default function AdminReportsPage() {
         if (report.type === "place") {
             const placeId = report.place_id || report.target_id;
 
-            // 장소 조회
-            const { data: place } = await supabase
-              .from("places")
-              .select("name, address")
-              .eq("id", placeId)
-              .single();
+            // ⚠ fetchReports와 동일한 이유로, 저장된 스냅샷을 우선 사용합니다.
+            let placeName = report.place_name;
+            let placeAddress = report.place_address;
+            if (!placeName) {
+              const { data: place } = await supabase
+                .from("places")
+                .select("name, address")
+                .eq("id", placeId)
+                .single();
+              placeName = place?.name;
+              placeAddress = place?.address;
+            }
 
             return {
               ...report,
@@ -328,8 +362,8 @@ export default function AdminReportsPage() {
               // ★ reports 테이블에 저장된 닉네임 사용
               nickname: report.nickname || "—",
 
-              place_name: place?.name || "—",
-              place_address: place?.address || "—",
+              place_name: placeName || "—",
+              place_address: placeAddress || "—",
             };
         }
         if (report.type === "community_post") {
@@ -562,15 +596,11 @@ export default function AdminReportsPage() {
     );
   };
 
-  if (isChecking) {
-    return (
-      <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#F7F3E8" }}>
-        <div className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</div>
-      </div>
-    );
-  }
-
-  const displayReports = activeFilter === "pending" ? reports : resolvedReports;
+  const baseReports = activeFilter === "pending" ? reports : resolvedReports;
+  const displayReports = baseReports.filter((r) => {
+    const group = REPORT_GROUPS.find((g) => g.key === activeGroup);
+    return group ? group.match(r) : true;
+  });
 
   return (
     <>
@@ -639,6 +669,42 @@ export default function AdminReportsPage() {
             </div>
           </div>
 
+          {/* ── 유형 필터 칩: 장소 정보/이미지 오류/댓글·답글/커뮤니티로 나눠서 한눈에 보기 ── */}
+          <div style={{ padding:"4px 28px 12px", flexShrink:0, display:"flex", gap:8, flexWrap:"wrap" }}>
+            {REPORT_GROUPS.map((g) => {
+              const Icon = g.icon;
+              const count = baseReports.filter(g.match).length;
+              const isActive = activeGroup === g.key;
+              const accent = GROUP_ACCENT[g.key];
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => setActiveGroup(g.key)}
+                  className="ggk-body"
+                  style={{
+                    display:"flex", alignItems:"center", gap:6,
+                    padding:"7px 12px", borderRadius:999,
+                    border:`1.5px solid ${isActive ? accent : "#e8eaed"}`,
+                    background: isActive ? `${accent}14` : "white",
+                    color: isActive ? accent : "#777",
+                    fontWeight:700, fontSize:11.5, cursor:"pointer",
+                    transition:"all 0.15s ease",
+                  }}
+                >
+                  <Icon size={12} color={isActive ? accent : "#aaa"} />
+                  {g.label}
+                  <span style={{
+                    fontSize:10, fontWeight:800, padding:"1px 6px", borderRadius:999,
+                    background: isActive ? accent : "#f0f2f5",
+                    color: isActive ? "white" : "#999",
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* ── 리스트 영역 ── */}
           <div style={{
             flex:1,
@@ -697,6 +763,7 @@ export default function AdminReportsPage() {
                       background:"white",
                       borderRadius:18,
                       border:`1.5px solid ${activeFilter === "pending" ? "#fecaca" : "#e8eaed"}`,
+                      borderLeft: `5px solid ${GROUP_ACCENT[groupOf(report)]}`,
                       marginBottom:10,
                       overflow:"hidden",
                       boxShadow:"0 2px 10px rgba(0,0,0,0.05)",
@@ -711,9 +778,11 @@ export default function AdminReportsPage() {
                       display:"flex", alignItems:"center", justifyContent:"space-between", gap:8,
                     }}>
                       <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap" }}>
-                        {/* 타입 뱃지 */}
+                        {/* 타입 뱃지 (이미지 오류 신고는 장소 신고와 데이터 모델은 같지만 배지는 구분해서 표시) */}
                         {(() => {
-                          const t = TYPE_BADGE[report.type] || { bg:"#f5f6f8", color:"#666", label: report.type };
+                          const t = isImageReport(report)
+                            ? { bg: "#ede9fe", color: "#6d28d9", label: "이미지 신고" }
+                            : TYPE_BADGE[report.type] || { bg:"#f5f6f8", color:"#666", label: report.type };
                           return (
                             <span style={{
                               fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700,
@@ -893,8 +962,12 @@ export default function AdminReportsPage() {
                                 gap: "10px",
                               }}
                             >
-                              {(report.type === "place" ||
-                                report.type === "review" ||
+                              {/* ⚠ type==="place"(장소 신고)는 이 카드 맨 위 헤더가 이미
+                                  같은 장소명/주소를 보여주고 있어서, 여기서 또 보여주면
+                                  같은 정보가 두 번 나오는 것뿐이었습니다. 리뷰/답글 신고는
+                                  "이 댓글이 달린 장소가 어디인지"를 알려주는 실질적 정보라
+                                  그대로 둡니다. */}
+                              {(report.type === "review" ||
                                 report.type === "reply") && (
 
                                 <div
@@ -978,20 +1051,8 @@ export default function AdminReportsPage() {
                         </div>
                       </div>
 
-                      {/* 신고 사유 */}
-                      {report.report_reason && (
-                        <div style={{
-                          padding:"9px 12px", background:"#fffbeb", borderRadius:10,
-                          border:"1px solid #fde68a", marginBottom:12,
-                          display:"flex", gap:8, alignItems:"flex-start",
-                        }}>
-                          <AlertCircle size={13} color="#f59e0b" style={{ flexShrink:0, marginTop:1 }} />
-                          <div>
-                            <div style={{ fontSize:10, color:"#92400e", fontWeight:700, marginBottom:2 }}>신고 사유</div>
-                            <div style={{ fontSize:12, color:"#78350f", lineHeight:1.6 }}>{report.report_reason}</div>
-                          </div>
-                        </div>
-                      )}
+                      {/* ⚠ 신고 사유는 카드 상단 뱃지(report_category 라벨)에 이미 나와
+                          있어서, 여기서 report_reason을 또 보여주는 게 중복이라 없앴습니다. */}
 
                       {activeFilter === "pending" && (
                         <div style={{ display:"flex", gap:7 }}>

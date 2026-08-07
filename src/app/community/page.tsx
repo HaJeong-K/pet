@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import SiteFooter from "@/components/SiteFooter";
-import SideAdRail from "@/components/SideAdRail";
+import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, MessageCircle, Heart, Eye,
@@ -14,8 +14,8 @@ import {
 
 const FONT_STYLE = `
   * { box-sizing: border-box; }
-  .post-card { transition: box-shadow 0.14s ease; }
-  .post-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.09) !important; }
+  .post-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+  .post-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-2px); }
   ::-webkit-scrollbar {
     width: 6px;
   }
@@ -113,6 +113,7 @@ export default function CommunityPage() {
   const [activeBoard, setActiveBoard] = useState("all");
   const [notices, setNotices] = useState<any[]>([]);
   const [posts, setPosts] = useState<any[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -127,22 +128,7 @@ export default function CommunityPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // 검색어로 필터링된 게시글
   const POST_TYPES = ["all", "방문후기", "질문", "정보공유", "산책친구"];
-
-  // 말머리 + 검색어 동시 필터링
-  const filteredPosts = posts.filter((p) => {
-    if (selectedPostType !== "all" && p.post_type !== selectedPostType) return false;
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.trim().toLowerCase();
-      return (
-        p.title?.toLowerCase().includes(q) ||
-        p.content?.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
   const postTypeOptions = POST_TYPES;
 
   useEffect(() => {
@@ -161,43 +147,72 @@ export default function CommunityPage() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // 공지글은 게시판/페이지가 바뀌어도 거의 안 바뀌므로 별도 useEffect로 분리 —
+  // 매 페이지 전환마다 다시 불러올 필요 없이 게시판이 바뀔 때만 갱신합니다.
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("community_posts")
+      .select("id, title, nickname, created_at, board_id")
+      .eq("is_notice", true)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!cancelled) setNotices(data || []);
+      });
+    return () => { cancelled = true; };
+  }, [activeBoard]);
+
+  // ⚠ 최적화: 예전엔 게시글을 최대 500건씩 통째로(제목·본문·이미지 URL 전부 포함)
+  // 불러온 뒤 검색어/말머리/페이지를 전부 브라우저에서 배열 필터링·슬라이싱으로
+  // 처리했습니다. 게시글이 쌓일수록 페이지를 열 때마다 불필요하게 무거워지는 구조라,
+  // Supabase에 .range()로 "지금 보여줄 15건만", 검색은 .ilike()로 DB에서 직접
+  // 걸러서 요청하도록 바꿨습니다 — 매번 필요한 만큼만 주고받습니다.
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
       try {
-        const { data: noticeData } = await supabase
-          .from("community_posts")
-          .select("id, title, nickname, created_at, board_id")
-          .eq("is_notice", true)
-          .order("created_at", { ascending: false })
-          .limit(5);
-
         let q = supabase
           .from("community_posts")
           .select(`
             id, title, content, nickname, avatar_url,
             created_at, likes, comment_count, views,
             board_id, post_type, image_urls, deleted, is_admin_deleted
-          `)
+          `, { count: "exact" })
           .eq("is_notice", false)
           .eq("deleted", false)
-          .eq("is_admin_deleted", false)
-          .order("created_at", { ascending: false })
-          .limit(500);
+          .eq("is_admin_deleted", false);
 
         if (activeBoard !== "all") {
           q = q.eq("board_id", activeBoard);
         }
+        if (selectedPostType !== "all") {
+          q = q.eq("post_type", selectedPostType);
+        }
 
-        const { data: postData } = await q;
+        const term = debouncedSearch.trim();
+        if (term) {
+          // ilike 와일드카드(%, _)와 .or() 필터 구분자(,())로 쓰이는 문자는
+          // 검색어 안에 그대로 있으면 필터 문법이 깨지거나 의도와 다르게 매칭될 수
+          // 있어 이스케이프/제거합니다.
+          const escaped = term.replace(/[%_]/g, (c) => `\\${c}`).replace(/[,()]/g, " ");
+          q = q.or(`title.ilike.%${escaped}%,content.ilike.%${escaped}%`);
+        }
+
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const { data: postData, count } = await q
+          .order("created_at", { ascending: false })
+          .range(from, to);
 
         // ── 댓글 수 실시간 보정 ──
         // community_posts.comment_count 컬럼은 예전에 댓글 작성/삭제 시 갱신되지
         // 않던 버그가 있어 값이 어긋나 있는 글이 많습니다. 저장된 컬럼을 그대로
         // 믿는 대신, 실제 community_comments 테이블에서 삭제되지 않은 댓글·답글
         // 개수를 직접 세어 덮어써서 화면에는 항상 정확한 값이 보이게 합니다.
+        // (이제 페이지당 최대 15건만 대상이라 이 보정 쿼리도 훨씬 가벼워졌습니다.)
         let commentCountMap: Record<string, number> = {};
         if (postData && postData.length > 0) {
           const postIds = postData.map((p: any) => p.id);
@@ -216,14 +231,14 @@ export default function CommunityPage() {
         }));
 
         if (!cancelled) {
-          setNotices(noticeData || []);
           setPosts(postsWithLiveCounts);
+          setTotalCount(count ?? 0);
         }
       } catch (err) {
         console.error(err);
         if (!cancelled) {
           setPosts([]);
-          setNotices([]);
+          setTotalCount(0);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -233,7 +248,7 @@ export default function CommunityPage() {
     load();
 
     return () => { cancelled = true; };
-  }, [activeBoard]);
+  }, [activeBoard, currentPage, debouncedSearch, selectedPostType]);
 
   const getBoardLabel = (id: string) =>
     BOARDS.find((b) => b.id === id)?.label || id;
@@ -242,20 +257,25 @@ export default function CommunityPage() {
     <>
       <style>{FONT_STYLE}</style>
 
+      {/* ── 전체 래퍼: grid로 [여백칼럼(1fr)] [본문(최대 1200px)] [여백칼럼(1fr)] 3단 구성 ──
+          좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
+          레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
       <div
         className="ggk-body"
         style={{
           minHeight: "100vh",
           background: "#F7F3E8",
-          display: "flex",
-          justifyContent: "center",
+          display: "grid",
+          gridTemplateColumns: "1fr min(1200px, 100%) 1fr",
+          columnGap: "16px",
         }}
       >
+        <AdRailLeft />
+
         <div
           style={{
+            minWidth: 0,
             width: "100%",
-            maxWidth: "1200px",
-            flexShrink: 0,
 
             display: "flex",
             flexDirection: "column",
@@ -660,18 +680,17 @@ export default function CommunityPage() {
             ) : (
               <>
                 {(() => {
-                  const totalPages = Math.ceil(filteredPosts.length / PAGE_SIZE);
-                  const pagedPosts = filteredPosts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+                  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
                   return (
                     <>
-                      {filteredPosts.length === 0 && debouncedSearch.trim() && (
+                      {posts.length === 0 && debouncedSearch.trim() && (
                         <div style={{ textAlign: "center", padding: "40px 0 60px", color: "#bbb", fontSize: "12px" }}>
                           <div style={{ marginTop: 8 }}>
                             "{debouncedSearch}"에 대한 검색 결과가 없습니다.
                           </div>
                         </div>
                       )}
-                      {pagedPosts.map((post) => {
+                      {posts.map((post) => {
                         const isBusiness = post.board_id === "business";
                         const typeStyle = POST_TYPE_STYLE[post.post_type as string] || POST_TYPE_STYLE.__default;
                         const thumb = Array.isArray(post.image_urls) && post.image_urls.length > 0 ? post.image_urls[0] : null;
@@ -846,18 +865,27 @@ export default function CommunityPage() {
                   );
                 })()}
 
-                {/* footer */}
-                <SiteFooter />
               </>
             )}
           </div>
           </div>
-        </div>
-      </div>
 
-      {/* 광고는 더 이상 콘텐츠 컬럼 안에 배치하지 않고, 화면 좌우의 비어있는 영역에
-          스크롤과 무관하게 고정 노출됩니다. */}
-      <SideAdRail />
+          {/* ── 하단 푸터 — 리스트 스크롤 영역 밖(flexShrink:0)으로 빼서, 게시글이 하나도
+              없어 리스트가 짧을 때도 마이페이지와 똑같이 항상 탭바 바로 위에 고정되도록
+              합니다. 배경은 흰 카드가 아니라 페이지 배경(#F7F3E8)과 동일하게 맞춰서 흰
+              박스로 튀지 않게 했습니다. */}
+          <div style={{
+            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
+            padding: "18px 28px calc(78px + 18px)", boxSizing: "border-box",
+          }}>
+            <SiteFooter />
+          </div>
+        </div>
+
+        {/* 우측 레일 — 보호소 공고 카드. 화면 비율이 1:1 이상일 때만 오른쪽 여백 칼럼의
+            정가운데에 표시됩니다. */}
+        <AdRailRight rightMode="shelter" />
+      </div>
     </>
   );
 }

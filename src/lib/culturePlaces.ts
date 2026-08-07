@@ -11,17 +11,14 @@
 //
 // 테이블이 아직 없거나 비어 있으면 아래 함수는 조용히 빈 배열을 반환합니다.
 
-import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabasePaging";
 
 export async function fetchCulturePlaces(): Promise<any[]> {
   try {
-    const { data, error } = await supabase
-      .from("culture_facilities")
-      .select(
-        "id, name, address, lat, lng, category, phone, website, hours, closed_days, parking, entry_fee, pet_zone, large_dog, memo"
-      );
-
-    if (error || !data) return [];
+    const data = await fetchAllRows(
+      "culture_facilities",
+      "id, name, address, lat, lng, category, phone, website, hours, closed_days, parking, entry_fee, pet_zone, large_dog, memo"
+    );
 
     return data.map((row) => ({
       source_id: `culture-${row.id}`,

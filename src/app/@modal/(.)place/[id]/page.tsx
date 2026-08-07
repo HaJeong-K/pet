@@ -6,10 +6,11 @@ import {
   MoreVertical, Link, Upload, MessageCircle as KakaoIcon,
   X, Flag, Share2, AlertTriangle, ChevronDown,
   DoorOpen, PawPrint, Store, Info, ThumbsDown,
-  Copy, AlertOctagon, MessageSquare, Trash2,
+  Copy, AlertOctagon, MessageSquare, Trash2, ImageOff,
 } from "lucide-react";
 import PlaceDetail from "@/app/place/[id]/page";
 import { supabase } from "@/lib/supabase";
+import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 
 /* ── 장소 신고 사유 목록 ─────────────────────────────── */
 const PLACE_REPORT_CATEGORIES = [
@@ -18,6 +19,7 @@ const PLACE_REPORT_CATEGORIES = [
   { value: "changed",       label: "업종이 변경되었어요",                                   icon: Store         },
   { value: "wrong_info",    label: "가게 정보(영업시간, 주소 등)가 잘못되었어요",              icon: Info          },
   { value: "different",     label: "실제 방문 시 정보와 달라요",                             icon: ThumbsDown    },
+  { value: "wrong_image",   label: "등록된 이미지가 실제 장소와 다르거나 잘못됐어요",          icon: ImageOff      },
   { value: "duplicate",     label: "중복 등록된 장소예요",                                  icon: Copy          },
   { value: "inappropriate", label: "허위/부적절한 장소예요",                                icon: AlertOctagon  },
   { value: "etc",           label: "기타",                                                icon: MessageSquare },
@@ -43,16 +45,35 @@ export default function ModalPage() {
     : `/?placeId=${placeId}`;
 
   const [placeName, setPlaceName] = useState<string>("");
+  const [placeAddress, setPlaceAddress] = useState<string>("");
   useEffect(() => {
     if (!placeId) return;
-    supabase
-      .from("places")
-      .select("name")
-      .eq("id", placeId)
-      .single()
-      .then(({ data }) => {
-        if (data?.name) setPlaceName(data.name);
-      });
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("places")
+        .select("name, address")
+        .eq("id", placeId)
+        .single();
+      if (cancelled) return;
+      if (data?.name) {
+        setPlaceName(data.name);
+        setPlaceAddress(data.address || "");
+        return;
+      }
+      // ⚠ 관광공사·문화정보원·식품안전나라 공공데이터 출처 장소는 `places` 테이블에
+      // 실제 행이 없는 합성 ID라 위 조회가 항상 비어있습니다. place/[id]/page.tsx가
+      // 하는 것과 동일하게 공공데이터 쪽에서 한 번 더 찾습니다 — 이게 없으면 신고
+      // 시 장소명이 빈 값(관리자 화면엔 "—")으로 저장됩니다.
+      const publicDataPlaces = await fetchPublicDataPlaces();
+      if (cancelled) return;
+      const found = publicDataPlaces.find((p) => String(p.id) === String(placeId));
+      if (found) {
+        setPlaceName(found.name || "");
+        setPlaceAddress(found.address || "");
+      }
+    })();
+    return () => { cancelled = true; };
   }, [placeId]);
 
   /* 메뉴 & 모달 상태 */
@@ -65,12 +86,14 @@ export default function ModalPage() {
      ref에 담아 최신 함수만 갖고 있고, 리렌더를 유발하는 건 원시값(불리언) state뿐입니다. */
   const [placeIsAdmin,   setPlaceIsAdmin]   = useState(false);
   const [placeCanDelete, setPlaceCanDelete] = useState(false);
+  const [placeIsPublicData, setPlaceIsPublicData] = useState(false);
   const [placeDeleting,  setPlaceDeleting]  = useState(false);
   const deletePlaceRef = useRef<() => void>(() => {});
   const handleAdminMenu = useCallback(
-    (menu: { isAdmin: boolean; canDelete: boolean; deleting: boolean; deletePlace: () => void }) => {
+    (menu: { isAdmin: boolean; canDelete: boolean; isPublicData: boolean; deleting: boolean; deletePlace: () => void }) => {
       setPlaceIsAdmin(menu.isAdmin);
       setPlaceCanDelete(menu.canDelete);
+      setPlaceIsPublicData(menu.isPublicData);
       setPlaceDeleting(menu.deleting);
       deletePlaceRef.current = menu.deletePlace;
     },
@@ -109,11 +132,16 @@ export default function ModalPage() {
   };
 
   const handleKakaoShare = () => {
-    if (!(window as any).Kakao) {
+    const Kakao = (window as any).Kakao;
+    if (!Kakao) {
       alert("카카오톡 공유를 사용할 수 없습니다.");
       return;
     }
-    (window as any).Kakao.Share.sendDefault({
+    // ⚠ 카카오 SDK 스크립트를 afterInteractive로 늦춰 불렀기 때문에(최적화), 초기
+    // 로드 이펙트의 Kakao.init() 호출이 스크립트 로딩보다 먼저 실행돼 건너뛰어졌을
+    // 수 있습니다 — 공유 시점에 아직 초기화 전이면 여기서 한 번 더 안전하게 시도합니다.
+    if (!Kakao.isInitialized()) Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
+    Kakao.Share.sendDefault({
       objectType: "feed",
       content: {
         title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
@@ -164,6 +192,12 @@ export default function ModalPage() {
             target_id: String(placeId),
             place_id: Number(placeId),
 
+            // ⚠ 관리자 페이지가 매번 places 테이블을 다시 조회해 이름을 맞추면,
+            // 공공데이터 출처(합성 ID) 장소는 항상 "—"로 보였습니다. 지금 화면에
+            // 이미 떠 있는 이름/주소를 그대로 같이 저장해둡니다.
+            place_name: placeName || null,
+            place_address: placeAddress || null,
+
             reporter_key: userKey,
 
             // ★ 추가
@@ -175,11 +209,14 @@ export default function ModalPage() {
         ])
         .select();
 
-      console.log("insert 결과 data:", data);
-      console.log("insert 결과 error:", JSON.stringify(error, null, 2));
-
       if (error) {
-        console.error("장소 신고 오류:", error);
+        // ⚠ 예전엔 콘솔에만 에러를 찍고 화면엔 아무 반응이 없어서(버튼 눌러도
+        // 조용히 실패), 사용자는 신고가 됐는지 안 됐는지 알 수가 없었습니다.
+        // 리뷰/이미지 업로드 실패 때처럼 실제 에러 메시지를 그대로 알려줍니다.
+        // (공공데이터 출처 장소 신고가 실패한다면 scripts/sql/fix-reports-place-id.sql
+        // 을 Supabase에서 실행해야 할 가능성이 큽니다 — place_images 때와 같은 원인입니다.)
+        console.error("장소 신고 오류:", error.message, error.details, error.hint, error.code);
+        alert("신고 접수에 실패했습니다: " + (error.message || "알 수 없는 오류"));
         return;
       }
 
@@ -189,6 +226,9 @@ export default function ModalPage() {
       setReportCategory("");
       setReportReason("");
 
+    } catch (err: any) {
+      console.error("장소 신고 예외:", err);
+      alert("신고 접수 중 오류가 발생했습니다: " + (err?.message || "알 수 없는 오류"));
     } finally {
       setIsSubmitting(false);
     }
@@ -342,7 +382,7 @@ export default function ModalPage() {
                             <div style={{ width: 28, height: 28, borderRadius: 8, background: "#fff1f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <Trash2 size={13} color="#ef4444" />
                             </div>
-                            <span>{placeDeleting ? "삭제 중..." : "장소 삭제하기 (관리자)"}</span>
+                            <span>{placeDeleting ? "처리 중..." : placeIsPublicData ? "장소 숨기기 (관리자)" : "장소 삭제하기 (관리자)"}</span>
                           </button>
                         </>
                       )}

@@ -7,8 +7,7 @@ import {
   ChevronLeft, ChevronRight, MessageCircle,
   MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
 } from "lucide-react";
-
-const ADMIN_EMAIL = "infoker12@naver.com";
+import SiteFooter from "@/components/SiteFooter";
 
 const FONT_STYLE = `
   * { box-sizing: border-box; }
@@ -94,7 +93,6 @@ export default function CommunityDetailPage() {
   const [replyMap, setReplyMap] = useState<Record<string, string>>({});
   const [replyTarget, setReplyTarget] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // ── 게시글 메뉴 & 편집/신고
   const [showPostMenu,       setShowPostMenu]       = useState(false);
@@ -732,112 +730,6 @@ export default function CommunityDetailPage() {
       )}
 
       {/* ══════════════════════════════════════
-          개인정보 처리방침 모달
-      ══════════════════════════════════════ */}
-      {showPrivacy && (
-        <>
-          <div
-            onClick={() => setShowPrivacy(false)}
-            style={{
-              position: "fixed", inset: 0,
-              background: "rgba(0,0,0,0.55)",
-              zIndex: 300, backdropFilter: "blur(4px)",
-            }}
-          />
-          <div className="ggk-body" style={{
-            position: "fixed", top: "50%", left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "min(480px, 94vw)", maxHeight: "82vh", overflowY: "auto",
-            background: "white", borderRadius: "20px", zIndex: 301,
-            boxShadow: "0 24px 80px rgba(0,0,0,0.22)",
-          }}>
-            <div style={{
-              position: "sticky", top: 0, background: "white",
-              padding: "16px 18px 12px", borderBottom: "1px solid #f0f2f5",
-              display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 1,
-            }}>
-              <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#111" }}>
-                개인정보 처리방침
-              </div>
-              <button
-                onClick={() => setShowPrivacy(false)}
-                style={{
-                  border: "none", background: "#f0f2f5", borderRadius: "50%",
-                  width: 28, height: 28, cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <X size={14} color="#666" />
-              </button>
-            </div>
-            {/* 본문 */}
-            <div style={{ padding:"16px 18px 24px", fontSize:12, color:"#444", lineHeight:1.8 }}>
-              <p style={{ fontSize:11, color:"#999", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
-
-              <Section title="1. 개인정보의 수집 및 이용 목적">
-                같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
-                • 회원 가입 및 관리: 회원 식별, 서비스 이용 관리<br/>
-                • 서비스 제공: 장소 정보 제공, 댓글·찜 기능 운영<br/>
-                • 고객 지원: 문의 응대 및 민원 처리
-              </Section>
-
-              <Section title="2. 수집하는 개인정보 항목">
-                • <strong>필수 항목:</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br/>
-                • <strong>소셜 로그인 시:</strong> 소셜 계정 고유 식별자, 프로필 사진(선택)<br/>
-                • <strong>서비스 이용 시 자동 수집:</strong> 서비스 이용 기록, 접속 로그
-              </Section>
-
-              <Section title="3. 개인정보의 보유 및 이용 기간">
-                • 회원 탈퇴 시 즉시 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br/>
-                • 전자상거래 기록: 5년 보관 (전자상거래 등에서의 소비자보호에 관한 법률)<br/>
-                • 서비스 이용 관련 분쟁 시 분쟁 해결 시까지 보관
-              </Section>
-
-              <Section title="4. 개인정보의 제3자 제공">
-                서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.<br/>
-                • 이용자가 사전에 동의한 경우<br/>
-                • 법령의 규정에 의거하거나 수사 목적으로 관련 기관의 요구가 있는 경우
-              </Section>
-
-              <Section title="5. 개인정보 처리 위탁">
-                서비스는 원활한 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.<br/>
-                • <strong>Supabase Inc.:</strong> 데이터베이스 및 인증 서비스<br/>
-                • <strong>Vercel Inc.:</strong> 서버 호스팅 및 배포
-              </Section>
-
-              <Section title="6. 이용자의 권리 및 행사 방법">
-                이용자는 다음의 권리를 가집니다.<br/>
-                • 개인정보 열람, 정정·삭제, 처리 정지 요청권<br/>
-                • 위 권리 행사는 서비스 내 설정 메뉴 또는 이메일 문의를 통해 가능합니다.<br/>
-                • 문의 이메일: <strong>{ADMIN_EMAIL}</strong>
-              </Section>
-
-              <Section title="7. 쿠키(Cookie) 운용">
-                서비스는 로그인 상태 유지 등을 위해 쿠키를 사용합니다. 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 일부 서비스 이용이 제한될 수 있습니다.
-              </Section>
-
-              <Section title="8. 개인정보 보호 책임자">
-                • <strong>책임자:</strong> 같이가개 관리자<br/>
-                • <strong>이메일:</strong> {ADMIN_EMAIL}<br/>
-                개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
-              </Section>
-
-              <Section title="9. 개인정보 처리방침 변경">
-                본 방침은 법령, 정책 또는 서비스 변경 사항을 반영하기 위해 수정될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 사전 안내합니다.
-              </Section>
-
-              <div style={{ marginTop:16, padding:"12px 14px", background:"#f8f9fb", borderRadius:10, border:"1px solid #e8eaed" }}>
-                <div style={{ fontSize:11, color:"#888", lineHeight:1.7 }}>
-                  본 개인정보 처리방침은 <strong>2025년 1월 1일</strong>부터 적용됩니다.<br/>
-                  문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ══════════════════════════════════════
           전체 레이아웃 — 680px 중앙 정렬
           height:100vh + overflow:hidden 으로
           내부 post-scroll 에서만 스크롤 발생
@@ -847,7 +739,7 @@ export default function CommunityDetailPage() {
         style={{
           height: "100vh",       /* ← 뷰포트 높이 고정 */
           overflow: "hidden",    /* ← 바깥 스크롤 차단 */
-          background: "#f5f6f8",
+          background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -1643,73 +1535,19 @@ export default function CommunityDetailPage() {
                   })}
               </div>
             </div>
-
-            {/* ── Footer ── */}
-            <div style={{
-              margin: "28px 0 0",
-              paddingTop: "16px",
-              borderTop: "1px solid #e2e4e8",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "10px",
-              paddingBottom: "40px",
-            }}>
-              <div
-                    className="ggk-logo"
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: "#6b7280",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    같이가개 커뮤니티
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button
-                  onClick={() => setShowPrivacy(true)}
-                  className="ggk-body"
-                  style={{
-                    background: "transparent", border: "none",
-                    fontSize: 10, color: "#999", cursor: "pointer",
-                    fontWeight: 500, padding: "2px 4px",
-                    textDecoration: "underline", textUnderlineOffset: "2px",
-                    fontFamily: "'Noto Sans KR',sans-serif",
-                  }}
-                >
-                  개인정보 처리방침
-                </button>
-                <span style={{ fontSize: 10, color: "#ccc" }}>|</span>
-                <a
-                  href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent("[같이가개] 문의하기")}&body=${encodeURIComponent("안녕하세요, 문의 내용을 입력해주세요.")}`}
-                  onClick={() => {
-                    if (navigator.clipboard) {
-                      navigator.clipboard.writeText(ADMIN_EMAIL).catch(() => {});
-                    }
-                  }}
-                  className="ggk-body"
-                  style={{
-                    background: "transparent", border: "none",
-                    fontSize: 10, color: "#999", cursor: "pointer",
-                    fontWeight: 500, padding: "2px 4px",
-                    textDecoration: "underline", textUnderlineOffset: "2px",
-                    display: "inline-flex", alignItems: "center", gap: "3px",
-                    fontFamily: "'Noto Sans KR',sans-serif",
-                    textDecorationColor: "#ccc",
-                  }}
-                  title={`메일 앱이 열리지 않으면 이 주소로 직접 보내주세요: ${ADMIN_EMAIL} (클릭 시 클립보드에 복사됩니다)`}
-                >
-                  <Mail size={10} color="#bbb" />
-                  이메일로 문의하기 ({ADMIN_EMAIL})
-                </a>
-              </div>
-              <div style={{ fontSize: 9, color: "#ccc", marginBottom: 4 }}>
-                © 2026 같이가개. All rights reserved.
-              </div>
-            </div>
-
           </div>{/* /post-scroll */}
+
+          {/* ── 하단 푸터 — 스크롤 영역(post-scroll) 밖으로 빼서 마이페이지/커뮤니티
+              목록과 동일하게 항상 탭바 바로 위에 고정됩니다. 다른 페이지와 완전히
+              같은 공용 SiteFooter 컴포넌트라 이용약관/운영정책 링크 누락, 문의 이메일
+              불일치 같은 문제가 다시 생기지 않고, 배경도 흰 카드가 아니라 페이지
+              배경(#F7F3E8)과 동일하게 맞췄습니다. ── */}
+          <div style={{
+            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
+            padding: "18px 14px calc(78px + 18px)", boxSizing: "border-box",
+          }}>
+            <SiteFooter />
+          </div>
         </div>{/* /680px 컬럼 */}
       </div>{/* /전체 레이아웃 */}
       {postReportOpen && (
@@ -1985,16 +1823,6 @@ export default function CommunityDetailPage() {
 }
 
 /* 개인정보 처리방침 섹션 컴포넌트 */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 5, fontFamily: "'Pretendard', sans-serif" }}>
-        {title}
-      </div>
-      <div style={{ fontSize: 11, color: "#555", lineHeight: 1.8 }}>{children}</div>
-    </div>
-  );
-}
 
 const dropdownBtnStyleCom: React.CSSProperties = {
   width: "100%", padding: "9px 12px", border: "none",

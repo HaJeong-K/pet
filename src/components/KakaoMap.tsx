@@ -2,17 +2,25 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { getPlaces } from "@/lib/api";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { calculateRecommendScore } from "@/lib/recommend";
+import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent } from "@/lib/analytics";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
   ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
-  Search, Bot,
+  Search, Bot, List,
 } from "lucide-react";
+
+// 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
+// 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
+// 펼치지 않고 하나씩만(토글) 보여줍니다 — 세 패널을 동시에 다 펼치기엔 가로 폭이
+// 부족해서 그대로 두면 서로 겹치거나 화면 밖으로 밀려납니다.
+const NARROW_BREAKPOINT = "(max-width: 720px)";
 
 declare global {
   interface Window {
@@ -39,13 +47,7 @@ const getPlaceEmoji = (place: any) =>
 const getPlaceLabel = (place: any) =>
   CATEGORY_EMOJI[place?.category]
     ? place.category
-    : PET_ZONE_LABEL[place?.pet_zone] || place?.pet_zone || "";
-
-const PET_ZONE_LABEL: Record<string, string> = {
-  indoor: "실내 가능",
-  terrace: "야외 가능",
-  both: "실내외 가능",
-};
+    : getPetZoneLabel(place?.pet_zone);
 
 // ── 지역 검색: 하드코딩 좌표표 없이 Kakao 주소 검색 API에
 // 흔한 행정구역 접미사를 순서대로 붙여가며 물어봐서 전국 어디든 커버합니다.
@@ -121,6 +123,21 @@ const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+// ── 특정 좌표를 중심으로 "반경 radiusKm" 정도가 화면에 보이도록 지도 범위를 잡는 헬퍼 ──
+// 예전에는 setCenter()로 중심만 옮기고 확대 레벨은 그대로 뒀는데(초기 level:4는 실제로
+// 반경 1km 남짓만 보여서), 리스트 패널이 참고하는 mapBounds(화면에 보이는 사각형)도
+// 그만큼 좁아져 "5km 이내" 장소 상당수가 화면 밖으로 밀려나 리스트에 안 뜨는 문제가
+// 있었습니다. setCenter 대신 setBounds로 위경도 기준 반경 5km 사각 범위를 직접 지정하면,
+// 카카오맵이 그 범위가 다 보이도록 확대 레벨을 자동으로 계산해줘서 정확히 "5km 이내"가
+// 화면(및 리스트)에 들어옵니다.
+const boundsAroundKm = (lat: number, lng: number, radiusKm: number) => {
+  const latDelta = radiusKm / 111; // 위도 1도 ≈ 111km
+  const lngDelta = radiusKm / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180))); // 경도는 위도에 따라 보정
+  const sw = new window.kakao.maps.LatLng(lat - latDelta, lng - lngDelta);
+  const ne = new window.kakao.maps.LatLng(lat + latDelta, lng + lngDelta);
+  return new window.kakao.maps.LatLngBounds(sw, ne);
+};
+
 const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   try {
     const res = await fetch(
@@ -161,6 +178,10 @@ export default function KakaoMap() {
   const [userRegion, setUserRegion] = useState<string>("");
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
+  // 리스트 패널(nearbyPlaces)이 고정 반경 대신 "지금 화면에 보이는 영역"을 기준으로
+  // 장소를 보여주는 데 씁니다.
+  const [mapBounds, setMapBounds] = useState<{ swLat: number; swLng: number; neLat: number; neLng: number } | null>(null);
 
   // ── 검색: 입력값 / 디바운스값 분리 (새로고침해도 마지막 검색어 유지)
   // ⚠️ 서버 렌더링 시점엔 localStorage가 없으므로 항상 빈 문자열로 시작해야
@@ -227,6 +248,38 @@ export default function KakaoMap() {
   const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [showRecentPanel, setShowRecentPanel] = useState(false);
 
+  // ── 반응형: 리스트/신규 장소/추천 장소 패널이 화면 폭에 맞게 겹치지 않도록.
+  // 좁은 화면(모바일 세로, 분할화면 등)에서는 리스트 패널을 기본으로 숨기고 토글로만
+  // 보여주며, 신규/추천 패널을 열면 리스트 패널은 자동으로 닫힙니다(반대도 마찬가지).
+  // 넓은 화면에서는 예전처럼 리스트 패널이 항상 보입니다.
+  const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
+  const [showListPanelMobile, setShowListPanelMobile] = useState(false);
+  const showListPanel = !isNarrowScreen || showListPanelMobile;
+
+  // ── 플로팅 헤더 실제 높이를 측정해서, 리스트/신규/추천 패널과 "넓게 둘러보기" 버튼의
+  // 상단 위치를 여기에 맞춥니다. 헤더는 화면이 좁아지면 검색창·필터·버튼이 줄바꿈되며
+  // 키(높이)가 늘어나는데, 예전처럼 top 값을 고정 px(122px)로 박아두면 헤더가 늘어난
+  // 만큼 패널들이 헤더 뒤에 가려지거나 겹치는 문제가 있었습니다.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(112);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect?.height;
+      if (h) setHeaderHeight(Math.ceil(h));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // 넓은 화면(예전부터 쓰던 데스크톱 레이아웃)에서는 원래 고정값(122px)을 그대로 쓰고,
+  // 좁은 화면(반응형 대상)에서만 실제 측정한 헤더 높이를 씁니다. 헤더 자체는 넓은
+  // 화면에서도 약간 줄바꿈될 수 있어 measuredHeight가 122px 기준과 미묘하게 달라질 수
+  // 있는데, 그 오차가 리스트/넓게보기 버튼 위치를 예전과 다르게 보이게 했습니다.
+  const panelTop = isNarrowScreen ? `${headerHeight + 12}px` : "122px";
+
   selectPlaceRef.current = (id: number) => {
     const found = places.find((p) => p.id === id);
     if (found) setSelectedPlace(found);
@@ -254,29 +307,54 @@ export default function KakaoMap() {
   });
 
   // ── 초기 데이터 로드
+  // ⚠ 최적화: 예전엔 (세션 확인 + DB places + 관광공사/식약처/문화정보원 공공데이터 3종)를
+  // Promise.all로 한 번에 묶어서, 그중 가장 느린 것(특히 관광공사 실시간 API 호출)이 끝날
+  // 때까지 지도에 마커가 "하나도" 안 뜨고 있었습니다. 최종 데이터는 동일하게 다 합쳐지지만,
+  // 두 단계로 나눠서: 1) 세션 확인 + 우리 DB places(작고 빠름)를 먼저 fetch해서 즉시 화면에
+  // 반영하고, 2) 공공데이터(느리고 큰 3종)는 별도로 이어서 fetch해 도착하는 대로 places에
+  // 합쳐줍니다. 첫 화면에 마커가 뜨기까지 걸리는 시간이 "가장 느린 소스" 기준에서
+  // "우리 DB 조회 1번" 기준으로 줄어듭니다.
   useEffect(() => {
+    let cancelled = false;
+
     const init = async () => {
       // AWS(DynamoDB+Lambda) 전국 데이터는 scripts/migrate-aws-to-supabase.mjs로
       // Supabase `places` 테이블에 이관 완료되어, 더 이상 fetchAwsPlaces()를 따로
       // 호출하지 않고 Supabase 조회 한 번으로 통합해서 가져옵니다.
-      const [{ data: { session } }, { data: placesData }, publicDataPlaces] = await Promise.all([
+      // ⚠ fetchAllRows를 씁니다 — 그냥 select()만 하면 Supabase가 한 번에 최대 1000행만
+      // 돌려줘서, places가 1000건을 넘어가는 순간부터 나머지가 조용히 지도에서 빠집니다.
+      const [{ data: { session } }, placesData] = await Promise.all([
         supabase.auth.getSession(),
-        supabase.from("places").select("id, name, lat, lng, pet_zone, category, address, image_url, created_at"),
-        fetchPublicDataPlaces(),
+        fetchAllRows("places", "id, name, lat, lng, pet_zone, category, address, image_url, created_at"),
       ]);
+      if (cancelled) return;
       setSession(session);
-      setPlaces([...(placesData || []), ...publicDataPlaces]);
+      setPlaces(placesData || []);
       if (session?.user) await createUserProfile(session.user);
       if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
+
+      // 느린 공공데이터 3종은 별도로 이어서 fetch — 도착하면 기존 DB places 위에 덧붙입니다.
+      const publicDataPlaces = await fetchPublicDataPlaces();
+      if (cancelled) return;
+      setPlaces((prev) => [...prev, ...publicDataPlaces]);
     };
     init();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {});
-    return () => subscription.unsubscribe();
+    return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 
-  // ── 저장된 위치 불러오기 / 현위치 자동 취득
+  // ── 저장된 위치는 "첫 화면을 빠르게 그리기 위한 임시값"으로만 쓰고, 매번 실제 GPS로 갱신
+  //
+  // ⚠ 예전에는 localStorage에 캐시(user_lat/lng/region)가 한 번이라도 저장되면 그 값을
+  // 영구히 신뢰하고 실제 GPS 조회를 아예 건너뛰었습니다. 그 결과 대구에서 처음 위치를
+  // 잡아둔 뒤 포항으로 여행을 가서 앱을 열어도, 화면·추천 점수·친화도 점수가 전부 대구
+  // 좌표 기준으로 계산되는 문제가 있었습니다("내 위치로" 버튼(moveToMyLocation)을 수동으로
+  // 눌러야만 갱신됨). 이제는 캐시가 있으면 지도를 즉시 그 위치로 먼저 그려서 대기 시간을
+  // 없애되, 곧바로 실제 GPS를 다시 조회해서 위치가 바뀌었으면(예: 여행) 자동으로 덮어씁니다.
+  // recommendedPlaces/nearbyPlaces/친화도 점수는 모두 userLocation을 구독하고 있어서
+  // 이 값만 갱신되면 화면 전체가 자동으로 "현재 있는 지역" 기준으로 다시 계산됩니다.
   useEffect(() => {
     const savedLat    = localStorage.getItem("user_lat");
     const savedLng    = localStorage.getItem("user_lng");
@@ -288,26 +366,29 @@ export default function KakaoMap() {
       setUserLocation({ lat, lng });
       setUserRegion(savedRegion);
       if (mapRef.current) {
-        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
+        mapRef.current.setBounds(boundsAroundKm(lat, lng, 5));
       }
-    } else {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const { latitude, longitude } = pos.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
-          const region = await reverseGeocode(latitude, longitude);
-          setUserRegion(region);
-          localStorage.setItem("user_lat", String(latitude));
-          localStorage.setItem("user_lng", String(longitude));
-          localStorage.setItem("user_region", region);
-          if (mapRef.current) {
-            mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-          }
-        },
-        () => {}
-      );
     }
+
+    // 캐시 유무와 무관하게 항상 최신 GPS 위치를 다시 조회해 갱신(여행지 이동 반영).
+    // 권한 거부/조회 실패 시엔 위에서 세팅한 캐시 값이 그대로 유지됩니다.
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        setSearchCenter(null); // 실제 위치가 갱신되면 이전 검색 기준 중심은 초기화
+        if (mapRef.current) {
+          mapRef.current.setBounds(boundsAroundKm(latitude, longitude, 5));
+        }
+        const region = await reverseGeocode(latitude, longitude);
+        setUserRegion(region);
+        localStorage.setItem("user_lat", String(latitude));
+        localStorage.setItem("user_lng", String(longitude));
+        localStorage.setItem("user_region", region);
+      },
+      () => { /* 조회 실패/거부 — 캐시(있다면)를 그대로 유지 */ }
+    );
   }, [mapReady]);
 
   // ── 현위치 파란 점 오버레이
@@ -362,57 +443,91 @@ export default function KakaoMap() {
   }, [searchParams, places]);
 
   // ── filteredPlaces: debouncedSearch 사용
+  //
+  // ⚠ 최적화: 예전엔 여기서 userLocation이 바뀔 때마다(캐시 위치 → 실제 GPS → "내
+  // 위치로" 클릭 등, 로드 직후에만 2~3번) places 전체(공공데이터 포함 수만 건)를
+  // 거리순으로 매번 다시 정렬했습니다. 정렬 1번에 하버사인 거리 계산이 수십만 번
+  // 발생해서 메인 스레드가 몇백 ms씩 멈추는 원인이었습니다. 실제로 "거리순 정렬된
+  // 결과"가 필요한 곳은 리스트 패널(nearbyPlaces)뿐이고, 그마저도 화면에 보이는
+  // 영역(최대 MAX_LIST_ITEMS건)만 정렬하면 충분합니다 — 그래서 정렬은 nearbyPlaces
+  // 쪽으로 옮기고, 여기서는 카테고리 필터링만 합니다(수만 건 전체를 매번 정렬하지 않음).
   const filteredPlaces = useMemo(() => {
-    let filtered = places;
     if (selectedPetZone === "vet") {
-      filtered = places.filter((p) => p.category === "동물병원");
+      return places.filter((p) => p.category === "동물병원");
     } else if (selectedPetZone === "pharmacy") {
-      filtered = places.filter((p) => p.category === "동물약국");
+      return places.filter((p) => p.category === "동물약국");
     } else if (selectedPetZone !== "all") {
-      filtered = places.filter((p) => p.pet_zone === selectedPetZone);
+      return places.filter((p) => p.pet_zone === selectedPetZone);
     }
+    return places;
+  }, [places, selectedPetZone]);
 
-    // 검색어 없을 때만 현재 지역 필터
-    // if (!debouncedSearch.trim() && userRegion) {
-    //   filtered = filtered.filter((p) =>
-    //     p.address?.includes(userRegion)
-    //   );
-    // }
-
-    if (userLocation) {
-      filtered = [...filtered].sort((a, b) => {
-        const distA = getDistance(
-          userLocation.lat,
-          userLocation.lng,
-          parseFloat(a.lat),
-          parseFloat(a.lng)
-        );
-
-        const distB = getDistance(
-          userLocation.lat,
-          userLocation.lng,
-          parseFloat(b.lat),
-          parseFloat(b.lng)
-        );
-
-        return distA - distB;
-      });
-    }
-
-    return filtered;
-  }, [places, selectedPetZone, userLocation, userRegion, debouncedSearch]);
-
-  // ── 리스트 패널 전용: 검색 중이면 검색된 좌표, 아니면 실제 위치 기준 반경 5km 이내만
+  // ── 리스트 패널 전용: 지도를 드래그/확대·축소하면 "지금 화면에 보이는 영역"(mapBounds)
+  // 기준으로 갱신됩니다. 지도가 아직 준비되지 않은 아주 짧은 초기 순간에만 예전처럼
+  // 검색 좌표 또는 실제 위치 기준 반경 5km로 임시 표시합니다.
+  // 너무 축소해서 화면 안에 장소가 수천 개씩 들어오는 경우를 대비해, 기준 좌표(검색
+  // 좌표 > 실제 위치 > 화면 중심)에서 가까운 순으로 정렬 후 상위 300개까지만 보여줍니다.
+  const MAX_LIST_ITEMS = 300;
   const nearbyPlaces = useMemo(() => {
-    const center = searchCenter || userLocation;
-    if (!center) return filteredPlaces;
-    return filteredPlaces.filter((place) => {
+    // ⚠ 거리순 정렬은 항상 여기(화면/반경으로 이미 좁혀진, 최대 몇백 건짜리 부분집합)에서만
+    // 합니다 — filteredPlaces(수만 건일 수 있는 전체 목록)를 통째로 정렬하지 않기 위함입니다.
+    const sortByDistance = (list: any[], center: { lat: number; lng: number }) =>
+      [...list].sort(
+        (a, b) =>
+          getDistance(center.lat, center.lng, parseFloat(a.lat), parseFloat(a.lng)) -
+          getDistance(center.lat, center.lng, parseFloat(b.lat), parseFloat(b.lng))
+      );
+
+    if (!mapBounds) {
+      const center = searchCenter || userLocation;
+      if (!center) return filteredPlaces;
+      const within5km = filteredPlaces.filter((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return getDistance(center.lat, center.lng, lat, lng) <= 5;
+      });
+      return sortByDistance(within5km, center);
+    }
+
+    const inView = filteredPlaces.filter((place) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
       if (isNaN(lat) || isNaN(lng)) return false;
-      return getDistance(center.lat, center.lng, lat, lng) <= 5;
+      return (
+        lat >= mapBounds.swLat &&
+        lat <= mapBounds.neLat &&
+        lng >= mapBounds.swLng &&
+        lng <= mapBounds.neLng
+      );
     });
-  }, [filteredPlaces, userLocation, searchCenter]);
+
+    const sortCenter =
+      searchCenter ||
+      userLocation || {
+        lat: (mapBounds.swLat + mapBounds.neLat) / 2,
+        lng: (mapBounds.swLng + mapBounds.neLng) / 2,
+      };
+
+    // ⚠ 지금 보이는 화면 안에 장소가 하나도 없으면(외곽 지역 등) 예전엔 그냥
+    // "이 화면에 보이는 장소가 없습니다"만 보여줬습니다. 화면을 살짝만 옮겨도
+    // 리스트가 텅 비어버리는 게 불편하다는 피드백이 있어서, 화면 안이 비어 있을
+    // 때는 대신 지금 보고 있는 위치(검색 좌표 > 실제 위치 > 화면 중심) 기준
+    // 반경 5km 이내 장소를 보여주도록 폴백을 추가했습니다.
+    if (inView.length === 0) {
+      const within5km = filteredPlaces.filter((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return getDistance(sortCenter.lat, sortCenter.lng, lat, lng) <= 5;
+      });
+      const sortedNearby = sortByDistance(within5km, sortCenter);
+      return sortedNearby.length <= MAX_LIST_ITEMS ? sortedNearby : sortedNearby.slice(0, MAX_LIST_ITEMS);
+    }
+
+    const sorted = sortByDistance(inView, sortCenter);
+    return inView.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
+  }, [filteredPlaces, userLocation, searchCenter, mapBounds]);
 
   // ── 가게명 검색 결과: 검색어가 가게명에 일부라도 포함되면 매칭하고, 실제 위치
   // 기준으로 가까운 순으로 정렬합니다. 반경 5km 제한 없이(찾는 가게가 멀리 있어도
@@ -475,6 +590,26 @@ export default function KakaoMap() {
     const center = searchCenter || userLocation;
     const filterCategory =
       selectedPetZone === "vet" ? "동물병원" : selectedPetZone === "pharmacy" ? "동물약국" : null;
+
+    // ⚠ 최적화: 공공데이터까지 합치면 후보가 전국 수만 건일 수 있는데, 그 전체를 매번
+    // 점수 계산 + 정렬하는 건 낭비입니다. recommend.ts의 거리 감점이 10km부터 이미
+    // 최대치라 30km 밖 장소가 top10에 들 일은 사실상 없으므로, 점수 계산 전에 위경도
+    // 박스(삼각함수 없이 저렴한 1차 필터)로 후보를 넉넉하게 좁혀둡니다. 근처에 후보가
+    // 너무 적으면(외곽 지역 등) 전체 목록으로 폴백해 결과가 비어 보이지 않게 합니다.
+    let candidates = filteredPlaces;
+    if (center) {
+      const RADIUS_KM = 30;
+      const latDelta = RADIUS_KM / 111;
+      const lngDelta = RADIUS_KM / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
+      const nearby = filteredPlaces.filter((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return Math.abs(lat - center.lat) <= latDelta && Math.abs(lng - center.lng) <= lngDelta;
+      });
+      if (nearby.length >= 10) candidates = nearby;
+    }
+
     const scoreOf = (place: any) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
@@ -487,11 +622,10 @@ export default function KakaoMap() {
         distanceKm,
         matchesSelectedFilter: !!matchesSelectedFilter,
         largeDog: place.large_dog,
-        petMenu: place.pet_menu,
         createdAt: place.created_at,
       });
     };
-    return [...filteredPlaces]
+    return [...candidates]
       .map((place) => ({ place, score: scoreOf(place) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
@@ -510,6 +644,10 @@ export default function KakaoMap() {
         disableDoubleClickZoom: false,
       });
       mapRef.current.setZoomable(true);
+      // 초기 level:4는 실제로는 반경 1km 남짓만 보여서, 사용자 위치가 아직 안 잡힌
+      // 첫 화면(또는 위치 조회 실패 시)에도 최소 5km 반경은 보이도록 맞춰둡니다.
+      // 위치가 확인되면 아래 userLocation 이펙트가 그 위치 기준 5km로 다시 잡습니다.
+      mapRef.current.setBounds(boundsAroundKm(37.5665, 126.978, 5));
       setMapReady(true);
     };
 
@@ -528,9 +666,14 @@ export default function KakaoMap() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── 줌 레벨 7 이상(넓게 볼 때)이면 클러스터링, 그보다 좁으면 지금까지의 pill 마커
+  // ── 줌 레벨 10 이상(넓게 볼 때)이면 클러스터링, 그보다 좁으면 지금까지의 이름표 pill 마커.
   // 카카오맵 레벨은 숫자가 클수록 더 넓게(축소) 보이는 상태입니다.
-  const CLUSTER_ZOOM_THRESHOLD = 7;
+  // 예전엔 7이었는데, (1) 이름표 pill이 보이는 구간이 좁아서 조금만 축소해도 클러스터
+  // 뭉치로 바뀌어버리고 (2) 카카오 SDK 스크립트에 libraries=clusterer 파라미터가 빠져 있어서
+  // 클러스터러 자체가 undefined인 채로 7 이상 구간에서 마커가 아예 안 그려지는 버그가
+  // 겹쳐 있었습니다. libraries=clusterer는 layout.tsx에서 추가했고, 여기서는 이름표 마커가
+  // 보이는 구간(축소 가능 범위) 자체를 10으로 넓혔습니다.
+  const CLUSTER_ZOOM_THRESHOLD = 10;
 
   // ── 줌 레벨에 따라 상세 pill 마커 / 클러스터링 마커를 전환
   useEffect(() => {
@@ -611,17 +754,37 @@ export default function KakaoMap() {
       });
     };
 
-    // ── 넓은 줌: 경량 Marker + MarkerClusterer (뷰포트 밖도 전부 넘겨야 클러스터러가 안팎을 알아서 계산함)
+    // ── 넓은 줌: 경량 Marker + MarkerClusterer
+    // ⚠ 최적화: 예전엔 filteredPlaces(카테고리 필터만 적용된, 사실상 전국 규모 데이터) 전체를
+    // 지도를 팬/줌할 때마다("idle" 이벤트마다) 매번 새 Marker 객체로 다시 만들어서 클러스터러에
+    // 넘기고 있었습니다 — 전국 데이터라 조작 한 번마다 수만 개의 Marker를 새로 생성/폐기하는
+    // 게 체감 렉의 큰 원인이었습니다. 클러스터러가 화면 경계 부근 클러스터를 정확히 계산하려면
+    // 뷰포트 "안"만 넘기면 안 되지만(그러면 경계 근처 클러스터가 깨짐), 전국 전체를 넘길 필요도
+    // 없습니다 — 현재 보이는 영역을 상하좌우로 1배씩(총 3배, 9배 면적) 넉넉히 확장한 범위 안의
+    // 장소만 넘기면, 이어서 자연스럽게 이어지는 팬/줌 범위는 충분히 커버하면서 매번 만드는
+    // Marker 개수는 크게 줄어듭니다. 사용자가 아주 멀리 순간 이동하듯 이동해도 다음 idle에서
+    // 다시 계산되므로 결과가 틀리게 남지는 않습니다.
     const renderClusterMarkers = () => {
       clearDetailMarkers();
       clearClusterMarkers();
       if (!clustererRef.current) return; // libraries=clusterer 누락 시 여기서 조용히 중단
+
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const latPad = ne.getLat() - sw.getLat();
+      const lngPad = ne.getLng() - sw.getLng();
+      const minLat = sw.getLat() - latPad;
+      const maxLat = ne.getLat() + latPad;
+      const minLng = sw.getLng() - lngPad;
+      const maxLng = ne.getLng() + lngPad;
 
       const markers = filteredPlaces
         .map((place) => {
           const lat = parseFloat(place.lat);
           const lng = parseFloat(place.lng);
           if (isNaN(lat) || isNaN(lng)) return null;
+          if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return null;
 
           const marker = new window.kakao.maps.Marker({
             position: new window.kakao.maps.LatLng(lat, lng),
@@ -646,11 +809,24 @@ export default function KakaoMap() {
       }
     };
 
+    // 지도를 드래그하거나 확대/축소해서 화면이 다시 안정되면(idle) 리스트 패널이
+    // 참고할 현재 화면 경계도 함께 갱신합니다 — 리스트가 "지금 보고 있는 지도 영역"을
+    // 따라가도록 하기 위함입니다.
+    const updateBounds = () => {
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      setMapBounds({ swLat: sw.getLat(), swLng: sw.getLng(), neLat: ne.getLat(), neLng: ne.getLng() });
+    };
+
     updateByZoom();
+    updateBounds();
 
     window.kakao.maps.event.addListener(map, "idle", updateByZoom);
+    window.kakao.maps.event.addListener(map, "idle", updateBounds);
     return () => {
       window.kakao.maps.event.removeListener(map, "idle", updateByZoom);
+      window.kakao.maps.event.removeListener(map, "idle", updateBounds);
       clearDetailMarkers();
       clearClusterMarkers();
     };
@@ -693,8 +869,13 @@ export default function KakaoMap() {
   };
 
   const handleKakaoShare = () => {
-    if (!(window as any).Kakao) { alert("카카오톡 공유를 사용할 수 없습니다."); return; }
-    (window as any).Kakao.Share.sendDefault({
+    const Kakao = (window as any).Kakao;
+    if (!Kakao) { alert("카카오톡 공유를 사용할 수 없습니다."); return; }
+    // ⚠ 카카오 SDK 스크립트를 afterInteractive로 늦춰 불렀기 때문에(최적화), 초기
+    // 로드 이펙트의 Kakao.init() 호출이 스크립트 로딩보다 먼저 실행돼 건너뛰어졌을
+    // 수 있습니다 — 공유 시점에 아직 초기화 전이면 여기서 한 번 더 안전하게 시도합니다.
+    if (!Kakao.isInitialized()) Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
+    Kakao.Share.sendDefault({
       objectType: "feed",
       content: {
         title: "같이가개",
@@ -747,14 +928,17 @@ export default function KakaoMap() {
       <div style={{ position: "fixed", inset: 0, width: "100%", height: "100vh", zIndex: 0 }}>
         <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 
-        {/* 넓게 둘러보기 버튼 */}
-        {mapReady && (
+        {/* 넓게 둘러보기 버튼 — 지도 위에 떠 있는 가운데 정렬 버튼이라 좁은 화면에서는
+            리스트/신규/추천 패널과 자리를 다투다 겹치는 문제가 있었습니다. 좁은 화면에서는
+            이 버튼을 지도 위에 띄우지 않고, 아래 헤더의 버튼 줄 안에 똑같은 기능으로
+            넣어서(다른 버튼들처럼 flex 흐름을 타므로 절대 겹치지 않음) 대체합니다. */}
+        {mapReady && !isNarrowScreen && (
           <button
             onClick={handleWideView}
             className="ggk-body"
             style={{
               position: "absolute",
-              top: "122px",
+              top: panelTop,
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 5,
@@ -778,13 +962,16 @@ export default function KakaoMap() {
           </button>
         )}
 
-        {/* 공유 버튼 */}
+        {/* 공유 버튼 — 하단 탭바(플로팅 필)는 좁은 화면일수록 폭이 화면 거의 전체(calc(100vw - 28px))로
+            늘어나면서 오른쪽 끝이 항상 화면 우측에서 14px 지점까지 옵니다. 이 버튼들이 예전
+            위치(96px/42px)에 있으면 좁은 화면에서 탭바 위에 그대로 겹쳐 보였습니다. 탭바
+            높이(약 58px) + 여백을 감안해 더 위로 올렸습니다. */}
         <button
           onClick={() => setShowShareModal(true)}
           title="공유하기"
           style={{
             position: "absolute",
-            bottom: "96px",
+            bottom: "144px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -808,7 +995,7 @@ export default function KakaoMap() {
           title="내 위치로 이동"
           style={{
             position: "absolute",
-            bottom: "42px",
+            bottom: "90px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -828,7 +1015,8 @@ export default function KakaoMap() {
           <LocateFixed size={18} color="#444" />
         </button>
 
-        {/* 마커 클릭 팝업 */}
+        {/* 마커 클릭 팝업 — 폭을 clamp()로 화면 크기에 비례하게 줄여서, 좁은 화면에서
+            오른쪽의 공유·내 위치 버튼과 겹치는 범위를 최소화합니다. */}
         {selectedPlace && (
           <div
             className="ggk-body"
@@ -837,7 +1025,7 @@ export default function KakaoMap() {
               left: "50%",
               bottom: "100px",
               transform: "translateX(-50%)",
-              width: "290px",
+              width: isNarrowScreen ? "clamp(220px, 70vw, 290px)" : "290px",
               background: "#ffffff",
               borderRadius: "18px",
               boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
@@ -900,9 +1088,16 @@ export default function KakaoMap() {
         )}
       </div>
 
-      {/* ── 플로팅 헤더 */}
+      {/* ── 플로팅 헤더 ──
+          예전엔 중앙(검색창+필터)을 position:absolute + left:50%로 띄우고 좌측 로고·우측
+          버튼들과는 별도 레이어처럼 다뤄서, 화면이 좁아지면(모바일, 분할화면) 세 영역이
+          같은 자리에서 서로 겹쳤습니다. 지금은 셋 다 같은 flex 행의 자연스러운 자식으로
+          두고 flexWrap을 줘서, 폭이 부족하면 겹치는 대신 자동으로 다음 줄로 줄바꿈되게
+          했습니다(= "화면을 비율적으로 분배"). 실제 렌더링된 높이는 headerRef로 측정해서
+          아래 리스트/신규/추천 패널의 top 위치에 그대로 반영합니다. */}
       {!pathname.includes("login") && !pathname.includes("signup") && (
         <div
+          ref={headerRef}
           className="ggk-body"
           style={{
             position: "fixed",
@@ -916,8 +1111,11 @@ export default function KakaoMap() {
             border: "1px solid #e8eaed",
             boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
             display: "flex",
+            flexWrap: "wrap",
             alignItems: "center",
             justifyContent: "space-between",
+            rowGap: "8px",
+            columnGap: "12px",
           }}
         >
           {/* 좌측: 로고 */}
@@ -935,17 +1133,17 @@ export default function KakaoMap() {
             </div>
           </div>
 
-          {/* 중앙: 검색창 + 필터 */}
+          {/* 중앙: 검색창 + 필터 — 폭이 부족하면 자기 줄로 줄바꿈되고, 그 안에서도
+              중앙 정렬을 유지합니다(margin: 0 auto). */}
           <div
             style={{
-              position: "absolute",
-              left: "50%",
-              top: "50%",
-              transform: "translate(-50%, -50%)",
+              flex: "1 1 240px",
+              minWidth: 0,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               gap: "6px",
+              margin: "0 auto",
             }}
           >
             <div style={{
@@ -955,8 +1153,10 @@ export default function KakaoMap() {
               background: "#f5f6f8",
               borderRadius: "999px",
               padding: "5px 12px",
-              width: "220px",
+              width: "100%",
+              maxWidth: "220px",
               border: "1px solid #e8eaed",
+              boxSizing: "border-box",
             }}>
               <Search size={12} color="#aaa" style={{ flexShrink: 0 }} />
               <input
@@ -980,7 +1180,7 @@ export default function KakaoMap() {
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
               <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
               <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
               <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
@@ -990,10 +1190,62 @@ export default function KakaoMap() {
             </div>
           </div>
 
-          {/* 우측: 신규 장소 + 제보하기 */}
-          <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center" }}>
+          {/* 우측: (좁은 화면 전용) 목록 + 신규 장소 + 추천 장소 + 제보하기 —
+              목록/신규/추천 세 패널은 좁은 화면에서 동시에 펼치면 자리가 없으므로
+              하나를 열면 나머지 둘은 자동으로 닫습니다. */}
+          <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+            {isNarrowScreen && (
+              <button
+                onClick={() => { setShowListPanelMobile((v) => !v); setShowRecentPanel(false); setShowRecommendPanel(false); }}
+                className="ggk-body"
+                style={{
+                  padding: "5px 10px",
+                  fontSize: "11px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  background: showListPanelMobile ? "linear-gradient(145deg, #2a2a2a, #111)" : "#f5f6f8",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  color: showListPanelMobile ? "white" : "#444",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <List size={11} />
+                목록
+              </button>
+            )}
+
+            {/* 넓게 둘러보기 — 좁은 화면 전용. 데스크톱에서는 지도 위에 떠 있는 별도
+                버튼(위쪽 "넓게 둘러보기 버튼" 참고)으로 계속 보여주고, 좁은 화면에서는
+                다른 버튼들과 같은 flex 줄에 넣어 겹칠 걱정 없이 배치합니다. */}
+            {isNarrowScreen && mapReady && (
+              <button
+                onClick={handleWideView}
+                className="ggk-body"
+                style={{
+                  padding: "5px 10px",
+                  fontSize: "11px",
+                  borderRadius: "8px",
+                  border: wideView ? "none" : "1px solid rgba(0,0,0,0.08)",
+                  background: wideView ? "linear-gradient(145deg, #2a2a2a, #111)" : "#f5f6f8",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  color: wideView ? "white" : "#444",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {wideView ? <><ZoomOut size={11} /> 돌아가기</> : <><ZoomIn size={11} /> 넓게</>}
+              </button>
+            )}
+
             <button
-              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); }}
+              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
               className="ggk-body"
               style={{
                 padding: "5px 10px",
@@ -1016,7 +1268,7 @@ export default function KakaoMap() {
             </button>
 
             <button
-              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); }}
+              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); }}
               className="ggk-body"
               style={{
                 padding: "5px 10px",
@@ -1062,14 +1314,17 @@ export default function KakaoMap() {
         </div>
       )}
 
-      {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 반경 5km 이내: displayedPlaces 사용) */}
+      {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
+          좁은 화면에서는 헤더의 "목록" 토글을 켰을 때만 보이고, 폭도 clamp()로 화면 크기에
+          비례해서 줄어듭니다(고정 210px이면 좁은 화면에서 지도 대부분을 가려버립니다). */}
+      {showListPanel && (
       <div
         className="ggk-body"
         style={{
           position: "fixed",
-          top: "122px",
+          top: panelTop,
           left: "14px",
-          width: "210px",
+          width: isNarrowScreen ? "clamp(160px, 46vw, 210px)" : "210px",
           height: "60vh",
           background: "#ffffff",
           border: "1px solid #e8eaed",
@@ -1102,7 +1357,7 @@ export default function KakaoMap() {
               display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
             }}>
               <Search size={22} color="#ddd" />
-              <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "반경 5km 이내에 장소가 없습니다"}</div>
+              <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "이 화면에 보이는 장소가 없습니다"}</div>
             </div>
           )}
           {displayedPlaces.map((place) => (
@@ -1162,6 +1417,7 @@ export default function KakaoMap() {
           <div style={{ height: "8px" }} />
         </div>
       </div>
+      )}
 
       {/* ── 신규 장소 패널 */}
       {showRecentPanel && (
@@ -1169,9 +1425,9 @@ export default function KakaoMap() {
           className="ggk-body"
           style={{
             position: "fixed",
-            top: "122px",
+            top: panelTop,
             right: "14px",
-            width: "280px",
+            width: isNarrowScreen ? "clamp(220px, 78vw, 280px)" : "280px",
             maxHeight: "64vh",
             background: "#ffffff",
             borderRadius: "22px",
@@ -1228,6 +1484,11 @@ export default function KakaoMap() {
               scrollbarColor: "#ddd transparent",
             }}
           >
+            {places.length === 0 && (
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
+                새로운 장소가 아직 없습니다
+              </div>
+            )}
             {[...places]
               .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
               .slice(0, 10)
@@ -1325,9 +1586,9 @@ export default function KakaoMap() {
           className="ggk-body"
           style={{
             position: "fixed",
-            top: "122px",
+            top: panelTop,
             right: "14px",
-            width: "280px",
+            width: isNarrowScreen ? "clamp(220px, 78vw, 280px)" : "280px",
             maxHeight: "64vh",
             background: "#ffffff",
             borderRadius: "22px",
@@ -1370,7 +1631,7 @@ export default function KakaoMap() {
                   letterSpacing: "0.5px",
                 }}
               >
-                AI
+                HOT
               </div>
             </div>
           </div>

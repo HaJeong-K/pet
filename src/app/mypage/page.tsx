@@ -12,7 +12,7 @@ import {
 import { openPlaceDetail } from "@/lib/openPlace";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
-import SideAdRail from "@/components/SideAdRail";
+import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 
 const BOARD_LABEL: Record<string, string> = {
   all: "전체",
@@ -83,6 +83,7 @@ export default function MyPage() {
 
   const [showSettings, setShowSettings] = useState(false);
   const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw">("menu");
+
   const [bookmarkPage, setBookmarkPage] = useState(1);
   const [reviewPage, setReviewPage]     = useState(1);
   const PAGE_SIZE = 10;
@@ -305,15 +306,25 @@ export default function MyPage() {
         .setting-row:hover { background: #f0f2f5 !important; }
       `}</style>
 
-      {/* ── 전체 래퍼 — 광고는 더 이상 이 flex row 안에서 폭을 차지하지 않고, 커뮤니티
-            페이지와 동일한 SideAdRail(고정 오버레이, 1600px 이상에서만 노출)을 재사용합니다. */}
-      <div className="ggk-body" style={{ display:"flex", minHeight:"100vh", background: "#F7F3E8", justifyContent: "center", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease", }}>
+      {/* ── 전체 래퍼: grid로 [여백칼럼(1fr)] [본문(최대 1200px)] [여백칼럼(1fr)] 3단 구성 ──
+          좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
+          레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
+      <div className="ggk-body" style={{
+        display: "grid",
+        gridTemplateColumns: "1fr min(1200px, 100%) 1fr",
+        columnGap: "16px",
+        minHeight: "100vh",
+        background: "#F7F3E8",
+        opacity: loading ? 0 : 1,
+        transition: "opacity 0.2s ease",
+      }}>
+
+        <AdRailLeft />
 
         {/* ── 중앙 콘텐츠 */}
         <div style={{
+          minWidth: 0,
           width: "100%",
-          maxWidth: "1200px",
-          flexShrink: 0,
           height: "100vh",
           overflow: "hidden",
           background: "#F7F3E8",
@@ -413,7 +424,9 @@ export default function MyPage() {
 										}}
 									>
 										{userProfile?.owner_status === "verified" && (
-											<BadgeCheck size={18} color="#8FA876" fill="white" title="인증된 사장님 계정" />
+											<span title="인증된 사장님 계정" style={{ display: "inline-flex" }}>
+												<BadgeCheck size={18} color="#8FA876" fill="white" />
+											</span>
 										)}
 										{userProfile?.nickname}
 									</div>
@@ -545,7 +558,8 @@ export default function MyPage() {
 
 					{/* ── 리스트 영역 (여기만 스크롤) — 로그인 정보가 나오는 프로필 히어로 영역과
               동일한 폭(전체 컨테이너 폭, 40px 인셋)을 갖도록 확장했습니다. */}
-          <div style={{
+          <div
+            style={{
             flex: 1,
             minHeight: 0,
             overflowY: "auto",
@@ -859,21 +873,23 @@ export default function MyPage() {
           </div>
 
           {/* ── 하단 푸터 — 리스트 영역 밖(스크롤 대상 아님)으로 빼서 항상 보이도록 고정하고,
-                하단 탭바(플로팅 필, 약 78px)에 가려지지 않도록 그만큼 아래쪽 여백을 둡니다. */}
+                하단 탭바(플로팅 필, 약 78px)에 가려지지 않도록 그만큼 아래쪽 여백을 둡니다.
+                배경은 흰 카드로 튀지 않도록 커뮤니티 페이지들과 동일하게 페이지 배경색(#F7F3E8)으로 통일. */}
           <div style={{
-            flexShrink: 0, background: "white", borderTop: "1px solid #eee",
+            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
             padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
           }}>
             <SiteFooter />
           </div>
         </div>
 
-      </div>
+        {/* 우측 레일 — 화면 비율이 1:1 이상일 때만 오른쪽 여백 칼럼의 정가운데에
+            표시됩니다. 선정 규칙(지역 우선·마감임박순)은 커뮤니티와 완전히 동일하지만,
+            shelterOffset={2}로 순위 3~4위 공고를 보여줘서 커뮤니티 페이지와 마이페이지에
+            똑같은 공고가 중복 노출되지 않도록 했습니다. */}
+        <AdRailRight rightMode="shelter" shelterOffset={2} />
 
-      {/* 광고는 콘텐츠 컬럼 안에서 폭을 차지하지 않고, 커뮤니티 페이지와 동일한
-          SideAdRail(화면 좌우 고정, 1600px 이상에서만 노출)을 그대로 재사용합니다.
-          rightMode="ad"라 오른쪽도 보호소 공고 대신 왼쪽과 같은 광고 자리입니다. */}
-      <SideAdRail rightMode="ad" />
+      </div>
 
       {/* ══════════════════════════════════════
           설정 모달

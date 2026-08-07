@@ -4,80 +4,100 @@ import { useEffect, useState, type CSSProperties } from "react";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "./ShelterNoticeCard";
 import { useUserRegion } from "@/lib/useUserRegion";
 
-// ── 고정 사이드 레일 ──
+// ── 좌우 사이드 레일 ──
 // 왼쪽: 광고 2개 — 오른쪽 보호소 공고 카드와 동일한 크기·간격으로 대칭 배치.
 // 오른쪽: 국가동물보호정보시스템(animal.go.kr) 실제 보호동물 공고 2건을 마감임박·
 //         현재 위치 지역 우선순으로 보여줍니다. 클릭하면 실제 공고 상세페이지가 새 탭으로 열립니다.
-// 콘텐츠 컬럼(최대 1200px)과 겹치지 않도록 화면이 충분히 넓을 때만 노출됩니다.
-// "전국 보호소 공고 전체보기"는 포인핸드(pawinhand.kr)로 바로 연결합니다 — 우리 쪽에서
-// 데이터를 긁어오는 게 아니라 단순 외부 링크라 안전하고, 사용자가 훨씬 많은 공고를
-// 한번에 볼 수 있습니다. (우측 미리보기 2건은 계속 animal.go.kr 공공데이터를 씁니다.)
+// "전국 보호소 공고 전체보기"는 포인핸드(pawinhand.kr)로 바로 연결합니다.
+//
+// ── 반응형 기준: 가로폭이 아니라 "화면 비율" ──
+// 예전엔 가로폭(예: 1600px)으로만 노출 여부를 갈랐는데, 그러면 노트북을 그냥 최대화한
+// "일반적인 전체화면"(가로폭은 1600px 미만이어도 가로가 세로보다 훨씬 긴 와이드 화면)까지
+// 반응형 구간으로 취급되어 콘텐츠 출력 범위가 예상치 못하게 좁아지는 문제가 있었습니다.
+// 이제는 가로:세로 비율이 1:1 이상(정사각형 ~ 가로형)이면 화면이 아무리 좁아도(=분할화면,
+// 태블릿 등) 레일이 얇게 나타나고, 1:1 미만(모바일처럼 세로로 긴 화면)이면 숨깁니다. 본문
+// 컬럼은 항상 flex:1(최대 1200px)로 자연스럽게 폭을 나눠 갖기 때문에, 일반 노트북 풀스크린
+// 처럼 넓은 화면에서는 예전과 거의 동일한 콘텐츠 출력 범위(≈1200px)가 그대로 유지됩니다.
+//
+// ── 세로 길이: 페이지마다 다시 재지 않고, 모든 페이지가 동일한 고정값을 씁니다 ──
+// 예전엔 페이지마다 헤더 높이를 실측(topOffset)해서 썼는데, 헤더 구성이 페이지마다
+// 달라(커뮤니티: 배너+탭+검색줄, 마이페이지: 헤더+히어로) 레일의 세로 길이가 페이지마다
+// 제각각으로 보이는 문제가 있었습니다. 이제는 모든 페이지가 동일한 값(RAIL_TOP_OFFSET)을
+// 공유해서, 어느 페이지에서 봐도 레일의 시작 위치·길이가 완전히 같습니다.
+const RAIL_TOP_OFFSET_PX = 100;
+const RAIL_BOTTOM_GAP_VH = 2;
+
+// ── 가로 위치: 레일이 "여백 칼럼"의 정 가운데에 옵니다 ──
+// 페이지의 grid 레이아웃(1fr 여백 / 본문(최대 1200px) / 1fr 여백)에서, 레일은 자기
+// 여백 칼럼 안에서 justifySelf:"center"로 가운데 정렬됩니다 — 본문 가장자리에 붙지도,
+// 화면 진짜 가장자리에 붙지도 않고 남는 여백 폭의 정중앙에 위치합니다.
 const SHELTER_FULL_LIST_URL = "https://pawinhand.kr/shelter/animal";
 
 const PHRASES = ["나의 가족이 되어주세요", "나의 가족을 찾아주세요"];
 
-function useShelterNotices(region: string | null, enabled: boolean) {
+function useShelterNotices(region: string | null, enabled: boolean, offset: number) {
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
-  // 최초 요청이 아직 안 끝났으면 "불러오는 중", 끝났는데 결과가 0건이면 그 사실을
-  // 구분해서 보여줍니다 — 예전엔 실패해도 항상 "불러오는 중"만 계속 떠 있었습니다.
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!enabled) return; // rightMode="ad"인 페이지(마이페이지)에서는 불필요한 요청을 안 보냅니다.
+    if (!enabled) return;
     setLoaded(false);
     const params = new URLSearchParams({ limit: "2" });
     if (region) params.set("region", region);
+    if (offset) params.set("offset", String(offset));
     fetch(`/api/shelter-notices?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => setNotices(data.notices || []))
       .catch(() => setNotices([]))
       .finally(() => setLoaded(true));
-  }, [region, enabled]);
+  }, [region, enabled, offset]);
 
   return { notices, loaded };
 }
 
-// rightMode="shelter"(기본): 오른쪽에 보호소 공고 카드. 커뮤니티 페이지용.
-// rightMode="ad": 오른쪽도 왼쪽과 동일한 광고 자리 2개. 마이페이지처럼 광고만 놓을
-// 페이지에서, 폭·높이·위치를 커뮤니티와 완전히 동일하게 맞추기 위해 이 컴포넌트를 그대로 재사용합니다.
-export default function SideAdRail({ rightMode = "shelter" }: { rightMode?: "shelter" | "ad" }) {
-  const region = useUserRegion();
-  const { notices, loaded } = useShelterNotices(region, rightMode !== "ad");
+const adPanelStyle: CSSProperties = {
+  background: "rgba(0,0,0,0.02)",
+  border: "1px dashed rgba(0,0,0,0.12)",
+  borderRadius: "16px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
 
-  const adPanelStyle: CSSProperties = {
-    background: "rgba(0,0,0,0.02)",
-    border: "1px dashed rgba(0,0,0,0.12)",
-    borderRadius: "16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
+// 항상 본문 컬럼과 같은 grid 행의 형제(position:static)로 자연스럽게 배치됩니다. 폭은
+// <style> 미디어쿼리가 담당하고, 세로 길이·위치는 모든 페이지가 동일한 고정값을 씁니다.
+const railBase: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "12px",
+  alignSelf: "flex-start",
+  justifySelf: "center",
+  flexShrink: 0,
+  marginTop: `${RAIL_TOP_OFFSET_PX}px`,
+  height: `calc(100vh - ${RAIL_TOP_OFFSET_PX}px - ${RAIL_BOTTOM_GAP_VH}vh)`,
+};
 
-  const railBase: CSSProperties = {
-    position: "fixed",
-    top: "5vh",
-    height: "90vh",
-    width: "var(--ggk-rail-w, 160px)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    zIndex: 10,
-  };
+const RAIL_STYLE_TAG = (
+  <style>{`
+    .ggk-side-ad-rail { display: none; }
 
+    /* 가로:세로 비율이 1:1 이상(정사각형~가로형)이면 화면이 좁아도(분할화면·태블릿 등)
+       레일을 얇게 표시합니다. 최소 폭 안전장치로 600px 미만은 표시하지 않습니다. */
+    @media (min-aspect-ratio: 1/1) and (min-width: 600px) {
+      .ggk-side-ad-rail {
+        display: flex;
+        width: clamp(72px, calc((100vw - 1200px) / 2 - 32px), 240px);
+      }
+    }
+  `}</style>
+);
+
+/** 좌측 레일 — 항상 광고 2개(우측 보호소 카드와 대칭). */
+export function AdRailLeft() {
   return (
     <>
-      <style>{`
-        .ggk-side-ad-rail { display: none; }
-        @media (min-width: 1600px) {
-          .ggk-side-ad-rail {
-            display: flex;
-            --ggk-rail-w: clamp(160px, calc((100vw - 1200px) / 2 - 48px), 260px);
-          }
-        }
-      `}</style>
-
-      {/* 좌측: 광고 2개 — 우측 보호소 카드와 동일한 크기로 대칭 배치 */}
-      <div className="ggk-side-ad-rail" style={{ ...railBase, left: "24px" }}>
+      {RAIL_STYLE_TAG}
+      <div className="ggk-side-ad-rail" style={railBase}>
         <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
           <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
         </div>
@@ -85,11 +105,32 @@ export default function SideAdRail({ rightMode = "shelter" }: { rightMode?: "she
           <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
         </div>
       </div>
+    </>
+  );
+}
 
-      {/* 우측: 광고 전용 페이지(마이페이지 등)에서는 왼쪽과 동일한 광고 자리 2개,
-          그 외(커뮤니티)에서는 보호소 유기동물 공고 2건 */}
-      {rightMode === "ad" ? (
-        <div className="ggk-side-ad-rail" style={{ ...railBase, right: "24px" }}>
+/**
+ * 우측 레일.
+ * rightMode="shelter"(기본): 보호소 공고 카드. 커뮤니티 페이지용.
+ * rightMode="ad": 왼쪽과 동일한 광고 자리 2개(마이페이지 등 광고만 놓을 페이지용).
+ * shelterOffset: rightMode="shelter"일 때만 의미 있음 — 선정 규칙(주의사항)은 페이지마다
+ * 동일하게 두고, 몇 번째 순위부터 보여줄지만 달리해서 여러 페이지가 겹치지 않게 합니다.
+ */
+export function AdRailRight({
+  rightMode = "shelter",
+  shelterOffset = 0,
+}: {
+  rightMode?: "shelter" | "ad";
+  shelterOffset?: number;
+}) {
+  const region = useUserRegion();
+  const { notices, loaded } = useShelterNotices(region, rightMode !== "ad", shelterOffset);
+
+  if (rightMode === "ad") {
+    return (
+      <>
+        {RAIL_STYLE_TAG}
+        <div className="ggk-side-ad-rail" style={railBase}>
           <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
             <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
           </div>
@@ -97,57 +138,62 @@ export default function SideAdRail({ rightMode = "shelter" }: { rightMode?: "she
             <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
           </div>
         </div>
-      ) : (
-        <div className="ggk-side-ad-rail" style={{ ...railBase, right: "24px" }}>
-          <div
-            className="ggk-logo"
-            style={{
-              fontSize: 17,
-              fontWeight: 800,
-              color: "#D9534F",
-              padding: "0 2px",
-              textAlign: "center",
-            }}
-          >
-            사지말고 입양하세요
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minHeight: 0 }}>
-            {notices.length > 0 ? (
-              notices.map((n, i) => (
-                <ShelterNoticeCard key={n.desertionNo} notice={n} phrase={PHRASES[i % PHRASES.length]} />
-              ))
-            ) : (
-              <>
-                <div style={{ ...adPanelStyle, flex: 1 }}>
-                  <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
-                    {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
-                  </span>
-                </div>
-                <div style={{ ...adPanelStyle, flex: 1 }}>
-                  <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
-                    {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-          <a
-            href={SHELTER_FULL_LIST_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: 10.5,
-              color: "#8FA876",
-              textAlign: "center",
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "2px 0",
-            }}
-          >
-            전국 보호소 공고 전체보기 →
-          </a>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {RAIL_STYLE_TAG}
+      <div className="ggk-side-ad-rail" style={railBase}>
+        <div
+          className="ggk-logo"
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: "#D9534F",
+            padding: "0 2px",
+            textAlign: "center",
+          }}
+        >
+          사지말고 입양하세요
         </div>
-      )}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minHeight: 0 }}>
+          {notices.length > 0 ? (
+            notices.map((n, i) => (
+              <ShelterNoticeCard key={n.desertionNo} notice={n} phrase={PHRASES[i % PHRASES.length]} />
+            ))
+          ) : (
+            <>
+              <div style={{ ...adPanelStyle, flex: 1 }}>
+                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
+                  {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
+                </span>
+              </div>
+              <div style={{ ...adPanelStyle, flex: 1 }}>
+                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
+                  {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+        <a
+          href={SHELTER_FULL_LIST_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontSize: 10.5,
+            color: "#8FA876",
+            textAlign: "center",
+            fontWeight: 600,
+            textDecoration: "none",
+            padding: "2px 0",
+          }}
+        >
+          전국 보호소 공고 전체보기 →
+        </a>
+      </div>
     </>
   );
 }

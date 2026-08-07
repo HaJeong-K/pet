@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import { BadgeCheck, X, Store, MapPin, Phone, FileText } from "lucide-react";
@@ -23,9 +22,6 @@ type OwnerRow = {
 };
 
 export default function AdminOwners() {
-  const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
   const [rows, setRows] = useState<OwnerRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -40,18 +36,10 @@ export default function AdminOwners() {
     setLoading(false);
   };
 
+  // ⚠ 관리자 인증은 이제 src/app/admin/layout.tsx가 한 번만 확인하고, 통과한
+  // 뒤에만 이 페이지가 마운트됩니다 — 여기서 다시 확인할 필요가 없습니다.
   useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin/owners"); return; }
-      const { data: profile } = await supabase
-        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
-      setIsAuth(true);
-      setIsChecking(false);
-      fetchOwners();
-    };
-    checkAdmin();
+    fetchOwners();
   }, []);
 
   const decide = async (userId: string, action: "approve" | "reject") => {
@@ -68,14 +56,12 @@ export default function AdminOwners() {
     setRows((prev) => prev.filter((r) => r.auth_user_id !== userId));
   };
 
-  if (isChecking || !isAuth) return null;
-
   return (
     <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="owners" onRefresh={fetchOwners} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px 28px 60px", scrollbarWidth: "thin" as any }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: "#111", marginBottom: 14 }}>
+        <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 14 }}>
           사장님 가입 승인 대기 {rows.length > 0 && `(${rows.length}건)`}
         </div>
 

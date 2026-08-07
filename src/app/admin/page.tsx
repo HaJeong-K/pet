@@ -23,8 +23,6 @@ const STYLES = `
 // 바로 이동할 수 있는 허브(대시보드)로 재구성했습니다.
 export default function AdminDashboard() {
   const router = useRouter();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [stats, setStats] = useState({
@@ -36,19 +34,10 @@ export default function AdminDashboard() {
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
-  /* ── 관리자 인증 (세션 + is_admin) — 다른 관리자 페이지들과 동일한 방식으로 통일 ── */
+  // ⚠ 관리자 인증(세션 + is_admin)은 이제 src/app/admin/layout.tsx가 한 번만 확인하고,
+  // 통과한 뒤에만 이 페이지가 마운트됩니다 — 여기서 다시 확인할 필요가 없습니다.
   useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin"); return; }
-      const { data: profile } = await supabase
-        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
-      setIsAuth(true);
-      setIsChecking(false);
-      fetchStats();
-    };
-    checkAdmin();
+    fetchStats();
   }, []);
 
   const fetchStats = async () => {
@@ -111,16 +100,6 @@ export default function AdminDashboard() {
 
     setLoading(false);
   };
-
-  if (isChecking) {
-    return (
-      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}>
-        <span className="ggk-body" style={{ fontSize: 13, color: "#888" }}>권한 확인 중...</span>
-      </div>
-    );
-  }
-
-  if (!isAuth) return null;
 
   return (
     <>

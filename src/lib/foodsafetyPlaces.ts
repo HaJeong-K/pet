@@ -11,15 +11,14 @@
 // 테이블이 아직 없거나 비어 있으면 아래 함수는 조용히 빈 배열을 반환해 지도 로딩에는
 // 영향을 주지 않습니다.
 
-import { supabase } from "@/lib/supabase";
+import { fetchAllRows } from "@/lib/supabasePaging";
 
 export async function fetchFoodsafetyPlaces(): Promise<any[]> {
   try {
-    const { data, error } = await supabase
-      .from("foodsafety_restaurants")
-      .select("id, name, address, lat, lng, category, region, memo");
-
-    if (error || !data) return [];
+    const data = await fetchAllRows(
+      "foodsafety_restaurants",
+      "id, name, address, lat, lng, category, region, memo"
+    );
 
     return data
       .filter((row) => row.lat && row.lng) // 지오코딩 실패로 좌표 없는 행은 지도에 못 올리므로 제외

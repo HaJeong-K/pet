@@ -372,17 +372,31 @@ function sortActive(notices: ShelterNotice[]): ShelterNotice[] {
 }
 
 // 사용자 지역(시도 짧은 이름, 예: "경남")을 우선으로, 부족하면 전국 공고로 채웁니다.
-export async function getPrioritizedShelterNotices(regionShort: string | null, limit = 2): Promise<ShelterNotice[]> {
+// offset: 정렬된 결과에서 몇 번째부터 자를지. 커뮤니티 페이지(offset=0, 가장 마감임박인
+// 상위 N건)와 마이페이지(offset=N, 그다음 순위 N건)가 서로 다른 공고를 보여주도록
+// 하기 위한 용도입니다 — 지역 우선·마감임박순이라는 "주의사항(선정 규칙)"은 완전히
+// 동일하게 유지하면서, 순위 구간만 다르게 잘라서 두 페이지에 노출되는 공고가 겹치지
+// 않게 합니다.
+export async function getPrioritizedShelterNotices(
+  regionShort: string | null,
+  limit = 2,
+  offset = 0
+): Promise<ShelterNotice[]> {
   const sidoCode = regionShort ? SIDO_CODE_MAP[regionShort] ?? null : null;
 
   const regional = sidoCode ? sortActive(await fetchNoticePage(sidoCode)) : [];
-  if (regional.length >= limit) return regional.slice(0, limit);
 
-  const nationwide = sortActive(await fetchNoticePage(null));
-  const seen = new Set(regional.map((n) => n.desertionNo));
-  const fill = nationwide.filter((n) => !seen.has(n.desertionNo));
+  let pool: ShelterNotice[];
+  if (regional.length >= offset + limit) {
+    pool = regional;
+  } else {
+    const nationwide = sortActive(await fetchNoticePage(null));
+    const seen = new Set(regional.map((n) => n.desertionNo));
+    const fill = nationwide.filter((n) => !seen.has(n.desertionNo));
+    pool = [...regional, ...fill];
+  }
 
-  return [...regional, ...fill].slice(0, limit);
+  return pool.slice(offset, offset + limit);
 }
 
 // "전국 보호소 공고 전체보기" 전용 페이지(/shelter-notices)에서 씁니다. 사이드 레일의

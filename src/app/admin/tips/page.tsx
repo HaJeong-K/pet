@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { geocodeAddress } from "@/lib/geocodeAddress";
+import { approveProposal } from "@/lib/approveProposal";
 import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
@@ -41,20 +42,9 @@ const formatDate = (s: string) => {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 };
 
-/* ── 카카오 주소→좌표 변환 ── */
-const geocodeAddress = async (address: string) => {
-  try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
-      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-    );
-    const data = await res.json();
-    if (data.documents?.length > 0) {
-      return { lat: String(data.documents[0].y), lng: String(data.documents[0].x) };
-    }
-  } catch {}
-  return null;
-};
+// 카카오 주소→좌표 변환 및 승인 로직은 src/lib/geocodeAddress.ts, src/lib/approveProposal.ts로
+// 이동했습니다 — jebo 자동 승인(AI 비전 검증) 흐름과 이 관리자 수동 승인이 완전히 같은
+// 로직을 타도록 하기 위함입니다.
 
 type ActiveFilter = "pending" | "on_hold" | "approved";
 
@@ -141,8 +131,6 @@ function FieldRow({
    메인 컴포넌트
 ══════════════════════════════════════════ */
 export default function AdminProposalsPage() {
-  const router = useRouter();
-  const [isChecking,    setIsChecking]    = useState(true);
   const [proposals,     setProposals]     = useState<any[]>([]);
   const [loading,       setLoading]       = useState(false);
   const [activeFilter,  setActiveFilter]  = useState<ActiveFilter>("pending");
@@ -156,17 +144,10 @@ export default function AdminProposalsPage() {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex,  setLightboxIndex]  = useState(0);
 
-  /* ── 관리자 인증 ── */
+  // ⚠ 관리자 인증은 이제 src/app/admin/layout.tsx가 한 번만 확인하고, 통과한
+  // 뒤에만 이 페이지가 마운트됩니다 — 여기서 다시 확인할 필요가 없습니다.
   useEffect(() => {
-    const check = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push("/login?redirect=/admin/tips"); return; }
-      const { data: profile } = await supabase.from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { router.push("/"); return; }
-      setIsChecking(false);
-      fetchProposals();
-    };
-    check();
+    fetchProposals();
   }, []);
 
   /* ── proposals + 제보자 이메일 불러오기 ── */
@@ -215,66 +196,20 @@ export default function AdminProposalsPage() {
     setProposals(prev => prev.filter(p => p.id !== id));
   };
 
-  /* ── 승인 → places 테이블에 등록 ── */
+  /* ── 승인 → places 테이블에 등록 (src/lib/approveProposal.ts 공용 로직) ── */
   const handleApprove = async (proposal: any) => {
-    /* lat/lng 없으면 주소로 자동 좌표 추출 시도 */
-    let lat = proposal.lat;
-    let lng = proposal.lng;
+    const result = await approveProposal(supabase, proposal);
 
-    if (!lat || !lng) {
-      const coords = await geocodeAddress(proposal.address);
-      if (coords) { lat = coords.lat; lng = coords.lng; }
-    }
-
-    if (!lat || !lng) {
-      alert("좌표(위도/경도)를 확인할 수 없습니다.\n'보류' 탭에서 주소를 다시 저장하거나 좌표를 직접 입력해주세요.");
+    if (!result.ok) {
+      if (result.reason === "no_coords") {
+        alert("좌표(위도/경도)를 확인할 수 없습니다.\n'보류' 탭에서 주소를 다시 저장하거나 좌표를 직접 입력해주세요.");
+      } else {
+        alert("장소 등록 중 오류가 발생했습니다.");
+      }
       return;
     }
 
-    /* places 테이블에 INSERT */
-    const { error: insertError } = await supabase.from("places").insert([{
-      name:      proposal.place_name,
-      address:   proposal.address,
-      lat,
-      lng,
-      pet_zone:  proposal.pet_zone,
-      category:  proposal.category,
-      hours:     proposal.hours,
-      large_dog: proposal.large_dog,
-      pet_menu:  proposal.pet_menu,
-      phone:     proposal.phone,
-      memo:      proposal.memo,
-      image_url: proposal.image_urls?.[0] || null,
-      // 동물병원 전용 필드 (해당 없으면 null)
-      specialty_department: proposal.specialty_department || null,
-      treatable_animals:    proposal.treatable_animals || null,
-    }]);
-
-    if (insertError) {
-      console.error("장소 등록 실패:", JSON.stringify(insertError, null, 2));
-      alert("장소 등록 중 오류가 발생했습니다.");
-      return;
-    }
-
-    /* 나머지 이미지들을 place_images 테이블에 INSERT */
-    const { data: insertedPlace } = await supabase
-      .from("places")
-      .select("id")
-      .eq("name", proposal.place_name)
-      .eq("address", proposal.address)
-      .single();
-
-    if (insertedPlace && proposal.image_urls?.length > 1) {
-      const extraImages = proposal.image_urls.slice(1).map((url: string) => ({
-        place_id: insertedPlace.id,
-        image_url: url,
-      }));
-      await supabase.from("place_images").insert(extraImages);
-    }
-
-    /* proposal 상태 업데이트 */
-    await supabase.from("proposals").update({ status: "approved", is_resolved: true, lat, lng }).eq("id", proposal.id);
-    setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true, lat, lng } : p));
+    setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true, lat: result.lat, lng: result.lng } : p));
     alert(`"${proposal.place_name}" 장소가 지도에 등록되었습니다.`);
   };
 
@@ -327,12 +262,6 @@ export default function AdminProposalsPage() {
   const displayList  =
     activeFilter === "pending"  ? pendingList  :
     activeFilter === "on_hold"  ? onHoldList   : approvedList;
-
-  if (isChecking) return (
-    <div style={{ height:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#F7F3E8" }}>
-      <span className="ggk-body" style={{ fontSize:13, color:"#888" }}>권한 확인 중...</span>
-    </div>
-  );
 
   return (
     <>
@@ -429,6 +358,28 @@ export default function AdminProposalsPage() {
                             display:"flex", alignItems:"center", gap:3,
                           }}>
                             <BadgeCheck size={10}/>사장님 직접 신청
+                          </span>
+                        )}
+                        {/* AI 비전 검증으로 자동 등록된 제보 표시 */}
+                        {tip.ai_verified && (
+                          <span style={{
+                            fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:800,
+                            background:"linear-gradient(135deg,#8b5cf6,#7c3aed)", color:"white",
+                            display:"flex", alignItems:"center", gap:3,
+                          }} title={tip.ai_review?.reasoning || "AI 비전 검증 통과로 자동 등록됨"}>
+                            AI 자동 승인
+                          </span>
+                        )}
+                        {/* 자동 승인은 안 됐지만 AI가 1차로 검토는 해본 경우 — 관리자 참고용 */}
+                        {!tip.ai_verified && tip.ai_review && !tip.ai_review.skipped && (
+                          <span
+                            style={{
+                              fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:700,
+                              background:"#f3f0ff", color:"#6d28d9", border:"1px solid #ddd6fe",
+                            }}
+                            title={tip.ai_review.reasoning || ""}
+                          >
+                            AI 검토: 확인 필요
                           </span>
                         )}
                         <span style={{

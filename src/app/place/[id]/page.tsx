@@ -12,11 +12,12 @@ import {
   AFFINITY_TIER_COLOR,
   AFFINITY_TIER_BG,
 } from "@/lib/affinityScore";
+import { hasInfo, getPetZoneLabel } from "@/lib/placeConstants";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink,
-  ImageOff, ChefHat, LandPlot, Dog, Bone, Shield,
+  ImageOff, ChefHat, LandPlot, Dog, Shield,
   ChevronLeft, ChevronRight, Phone,
   Car,         // 주차
   Ticket,      // 입장료
@@ -24,6 +25,8 @@ import {
   CalendarOff, // 휴무일
   Stethoscope, // 진료과목 (동물병원)
   Trash2,      // 관리자 장소 삭제
+  X,           // 이미지 확대 모달 닫기
+  Flag,        // 이미지 신고
 } from "lucide-react";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
@@ -37,12 +40,6 @@ const FONT_STYLE = `
 
 const adjectives = ["행복한","귀여운","용감한","졸린","말랑한","똑똑한","신난","배고픈"];
 const animals    = ["강아지","고양이","햄스터","토끼","리트리버","푸들","치와와","코기"];
-const PET_ZONE_LABEL: Record<string, string> = {
-  indoor:  "실내 가능",
-  terrace: "야외 가능",
-  both:    "실내외 모두 가능",
-};
-
 const profileColors = [
   "#FF6B6B","#F06595","#CC5DE8","#845EF7","#5C7CFA","#339AF0","#22B8CF","#20C997",
   "#51CF66","#94D82D","#FCC419","#FF922B","#E64980","#BE4BDB","#7950F2","#4C6EF5",
@@ -136,6 +133,7 @@ const compressImage = (file: File): Promise<Blob> => {
 type AdminMenuState = {
   isAdmin: boolean;
   canDelete: boolean;
+  isPublicData: boolean;
   deleting: boolean;
   deletePlace: () => void;
 };
@@ -206,7 +204,7 @@ export default function PlaceDetail({
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason, setReportReason]     = useState("");
 
-  const [reportTargetType, setReportTargetType] = useState<"review" | "reply" | null>(null);
+  const [reportTargetType, setReportTargetType] = useState<"review" | "reply" | "place_image" | null>(null);
   const [reportTargetId, setReportTargetId]     = useState<string | null>(null);
 
   const [openedReplyMenuId, setOpenedReplyMenuId]   = useState<string | null>(null);
@@ -312,7 +310,18 @@ export default function PlaceDetail({
       const publicUrl = urlData?.publicUrl;
       if (!publicUrl) { alert("URL 생성 실패"); return; }
       const { error: insertError } = await supabase.from("place_images").insert([{ place_id: placeId, image_url: publicUrl }]);
-      if (insertError) { console.error(insertError); return; }
+      if (insertError) {
+        console.error(insertError);
+        // 공공데이터(관광공사·문화정보원·식품안전나라) 출처 장소는 Supabase `places` 테이블에
+        // 실제 행이 없는 합성 ID라, place_images.place_id에 외래키(FK) 제약이 걸려 있으면
+        // insert가 조용히 실패합니다. scripts/sql/fix-place-images-fk.sql 실행 여부를 안내합니다.
+        alert(
+          isPublicDataPlace
+            ? "이미지 업로드에 실패했습니다. 공공데이터 출처 장소는 별도 설정이 필요할 수 있습니다. (관리자: fix-place-images-fk.sql 실행 필요)"
+            : "이미지 업로드에 실패했습니다: " + insertError.message
+        );
+        return;
+      }
       await fetchGalleryImages();
       alert("이미지가 성공적으로 업로드 되었습니다!");
     } catch (err) {
@@ -350,6 +359,47 @@ export default function PlaceDetail({
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── 모달 인터셉트 실패 감지 → 팝업 폴백
+  // 정상 흐름: 지도 화면에서 장소를 클릭하면 openPlace.ts가 router.push(`/place/${id}`)를
+  // 호출하고, Next.js Intercepting Routes(src/app/@modal/(.)place/[id]/page.tsx)가 이 컴포넌트를
+  // "감싸서" 지도 위에 모달로 띄웁니다 — 이때는 onAdminMenu prop이 전달됩니다.
+  // onAdminMenu가 없다는 건 이 컴포넌트가 모달 없이 "단독 페이지"로 렌더링됐다는 뜻인데,
+  // 여기엔 두 가지 서로 다른 경우가 섞여 있습니다.
+  //   1) 정상: 공유 링크로 직접 접속, 새 탭에서 열기, 새로고침 — 지도가 애초에 없으므로
+  //      단독 페이지로 보이는 게 맞습니다. 이때 document.referrer는 비어 있거나 우리 앱이
+  //      아닙니다.
+  //   2) 오류: 지도 화면 안에서 클릭했는데(=우리 앱 내부에서 실제 페이지 이동이 발생했는데)
+  //      어떤 이유로 인터셉트가 걸리지 않아 전체화면으로 렌더링된 경우. 이땐 브라우저가 실제
+  //      네비게이션을 했으므로 document.referrer가 우리 앱의 다른 페이지(지도 화면) 주소로
+  //      찍힙니다 — 이 신호로만 "오류" 케이스를 구분합니다.
+  // 오류 케이스로 판단되면: 실제 팝업창으로 상세페이지를 다시 열고, 현재 탭은 원래 있던
+  // 지도 화면(referrer)으로 되돌려 보내 지도 뷰가 그대로 유지되도록 합니다.
+  useEffect(() => {
+    if (onAdminMenu) return; // 모달로 정상 렌더링된 경우 — 아무 것도 안 함
+    if (typeof window === "undefined") return;
+
+    const referrer = document.referrer;
+    if (!referrer) return; // 직접 접속/새 탭 — 정상적인 단독 페이지, 폴백 불필요
+
+    let referrerUrl: URL;
+    try {
+      referrerUrl = new URL(referrer);
+    } catch {
+      return;
+    }
+    if (referrerUrl.origin !== window.location.origin) return; // 외부 링크 — 정상
+    if (referrerUrl.pathname.startsWith("/place/")) return; // 다른 상세페이지에서 온 이동 — 폴백 대상 아님
+
+    // 여기까지 왔으면 "우리 앱(지도 등) 안에서 클릭했는데 모달 인터셉트가 실패한" 케이스입니다.
+    const fallbackUrl = referrerUrl.pathname + referrerUrl.search;
+    window.open(
+      window.location.href,
+      `place_${placeId}`,
+      "width=480,height=860,noopener,noreferrer,scrollbars=yes,resizable=yes"
+    );
+    router.replace(fallbackUrl || "/");
+  }, []);
+
   // ── 데이터 로딩
   useEffect(() => {
     const fetchData = async () => {
@@ -382,9 +432,13 @@ export default function PlaceDetail({
 
       await fetchReviews();
 
+      // 갤러리 이미지(place_images)는 공공데이터 출처 장소(합성 ID)라도 항상 불러옵니다 —
+      // 문화원/식약처 CSV 장소는 원본에 이미지가 전혀 없어 관리자·업주가 직접 올린 대표
+      // 사진이 유일한 이미지 소스인 경우가 많습니다. 답글(review_replies)만 실제 Supabase
+      // 행이 필요한 리뷰(reviews)에 종속돼 있어 공공데이터 장소에는 아직 의미가 없습니다.
+      await fetchGalleryImages();
       if (!publicDataPlace) {
           await fetchReplies();
-          await fetchGalleryImages();
       }
       const userKey = getUserKey();
       const currentSession = (await supabase.auth.getSession()).data.session;
@@ -456,28 +510,38 @@ export default function PlaceDetail({
   };
 
   // ── 관리자: 장소 자체 삭제 (폐업 등으로 실제 존재하지 않는 장소 정리용)
-  // 공공데이터(식품안전나라·관광공사·문화정보원) 출처 장소는 Supabase에 실제 행이
-  // 없는 합성 ID라 삭제할 수 없어, isPublicDataPlace가 아닐 때만 노출합니다.
+  // ⚠ 공공데이터(식품안전나라·관광공사·문화정보원) 출처 장소는 Supabase `places`에
+  // 실제 행이 없는 합성 ID라 "지울" 수는 없지만, 폐업 등 최신화가 필요하다는 요청에
+  // 따라 hidden_public_places 차단 목록에 올려서 이후 지도/리스트/검색 어디에도
+  // 다시 나타나지 않도록 "숨김" 처리합니다(scripts/sql/add-hidden-public-places.sql).
+  // DB에 실제 행이 있는 장소는 기존처럼 완전히 삭제합니다.
   const handleDeletePlace = async () => {
-    if (!confirm("이 장소를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.")) return;
+    const confirmMsg = isPublicDataPlace
+      ? "이 장소를 목록에서 숨기시겠습니까? (공공데이터 출처라 실제로 지우는 대신, 앞으로 지도/검색에 다시 나타나지 않도록 처리합니다)"
+      : "이 장소를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.";
+    if (!confirm(confirmMsg)) return;
     setDeletingPlace(true);
     try {
-      // ★ 클라이언트(anon key)로 직접 delete()를 호출하면 RLS 정책에 막혀
-      //   에러 없이 0건 삭제로 조용히 실패했습니다. service role 키를 쓰는
-      //   서버 라우트(/api/admin/delete-place — 관리자 신고관리 페이지에서
-      //   쓰는 것과 동일)를 통해 삭제합니다.
+      // ★ 클라이언트(anon key)로 직접 delete()/insert()를 호출하면 RLS 정책에 막혀
+      //   에러 없이 조용히 실패했습니다. service role 키를 쓰는 서버 라우트를
+      //   통해 처리합니다.
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         alert("로그인이 필요합니다.");
         return;
       }
-      const res = await fetch("/api/admin/delete-place", {
-        method: "DELETE",
+      const endpoint = isPublicDataPlace ? "/api/admin/hide-public-place" : "/api/admin/delete-place";
+      const res = await fetch(endpoint, {
+        method: isPublicDataPlace ? "POST" : "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ placeId: Number(placeId) }),
+        body: JSON.stringify(
+          isPublicDataPlace
+            ? { placeId: Number(placeId), reason: "관리자 삭제(공공데이터 장소 숨김)" }
+            : { placeId: Number(placeId) }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -497,7 +561,8 @@ export default function PlaceDetail({
     if (!onAdminMenu) return;
     onAdminMenu({
       isAdmin,
-      canDelete: isAdmin && !isPublicDataPlace,
+      canDelete: isAdmin,
+      isPublicData: isPublicDataPlace,
       deleting: deletingPlace,
       deletePlace: handleDeletePlace,
     });
@@ -745,8 +810,12 @@ export default function PlaceDetail({
       isPublicDataVerified: isPublicDataPlace, // 공공데이터(전국 데이터셋) 출처 여부
       amenities: {
         largeDog: place.large_dog,
-        petMenu: place.pet_menu,
         petZone: place.pet_zone,
+        hours: place.hours,
+        phone: place.phone,
+        parking: place.parking,
+        entryFee: place.entry_fee,
+        website: place.website,
       },
     });
   }, [place, reviews, likesCount, dislikesCount, bookmarkCount, isPublicDataPlace]);
@@ -784,10 +853,12 @@ export default function PlaceDetail({
 
           {/* ★ 관리자 전용 — 폐업 등으로 실제 존재하지 않는 장소를 정리하기 위한 삭제 메뉴.
               공공데이터(식품안전나라·관광공사·문화정보원) 출처 장소는 Supabase에 실제 행이
-              없는 합성 ID라 삭제할 수 없어서 노출하지 않습니다.
+              없는 합성 ID라 진짜로 지울 순 없지만, handleDeletePlace가 대신 차단 목록에
+              올려 숨김 처리합니다 — 그래서 여기서도 isPublicDataPlace 여부와 무관하게
+              노출합니다.
               onAdminMenu가 전달된 경우(모달 안에서 렌더링될 때)는 모달 자체의 헤더
               점세개 버튼이 이 메뉴를 대신 보여주므로, 여기서는 중복 렌더링하지 않습니다. */}
-          {!onAdminMenu && isAdmin && !isPublicDataPlace && (
+          {!onAdminMenu && isAdmin && (
             <div style={{ position: "relative", flexShrink: 0 }}>
               <button
                 onClick={() => { closeAll(); setShowPlaceMenu((v) => !v); }}
@@ -803,7 +874,7 @@ export default function PlaceDetail({
                     style={{ ...dropdownBtnStyle, color: "#ef4444", display: "flex", alignItems: "center", gap: 5 }}
                   >
                     <Trash2 size={12} color="#ef4444" />
-                    {deletingPlace ? "삭제 중..." : "삭제하기"}
+                    {deletingPlace ? "처리 중..." : isPublicDataPlace ? "숨기기" : "삭제하기"}
                   </button>
                 </div>
               )}
@@ -887,8 +958,27 @@ export default function PlaceDetail({
           ) : (
             <div style={{ display:"flex", gap:"8px", overflowX:"auto", paddingBottom:"6px", scrollbarWidth:"thin", scrollbarColor:"#ddd transparent" }}>
               {allGalleryImages.map((img, idx) => (
-                <div key={img.id} onClick={() => { setSelectedImage(img.image_url); setSelectedImageIndex(idx); }} style={{ cursor:"pointer", flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", overflow:"hidden", border:"1px solid #eee" }}>
-                  <img src={img.image_url} alt="장소 이미지" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                <div key={img.id} style={{ position:"relative", flexShrink:0, width:"130px", height:"130px" }}>
+                  <div onClick={() => { setSelectedImage(img.image_url); setSelectedImageIndex(idx); }} style={{ cursor:"pointer", width:"100%", height:"100%", borderRadius:"12px", overflow:"hidden", border:"1px solid #eee" }}>
+                    <img src={img.image_url} alt="장소 이미지" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                  </div>
+                  {/* 이미지가 실제 장소와 다르거나 부적절한 경우 신고 — 장소 신고(reports.type="place")와
+                      같은 데이터 모델을 쓰되, 어떤 사진인지 사유에 자동으로 표시해 관리자가 구분할 수 있게 합니다. */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const imageLabel = img.id === -1 ? "대표 이미지" : `${idx + 1}번째 사진`;
+                      setReportTargetType("place_image");
+                      setReportTargetId(String(placeId));
+                      setReportingId(`image_${img.id}`);
+                      setReportCategory("wrong_image");
+                      setReportReason(`[${imageLabel}] `);
+                    }}
+                    title="이 사진 신고하기"
+                    style={{ position:"absolute", top:6, right:6, width:24, height:24, borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.45)", color:"white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer" }}
+                  >
+                    <Flag size={12} />
+                  </button>
                 </div>
               ))}
               <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
@@ -916,7 +1006,7 @@ export default function PlaceDetail({
                 <LandPlot size={10} />동반 가능 범위
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {PET_ZONE_LABEL[place.pet_zone] || place.pet_zone || "—"}
+                {getPetZoneLabel(place.pet_zone) || "—"}
               </div>
             </div>
           </div>
@@ -963,28 +1053,18 @@ export default function PlaceDetail({
             </div>
           )}
 
-          {/* 행3: 펫 메뉴 / 전화번호 */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
-            <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
-                <Bone size={10} />펫 메뉴
-              </div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.pet_menu || "—"}
-              </div>
+          {/* 행3: 전화번호 (펫 메뉴 칸 제거됨) */}
+          <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
+            <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <Phone size={10} />전화번호
             </div>
-            <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
-                <Phone size={10} />전화번호
-              </div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.phone
-                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
-                      {place.phone}
-                    </a>
-                  : "—"
-                }
-              </div>
+            <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+              {place.phone
+                ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                    {place.phone}
+                  </a>
+                : "—"
+              }
             </div>
           </div>
 
@@ -995,7 +1075,7 @@ export default function PlaceDetail({
                 <Globe size={10} />홈페이지
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", fontWeight:500 }}>
-                {place.website && place.website !== "정보없음"
+                {hasInfo(place.website)
                   ? <a href={place.website} target="_blank" rel="noreferrer"
                       style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
                       바로가기
@@ -1314,13 +1394,16 @@ export default function PlaceDetail({
 
         {/* 신고 모달 */}
         {(reportingId || reportingReplyId) && (
-          <div onClick={() => { setReportingId(null); setReportingReplyId(null); }} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div onClick={() => { setReportingId(null); setReportingReplyId(null); setReportTargetType(null); setReportTargetId(null); setReportCategory(""); setReportReason(""); }} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
             <div onClick={(e) => e.stopPropagation()} className="ggk-body" style={{ width:"100%", maxWidth:"380px", background:"white", borderRadius:"18px", padding:"20px", boxSizing:"border-box", boxShadow:"0 16px 48px rgba(0,0,0,0.22)" }}>
               <h2 className="ggk-title" style={{ margin:0, marginBottom:"16px", fontSize:"18px", fontWeight:800 }}>신고하기</h2>
               <div style={{ marginBottom:"12px" }}>
                 <div style={{ fontSize:"11px", fontWeight:700, marginBottom:"6px", color:"#444" }}>신고 유형</div>
                 <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} style={{ width:"100%", padding:"9px 10px", borderRadius:"8px", border:"1px solid #ddd", fontSize:"12px", outline:"none" }}>
                   <option value="">선택해주세요</option>
+                  {reportTargetType === "place_image" && (
+                    <option value="wrong_image">등록된 이미지가 실제 장소와 다름/잘못됨</option>
+                  )}
                   <option value="spam">광고 / 도배</option>
                   <option value="abuse">욕설 / 비방</option>
                   <option value="sexual">음란물</option>
@@ -1333,26 +1416,37 @@ export default function PlaceDetail({
                 <textarea value={reportReason} onChange={(e) => setReportReason(e.target.value)} placeholder="신고 사유를 입력해주세요." style={{ width:"100%", minHeight:"90px", padding:"9px 10px", borderRadius:"8px", border:"1px solid #ddd", resize:"none", fontSize:"12px", outline:"none", boxSizing:"border-box" }} />
               </div>
               <div style={{ display:"flex", gap:"8px" }}>
-                <button onClick={() => { setReportingId(null); setReportingReplyId(null); }} style={{ flex:1, padding:"11px", borderRadius:"8px", border:"1px solid #ddd", background:"white", cursor:"pointer", fontWeight:700, fontSize:"12px" }}>취소</button>
+                <button onClick={() => { setReportingId(null); setReportingReplyId(null); setReportTargetType(null); setReportTargetId(null); setReportCategory(""); setReportReason(""); }} style={{ flex:1, padding:"11px", borderRadius:"8px", border:"1px solid #ddd", background:"white", cursor:"pointer", fontWeight:700, fontSize:"12px" }}>취소</button>
                 <button
                   disabled={!reportCategory||!reportReason.trim()}
                   onClick={async () => {
                     const userKey = getUserKey();
+                    // 이미지 신고는 특정 리뷰/답글 작성자가 없으므로 닉네임 조회를 건너뜁니다.
                     const targetReview =
                       reportTargetType === "review"
                         ? reviews.find((r) => r.id === reportTargetId)
-                        : replies.find((r) => r.id === reportTargetId);
+                        : reportTargetType === "reply"
+                        ? replies.find((r) => r.id === reportTargetId)
+                        : null;
 
                     const { error } = await supabase
                       .from("reports")
                       .insert([
                         {
-                          type: reportTargetType,
+                          // 이미지 신고는 관리자 페이지의 "장소 신고"(type="place")와 같은 모델로 들어가고,
+                          // 어떤 사진인지는 report_reason 앞부분에 자동으로 표시됩니다.
+                          type: reportTargetType === "place_image" ? "place" : reportTargetType,
 
                           target_id: String(reportTargetId),
 
                           // 장소 상세 이동용
                           place_id: placeId,
+
+                          // ⚠ 관리자 페이지가 매번 places 테이블을 다시 조회해 이름을
+                          // 맞추면, 공공데이터 출처(합성 ID) 장소는 항상 "—"로 보였습니다.
+                          // 지금 화면에 이미 떠 있는 이름/주소를 그대로 같이 저장해둡니다.
+                          place_name: place?.name || null,
+                          place_address: place?.address || null,
 
                           reporter_key: userKey,
 
@@ -1362,13 +1456,21 @@ export default function PlaceDetail({
                           // 상세 신고 사유
                           report_reason: reportReason,
 
-                          // 신고 대상 작성자
-                          nickname: targetReview?.nickname || "—",
+                          // 신고 대상 작성자 (이미지 신고는 특정 작성자가 없음)
+                          nickname: reportTargetType === "place_image" ? "—" : targetReview?.nickname || "—",
                         },
                       ]);
-                    if (error) { console.error("신고 오류:", JSON.stringify(error, null, 2)); return; }
+                    if (error) {
+                      // ⚠ 예전엔 콘솔에만 찍고 화면엔 아무 알림이 없어 신고가 됐는지 알 수
+                      // 없었습니다. 공공데이터 출처 장소는 place_id에 FK/정수범위 문제가
+                      // 있을 수 있어(scripts/sql/fix-reports-place-id.sql 참고) 실제
+                      // 에러 메시지를 그대로 알려줍니다.
+                      console.error("신고 오류:", error.message, error.details, error.hint, error.code);
+                      alert("신고 접수에 실패했습니다: " + (error.message || "알 수 없는 오류"));
+                      return;
+                    }
                     alert("신고가 정상적으로 접수되었습니다.");
-                    setReportingId(null); setReportingReplyId(null); setReportCategory(""); setReportReason("");
+                    setReportingId(null); setReportingReplyId(null); setReportTargetType(null); setReportTargetId(null); setReportCategory(""); setReportReason("");
                   }}
                   style={{ flex:1, padding:"11px", borderRadius:"8px", border:"none", background:(!reportCategory||!reportReason.trim())?"#ccc":"#ef4444", color:"white", cursor:(!reportCategory||!reportReason.trim())?"default":"pointer", fontWeight:700, fontSize:"12px" }}
                 >신고하기</button>
