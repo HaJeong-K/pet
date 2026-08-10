@@ -7,6 +7,7 @@ import {
   X, Flag, Share2, AlertTriangle, ChevronDown,
   DoorOpen, PawPrint, Store, Info, ThumbsDown,
   Copy, AlertOctagon, MessageSquare, Trash2, ImageOff,
+  RotateCw, MapPinPlus,
 } from "lucide-react";
 import PlaceDetail from "@/app/place/[id]/page";
 import { supabase } from "@/lib/supabase";
@@ -80,6 +81,14 @@ export default function ModalPage() {
   const [showMenu,        setShowMenu]        = useState(false);
   const [showShareModal,  setShowShareModal]  = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showTipModal,    setShowTipModal]    = useState(false);
+
+  // ⚠ "로딩중..."이 오래 떠 있을 때 전체 페이지(지도까지)를 새로고침하지 않고
+  // 이 모달 안의 PlaceDetail만 다시 불러올 방법이 없었습니다. PlaceDetail의 key를
+  // 바꾸면 React가 기존 인스턴스를 버리고 완전히 새로 마운트해서, 그 안의 데이터
+  // fetch용 useEffect들이 전부 처음부터 다시 실행됩니다 — 지도/모달 바깥은 그대로
+  // 유지한 채 이 모달 콘텐츠만 새로고침되는 효과입니다.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   /* ── 관리자 삭제 메뉴 — PlaceDetail 내부 상태를 이 헤더의 기존 점세개 버튼으로
      끌어올립니다(중복 버튼 방지). deletePlace 함수는 매 렌더마다 새로 만들어지므로
@@ -87,13 +96,15 @@ export default function ModalPage() {
   const [placeIsAdmin,   setPlaceIsAdmin]   = useState(false);
   const [placeCanDelete, setPlaceCanDelete] = useState(false);
   const [placeIsPublicData, setPlaceIsPublicData] = useState(false);
+  const [placeWillActuallyDelete, setPlaceWillActuallyDelete] = useState(true);
   const [placeDeleting,  setPlaceDeleting]  = useState(false);
   const deletePlaceRef = useRef<() => void>(() => {});
   const handleAdminMenu = useCallback(
-    (menu: { isAdmin: boolean; canDelete: boolean; isPublicData: boolean; deleting: boolean; deletePlace: () => void }) => {
+    (menu: { isAdmin: boolean; canDelete: boolean; isPublicData: boolean; willActuallyDelete: boolean; deleting: boolean; deletePlace: () => void }) => {
       setPlaceIsAdmin(menu.isAdmin);
       setPlaceCanDelete(menu.canDelete);
       setPlaceIsPublicData(menu.isPublicData);
+      setPlaceWillActuallyDelete(menu.willActuallyDelete);
       setPlaceDeleting(menu.deleting);
       deletePlaceRef.current = menu.deletePlace;
     },
@@ -104,6 +115,24 @@ export default function ModalPage() {
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason,   setReportReason]   = useState("");
   const [isSubmitting,   setIsSubmitting]   = useState(false);
+
+  /* 제보(정보 추가) 폼 — 신고와 달리 "문제"가 아니라 빠진 정보를 채워달라는
+     제안이라 필드별 입력 폼입니다. 전부 선택 입력이며, 최소 1개는 채워야 제출 가능. */
+  const [tipHours,      setTipHours]      = useState("");
+  const [tipLargeDog,   setTipLargeDog]   = useState<"" | "yes" | "no">("");
+  const [tipPetMenu,    setTipPetMenu]    = useState("");
+  const [tipPhone,      setTipPhone]      = useState("");
+  const [tipWebsite,    setTipWebsite]    = useState("");
+  const [tipClosedDays, setTipClosedDays] = useState("");
+  const [tipParking,    setTipParking]    = useState("");
+  const [tipEntryFee,   setTipEntryFee]   = useState("");
+  const [tipMemo,       setTipMemo]       = useState("");
+  const [isTipSubmitting, setIsTipSubmitting] = useState(false);
+
+  const tipHasAnyValue =
+    tipHours.trim() || tipLargeDog || tipPetMenu.trim() || tipPhone.trim() ||
+    tipWebsite.trim() || tipClosedDays.trim() || tipParking.trim() ||
+    tipEntryFee.trim() || tipMemo.trim();
 
   /* ── 공유 핸들러 ── */
   const handleCopyLink = async () => {
@@ -240,6 +269,70 @@ export default function ModalPage() {
     setReportReason("");
   };
 
+  /* ── 제보(정보 추가) 핸들러 ── */
+  const resetTipForm = () => {
+    setTipHours(""); setTipLargeDog(""); setTipPetMenu(""); setTipPhone("");
+    setTipWebsite(""); setTipClosedDays(""); setTipParking(""); setTipEntryFee("");
+    setTipMemo("");
+  };
+
+  const closeTip = () => {
+    setShowTipModal(false);
+    resetTipForm();
+  };
+
+  const handleTipSubmit = async () => {
+    if (!tipHasAnyValue || !placeId) return;
+
+    setIsTipSubmitting(true);
+
+    try {
+      const userKey = getUserKey();
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      const { error } = await supabase
+        .from("proposals")
+        .insert([
+          {
+            proposal_kind: "info_update",
+            place_id: Number(placeId),
+            place_name: placeName || null,
+            address: placeAddress || null,
+
+            hours: tipHours.trim() || null,
+            large_dog: tipLargeDog ? tipLargeDog === "yes" : null,
+            pet_menu: tipPetMenu.trim() || null,
+            phone: tipPhone.trim() || null,
+            website: tipWebsite.trim() || null,
+            closed_days: tipClosedDays.trim() || null,
+            parking: tipParking.trim() || null,
+            entry_fee: tipEntryFee.trim() || null,
+            memo: tipMemo.trim() || null,
+
+            reporter_key: userKey,
+            auth_user_id: sessionData.session?.user?.id || null,
+            status: "pending",
+            is_resolved: false,
+          },
+        ]);
+
+      if (error) {
+        console.error("장소 제보 오류:", error.message, error.details, error.hint, error.code);
+        alert("제보 접수에 실패했습니다: " + (error.message || "알 수 없는 오류"));
+        return;
+      }
+
+      alert("제보가 정상적으로 접수되었습니다.\n검토 후 반영하겠습니다.");
+      closeTip();
+
+    } catch (err: any) {
+      console.error("장소 제보 예외:", err);
+      alert("제보 접수 중 오류가 발생했습니다: " + (err?.message || "알 수 없는 오류"));
+    } finally {
+      setIsTipSubmitting(false);
+    }
+  };
+
   /* ── JSX ── */
   return (
     <>
@@ -369,6 +462,19 @@ export default function ModalPage() {
                         <span>장소 신고하기</span>
                       </button>
 
+                      {/* 정보 제보하기 — 빠진/틀린 정보를 채워달라는 제안 (신고와 달리 "문제"가
+                          아니라 "추가 정보 제공"이 목적이라 별도 버튼으로 분리) */}
+                      <button
+                        className="modal-menu-item"
+                        onClick={() => { setShowMenu(false); setShowTipModal(true); }}
+                        style={dropdownItemStyle}
+                      >
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: "#eef6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <MapPinPlus size={13} color="#2563eb" />
+                        </div>
+                        <span>장소 제보하기</span>
+                      </button>
+
                       {/* 관리자 전용 — 장소 자체 삭제. 일반 회원에게는 보이지 않습니다. */}
                       {placeIsAdmin && placeCanDelete && (
                         <>
@@ -382,7 +488,7 @@ export default function ModalPage() {
                             <div style={{ width: 28, height: 28, borderRadius: 8, background: "#fff1f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <Trash2 size={13} color="#ef4444" />
                             </div>
-                            <span>{placeDeleting ? "처리 중..." : placeIsPublicData ? "장소 숨기기 (관리자)" : "장소 삭제하기 (관리자)"}</span>
+                            <span>{placeDeleting ? "처리 중..." : placeWillActuallyDelete ? "장소 삭제하기 (관리자)" : "장소 숨기기 (관리자)"}</span>
                           </button>
                         </>
                       )}
@@ -390,6 +496,24 @@ export default function ModalPage() {
                   </>
                 )}
               </div>
+
+              {/* 새로고침 버튼 — 이 모달(PlaceDetail)만 다시 마운트해서 데이터를 새로
+                  불러옵니다. 전체 페이지 새로고침(F5)과 달리 지도 상태는 그대로 유지됩니다. */}
+              <button
+                onClick={() => setRefreshKey((k) => k + 1)}
+                title="새로고침"
+                style={{
+                  width: 34, height: 34, border: "none",
+                  background: "transparent",
+                  borderRadius: 9, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 0.13s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f2f5")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <RotateCw size={16} color="#555" />
+              </button>
 
               {/* 닫기 버튼 */}
               <button
@@ -412,7 +536,7 @@ export default function ModalPage() {
 
           {/* ────────────── 스크롤 콘텐츠 ────────────── */}
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "20px 24px" }}>
-            <PlaceDetail onAdminMenu={handleAdminMenu} />
+            <PlaceDetail key={refreshKey} onAdminMenu={handleAdminMenu} />
           </div>
         </div>
       </div>
@@ -668,7 +792,179 @@ export default function ModalPage() {
           </div>
         </>
       )}
+
+      {/* ── 제보(정보 추가) 모달 ── */}
+      {showTipModal && (
+        <>
+          <div
+            onClick={closeTip}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 10100, backdropFilter: "blur(3px)" }}
+          />
+          <div
+            style={{
+              position: "fixed", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              background: "white", borderRadius: 22,
+              zIndex: 10101,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
+              width: "min(440px, calc(100vw - 32px))",
+              maxHeight: "88vh", overflowY: "auto",
+              fontFamily: "'Noto Sans KR', sans-serif",
+              animation: "modalFadeIn 0.2s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 헤더 */}
+            <div style={{
+              position: "sticky", top: 0, background: "white",
+              padding: "18px 20px 14px",
+              borderBottom: "1px solid #f0f2f5",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              zIndex: 1, borderRadius: "22px 22px 0 0",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: "#eef6ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MapPinPlus size={15} color="#2563eb" />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>장소 제보하기</div>
+              </div>
+              <button onClick={closeTip} style={{ border: "none", background: "#f0f2f5", borderRadius: "50%", width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <X size={14} color="#666" />
+              </button>
+            </div>
+
+            <div style={{ padding: "18px 20px 24px" }}>
+
+              {/* 안내 배너 */}
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 9,
+                padding: "11px 13px", background: "#eff6ff",
+                borderRadius: 11, border: "1px solid #bfdbfe",
+                marginBottom: 18,
+              }}>
+                <Info size={14} color="#2563eb" style={{ flexShrink: 0, marginTop: 1 }} />
+                <div style={{ fontSize: 11, color: "#1e3a8a", lineHeight: 1.7 }}>
+                  이 장소에 빠져있거나 잘못된 정보를 알려주세요.<br />
+                  아는 항목만 채워 제출하시면 검토 후 반영됩니다.
+                </div>
+              </div>
+
+              {/* 입력 필드들 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 13, marginBottom: 20 }}>
+                <TipField label="영업시간" value={tipHours} onChange={setTipHours} placeholder="예: 매일 10:00 - 21:00" />
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>대형견 동반 가능 여부</div>
+                  <div style={{ display: "flex", gap: 7 }}>
+                    {([["yes", "가능"], ["no", "불가능"]] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setTipLargeDog(tipLargeDog === val ? "" : val)}
+                        style={{
+                          flex: 1, padding: "9px", borderRadius: 10,
+                          border: `1.5px solid ${tipLargeDog === val ? "#111" : "#e2e4e8"}`,
+                          background: tipLargeDog === val ? "#111" : "white",
+                          color: tipLargeDog === val ? "white" : "#555",
+                          fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          fontFamily: "'Noto Sans KR', sans-serif",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <TipField label="펫 메뉴/서비스" value={tipPetMenu} onChange={setTipPetMenu} placeholder="예: 강아지 전용 간식 판매" />
+                <TipField label="전화번호" value={tipPhone} onChange={setTipPhone} placeholder="예: 051-123-4567" />
+                <TipField label="홈페이지" value={tipWebsite} onChange={setTipWebsite} placeholder="예: https://..." />
+                <TipField label="휴무일" value={tipClosedDays} onChange={setTipClosedDays} placeholder="예: 매주 월요일" />
+                <TipField label="주차" value={tipParking} onChange={setTipParking} placeholder="예: 건물 내 주차장 이용 가능" />
+                <TipField label="입장료" value={tipEntryFee} onChange={setTipEntryFee} placeholder="예: 무료 / 1인 5,000원" />
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>기타 메모</div>
+                  <textarea
+                    value={tipMemo}
+                    onChange={(e) => setTipMemo(e.target.value)}
+                    placeholder="그 밖에 알려주고 싶은 정보를 자유롭게 적어주세요"
+                    maxLength={300}
+                    style={{
+                      width: "100%", minHeight: 70, padding: "10px 12px",
+                      borderRadius: 11, border: "1.5px solid #e2e4e8",
+                      fontSize: 13, resize: "vertical",
+                      fontFamily: "'Noto Sans KR', sans-serif",
+                      outline: "none", lineHeight: 1.7, color: "#333",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 버튼 */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={closeTip}
+                  style={{
+                    flex: 1, padding: "12px", borderRadius: 11,
+                    border: "1px solid #e2e4e8", background: "white",
+                    color: "#555", fontWeight: 700, fontSize: 13,
+                    cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleTipSubmit}
+                  disabled={!tipHasAnyValue || isTipSubmitting}
+                  style={{
+                    flex: 2, padding: "12px", borderRadius: 11, border: "none",
+                    background: (!tipHasAnyValue || isTipSubmitting)
+                      ? "#d1d5db"
+                      : "linear-gradient(135deg, #3b82f6, #2563eb)",
+                    color: "white", fontWeight: 700, fontSize: 13,
+                    cursor: (!tipHasAnyValue || isTipSubmitting) ? "default" : "pointer",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                    boxShadow: (!tipHasAnyValue || isTipSubmitting)
+                      ? "none"
+                      : "0 2px 8px rgba(37,99,235,0.30)",
+                    transition: "all 0.14s ease",
+                  }}
+                >
+                  {isTipSubmitting ? "제보 접수 중..." : "제보하기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
+  );
+}
+
+/* 제보 폼의 한 줄짜리 텍스트 입력 필드 (라벨 + input) */
+function TipField({
+  label, value, onChange, placeholder,
+}: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>{label}</div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: "100%", padding: "10px 12px",
+          borderRadius: 11, border: "1.5px solid #e2e4e8",
+          fontSize: 13, fontFamily: "'Noto Sans KR', sans-serif",
+          outline: "none", color: "#333",
+          boxSizing: "border-box",
+        }}
+      />
+    </div>
   );
 }
 

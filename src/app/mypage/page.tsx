@@ -7,7 +7,7 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck,
+  Eye, EyeOff, BadgeCheck, Store, Crown,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
 import PetIllustration from "@/components/illustrations/PetIllustration";
@@ -82,7 +82,17 @@ export default function MyPage() {
   const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw">("menu");
+  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium">("menu");
+
+  // ── 사장님 프리미엄 등록 ──
+  const [premiumPlace, setPremiumPlace] = useState<{ is_premium: boolean; premium_expires_at: string | null } | null>(null);
+  const [premiumRequest, setPremiumRequest] = useState<any>(null); // 가장 최근 신청 내역(pending/approved/rejected)
+  const [premiumLoading, setPremiumLoading] = useState(false);
+  const [premiumMonths, setPremiumMonths] = useState(1);
+  const [premiumPayerName, setPremiumPayerName] = useState("");
+  const [premiumMemo, setPremiumMemo] = useState("");
+  const [premiumMsg, setPremiumMsg] = useState<{ok:boolean;text:string}|null>(null);
+  const [premiumSubmitting, setPremiumSubmitting] = useState(false);
 
   const [bookmarkPage, setBookmarkPage] = useState(1);
   const [reviewPage, setReviewPage]     = useState(1);
@@ -232,6 +242,41 @@ export default function MyPage() {
     window.location.href = "/";
   };
 
+  // ── 사장님 프리미엄 등록: 현재 상태(is_premium/만료일) + 가장 최근 신청 내역 조회
+  const openPremiumPane = async () => {
+    setSettingView("premium");
+    setPremiumMsg(null);
+    if (!userProfile?.owner_place_id) return;
+    setPremiumLoading(true);
+    const [{ data: placeRow }, { data: reqRow }] = await Promise.all([
+      supabase.from("places").select("is_premium, premium_expires_at").eq("id", userProfile.owner_place_id).maybeSingle(),
+      supabase.from("premium_requests").select("*").eq("place_id", userProfile.owner_place_id).order("requested_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    setPremiumPlace(placeRow || null);
+    setPremiumRequest(reqRow || null);
+    setPremiumLoading(false);
+  };
+
+  const handlePremiumApply = async () => {
+    setPremiumSubmitting(true);
+    setPremiumMsg(null);
+    try {
+      const { data: { session: freshSession } } = await supabase.auth.getSession();
+      if (!freshSession) { setPremiumMsg({ok:false,text:"로그인이 필요합니다."}); return; }
+      const res = await fetch("/api/owner/apply-premium", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${freshSession.access_token}` },
+        body: JSON.stringify({ months: premiumMonths, payerName: premiumPayerName, memo: premiumMemo }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setPremiumMsg({ok:false,text:data.error || "신청에 실패했습니다."}); return; }
+      setPremiumMsg({ok:true,text:"신청이 접수되었습니다. 입금 확인 후 관리자가 승인합니다."});
+      setPremiumRequest({ status: "pending", months: premiumMonths, payer_name: premiumPayerName, memo: premiumMemo, requested_at: new Date().toISOString() });
+    } finally {
+      setPremiumSubmitting(false);
+    }
+  };
+
   const handleRemoveBookmark = async (placeId: number, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!confirm("찜 목록에서 삭제하시겠습니까?")) return;
@@ -271,7 +316,7 @@ export default function MyPage() {
     setShowSettings(false); setSettingView("menu");
     setNickMsg(null); setPwMsg(null); setWithdrawMsg(null);
     setNewNickname(""); setCurPw(""); setNewPw(""); setNewPw2(""); setWithdrawPw("");
-    setNickChecked(false);
+    setNickChecked(false); setPremiumMsg(null);
   };
 
   const isOAuthUser = session?.user?.app_metadata?.provider !== "email";
@@ -931,7 +976,41 @@ export default function MyPage() {
                 </div>
 
                 <div style={{ padding:"0 14px 18px" }}>
-                  {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장 형식이 고정되므로
+                  {/* 인증된 사장님만 보이는 진입점 — 본인 업장 상세페이지로 이동하면
+                      place/[id]/page.tsx의 OwnerPlaceEditPanel이 자동으로 노출되어
+                      바로 정보를 수정할 수 있습니다(별도 수정 화면을 새로 안 만들고
+                      기존 패널을 재사용). openPlaceDetail이 모달 인터셉트 라우팅까지
+                      맞춰서 열어줍니다. */}
+                  {userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null && (
+                    <button
+                      className="setting-row"
+                      onClick={() => { closeSettings(); openPlaceDetail(router, { id: userProfile.owner_place_id }); }}
+                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f0f7ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
+                    >
+                      <div style={{ width:32, height:32, borderRadius:9, background:"#dcecd3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <Store size={15} color="#5C7A4A" />
+                      </div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>가게 정보 수정하기</div>
+                      <ChevronRight size={14} color="#bbb" />
+                    </button>
+                  )}
+
+                  {/* 프리미엄 등록 — 인증된 사장님만 진입 가능. 신청/현재 상태를 별도 패널에서 보여줍니다. */}
+                  {userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null && (
+                    <button
+                      className="setting-row"
+                      onClick={openPremiumPane}
+                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#fff8ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
+                    >
+                      <div style={{ width:32, height:32, borderRadius:9, background:"#ffe9c2", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <Crown size={15} color="#B8860B" />
+                      </div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>프리미엄 등록</div>
+                      <ChevronRight size={14} color="#bbb" />
+                    </button>
+                  )}
+
+                  {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장님 형식이 고정되므로
                       닉네임 변경 메뉴 자체를 숨깁니다. */}
                   {!userProfile?.nickname_locked && (
                   <button className="setting-row" onClick={() => setSettingView("nickname")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
@@ -1037,6 +1116,87 @@ export default function MyPage() {
                 <button onClick={handlePasswordChange} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
+              </div>
+            )}
+
+            {/* 프리미엄 등록 */}
+            {settingView === "premium" && (
+              <div style={{ padding:"18px" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#111", display:"flex", alignItems:"center", gap:5 }}>
+                    <Crown size={15} color="#B8860B" />프리미엄 등록
+                  </div>
+                  <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <X size={14} color="#666" />
+                  </button>
+                </div>
+
+                {premiumLoading ? (
+                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
+                ) : (
+                  <>
+                    {/* 현재 상태 요약 */}
+                    <div style={{ padding:"12px 14px", background: premiumPlace?.is_premium && premiumPlace.premium_expires_at && new Date(premiumPlace.premium_expires_at) > new Date() ? "#fff8ec" : "#f8fafc", borderRadius:11, border: premiumPlace?.is_premium ? "1px solid #f3d9a4" : "1px solid #e8eaed", marginBottom:14 }}>
+                      {premiumPlace?.is_premium && premiumPlace.premium_expires_at && new Date(premiumPlace.premium_expires_at) > new Date() ? (
+                        <div style={{ fontSize:12, color:"#92650a", lineHeight:1.7 }}>
+                          <strong>프리미엄 진행 중</strong><br/>
+                          만료일: {formatDate(premiumPlace.premium_expires_at)}까지 · 추천 노출 가점 + 광고 배너 노출이 적용됩니다.
+                        </div>
+                      ) : (
+                        <div style={{ fontSize:12, color:"#666", lineHeight:1.7 }}>
+                          아직 프리미엄이 적용되지 않은 업장입니다.<br/>
+                          프리미엄 등록 시 추천 정렬 가점, 상세페이지 배지, 지도 좌우 광고 영역 노출 혜택이 적용됩니다.
+                        </div>
+                      )}
+                    </div>
+
+                    {premiumRequest?.status === "pending" ? (
+                      <div style={{ padding:"12px 14px", background:"#eef2ff", borderRadius:11, border:"1px solid #c7d2fe", fontSize:12, color:"#3730a3", lineHeight:1.7 }}>
+                        신청이 접수되어 <strong>심사 중</strong>입니다({premiumRequest.months}개월 신청).<br/>
+                        입금 확인 후 관리자가 순차적으로 승인합니다. 입금 계좌 등 결제 안내는 신청 확인 후 별도로 연락드립니다.
+                      </div>
+                    ) : (
+                      <>
+                        {premiumRequest?.status === "rejected" && (
+                          <div style={{ padding:"10px 14px", background:"#fff5f5", borderRadius:11, border:"1px solid #fecaca", fontSize:11.5, color:"#991b1b", marginBottom:12, lineHeight:1.6 }}>
+                            지난 신청이 반려되었습니다{premiumRequest.admin_note ? ` (사유: ${premiumRequest.admin_note})` : ""}. 다시 신청할 수 있습니다.
+                          </div>
+                        )}
+                        <div style={{ fontSize:11, fontWeight:700, color:"#555", marginBottom:6 }}>신청 개월 수</div>
+                        <div style={{ display:"flex", gap:6, marginBottom:12 }}>
+                          {[1, 3, 6, 12].map((m) => (
+                            <button key={m} onClick={() => setPremiumMonths(m)} style={{
+                              flex:1, padding:"9px 0", borderRadius:9, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
+                              border: premiumMonths === m ? "1.5px solid #B8860B" : "1px solid #e2e8f0",
+                              background: premiumMonths === m ? "#fff8ec" : "white",
+                              color: premiumMonths === m ? "#92650a" : "#666",
+                              fontWeight:700, fontSize:12,
+                            }}>
+                              {m}개월
+                            </button>
+                          ))}
+                        </div>
+                        <input placeholder="입금자명(선택) — 무통장입금 확인용" value={premiumPayerName}
+                          onChange={(e) => setPremiumPayerName(e.target.value)}
+                          style={{ ...inp, marginBottom:9 }}
+                        />
+                        <textarea placeholder="관리자에게 남길 메모(선택)" value={premiumMemo}
+                          onChange={(e) => setPremiumMemo(e.target.value)}
+                          rows={3}
+                          style={{ ...inp, marginBottom:9, resize:"vertical", fontFamily:"'Noto Sans KR',sans-serif" }}
+                        />
+                        {premiumMsg && (
+                          <div style={{ fontSize:11, color: premiumMsg.ok ? "#22c55e" : "#ef4444", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                            {premiumMsg.ok && <Check size={12}/>}{premiumMsg.text}
+                          </div>
+                        )}
+                        <button onClick={handlePremiumApply} disabled={premiumSubmitting} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: premiumSubmitting ? "#d1d5db" : "linear-gradient(145deg,#D4A24C,#B8860B)", color:"white", fontWeight:700, fontSize:13, cursor: premiumSubmitting ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                          {premiumSubmitting ? "신청 중..." : "프리미엄 신청하기"}
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

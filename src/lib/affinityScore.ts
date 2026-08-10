@@ -9,9 +9,11 @@
 //   - 편의시설 옵션          10%
 //
 // KoBERT 파인튜닝 감성분석 모델은 별도의 학습/서빙 인프라(GPU, 라벨링 데이터)가 필요해
-// 이번 단계에서는 규칙 기반(Rule-based) 키워드 스코어링으로 우선 구현했습니다.
-// reviewSatisfactionScore()만 모델 추론 결과로 교체하면 KoBERT 파이프라인으로
-// 자연스럽게 승격되도록 인터페이스를 분리해 두었습니다.
+// 이번 단계에서는 규칙 기반(Rule-based) 키워드 스코어링을 기본값으로 씁니다.
+// reviewSatisfactionScore()는 리뷰별 sentimentScore(reviews.sentiment_score 컬럼,
+// scripts/sql/add-review-sentiment.sql)가 채워져 있으면 그 값을 우선 쓰고, 없으면
+// 키워드 방식으로 자동 폴백합니다 — 나중에 배치 작업으로 이 컬럼을 채우기 시작하면
+// 코드 변경 없이 그 리뷰부터 바로 모델 기반 점수로 전환됩니다.
 //
 // ── 키워드 스코어링 설계 노트 (부정어 처리) ──────────────────────────
 // 단순 부분 문자열(includes) 매칭만 쓰면 "불친절"이 "친절"을, "불편해요"가
@@ -26,6 +28,10 @@ export interface AffinityReviewInput {
   content: string;
   /** 이 리뷰가 받은 좋아요 수. 많을수록 신뢰도가 높다고 보고 감성 점수에 더 큰 비중을 둡니다. */
   likes?: number;
+  /** KoBERT 등 감성분석 모델이 매긴 0~100 점수(100=매우 긍정). 아직 모델이 처리하지
+   *  않은 리뷰는 null/undefined — 이 경우 이 리뷰만 키워드 기반 방식으로 폴백합니다.
+   *  (scripts/sql/add-review-sentiment.sql의 reviews.sentiment_score 컬럼과 대응) */
+  sentimentScore?: number | null;
 }
 
 export interface AffinityInput {
@@ -82,9 +88,19 @@ function reviewSatisfactionScore(reviews: AffinityReviewInput[]): number {
   let pos = 0;
   let neg = 0;
   for (const r of reviews) {
-    const text = r.content || "";
     const weight = reviewWeight(r.likes);
 
+    // 감성분석 모델(KoBERT 등)이 이미 이 리뷰를 처리했으면(sentiment_score가 채워져
+    // 있으면) 부분 문자열 키워드 매칭 대신 모델 점수를 그대로 씁니다 — 정확도가 훨씬
+    // 높고, 두 방식이 섞여도 같은 pos/neg 누적 방식이라 자연스럽게 어우러집니다.
+    if (r.sentimentScore != null && !Number.isNaN(r.sentimentScore)) {
+      const positiveShare = Math.max(0, Math.min(100, r.sentimentScore)) / 100;
+      pos += weight * positiveShare;
+      neg += weight * (1 - positiveShare);
+      continue;
+    }
+
+    const text = r.content || "";
     const negHits = NEGATIVE_KEYWORDS.filter((k) => text.includes(k));
     neg += negHits.length * weight;
 

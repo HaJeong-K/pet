@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
+import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
 
 // ─── Google G 로고 SVG (공식 색상 고정, 변경 불가) ────────────────────────
 const GoogleGLogo = () => (
@@ -63,6 +64,8 @@ function LoginPageContent() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // 로그인
   const handleLogin = async () => {
@@ -376,6 +379,17 @@ function LoginPageContent() {
               <span>카카오 로그인</span>
             </button>
 
+            {/* ⚠ 소셜 로그인은 이메일 가입처럼 체크박스로 동의를 받는 별도 화면이 없어서,
+                버튼 바로 아래에 "계속 진행 시 동의로 간주" 안내와 약관 링크를 둡니다 —
+                소셜 로그인을 쓰는 서비스들의 일반적인 처리 방식입니다. */}
+            <p style={{ fontSize: 11, color: "#999", textAlign: "center", lineHeight: 1.6, marginTop: 2 }}>
+              계속 진행 시{" "}
+              <button type="button" onClick={() => setShowTermsModal(true)} style={{ border: "none", background: "transparent", color: "#777", textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 11 }}>이용약관</button>
+              {" "}및{" "}
+              <button type="button" onClick={() => setShowPrivacyModal(true)} style={{ border: "none", background: "transparent", color: "#777", textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 11 }}>개인정보 처리방침</button>
+              에 동의하는 것으로 간주됩니다.
+            </p>
+
             {/* 회원가입 */}
             <div
               style={{
@@ -422,6 +436,9 @@ function LoginPageContent() {
           </div>
         </div>
       </div>
+
+      {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} />}
+      {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
     </>
   );
 }

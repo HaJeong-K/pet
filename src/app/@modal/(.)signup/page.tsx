@@ -3,7 +3,8 @@
 import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Check } from "lucide-react";
+import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
 
 function SignupPageContent() {
   const router = useRouter();
@@ -23,6 +24,13 @@ function SignupPageContent() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // ── 약관 동의 ──
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const agreedAll = agreedTerms && agreedPrivacy;
 
   const isValidEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -72,6 +80,11 @@ function SignupPageContent() {
   const handleSignup = async () => {
     if (!email || !nickname || !password || !passwordConfirm) {
       alert("모든 항목을 입력해주세요.");
+      return;
+    }
+
+    if (!agreedAll) {
+      alert("이용약관과 개인정보 처리방침에 동의해주세요.");
       return;
     }
 
@@ -130,6 +143,7 @@ function SignupPageContent() {
         auth_user_id: data.user.id,
         email,
         nickname,
+        agreed_terms_at: new Date().toISOString(),
       },
     ]);
 
@@ -171,7 +185,8 @@ function SignupPageContent() {
     !passwordConfirm ||
     !isValidEmail(email) ||
     !isValidPassword(password) ||
-    password !== passwordConfirm;
+    password !== passwordConfirm ||
+    !agreedAll;
 
   return (
     <div
@@ -349,6 +364,44 @@ function SignupPageContent() {
           <p style={errorTextStyle}>비밀번호가 일치하지 않습니다.</p>
         )}
 
+        {/* 약관 동의 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10, marginBottom: 4 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#333", cursor: "pointer" }}>
+            <button
+              type="button"
+              onClick={() => setAgreedTerms((v) => !v)}
+              style={{
+                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                border: `1.5px solid ${agreedTerms ? "#111" : "#ccc"}`,
+                background: agreedTerms ? "#111" : "white",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
+              }}
+            >
+              {agreedTerms && <Check size={12} color="white" />}
+            </button>
+            <span>
+              (필수) <button type="button" onClick={() => setShowTermsModal(true)} style={{ border: "none", background: "transparent", color: "#111", fontWeight: 700, textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 12.5 }}>이용약관</button>에 동의합니다
+            </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#333", cursor: "pointer" }}>
+            <button
+              type="button"
+              onClick={() => setAgreedPrivacy((v) => !v)}
+              style={{
+                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                border: `1.5px solid ${agreedPrivacy ? "#111" : "#ccc"}`,
+                background: agreedPrivacy ? "#111" : "white",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
+              }}
+            >
+              {agreedPrivacy && <Check size={12} color="white" />}
+            </button>
+            <span>
+              (필수) <button type="button" onClick={() => setShowPrivacyModal(true)} style={{ border: "none", background: "transparent", color: "#111", fontWeight: 700, textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 12.5 }}>개인정보 처리방침</button>에 동의합니다
+            </span>
+          </label>
+        </div>
+
         {/* 회원가입 버튼 */}
         <button
           onClick={handleSignup}
@@ -383,6 +436,9 @@ function SignupPageContent() {
           반려동물 동반 업장 사장님이신가요? 사장님으로 가입하기
         </button>
       </div>
+
+      {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} />}
+      {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
     </div>
   );
 }

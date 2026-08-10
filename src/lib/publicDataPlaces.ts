@@ -112,6 +112,11 @@ export async function fetchPublicDataPlaces(): Promise<any[]> {
     .filter((item: any) => item?.name && item?.lat && item?.lng)
     .map((item: any) => ({
       id: toNumericId(item.source_id),
+      // ⚠ 관리자가 이 장소를 지울 때 "실시간 API 출처(관광공사, tour-*)"는 숨김 처리,
+      // "CSV로 반입해둔 출처(식약처 foodsafety-*, 문화정보원 culture-*)"는 원본 테이블
+      // 행까지 완전 삭제해야 해서, 어느 소스인지 구분할 수 있도록 원본 source_id를
+      // 그대로 들고 다닙니다(place/[id]/page.tsx handleDeletePlace에서 사용).
+      sourceId: item.source_id as string,
       name: item.name,
       category: item.category ?? null,
       address: item.address ?? "",

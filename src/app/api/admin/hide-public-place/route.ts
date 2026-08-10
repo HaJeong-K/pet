@@ -6,6 +6,7 @@
 // 불러올 때 걸러내도록 합니다(scripts/sql/add-hidden-public-places.sql 참고).
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { purgePlaceRecords } from "@/lib/purgePlaceRecords";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,6 +56,13 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // ── 4. 이 장소에 딸린 리뷰·이미지·반응·통계 기록도 함께 정리 ──
+    // 숨김 처리만 하고 기록을 그대로 두면, 이후에도 리뷰/조회 이벤트가 남아있어
+    // "삭제했는데 통계에는 계속 잡힌다"는 문제가 생깁니다(실제로 겪은 원인 중 하나가
+    // /api/admin/analytics의 hidden_public_places 필터가 타입 불일치로 걸러내지
+    // 못하던 버그였는데, 그건 별도로 고쳤습니다 — 여기서는 애초에 기록 자체를 지웁니다).
+    await purgePlaceRecords(supabaseAdmin, placeId);
 
     return NextResponse.json({ success: true });
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { geocodeAddress } from "@/lib/geocodeAddress";
 import { approveProposal } from "@/lib/approveProposal";
+import { applyInfoUpdateProposal } from "@/lib/applyInfoUpdateProposal";
 import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
@@ -12,6 +13,7 @@ import {
   ChefHat, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
   X, Pencil, Save, MapPinCheckInside, PauseCircle, LandPlot, User, Trash2,
   Stethoscope, PawPrint, Home, Trees, Building2, ImageIcon, BadgeCheck,
+  MapPinPlus, Globe, CalendarOff, ParkingCircle, Ticket,
 } from "lucide-react";
 
 function PetZoneIcon({ zone, size = 11 }: { zone: string; size?: number }) {
@@ -196,8 +198,30 @@ export default function AdminProposalsPage() {
     setProposals(prev => prev.filter(p => p.id !== id));
   };
 
-  /* ── 승인 → places 테이블에 등록 (src/lib/approveProposal.ts 공용 로직) ── */
+  /* ── 승인 ──
+     - proposal_kind === "info_update": 이미 지도에 있는 장소의 빠진 정보를 채워달라는
+       제안 → src/lib/applyInfoUpdateProposal.ts (기존 행 UPDATE, 또는 공공데이터
+       출처 장소면 실제 행으로 승격)
+     - 그 외(기본값 "new_place"): 신규 장소 등록 제보 → 기존 approveProposal.ts (places INSERT) */
   const handleApprove = async (proposal: any) => {
+    if (proposal.proposal_kind === "info_update") {
+      const result = await applyInfoUpdateProposal(supabase, proposal);
+
+      if (!result.ok) {
+        const msg =
+          result.reason === "place_not_found" ? "대상 장소를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다." :
+          result.reason === "update_failed"    ? "장소 정보 업데이트 중 오류가 발생했습니다." :
+                                                  "장소 등록 중 오류가 발생했습니다.";
+        alert(msg);
+        return;
+      }
+
+      await supabase.from("proposals").update({ status: "approved", is_resolved: true }).eq("id", proposal.id);
+      setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true } : p));
+      alert(`"${proposal.place_name}" 장소에 제안하신 정보가 반영되었습니다.`);
+      return;
+    }
+
     const result = await approveProposal(supabase, proposal);
 
     if (!result.ok) {
@@ -351,6 +375,15 @@ export default function AdminProposalsPage() {
                       display:"flex", alignItems:"center", justifyContent:"space-between",
                     }}>
                       <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        {tip.proposal_kind === "info_update" && (
+                          <span style={{
+                            fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:800,
+                            background:"linear-gradient(135deg,#3b82f6,#2563eb)", color:"white",
+                            display:"flex", alignItems:"center", gap:3,
+                          }} title="이미 있는 장소의 빠진 정보를 채워달라는 제안">
+                            <MapPinPlus size={10}/>정보 추가 제안
+                          </span>
+                        )}
                         {tip.is_owner_request && (
                           <span style={{
                             fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:800,
@@ -468,6 +501,10 @@ export default function AdminProposalsPage() {
 
                           <FieldRow icon={<Bone size={12} color="#5C7A4A"/>}         label="펫 메뉴"  fieldKey="pet_menu"   value={tip.pet_menu}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           <FieldRow icon={<Phone size={12} color="#5C7A4A"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Globe size={12} color="#5C7A4A"/>}        label="홈페이지" fieldKey="website"    value={tip.website}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<CalendarOff size={12} color="#5C7A4A"/>}  label="휴무일"   fieldKey="closed_days" value={tip.closed_days} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<ParkingCircle size={12} color="#5C7A4A"/>} label="주차"    fieldKey="parking"    value={tip.parking}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Ticket size={12} color="#5C7A4A"/>}       label="입장료"   fieldKey="entry_fee"  value={tip.entry_fee}  proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           {tip.category === "동물병원" && (
                             <>
                               <FieldRow icon={<Stethoscope size={12} color="#5C7A4A"/>} label="진료과목" fieldKey="specialty_department" value={tip.specialty_department} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
@@ -490,6 +527,10 @@ export default function AdminProposalsPage() {
                           )}
                           {tip.pet_menu && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Bone size={11} color="#5C7A4A"/>{tip.pet_menu}</span>}
                           {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#5C7A4A"/>{tip.phone}</span>}
+                          {tip.website     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Globe size={11} color="#5C7A4A"/>{tip.website}</span>}
+                          {tip.closed_days && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><CalendarOff size={11} color="#5C7A4A"/>{tip.closed_days}</span>}
+                          {tip.parking     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ParkingCircle size={11} color="#5C7A4A"/>{tip.parking}</span>}
+                          {tip.entry_fee   && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Ticket size={11} color="#5C7A4A"/>{tip.entry_fee}</span>}
                           {tip.category === "동물병원" && (
                             <span style={{ fontSize:11, color:"#1d4ed8", background:"#eff6ff", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
                               <Stethoscope size={11} color="#2563eb"/>{tip.specialty_department || "종합진료"}
@@ -567,7 +608,7 @@ export default function AdminProposalsPage() {
                             }}
                           >
                             <MapPinCheckInside size={14} />
-                            {tip.status === "on_hold" ? "장소 등록" : "승인"}
+                            {tip.proposal_kind === "info_update" ? "정보 반영" : tip.status === "on_hold" ? "장소 등록" : "승인"}
                           </button>
 
                           {/* 삭제 버튼 */}

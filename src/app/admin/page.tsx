@@ -127,8 +127,8 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* ── 시안 .stat-grid 스펙: 아이콘 없는 4개 플랫 카드 ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
+            {/* ── 시안 .stat-grid 스펙: 아이콘 없는 플랫 카드 (가입 회원 옆에 비가입 이용자 추가로 5개) ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/reports")}
@@ -159,6 +159,12 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>가입 회원</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalMembers}
+                </div>
+              </div>
+              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>비가입 이용자</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
+                  {loading ? "–" : stats.totalGuests}
                 </div>
               </div>
             </div>

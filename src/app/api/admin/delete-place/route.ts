@@ -1,6 +1,7 @@
 // app/api/admin/delete-place/route.ts
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { purgePlaceRecords } from "@/lib/purgePlaceRecords";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,47 +42,9 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "placeId 오류" }, { status: 400 });
     }
 
-    // ── 3. 리뷰 ID 목록 조회
-    const { data: reviews } = await supabaseAdmin
-      .from("reviews")
-      .select("id")
-      .eq("place_id", placeId);
-
-    const reviewIds = (reviews || []).map((r: any) => r.id);
-
-    // ── 4. 답글 ID 목록 조회 → reply_likes 삭제
-    if (reviewIds.length > 0) {
-      const { data: replyRows } = await supabaseAdmin
-        .from("review_replies")
-        .select("id")
-        .in("review_id", reviewIds);
-
-      const replyIds = (replyRows || []).map((r: any) => r.id);
-
-      if (replyIds.length > 0) {
-        await supabaseAdmin
-          .from("reply_likes")
-          .delete()
-          .in("reply_id", replyIds);
-      }
-
-      // 답글·리뷰 좋아요 삭제
-      await Promise.all([
-        supabaseAdmin.from("review_replies").delete().in("review_id", reviewIds),
-        supabaseAdmin.from("review_likes").delete().in("review_id", reviewIds),
-      ]);
-    }
-
-    // ── 5. 장소 관련 전체 삭제
-    await Promise.all([
-      supabaseAdmin.from("reviews").delete().eq("place_id", placeId),
-      supabaseAdmin.from("place_images").delete().eq("place_id", placeId),
-      supabaseAdmin.from("reactions").delete().eq("place_id", placeId),
-      supabaseAdmin
-        .from("reports")
-        .update({ is_resolved: true })
-        .eq("place_id", placeId),
-    ]);
+    // ── 3~5. 리뷰/답글/좋아요/이미지/반응/신고/통계 기록 정리 (공용 로직 — hide-public-place,
+    // delete-public-data-place 라우트와 동일한 순서로 처리합니다. src/lib/purgePlaceRecords.ts 참고)
+    await purgePlaceRecords(supabaseAdmin, placeId);
 
     // ── 6. 장소 본체 삭제
     const { error: placeError } = await supabaseAdmin

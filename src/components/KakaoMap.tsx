@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { calculateRecommendScore } from "@/lib/recommend";
+import { isPlacePremiumNow } from "@/lib/premium";
+import {
+  buildRoute, formatEstimatedTime, ROUTE_THEME_LABEL,
+  type RouteTheme, type RouteResult,
+} from "@/lib/routeRecommend";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent } from "@/lib/analytics";
@@ -13,8 +19,10 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
   ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
-  Search, Bot, List,
+  Search, Bot, List, Crown, Store, Route as RouteIcon,
+  Footprints, Coffee, Landmark, CloudRain, Navigation,
 } from "lucide-react";
+import OwnerUpgradeForm from "@/components/OwnerUpgradeForm";
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
 // 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
@@ -26,6 +34,7 @@ declare global {
   interface Window {
     kakao: any;
     selectPlace: (id: number) => void;
+    selectPark: (id: number) => void;
   }
 }
 
@@ -43,6 +52,20 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 const getPlaceEmoji = (place: any) =>
   CATEGORY_EMOJI[place?.category] || PET_ZONE_EMOJI[place?.pet_zone] || null;
+
+// ── AI 맞춤 추천 경로 테마 탭 아이콘
+const ROUTE_THEME_ICON: Record<RouteTheme, typeof Footprints> = {
+  walk: Footprints,
+  cafe: Coffee,
+  attraction: Landmark,
+  indoor: Store,
+  rainy: CloudRain,
+};
+
+// 산책 중심/비 오는 날/실내 추천은 "동네를 벗어나지 않는" 코스를 원한다는 요구사항이라,
+// 이 세 테마만 후보를 현재 읍/면/동 안으로 좁힙니다. 카페 중심/관광 중심은 원래도
+// 반경 15km 전체에서 후보를 찾습니다(일부러 더 멀리까지 볼 수 있게 둔 테마라 그대로 둡니다).
+const DONG_RESTRICTED_THEMES: RouteTheme[] = ["walk", "rainy", "indoor"];
 
 const getPlaceLabel = (place: any) =>
   CATEGORY_EMOJI[place?.category]
@@ -123,21 +146,6 @@ const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-// ── 특정 좌표를 중심으로 "반경 radiusKm" 정도가 화면에 보이도록 지도 범위를 잡는 헬퍼 ──
-// 예전에는 setCenter()로 중심만 옮기고 확대 레벨은 그대로 뒀는데(초기 level:4는 실제로
-// 반경 1km 남짓만 보여서), 리스트 패널이 참고하는 mapBounds(화면에 보이는 사각형)도
-// 그만큼 좁아져 "5km 이내" 장소 상당수가 화면 밖으로 밀려나 리스트에 안 뜨는 문제가
-// 있었습니다. setCenter 대신 setBounds로 위경도 기준 반경 5km 사각 범위를 직접 지정하면,
-// 카카오맵이 그 범위가 다 보이도록 확대 레벨을 자동으로 계산해줘서 정확히 "5km 이내"가
-// 화면(및 리스트)에 들어옵니다.
-const boundsAroundKm = (lat: number, lng: number, radiusKm: number) => {
-  const latDelta = radiusKm / 111; // 위도 1도 ≈ 111km
-  const lngDelta = radiusKm / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180))); // 경도는 위도에 따라 보정
-  const sw = new window.kakao.maps.LatLng(lat - latDelta, lng - lngDelta);
-  const ne = new window.kakao.maps.LatLng(lat + latDelta, lng + lngDelta);
-  return new window.kakao.maps.LatLngBounds(sw, ne);
-};
-
 const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   try {
     const res = await fetch(
@@ -149,6 +157,26 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     if (region) return region.region_2depth_name || "";
   } catch {}
   return "";
+};
+
+// ── AI 맞춤 추천 경로: "산책 중심/비 오는 날/실내 추천" 코스는 읍/면/동을 벗어나지
+// 않게 해달라는 요구사항 때문에 필요한, 좌표 → 읍/면/동(region_3depth_name) 조회입니다.
+// coord2regioncode는 위 reverseGeocode(시군구, 2depth)와 같은 엔드포인트를 쓰지만
+// 3depth(읍/면/동)까지 내려가야 해서 별도 함수로 뒀습니다.
+const reverseGeocodeDong = async (lat: number, lng: number): Promise<string> => {
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
+      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
+    );
+    const data = await res.json();
+    // 법정동(B)과 행정동(H) 문서가 둘 다 올 수 있는데, 주소 문자열 매칭에는 행정동이
+    // 더 흔히 쓰이는 표기라 H를 우선하고 없으면 첫 문서를 씁니다.
+    const region = data.documents?.find((d: any) => d.region_type === "H") || data.documents?.[0];
+    return region?.region_3depth_name || "";
+  } catch {
+    return "";
+  }
 };
 
 export default function KakaoMap() {
@@ -163,6 +191,11 @@ export default function KakaoMap() {
   const [session, setSession] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
+  // ── 사장님 등록(전환) 버튼 — 로그인 상태면 OwnerUpgradeForm 모달, 비로그인이면
+  // /signup-owner(OwnerSignupForm)로 이동합니다.
+  const [showOwnerRegisterModal, setShowOwnerRegisterModal] = useState(false);
+  const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
+
   const [wideView, setWideView] = useState(false);
   const savedLevelRef = useRef<number>(4);
 
@@ -171,11 +204,27 @@ export default function KakaoMap() {
   // ── 클러스터링용: 넓은 줌에서 쓰는 경량 Marker + MarkerClusterer
   const clustererRef = useRef<any>(null);
   const clusterMarkersRef = useRef<any[]>([]);
+  // ── 공원 마커: places와 완전히 별도 레이어라 refs/클러스터러도 따로 둡니다
+  // (places 마커 로직을 건드리지 않고 독립적으로 켜고 끌 수 있도록).
+  const parkMarkerMapRef = useRef<Map<number, any>>(new Map());
+  const parkClustererRef = useRef<any>(null);
+  const parkClusterMarkersRef = useRef<any[]>([]);
+  const [selectedPark, setSelectedPark] = useState<ParkPlace | null>(null);
+  const [showParks, setShowParks] = useState(true);
   // ── 현위치 오버레이
   const locationOverlayRef = useRef<any>(null);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userRegion, setUserRegion] = useState<string>("");
+  // ⚠ 예전엔 지도를 항상 서울시청 좌표로 먼저 넓게 그린 뒤, 위치가 확인되면 그제서야
+  // 사용자 위치로 "점프"했습니다 — 캐시된 위치가 있는 재방문자도 매번 이 깜빡임을
+  // 봤고, 첫 방문자는 위치가 잡히기 전까지 엉뚱하게 넓은 지도를 봐야 했습니다.
+  // pendingLocationRef에 "지도를 만들 때 쓸 최신 위치"를 미리 담아두고(캐시가
+  // 있으면 캐시, 없으면 null), 실제 지도 객체(mapRef.current)를 만드는 순간 이
+  // 값으로 바로 중심을 잡습니다. locating은 캐시가 없어 위치 확인을 기다려야 하는
+  // 첫 방문자에게만 "위치 확인 중" 오버레이를 보여주기 위한 상태입니다.
+  const pendingLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(true);
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
@@ -242,11 +291,31 @@ export default function KakaoMap() {
   };
 
   const selectPlaceRef = useRef<(id: number) => void>(() => {});
+  const selectParkRef = useRef<(id: number) => void>(() => {});
   const [places, setPlaces] = useState<any[]>([]);
+  // ⚠ 공원은 "장소"가 아니라 추천 점수 + 별도 마커 레이어에 쓰는 보조 데이터라 places
+  // state와 분리해뒀습니다 — 리뷰/신고/상세페이지 같은 장소 엔티티 구조가 없어서, places에
+  // 섞으면 마커 클릭 시 상세 모달이 깨집니다. 대신 자체 마커 레이어 + 가벼운 정보 카드로
+  // 별도 표시합니다(아래 selectedPark).
+  const [parks, setParks] = useState<ParkPlace[]>([]);
   const [selectedPetZone, setSelectedPetZone] = useState("all");
   const [showRecommendPanel, setShowRecommendPanel] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<any | null>(null);
   const [showRecentPanel, setShowRecentPanel] = useState(false);
+
+  // ── AI 맞춤 추천 경로(산책 코스) ──
+  const [showRoutePanel, setShowRoutePanel] = useState(false);
+  const [routeTheme, setRouteTheme] = useState<RouteTheme>("walk");
+  const routePolylineRef = useRef<any>(null);
+  const routeMarkerOverlaysRef = useRef<any[]>([]);
+
+  // ── 찜/좋아요 인기도 집계 — 장소별 {bookmarks, likes}. 추천 장소 정렬과 AI 코스
+  // 정거장 선정 둘 다 이 맵을 참고합니다(recommend.ts의 popularityBonus).
+  const [popularityMap, setPopularityMap] = useState<Map<string, { bookmarks: number; likes: number }>>(new Map());
+
+  // ── AI 코스 "산책 중심/비 오는 날/실내 추천" 테마 전용: 현재 중심 좌표가 속한
+  // 읍/면/동 이름. 이 세 테마는 후보를 이 동 안으로만 좁힙니다(아래 DONG_RESTRICTED_THEMES).
+  const [routeDongName, setRouteDongName] = useState<string | null>(null);
 
   // ── 반응형: 리스트/신규 장소/추천 장소 패널이 화면 폭에 맞게 겹치지 않도록.
   // 좁은 화면(모바일 세로, 분할화면 등)에서는 리스트 패널을 기본으로 숨기고 토글로만
@@ -280,9 +349,29 @@ export default function KakaoMap() {
   // 있는데, 그 오차가 리스트/넓게보기 버튼 위치를 예전과 다르게 보이게 했습니다.
   const panelTop = isNarrowScreen ? `${headerHeight + 12}px` : "122px";
 
+  // ⚠ 마커를 누르면(이름표 pill이든 클러스터 해제 후 개별 마커든 전부 이 함수를
+  // 거칩니다) 하단 카드만 뜨고 지도는 그대로였는데, 마커가 화면 가장자리에 걸쳐
+  // 있으면 카드에 가려 잘 안 보였습니다. 리스트 항목 클릭 때처럼 지도도 그 위치로
+  // 중심 이동시킵니다.
   selectPlaceRef.current = (id: number) => {
     const found = places.find((p) => p.id === id);
-    if (found) setSelectedPlace(found);
+    if (!found) return;
+    setSelectedPlace(found);
+    const lat = parseFloat(found.lat);
+    const lng = parseFloat(found.lng);
+    if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+    }
+  };
+  selectParkRef.current = (id: number) => {
+    const found = parks.find((p) => p.id === id);
+    if (!found) return;
+    setSelectedPark(found);
+    const lat = parseFloat(found.lat);
+    const lng = parseFloat(found.lng);
+    if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+    }
   };
 
   const getButtonStyle = (type: string) => ({
@@ -325,12 +414,29 @@ export default function KakaoMap() {
       // 돌려줘서, places가 1000건을 넘어가는 순간부터 나머지가 조용히 지도에서 빠집니다.
       const [{ data: { session } }, placesData] = await Promise.all([
         supabase.auth.getSession(),
-        fetchAllRows("places", "id, name, lat, lng, pet_zone, category, address, image_url, created_at"),
+        fetchAllRows("places", "id, name, lat, lng, pet_zone, category, address, image_url, created_at, is_premium, premium_expires_at"),
       ]);
       if (cancelled) return;
       setSession(session);
       setPlaces(placesData || []);
       if (session?.user) await createUserProfile(session.user);
+
+      // ⚠ 찜/좋아요 인기도 집계는 지도 첫 렌더를 막지 않도록 await하지 않고 따로 흘려보냅니다
+      // — 도착하는 대로 recommend.ts 점수 계산에 반영되면 충분하지, 마커가 뜨는 걸
+      // 늦출 이유가 없습니다. place_id만 보고 카운트하므로 실제 places 행이 없는
+      // 공공데이터 장소(합성 숫자 id)도 동일하게 집계됩니다.
+      fetchAllRows("reactions", "place_id, type").then((rows) => {
+        if (cancelled) return;
+        const counts = new Map<string, { bookmarks: number; likes: number }>();
+        for (const row of rows) {
+          const key = String(row.place_id);
+          const entry = counts.get(key) || { bookmarks: 0, likes: 0 };
+          if (row.type === "bookmark") entry.bookmarks += 1;
+          else if (row.type === "like") entry.likes += 1;
+          counts.set(key, entry);
+        }
+        setPopularityMap(counts);
+      });
       if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
@@ -339,9 +445,27 @@ export default function KakaoMap() {
       const publicDataPlaces = await fetchPublicDataPlaces();
       if (cancelled) return;
       setPlaces((prev) => [...prev, ...publicDataPlaces]);
+
+      // ⚠ 공원 데이터는 data.go.kr 오픈API(SERVICETIMEOUT_ERROR) 자체가 아직 불안정해서
+      // parks 테이블이 비어있는 상태입니다 — 당분간 fetch 자체를 꺼둡니다(parks는 계속
+      // 빈 배열이라 마커/추천 가점 코드는 그대로 있어도 자동으로 아무 영향이 없지만,
+      // 굳이 매번 빈 결과를 기다릴 이유가 없어 아예 호출을 건너뜁니다). 나중에 API가
+      // 복구되면 아래 두 줄만 다시 살리면 됩니다.
+      // const parkPlaces = await fetchParks();
+      // if (cancelled) return;
+      // setParks(parkPlaces);
     };
     init();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async () => {});
+    // ⚠ 예전엔 이 콜백이 비어 있어서(auth 이벤트를 구독만 하고 아무것도 안 함), 로그인
+    // 직후 세션이 비동기로 복원되는 타이밍(토큰 자동 갱신 등)에 이 컴포넌트의 session
+    // state가 갱신되지 않는 경우가 있었습니다. 그 결과 실제로는 로그인된 상태인데도
+    // "사장님 등록" 버튼이 session을 null로 보고 비회원 가입 폼(이메일/비밀번호 입력)으로
+    // 잘못 보내는 문제가 있었습니다. 이제 세션이 바뀔 때마다 실제로 반영합니다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      if (cancelled) return;
+      setSession(newSession);
+      if (newSession?.user) await createUserProfile(newSession.user);
+    });
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
 
@@ -365,31 +489,54 @@ export default function KakaoMap() {
       const lng = parseFloat(savedLng);
       setUserLocation({ lat, lng });
       setUserRegion(savedRegion);
+      // ⚠ 이 효과는 mapReady를 기다리지 않고 마운트되자마자 실행됩니다(카카오 SDK
+      // 로딩과 병렬로) — 그래서 이 시점엔 아직 지도 객체가 없을 수 있습니다.
+      // pendingLocationRef에 담아두면 initializeMap()이 지도를 만드는 순간 바로
+      // 이 좌표를 최초 중심으로 씁니다. 이미 지도가 있으면(예: 재검색 등) 그대로
+      // 바로 반영합니다.
+      pendingLocationRef.current = { lat, lng };
       if (mapRef.current) {
-        mapRef.current.setBounds(boundsAroundKm(lat, lng, 5));
+        // ⚠ setBounds(반경 5km 상자)로 맞추면, 상자는 정사각형에 가까운데 화면은
+        // 보통 훨씬 가로로 넓어서(특히 데스크톱 모니터) 세로 기준으로 맞추다가
+        // 가로로는 실제 10km~20km 이상 보이는 "너무 넓은 지도"가 돼버렸습니다.
+        // "내 위치로" 버튼(moveToMyLocation)과 똑같이 고정 레벨 3(골목이 보이는
+        // 수준)을 써서 화면 비율과 무관하게 항상 같은 확대 정도로 보여줍니다.
+        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
+        mapRef.current.setLevel(3);
+        mapRef.current.relayout();
       }
+      // 캐시가 있으면 "위치 확인 중" 오버레이 없이 바로 그 위치로 보여줍니다.
+      setLocating(false);
     }
 
     // 캐시 유무와 무관하게 항상 최신 GPS 위치를 다시 조회해 갱신(여행지 이동 반영).
     // 권한 거부/조회 실패 시엔 위에서 세팅한 캐시 값이 그대로 유지됩니다.
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) { setLocating(false); return; }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setUserLocation({ lat: latitude, lng: longitude });
         setSearchCenter(null); // 실제 위치가 갱신되면 이전 검색 기준 중심은 초기화
+        pendingLocationRef.current = { lat: latitude, lng: longitude };
         if (mapRef.current) {
-          mapRef.current.setBounds(boundsAroundKm(latitude, longitude, 5));
+          mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
+          mapRef.current.setLevel(3);
+          mapRef.current.relayout();
         }
+        setLocating(false);
         const region = await reverseGeocode(latitude, longitude);
         setUserRegion(region);
         localStorage.setItem("user_lat", String(latitude));
         localStorage.setItem("user_lng", String(longitude));
         localStorage.setItem("user_region", region);
       },
-      () => { /* 조회 실패/거부 — 캐시(있다면)를 그대로 유지 */ }
+      () => { setLocating(false); /* 조회 실패/거부 — 캐시(있다면)를 그대로 유지 */ },
+      // ⚠ 기본(enableHighAccuracy: false)이면 데스크톱/일부 기기에서 IP·와이파이 기반의
+      // 부정확한 위치(가끔 "엉뚱한 곳")를 줄 수 있어 정확도를 우선합니다. maximumAge로
+      // 5분 이내 캐시된 OS 위치는 재사용해 첫 확인 속도도 함께 개선합니다.
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 }
     );
-  }, [mapReady]);
+  }, []);
 
   // ── 현위치 파란 점 오버레이
   useEffect(() => {
@@ -457,7 +604,14 @@ export default function KakaoMap() {
     } else if (selectedPetZone === "pharmacy") {
       return places.filter((p) => p.category === "동물약국");
     } else if (selectedPetZone !== "all") {
-      return places.filter((p) => p.pet_zone === selectedPetZone);
+      // ⚠ 동물병원·동물약국은 문화정보원 원본 CSV의 "실내/실외 여부" 컬럼값을 그대로
+      // 받아 pet_zone이 채워져 있어서(예: 동물약국이 indoor로 표기), "실내 가능"
+      // 등 실내외 분류 필터에도 중복으로 걸려 나왔습니다. 이 두 카테고리는 애초에
+      // "반려동물과 함께 머무는 공간"의 실내외 구분과 성격이 달라 전용 버튼(동물병원/
+      // 동물약국)으로만 찾도록 하고, 실내/야외/실내외 모두 필터에서는 제외합니다.
+      return places.filter(
+        (p) => p.pet_zone === selectedPetZone && p.category !== "동물병원" && p.category !== "동물약국"
+      );
     }
     return places;
   }, [places, selectedPetZone]);
@@ -610,6 +764,35 @@ export default function KakaoMap() {
       if (nearby.length >= 10) candidates = nearby;
     }
 
+    // ⚠ 공원 후보도 같은 30km 박스로 미리 좁혀둡니다 — 전국 공원 수천 건을 장소 하나마다
+    // 매번 전부 순회하면 O(장소 수 × 공원 수)라 느려집니다. 박스 필터로 좁힌 뒤에는
+    // 장소 하나당 "근처 공원 중 최단 거리"만 계산하면 되므로 충분히 가볍습니다.
+    let nearbyParks = parks;
+    if (center) {
+      const RADIUS_KM = 30;
+      const latDelta = RADIUS_KM / 111;
+      const lngDelta = RADIUS_KM / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
+      nearbyParks = parks.filter((park) => {
+        const lat = parseFloat(park.lat);
+        const lng = parseFloat(park.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return Math.abs(lat - center.lat) <= latDelta && Math.abs(lng - center.lng) <= lngDelta;
+      });
+    }
+
+    const nearestParkDistanceKm = (lat: number, lng: number): number | null => {
+      if (isNaN(lat) || isNaN(lng) || nearbyParks.length === 0) return null;
+      let min = Infinity;
+      for (const park of nearbyParks) {
+        const pLat = parseFloat(park.lat);
+        const pLng = parseFloat(park.lng);
+        if (isNaN(pLat) || isNaN(pLng)) continue;
+        const d = getDistance(lat, lng, pLat, pLng);
+        if (d < min) min = d;
+      }
+      return Number.isFinite(min) ? min : null;
+    };
+
     const scoreOf = (place: any) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
@@ -618,36 +801,129 @@ export default function KakaoMap() {
       const matchesSelectedFilter =
         selectedPetZone !== "all" &&
         (place.pet_zone === selectedPetZone || (filterCategory && place.category === filterCategory));
+      const popularity = popularityMap.get(String(place.id));
       return calculateRecommendScore({
         distanceKm,
         matchesSelectedFilter: !!matchesSelectedFilter,
         largeDog: place.large_dog,
         createdAt: place.created_at,
+        distanceToNearestParkKm: nearestParkDistanceKm(lat, lng),
+        isPremium: isPlacePremiumNow(place),
+        bookmarkCount: popularity?.bookmarks,
+        likeCount: popularity?.likes,
       });
     };
     return [...candidates]
       .map((place) => ({ place, score: scoreOf(place) }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [filteredPlaces, userLocation, searchCenter, selectedPetZone]);
+  }, [filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap]);
+
+  // ── 산책 중심/비 오는 날/실내 추천 테마일 때만, 중심 좌표가 속한 읍/면/동을 조회합니다.
+  // useMemo는 동기 함수라 fetch를 못 하므로, 별도 effect로 미리 구해서 state에 담아두고
+  // currentRoute useMemo는 이 값을 참고만 하도록 분리했습니다.
+  useEffect(() => {
+    if (!showRoutePanel || !DONG_RESTRICTED_THEMES.includes(routeTheme)) return;
+    // AI 코스는 항상 "현재 내 위치"를 출발지로 삼습니다 — searchCenter(검색/지도 이동으로
+    // 바뀐 중심)가 있어도 코스 추천 목적에서는 우선순위를 낮춥니다(위치 권한이 없어
+    // userLocation을 못 구했을 때만 searchCenter로 대체).
+    const center = userLocation || searchCenter;
+    if (!center) return;
+    let cancelled = false;
+    reverseGeocodeDong(center.lat, center.lng).then((dong) => {
+      if (!cancelled) setRouteDongName(dong || null);
+    });
+    return () => { cancelled = true; };
+  }, [showRoutePanel, routeTheme, searchCenter, userLocation]);
+
+  // ── AI 맞춤 추천 경로: 현재 위치(또는 검색 중심) 주변 후보를 테마에 맞는 역할
+  // 순서(산책/카페/관광/동물병원/동물약국)로 엮어 하나의 코스로 만듭니다. 반경 15km
+  // 이내에서 후보를 찾고(아직 지역별로 등록된 장소 수가 적어 너무 좁으면 코스 자체가
+  // 안 만들어질 때가 많습니다), 그래도 부족하면 30km까지 한 번 더 넓혀서 재시도합니다.
+  // 산책 중심/비 오는 날/실내 추천은 여기서 한 번 더 "같은 읍/면/동" 후보로만 좁힙니다
+  // (routeDongName — 위 effect가 미리 조회해둔 값).
+  const currentRoute = useMemo<RouteResult | null>(() => {
+    if (!showRoutePanel) return null;
+    // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
+    // 우선순위). searchCenter는 위치 권한이 없을 때만 대체로 씁니다.
+    const center = userLocation || searchCenter;
+    if (!center) return null;
+
+    const ROUTE_RADIUS_KM = 15;
+    const latDelta = ROUTE_RADIUS_KM / 111;
+    const lngDelta = ROUTE_RADIUS_KM / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
+    let nearby = places.filter((place) => {
+      const lat = parseFloat(place.lat);
+      const lng = parseFloat(place.lng);
+      if (isNaN(lat) || isNaN(lng)) return false;
+      return Math.abs(lat - center.lat) <= latDelta && Math.abs(lng - center.lng) <= lngDelta;
+    });
+    // 반경 안 후보가 너무 적으면(외곽 지역 등) 반경을 한 번 더 넓혀서 재시도합니다.
+    if (nearby.length < 4) {
+      const wideKm = 30;
+      const wLatDelta = wideKm / 111;
+      const wLngDelta = wideKm / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
+      nearby = places.filter((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return Math.abs(lat - center.lat) <= wLatDelta && Math.abs(lng - center.lng) <= wLngDelta;
+      });
+    }
+
+    // 산책 중심/비 오는 날/실내 추천: 같은 읍/면/동 주소를 가진 곳으로만 좁힙니다.
+    // routeDongName은 위 effect가 비동기로 조회해오는 값이라, 패널을 막 열었거나 테마를
+    // 막 바꾼 순간에는 아직 null일 수 있습니다 — 그 짧은 순간엔 반경 기준 결과를 그대로
+    // 보여주다가, 동 이름이 도착하면 자동으로 좁혀서 다시 그립니다(로딩 때문에 패널이
+    // 잠깐 비어 보이는 것보다 낫다고 판단했습니다). 좁힌 결과가 2곳 미만이면
+    // buildRoute가 null을 반환하고, 패널은 "장소가 충분하지 않습니다" 안내를 보여줍니다.
+    if (DONG_RESTRICTED_THEMES.includes(routeTheme) && routeDongName) {
+      nearby = nearby.filter((place) => typeof place.address === "string" && place.address.includes(routeDongName));
+    }
+
+    // 인기도(찜/좋아요)를 후보에 얹어서 buildRoute가 정거장 선정·친화도 점수 계산에
+    // 반영할 수 있게 합니다.
+    const nearbyWithPopularity = nearby.map((place) => {
+      const popularity = popularityMap.get(String(place.id));
+      return { ...place, bookmarkCount: popularity?.bookmarks ?? 0, likeCount: popularity?.likes ?? 0 };
+    });
+
+    return buildRoute(nearbyWithPopularity, center, routeTheme, 4);
+  }, [showRoutePanel, places, userLocation, searchCenter, routeTheme, popularityMap, routeDongName]);
 
   // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
     window.selectPlace = (id: number) => selectPlaceRef.current(id);
+    window.selectPark = (id: number) => selectParkRef.current(id);
     const initializeMap = () => {
       const container = document.getElementById("map");
       if (!container) return;
+
+      // ⚠ 캐시된 위치(pendingLocationRef, 마운트 시 다른 효과가 동기적으로 채워둠)가
+      // 있으면 처음부터 그 좌표로 지도를 그립니다 — 서울 기본 좌표로 잠깐 그렸다가
+      // 사용자 위치로 점프하는 깜빡임을 없애기 위함입니다. 캐시가 없는 첫 방문자만
+      // 서울(대략 한국 중심부)을 임시로 쓰고, GPS가 확인되는 대로 아래 위치 이펙트가
+      // 바로 그 위치로 다시 잡아줍니다.
+      const initial = pendingLocationRef.current ?? { lat: 37.5665, lng: 126.978 };
+
+      // ⚠ 예전엔 여기서 setBounds(반경 5km 상자)로 초기 확대 정도를 잡았는데, 상자가
+      // 정사각형에 가까운 반면 화면(특히 데스크톱 와이드 모니터)은 가로로 훨씬 넓어서
+      // 세로를 기준으로 맞추면 가로로는 10~20km 이상 보이는 "너무 넓은 지도"가
+      // 됐습니다. "내 위치로" 버튼(moveToMyLocation)과 똑같이 고정 레벨 3(골목이
+      // 보이는 수준)을 써서 화면 비율과 무관하게 항상 같은 확대 정도로 시작합니다.
       mapRef.current = new window.kakao.maps.Map(container, {
-        center: new window.kakao.maps.LatLng(37.5665, 126.978),
-        level: 4,
+        center: new window.kakao.maps.LatLng(initial.lat, initial.lng),
+        level: 3,
         scrollwheel: true,
         disableDoubleClickZoom: false,
       });
       mapRef.current.setZoomable(true);
-      // 초기 level:4는 실제로는 반경 1km 남짓만 보여서, 사용자 위치가 아직 안 잡힌
-      // 첫 화면(또는 위치 조회 실패 시)에도 최소 5km 반경은 보이도록 맞춰둡니다.
-      // 위치가 확인되면 아래 userLocation 이펙트가 그 위치 기준 5km로 다시 잡습니다.
-      mapRef.current.setBounds(boundsAroundKm(37.5665, 126.978, 5));
+      // ⚠ 지도 컨테이너가 아직 완전히 레이아웃/페인트되기 전에 생성이 실행되면 카카오맵이
+      // 컨테이너 크기를 잘못 계산하는 경우가 있었습니다. relayout()으로 실제 크기를
+      // 다시 계산시켜 바로잡되, 센터/레벨은 고정값이라 relayout으로 흔들리지 않습니다.
+      mapRef.current.relayout();
+      mapRef.current.setCenter(new window.kakao.maps.LatLng(initial.lat, initial.lng));
+      mapRef.current.setLevel(3);
       setMapReady(true);
     };
 
@@ -832,6 +1108,216 @@ export default function KakaoMap() {
     };
   }, [filteredPlaces, mapReady]);
 
+  // ── 공원 마커 (places와 완전히 별도 레이어) ──
+  // ⚠ 공원은 "장소"가 아니라 리뷰/신고/상세페이지 구조가 없어서, 클릭해도 상세 모달을
+  // 열지 않고 이름/구분/면적/시설 메모만 보여주는 가벼운 정보 카드(selectedPark)만 띄웁니다.
+  // 전국 19,199건 규모라 places와 똑같이 "좁은 줌=이름표 pill / 넓은 줌=클러스터" +
+  // 뷰포트 기준 필터링을 그대로 적용해 성능 문제를 피합니다. showParks 토글로 끌 수 있습니다.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
+
+    const clearParkDetailMarkers = () => {
+      parkMarkerMapRef.current.forEach((overlay) => overlay.setMap(null));
+      parkMarkerMapRef.current.clear();
+    };
+    const clearParkClusterMarkers = () => {
+      parkClustererRef.current?.clear();
+      parkClusterMarkersRef.current = [];
+    };
+
+    if (!showParks || parks.length === 0) {
+      clearParkDetailMarkers();
+      clearParkClusterMarkers();
+      return;
+    }
+
+    if (!parkClustererRef.current && window.kakao.maps.MarkerClusterer) {
+      parkClustererRef.current = new window.kakao.maps.MarkerClusterer({
+        map: null,
+        averageCenter: true,
+        minLevel: CLUSTER_ZOOM_THRESHOLD,
+        disableClickZoom: false,
+        calculator: [10, 50, 100],
+        styles: [
+          { width: "30px", height: "30px", background: "rgba(76,140,74,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "30px", fontSize: "11px", fontWeight: "700" },
+          { width: "38px", height: "38px", background: "rgba(58,116,56,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "38px", fontSize: "12px", fontWeight: "700" },
+          { width: "46px", height: "46px", background: "rgba(43,94,41,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "46px", fontSize: "13px", fontWeight: "700" },
+        ],
+      });
+    }
+
+    const renderParkDetailMarkers = () => {
+      clearParkClusterMarkers();
+      const bounds = map.getBounds();
+      clearParkDetailMarkers();
+
+      parks.forEach((park) => {
+        const lat = parseFloat(park.lat);
+        const lng = parseFloat(park.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+        const position = new window.kakao.maps.LatLng(lat, lng);
+        if (!bounds.contain(position)) return;
+
+        const overlay = new window.kakao.maps.CustomOverlay({
+          position,
+          content: `
+            <div
+              onclick="window.selectPark(${park.id})"
+              style="
+                background:#eef6ec;
+                border-radius:999px;
+                padding:4px 9px;
+                font-size:10px;
+                font-weight:600;
+                font-family:'Noto Sans KR',sans-serif;
+                box-shadow:0 2px 6px rgba(0,0,0,0.12);
+                cursor:pointer;
+                white-space:nowrap;
+                user-select:none;
+                border:1px solid rgba(58,116,56,0.25);
+                color:#2b5e29;
+              "
+            >
+              🌳 ${park.name}
+            </div>
+          `,
+          yAnchor: 1,
+          zIndex: 2,
+        });
+        overlay.setMap(map);
+        parkMarkerMapRef.current.set(park.id, overlay);
+      });
+    };
+
+    const renderParkClusterMarkers = () => {
+      clearParkDetailMarkers();
+      clearParkClusterMarkers();
+      if (!parkClustererRef.current) return;
+
+      const bounds = map.getBounds();
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const latPad = ne.getLat() - sw.getLat();
+      const lngPad = ne.getLng() - sw.getLng();
+      const minLat = sw.getLat() - latPad;
+      const maxLat = ne.getLat() + latPad;
+      const minLng = sw.getLng() - lngPad;
+      const maxLng = ne.getLng() + lngPad;
+
+      const markers = parks
+        .map((park) => {
+          const lat = parseFloat(park.lat);
+          const lng = parseFloat(park.lng);
+          if (isNaN(lat) || isNaN(lng)) return null;
+          if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return null;
+
+          const marker = new window.kakao.maps.Marker({
+            position: new window.kakao.maps.LatLng(lat, lng),
+          });
+          window.kakao.maps.event.addListener(marker, "click", () => {
+            window.selectPark(park.id);
+          });
+          return marker;
+        })
+        .filter(Boolean);
+
+      parkClustererRef.current.addMarkers(markers);
+      parkClusterMarkersRef.current = markers;
+    };
+
+    const updateParksByZoom = () => {
+      const level = map.getLevel();
+      if (level >= CLUSTER_ZOOM_THRESHOLD) {
+        renderParkClusterMarkers();
+      } else {
+        renderParkDetailMarkers();
+      }
+    };
+
+    updateParksByZoom();
+    window.kakao.maps.event.addListener(map, "idle", updateParksByZoom);
+    return () => {
+      window.kakao.maps.event.removeListener(map, "idle", updateParksByZoom);
+      clearParkDetailMarkers();
+      clearParkClusterMarkers();
+    };
+  }, [parks, mapReady, showParks]);
+
+  // ── AI 맞춤 추천 경로: 정거장을 잇는 점선 폴리라인 + 번호 배지를 지도 위에 그립니다.
+  // 패널이 닫히거나 코스가 바뀌면(테마 변경 등) 이전에 그린 것들을 지우고 다시 그립니다.
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
+
+    // 이전 렌더 결과 정리
+    routePolylineRef.current?.setMap(null);
+    routePolylineRef.current = null;
+    routeMarkerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+    routeMarkerOverlaysRef.current = [];
+
+    if (!showRoutePanel || !currentRoute || currentRoute.stops.length < 2) return;
+
+    // 점선은 정거장1이 아니라 출발지(내 위치 — 파란 점 오버레이가 표시된 지점)부터
+    // 시작해야 실제로 "여기서 출발해서 이 순서로 걷는다"는 코스가 보입니다.
+    const path = [
+      new window.kakao.maps.LatLng(currentRoute.origin.lat, currentRoute.origin.lng),
+      ...currentRoute.stops.map((stop) => {
+        const lat = parseFloat(String(stop.place.lat));
+        const lng = parseFloat(String(stop.place.lng));
+        return new window.kakao.maps.LatLng(lat, lng);
+      }),
+    ];
+
+    const polyline = new window.kakao.maps.Polyline({
+      path,
+      strokeWeight: 4,
+      strokeColor: "#7c3aed",
+      strokeOpacity: 0.85,
+      strokeStyle: "shortdot",
+    });
+    polyline.setMap(map);
+    routePolylineRef.current = polyline;
+
+    currentRoute.stops.forEach((stop, idx) => {
+      const lat = parseFloat(String(stop.place.lat));
+      const lng = parseFloat(String(stop.place.lng));
+      if (isNaN(lat) || isNaN(lng)) return;
+      const overlay = new window.kakao.maps.CustomOverlay({
+        position: new window.kakao.maps.LatLng(lat, lng),
+        content: `
+          <div
+            onclick="window.selectPlace(${typeof stop.place.id === "number" ? stop.place.id : `'${stop.place.id}'`})"
+            style="
+              width:26px; height:26px; border-radius:50%;
+              background:linear-gradient(135deg,#a78bfa,#7c3aed);
+              color:white; display:flex; align-items:center; justify-content:center;
+              font-size:12px; font-weight:800; font-family:'Noto Sans KR',sans-serif;
+              box-shadow:0 2px 8px rgba(124,58,237,0.45); border:2px solid white;
+              cursor:pointer; user-select:none;
+            "
+          >${idx + 1}</div>
+        `,
+        yAnchor: 0.5,
+        zIndex: 15,
+      });
+      overlay.setMap(map);
+      routeMarkerOverlaysRef.current.push(overlay);
+    });
+
+    // 코스 전체가 한 화면에 들어오도록 범위를 맞춥니다.
+    const bounds = new window.kakao.maps.LatLngBounds();
+    path.forEach((p: any) => bounds.extend(p));
+    map.setBounds(bounds, 80, 80, 80, 80);
+
+    return () => {
+      routePolylineRef.current?.setMap(null);
+      routePolylineRef.current = null;
+      routeMarkerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      routeMarkerOverlaysRef.current = [];
+    };
+  }, [showRoutePanel, currentRoute, mapReady]);
+
   const moveToMyLocation = () => {
     if (!navigator.geolocation) {
       alert("이 브라우저는 위치 서비스를 지원하지 않습니다.");
@@ -905,6 +1391,97 @@ export default function KakaoMap() {
     setShowShareModal(false);
   };
 
+  // ── "이 코스로 길찾기" ──
+  // ⚠ 예전에 쓰던 map.kakao.com/link/route/이름,위도,경도/... 형식은 카카오가 공식
+  // 문서화한 URL이 아니어서 실제로 "존재하지 않는 URL"로 떴습니다. 카카오가 공식
+  // 지원하는 다중 경유지 길찾기는 URL Scheme 방식(출발지 sp·경유지 vp/vp2~vp5(최대
+  // 5개)·도착지 ep를 좌표로 지정, by=foot으로 도보 지정)이라 이걸로 교체했습니다.
+  // (참고: https://apis.map.kakao.com/ios_v2/docs/getting-started/urlscheme/)
+  // 네이버 지도도 같은 방식(nmap://route/walk, 경유지 v1~v5)의 공식 URL Scheme을
+  // 제공해서 함께 지원합니다 — 다만 네이버 쪽은 네이버지도 앱이 기기에 설치돼 있어야만
+  // 열립니다(네이버 공식 문서에 명시된 제약이라, 앱이 없는 PC/미설치 환경을 위한 순수
+  // 웹 대체 경로는 네이버가 별도로 제공하지 않습니다).
+  const buildRouteWaypoints = (route: RouteResult) => {
+    const origin = {
+      lat: userLocation?.lat ?? route.origin.lat,
+      lng: userLocation?.lng ?? route.origin.lng,
+      name: "현재 위치",
+    };
+    const stopPoints = route.stops
+      .map((stop) => {
+        const lat = parseFloat(String(stop.place.lat));
+        const lng = parseFloat(String(stop.place.lng));
+        if (isNaN(lat) || isNaN(lng)) return null;
+        return { lat, lng, name: stop.place.name };
+      })
+      .filter((p): p is { lat: number; lng: number; name: string } => p !== null);
+    return [origin, ...stopPoints];
+  };
+
+  const handleRouteDirectionsKakao = (route: RouteResult) => {
+    const points = buildRouteWaypoints(route);
+    if (points.length < 2) return;
+    const sp = points[0];
+    const ep = points[points.length - 1];
+    const viaPoints = points.slice(1, -1).slice(0, 5); // 카카오 경유지 상한: 5개(vp, vp2~vp5)
+    const params = new URLSearchParams();
+    params.set("sp", `${sp.lat},${sp.lng}`);
+    viaPoints.forEach((p, idx) => params.set(idx === 0 ? "vp" : `vp${idx + 1}`, `${p.lat},${p.lng}`));
+    params.set("ep", `${ep.lat},${ep.lng}`);
+    params.set("by", "foot");
+    window.open(`https://m.map.kakao.com/scheme/route?${params.toString()}`, "_blank", "noopener,noreferrer");
+  };
+
+  const handleRouteDirectionsNaver = (route: RouteResult) => {
+    const points = buildRouteWaypoints(route);
+    if (points.length < 2) return;
+    const sp = points[0];
+    const ep = points[points.length - 1];
+    const viaPoints = points.slice(1, -1).slice(0, 5); // 네이버 경유지 상한: 5개(v1~v5)
+    const params = new URLSearchParams();
+    params.set("slat", String(sp.lat));
+    params.set("slng", String(sp.lng));
+    params.set("sname", sp.name);
+    params.set("dlat", String(ep.lat));
+    params.set("dlng", String(ep.lng));
+    params.set("dname", ep.name);
+    viaPoints.forEach((p, idx) => {
+      params.set(`v${idx + 1}lat`, String(p.lat));
+      params.set(`v${idx + 1}lng`, String(p.lng));
+      params.set(`v${idx + 1}name`, p.name);
+    });
+    params.set("appname", window.location.origin);
+    window.open(`nmap://route/walk?${params.toString()}`, "_blank", "noopener,noreferrer");
+  };
+
+  // ── 사장님 등록 버튼 클릭 ──
+  // 비로그인: 이메일 중복확인이 있는 /signup-owner(OwnerSignupForm)로 보냅니다.
+  // 로그인: 이미 사장님(승인완료/심사중)이면 안내만 하고, 아니면 사업장 정보만
+  // 받는 OwnerUpgradeForm 모달을 띄웁니다(이메일/비밀번호/약관은 이미 처리됨).
+  const handleOwnerRegisterClick = async () => {
+    if (!session?.user) {
+      router.push("/signup-owner");
+      return;
+    }
+    setOwnerCheckLoading(true);
+    const { data: profile } = await supabase
+      .from("users")
+      .select("owner_status")
+      .eq("auth_user_id", session.user.id)
+      .maybeSingle();
+    setOwnerCheckLoading(false);
+
+    if (profile?.owner_status === "verified") {
+      alert("이미 인증된 사장님 계정입니다.");
+      return;
+    }
+    if (profile?.owner_status === "pending") {
+      alert("이미 사장님 전환 신청이 접수되어 관리자 확인을 기다리고 있습니다.");
+      return;
+    }
+    setShowOwnerRegisterModal(true);
+  };
+
   return (
     <>
       <style>{`
@@ -922,11 +1499,35 @@ export default function KakaoMap() {
           70%  { transform: scale(2.4); opacity: 0; }
           100% { transform: scale(0.8); opacity: 0; }
         }
+        @keyframes locatingSpin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
 
       {/* ── 지도 영역 */}
       <div style={{ position: "fixed", inset: 0, width: "100%", height: "100vh", zIndex: 0 }}>
         <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+
+        {/* 위치 확인 중 오버레이 — 캐시된 위치가 없는 첫 방문자만 잠깐 뜹니다.
+            이게 없으면 GPS가 확인되기 전 임시로 그려진(서울 기준) 화면을 보다가
+            갑자기 실제 위치로 지도가 점프해서 "엉뚱한 곳/너무 넓은 지도"처럼
+            보였습니다 — 그 대기 시간을 로딩 상태로 명확히 보여줍니다. */}
+        {locating && (
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+            background: "rgba(255,255,255,0.92)", padding: "18px 26px", borderRadius: 18,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.12)", pointerEvents: "none",
+            fontFamily: "'Noto Sans KR', sans-serif",
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              border: "2.5px solid #dbe4d5", borderTopColor: "#5C7A4A",
+              animation: "locatingSpin 0.7s linear infinite",
+            }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>내 위치를 확인하고 있어요</span>
+          </div>
+        )}
 
         {/* 넓게 둘러보기 버튼 — 지도 위에 떠 있는 가운데 정렬 버튼이라 좁은 화면에서는
             리스트/신규/추천 패널과 자리를 다투다 겹치는 문제가 있었습니다. 좁은 화면에서는
@@ -1086,6 +1687,65 @@ export default function KakaoMap() {
             </div>
           </div>
         )}
+
+        {/* ⚠ 공원은 리뷰/신고/상세페이지 같은 장소 엔티티 구조가 없어서, "자세히 보기"로
+            이동할 곳이 없습니다 — API가 실제로 제공하는 필드(구분/면적/시설 메모)만
+            딱 보여주는 가벼운 카드입니다. 화장실·개수대 여부처럼 원본에 없는 정보는
+            구조화해서 있는 척 만들어 넣지 않았습니다. */}
+        {selectedPark && (
+          <div
+            className="ggk-body"
+            style={{
+              position: "absolute",
+              left: "50%",
+              bottom: "100px",
+              transform: "translateX(-50%)",
+              width: isNarrowScreen ? "clamp(220px, 70vw, 290px)" : "290px",
+              background: "#ffffff",
+              borderRadius: "18px",
+              boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
+              zIndex: 10,
+              overflow: "hidden",
+              animation: "fadeUp 0.2s ease",
+              border: "1px solid #e8eaed",
+            }}
+          >
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setSelectedPark(null)}
+                style={{
+                  position: "absolute", top: "8px", right: "8px",
+                  width: "26px", height: "26px", borderRadius: "50%",
+                  border: "none", background: "rgba(0,0,0,0.45)", color: "white",
+                  cursor: "pointer", display: "flex", alignItems: "center",
+                  justifyContent: "center", zIndex: 1, fontSize: "13px", lineHeight: 1,
+                }}
+              >
+                <X size={12} color="white" />
+              </button>
+            </div>
+            <div style={{ padding: "13px" }}>
+              <div className="ggk-logo" style={{ fontWeight: 700, fontSize: "13px", color: "#111" }}>
+                🌳 {selectedPark.name}
+              </div>
+              <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
+                {selectedPark.category}
+                {selectedPark.area && !isNaN(Number(selectedPark.area))
+                  ? ` · 약 ${Number(selectedPark.area).toLocaleString()}㎡`
+                  : ""}
+              </div>
+              <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "flex-start", gap: "3px" }}>
+                <MapPin size={10} color="#bbb" style={{ marginTop: "2px", flexShrink: 0 }} />
+                {selectedPark.address || "주소 정보 없음"}
+              </div>
+              {selectedPark.facilityNote && (
+                <div style={{ fontSize: "11px", color: "#7a7a7a", marginTop: "8px", padding: "8px 10px", background: "#f7f7f5", borderRadius: "10px", lineHeight: 1.5 }}>
+                  {selectedPark.facilityNote}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 플로팅 헤더 ──
@@ -1187,6 +1847,30 @@ export default function KakaoMap() {
               <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
               <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
               <button onClick={() => setSelectedPetZone("pharmacy")} style={getButtonStyle("pharmacy")}>💊 동물약국</button>
+              {/* ⚠ 공원 오픈API(data.go.kr)가 SERVICETIMEOUT_ERROR로 아직 불안정해서
+                  parks 데이터 자체가 없습니다 — 토글 버튼도 당분간 숨겨둡니다.
+                  API가 복구되고 데이터를 받으면 아래 버튼을 다시 켜면 됩니다. */}
+              {false && (
+                <button
+                  onClick={() => setShowParks((v) => !v)}
+                  style={{
+                    padding: "4px 9px",
+                    fontSize: "11px",
+                    borderRadius: "999px",
+                    border: showParks ? "none" : "1px solid #d8dcd6",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    background: showParks ? "#3a7438" : "white",
+                    color: showParks ? "white" : "#666",
+                    boxShadow: showParks ? "0 1px 6px rgba(0,0,0,0.22)" : "0 1px 3px rgba(0,0,0,0.07)",
+                    whiteSpace: "nowrap",
+                    transition: "all 0.15s ease",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                  }}
+                >
+                  🌳 공원 {showParks ? "표시중" : "숨김"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -1196,7 +1880,7 @@ export default function KakaoMap() {
           <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
             {isNarrowScreen && (
               <button
-                onClick={() => { setShowListPanelMobile((v) => !v); setShowRecentPanel(false); setShowRecommendPanel(false); }}
+                onClick={() => { setShowListPanelMobile((v) => !v); setShowRecentPanel(false); setShowRecommendPanel(false); setShowRoutePanel(false); }}
                 className="ggk-body"
                 style={{
                   padding: "5px 10px",
@@ -1245,7 +1929,7 @@ export default function KakaoMap() {
             )}
 
             <button
-              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
+              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
               className="ggk-body"
               style={{
                 padding: "5px 10px",
@@ -1268,7 +1952,7 @@ export default function KakaoMap() {
             </button>
 
             <button
-              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); }}
+              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
               className="ggk-body"
               style={{
                 padding: "5px 10px",
@@ -1287,6 +1971,54 @@ export default function KakaoMap() {
               }}
             >
               <Bot size={12} />추천 장소
+            </button>
+
+            <button
+              onClick={() => { setShowRoutePanel(!showRoutePanel); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
+              className="ggk-body"
+              style={{
+                padding: "5px 10px",
+                fontSize: "11px",
+                borderRadius: "8px",
+                border: "1px solid rgba(139,92,246,0.35)",
+                background: showRoutePanel
+                  ? "linear-gradient(145deg, #a78bfa, #7c3aed)"
+                  : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: showRoutePanel ? "white" : "#5b21b6",
+                boxShadow: "0 1px 5px rgba(139,92,246,0.22)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <RouteIcon size={12} />AI 코스
+            </button>
+
+            <button
+              onClick={handleOwnerRegisterClick}
+              disabled={ownerCheckLoading}
+              className="ggk-body"
+              style={{
+                padding: "5px 10px",
+                fontSize: "11px",
+                borderRadius: "8px",
+                border: "1px solid rgba(184,134,11,0.35)",
+                background: "linear-gradient(145deg, #FFF3D6, #F0D28A)",
+                fontWeight: 600,
+                cursor: ownerCheckLoading ? "default" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                color: "#7A5300",
+                whiteSpace: "nowrap",
+                opacity: ownerCheckLoading ? 0.7 : 1,
+              }}
+            >
+              <Store size={11} />
+              사장님 등록
             </button>
 
             <button
@@ -1364,8 +2096,18 @@ export default function KakaoMap() {
             <div key={place.id}>
               <div
                 onClick={() => {
-                  setSelectedPlace(null);
-                  openPlaceDetail(place);
+                  // ⚠ 예전엔 리스트 항목을 누르면 바로 상세 모달로 넘어갔는데, 지도 위
+                  // 마커를 누를 때는 먼저 하단 중앙에 "자세히 보기" 미리보기 카드가 뜨는
+                  // 것과 동작이 달랐습니다. 마커를 눌렀을 때(setSelectedPlace)와 똑같이
+                  // 동작을 통일합니다 — 실제 상세 모달 진입은 그 카드의 "자세히 보기"
+                  // 버튼에서 이루어집니다.
+                  setSelectedPlace(place);
+                  // 리스트에서 고른 장소가 화면 중심에 오도록 지도도 함께 이동합니다.
+                  const lat = parseFloat(place.lat);
+                  const lng = parseFloat(place.lng);
+                  if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+                    mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+                  }
                 }}
                 style={{
                   marginBottom: "6px",
@@ -1388,7 +2130,17 @@ export default function KakaoMap() {
                   style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
                 />
                 <div style={{ padding: "6px 9px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "11px", color: "#111" }}>{place.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: "11px", color: "#111", display: "flex", alignItems: "center", gap: 4 }}>
+                    {place.name}
+                    {isPlacePremiumNow(place) && (
+                      <span title="프리미엄 등록 업장" style={{
+                        display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
+                        background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                      }}>
+                        <Crown size={8} color="#5C4106" />
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
                       {getPlaceEmoji(place)
@@ -1546,9 +2298,20 @@ export default function KakaoMap() {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         letterSpacing: "-0.1px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
                       }}
                     >
-                      {place.name}
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{place.name}</span>
+                      {isPlacePremiumNow(place) && (
+                        <span title="프리미엄 등록 업장" style={{
+                          display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
+                          background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                        }}>
+                          <Crown size={8} color="#5C4106" />
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
                       <span>
@@ -1703,9 +2466,20 @@ export default function KakaoMap() {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       letterSpacing: "-0.1px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
                     }}
                   >
-                    {place.name}
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{place.name}</span>
+                    {isPlacePremiumNow(place) && (
+                      <span title="프리미엄 등록 업장" style={{
+                        display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
+                        background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                      }}>
+                        <Crown size={8} color="#5C4106" />
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
                     <span>
@@ -1722,6 +2496,286 @@ export default function KakaoMap() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── AI 맞춤 추천 경로(산책 코스) 패널 ── */}
+      {showRoutePanel && (
+        <div
+          className="ggk-body"
+          style={{
+            position: "fixed",
+            top: panelTop,
+            right: "14px",
+            width: isNarrowScreen ? "clamp(240px, 82vw, 320px)" : "320px",
+            maxHeight: "76vh",
+            background: "#ffffff",
+            borderRadius: "22px",
+            overflow: "hidden",
+            zIndex: 30,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              background: "linear-gradient(135deg, #EDE7FE 0%, #C9B6FB 100%)",
+              padding: "16px 18px 14px",
+              flexShrink: 0,
+              borderBottom: "1px solid rgba(124,58,237,0.2)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div
+                  className="ggk-logo"
+                  style={{ fontSize: "15px", fontWeight: 800, color: "#4c1d95", letterSpacing: "-0.2px" }}
+                >
+                  AI 맞춤 추천 경로
+                </div>
+                <div style={{ fontSize: "10px", color: "#5b21b6", marginTop: "3px", fontWeight: 500 }}>
+                  {searchQuery.trim() ? `${searchQuery.trim()} 기준 추천 코스` : "현재 위치 기준 추천 코스"}
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(124,58,237,0.18)",
+                  color: "#5b21b6",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                베타
+              </div>
+            </div>
+
+            {currentRoute && (
+              <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+                {[
+                  { icon: <PawPrint size={11} />, label: "친화도", value: `${currentRoute.avgFriendliness}점` },
+                  { icon: <Navigation size={11} />, label: "총 거리", value: `${currentRoute.totalDistanceKm}km` },
+                  { icon: <Footprints size={11} />, label: "예상 시간", value: formatEstimatedTime(currentRoute.estimatedMinutes) },
+                ].map((stat, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      flex: 1,
+                      background: "rgba(255,255,255,0.6)",
+                      borderRadius: "10px",
+                      padding: "6px 4px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "3px", color: "#5b21b6" }}>
+                      {stat.icon}
+                      <span style={{ fontSize: "9px", fontWeight: 700 }}>{stat.label}</span>
+                    </div>
+                    <div style={{ fontSize: "12px", fontWeight: 800, color: "#3b0764", marginTop: "2px" }}>{stat.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "5px", marginTop: "10px", overflowX: "auto", paddingBottom: "2px" }}>
+              {(Object.keys(ROUTE_THEME_LABEL) as RouteTheme[]).map((theme) => {
+                const ThemeIcon = ROUTE_THEME_ICON[theme];
+                return (
+                  <button
+                    key={theme}
+                    onClick={() => setRouteTheme(theme)}
+                    className="ggk-body"
+                    style={{
+                      flexShrink: 0,
+                      padding: "5px 10px",
+                      borderRadius: "999px",
+                      border: "none",
+                      fontSize: "10.5px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                      background: routeTheme === theme ? "#5b21b6" : "rgba(255,255,255,0.7)",
+                      color: routeTheme === theme ? "white" : "#5b21b6",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <ThemeIcon size={10} />
+                    {ROUTE_THEME_LABEL[theme]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              padding: "10px 10px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#ddd transparent",
+            }}
+          >
+            {!currentRoute && (
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
+                {(userLocation || searchCenter)
+                  ? "이 근처에서 코스를 만들 만큼 장소가 충분하지 않습니다"
+                  : "위치 정보를 확인하는 중입니다"}
+              </div>
+            )}
+            {currentRoute && (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#7c3aed", fontSize: "10.5px", fontWeight: 700 }}>
+                <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#2563eb", border: "2px solid white", boxShadow: "0 0 0 1px rgba(37,99,235,0.4)", flexShrink: 0 }} />
+                출발: 현재 위치
+                <span style={{ color: "#bbb", fontWeight: 500 }}>
+                  · 첫 정거장까지 도보 약{" "}
+                  {currentRoute.distanceFromOriginKm < 1
+                    ? `${Math.round(currentRoute.distanceFromOriginKm * 1000)}m`
+                    : `${currentRoute.distanceFromOriginKm.toFixed(1)}km`}
+                  {" "}({Math.max(1, Math.round((currentRoute.distanceFromOriginKm / 4) * 60))}분)
+                </span>
+              </div>
+            )}
+            {currentRoute?.stops.map((stop, idx) => (
+              <div key={stop.place.id}>
+                <div
+                  onClick={() => {
+                    // 목록 패널·마커 클릭과 동일하게: 바로 상세 모달로 넘어가지 않고
+                    // 하단 중앙에 "자세히 보기" 미리보기 카드를 띄우면서 지도를 이
+                    // 정거장 중심으로 이동합니다.
+                    setSelectedPlace(stop.place);
+                    const lat = parseFloat(String(stop.place.lat));
+                    const lng = parseFloat(String(stop.place.lng));
+                    if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+                      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    padding: "10px 11px",
+                    borderRadius: "14px",
+                    cursor: "pointer",
+                    border: "1px solid rgba(0,0,0,0.05)",
+                    background: "#faf7ff",
+                    transition: "background 0.15s ease, box-shadow 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.background = "#f3ebff";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLDivElement).style.background = "#faf7ff";
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "24px", height: "24px", borderRadius: "50%", flexShrink: 0,
+                      background: "linear-gradient(135deg,#a78bfa,#7c3aed)", color: "white",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: "11px", fontWeight: 800, marginTop: "2px",
+                    }}
+                  >
+                    {idx + 1}
+                  </div>
+
+                  {stop.place.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={stop.place.image_url}
+                      alt={stop.place.name}
+                      style={{ width: "56px", height: "56px", borderRadius: "10px", objectFit: "cover", flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: "56px", height: "56px", borderRadius: "10px", flexShrink: 0, background: "#ece4fc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
+                      {getPlaceEmoji(stop.place) || "🐾"}
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                      <div
+                        className="ggk-logo"
+                        style={{ fontWeight: 700, fontSize: "12.5px", color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                      >
+                        {stop.place.name}
+                      </div>
+                      {isPlacePremiumNow(stop.place) && (
+                        <span title="프리미엄 등록 업장" style={{ display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0, background: "linear-gradient(135deg,#F0D28A,#D4A24C)" }}>
+                          <Crown size={7} color="#5C4106" />
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "9.5px", color: "#8b5cf6", fontWeight: 700, marginTop: "2px" }}>
+                      {stop.tags.join(" · ")}
+                      <span style={{ color: "#c4b5fd" }}> · </span>
+                      <span style={{ color: "#5b21b6" }}>반려견 친화도 {stop.friendliness}점</span>
+                    </div>
+                    <div style={{ marginTop: "4px", display: "flex", flexDirection: "column", gap: "1px" }}>
+                      {stop.bullets.map((b, bi) => (
+                        <div key={bi} style={{ fontSize: "10px", color: "#666", display: "flex", alignItems: "center", gap: "3px" }}>
+                          <span style={{ color: "#8b5cf6", fontWeight: 800 }}>✓</span>{b}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {stop.distanceToNextKm != null && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 0 5px 22px", color: "#aaa", fontSize: "10px" }}>
+                    <Footprints size={10} />
+                    {stop.distanceToNextKm < 1
+                      ? `${Math.round(stop.distanceToNextKm * 1000)}m`
+                      : `${stop.distanceToNextKm.toFixed(1)}km`}
+                    {" "}
+                    (도보 약 {Math.max(1, Math.round((stop.distanceToNextKm / 4) * 60))}분)
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {currentRoute && (
+            <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  onClick={() => handleRouteDirectionsKakao(currentRoute)}
+                  className="ggk-body"
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: "12px", border: "none",
+                    background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "white",
+                    fontWeight: 700, fontSize: "12px", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                    boxShadow: "0 3px 10px rgba(124,58,237,0.3)",
+                  }}
+                >
+                  <Navigation size={12} />카카오맵
+                </button>
+                <button
+                  onClick={() => handleRouteDirectionsNaver(currentRoute)}
+                  className="ggk-body"
+                  style={{
+                    flex: 1, padding: "11px 0", borderRadius: "12px", border: "1px solid #03C75A",
+                    background: "white", color: "#03C75A",
+                    fontWeight: 700, fontSize: "12px", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                  }}
+                >
+                  <Navigation size={12} />네이버지도
+                </button>
+              </div>
+              <div style={{ fontSize: "9px", color: "#bbb", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
+                ※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
+                <br />※ 네이버지도는 앱이 설치되어 있어야 열립니다(모바일 전용).
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1778,6 +2832,36 @@ export default function KakaoMap() {
             <button onClick={() => setShowShareModal(false)} style={{ marginTop: "16px", width: "100%", padding: "12px", background: "#f5f5f5", border: "none", borderRadius: "12px", fontWeight: 700, cursor: "pointer", fontSize: "13px" }}>
               닫기
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ── 사장님 등록(전환) 모달 — 로그인 상태에서만 뜹니다(비로그인은 /signup-owner로 이동). */}
+      {showOwnerRegisterModal && session?.user && (
+        <>
+          <div
+            onClick={() => setShowOwnerRegisterModal(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", zIndex: 99999 }}
+          />
+          <div
+            className="ggk-body"
+            style={{
+              position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+              width: "min(460px, 92vw)", background: "white", borderRadius: "24px",
+              padding: "28px", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
+              zIndex: 100000,
+            }}
+          >
+            <button
+              onClick={() => setShowOwnerRegisterModal(false)}
+              style={{ position: "absolute", top: 18, right: 18, width: 36, height: 36, borderRadius: "50%", border: "none", background: "#f3f4f6", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
+            >
+              ✕
+            </button>
+            <OwnerUpgradeForm
+              userId={session.user.id}
+              onDone={() => { setShowOwnerRegisterModal(false); window.location.reload(); }}
+            />
           </div>
         </>
       )}

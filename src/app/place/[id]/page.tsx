@@ -13,6 +13,7 @@ import {
   AFFINITY_TIER_BG,
 } from "@/lib/affinityScore";
 import { hasInfo, getPetZoneLabel } from "@/lib/placeConstants";
+import { isPlacePremiumNow } from "@/lib/premium";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
@@ -27,6 +28,7 @@ import {
   Trash2,      // 관리자 장소 삭제
   X,           // 이미지 확대 모달 닫기
   Flag,        // 이미지 신고
+  Crown,       // 프리미엄 배지
 } from "lucide-react";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
@@ -134,9 +136,28 @@ type AdminMenuState = {
   isAdmin: boolean;
   canDelete: boolean;
   isPublicData: boolean;
+  // true면 실제로 원본 데이터까지 지워지는 "삭제"(DB 실제 장소, 또는 CSV 출처 공공데이터),
+  // false면 관광공사 실시간 API 출처라 원본은 못 지우고 "숨김" 처리만 됩니다.
+  willActuallyDelete: boolean;
   deleting: boolean;
   deletePlace: () => void;
 };
+
+// 영업시간처럼 "월~화 09:30~19:00, 수 09:30~13:30, 목~토 09:30~19:00"같이 쉼표로 요일별
+// 구간이 나뉘어 있는 값은 한 줄에 다 이어붙어 있으면 읽기 어려워서, 쉼표 단위로
+// 줄바꿈해서 보여줍니다. 쉼표가 없는 값(예: "매일 10:00~22:00")은 그대로 한 줄입니다.
+function MultilineText({ text }: { text: string | null | undefined }) {
+  if (!text) return <>—</>;
+  const parts = text.split(",").map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) return <>{text}</>;
+  return (
+    <>
+      {parts.map((part, i) => (
+        <div key={i}>{part}</div>
+      ))}
+    </>
+  );
+}
 
 export default function PlaceDetail({
   onAdminMenu,
@@ -237,7 +258,7 @@ export default function PlaceDetail({
     const { data: reviewData } = await supabase
       .from("reviews")
       .select(
-        "id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, password"
+        "id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, password, sentiment_score"
       )
       .eq("place_id", placeId)
       .order("id", { ascending: false });
@@ -515,10 +536,23 @@ export default function PlaceDetail({
   // 따라 hidden_public_places 차단 목록에 올려서 이후 지도/리스트/검색 어디에도
   // 다시 나타나지 않도록 "숨김" 처리합니다(scripts/sql/add-hidden-public-places.sql).
   // DB에 실제 행이 있는 장소는 기존처럼 완전히 삭제합니다.
+  // ── 공공데이터 출처 장소의 세부 소스 구분 ──
+  // "공공데이터"라고 다 같은 취급을 하면 안 됩니다:
+  //   - tour(한국관광공사 실시간 API): 우리 쪽에 원본 행이 없어서(매번 API로 새로 받음)
+  //     실제로 지울 대상이 없습니다 → 계속 hidden_public_places로 "숨김" 처리.
+  //   - foodsafety/culture(식품안전나라·문화정보원, CSV로 미리 반입해둔 것): 우리
+  //     Supabase(foodsafety_restaurants/culture_facilities)에 실제 원본 행이 있어서
+  //     완전히 지울 수 있습니다 → 관리자 요청대로 "삭제" 처리.
+  // (place는 아직 로딩 중이면 null일 수 있어 옵셔널 체이닝으로 안전하게 접근합니다.)
+  const publicDataSource = place?.sourceId ? String(place.sourceId).split("-")[0] : null;
+  const isCsvSourcedPublicData = publicDataSource === "foodsafety" || publicDataSource === "culture";
+
   const handleDeletePlace = async () => {
-    const confirmMsg = isPublicDataPlace
-      ? "이 장소를 목록에서 숨기시겠습니까? (공공데이터 출처라 실제로 지우는 대신, 앞으로 지도/검색에 다시 나타나지 않도록 처리합니다)"
-      : "이 장소를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다.";
+    const confirmMsg = !isPublicDataPlace
+      ? "이 장소를 완전히 삭제하시겠습니까? 되돌릴 수 없습니다."
+      : isCsvSourcedPublicData
+      ? "이 장소를 완전히 삭제하시겠습니까? (식품안전나라/문화정보원 CSV 출처라 원본 데이터까지 지워지며, 되돌릴 수 없습니다)"
+      : "이 장소를 목록에서 숨기시겠습니까? (관광공사 실시간 API 출처라 원본을 지울 수는 없어, 앞으로 지도/검색/통계에 다시 나타나지 않도록 처리합니다)";
     if (!confirm(confirmMsg)) return;
     setDeletingPlace(true);
     try {
@@ -530,18 +564,26 @@ export default function PlaceDetail({
         alert("로그인이 필요합니다.");
         return;
       }
-      const endpoint = isPublicDataPlace ? "/api/admin/hide-public-place" : "/api/admin/delete-place";
+      // 공공데이터 장소 중에서도 소스에 따라 처리가 갈립니다:
+      //   - CSV 출처(foodsafety/culture): 원본 테이블 행까지 완전 삭제
+      //   - 실시간 API 출처(tour) 또는 그 외 판단 불가: 기존처럼 숨김 처리
+      const endpoint = !isPublicDataPlace
+        ? "/api/admin/delete-place"
+        : isCsvSourcedPublicData
+        ? "/api/admin/delete-public-data-place"
+        : "/api/admin/hide-public-place";
+      const body = !isPublicDataPlace
+        ? { placeId: Number(placeId) }
+        : isCsvSourcedPublicData
+        ? { placeId: Number(placeId), sourceId: place.sourceId, reason: "관리자 삭제(공공데이터 CSV 출처 완전 삭제)" }
+        : { placeId: Number(placeId), reason: "관리자 삭제(공공데이터 API 출처 숨김)" };
       const res = await fetch(endpoint, {
         method: isPublicDataPlace ? "POST" : "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(
-          isPublicDataPlace
-            ? { placeId: Number(placeId), reason: "관리자 삭제(공공데이터 장소 숨김)" }
-            : { placeId: Number(placeId) }
-        ),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -563,11 +605,12 @@ export default function PlaceDetail({
       isAdmin,
       canDelete: isAdmin,
       isPublicData: isPublicDataPlace,
+      willActuallyDelete: !isPublicDataPlace || isCsvSourcedPublicData,
       deleting: deletingPlace,
       deletePlace: handleDeletePlace,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, isPublicDataPlace, deletingPlace]);
+  }, [isAdmin, isPublicDataPlace, isCsvSourcedPublicData, deletingPlace]);
 
   // ── 댓글 등록
   const handleSubmit = async () => {
@@ -797,13 +840,21 @@ export default function PlaceDetail({
 
   const hasImages = allGalleryImages.length > 0;
 
+  // ⚠ 공공데이터 출처 장소는 image_url이 항상 "/images/default-place.png"(진짜 사진이
+  // 아닌 실루엣 아이콘)로 채워져 있어서 hasImages만으로는 "진짜 사진이 있는지"를
+  // 구분 못 합니다. 실사진이 하나도 없으면 "사진 추가" 안내만 보여줍니다(로드뷰는
+  // 제거 — 작은 칸에선 잘 안 보이기도 하고, 실제 간판/가게 사진만 쓰는 쪽으로 결정).
+  const hasRealPhoto = allGalleryImages.some(
+    (img) => img.image_url && img.image_url !== "/images/default-place.png"
+  );
+
   // ── 반려동물 친화도 점수 (0~100, Rule-based) — 신청서 1.2) AI 기술 활용 항목 구현
   const affinity = useMemo(() => {
     if (!place) return null;
     return calculateAffinityBreakdown({
       reviews: reviews
         .filter((r) => !r.deleted)
-        .map((r) => ({ content: r.content, likes: r.likes })),
+        .map((r) => ({ content: r.content, likes: r.likes, sentimentScore: r.sentiment_score })),
       likesCount,
       dislikesCount,
       bookmarkCount,
@@ -834,6 +885,10 @@ export default function PlaceDetail({
   const vetTreatableAnimals = place.treatable_animals?.trim()
     ? place.treatable_animals.trim()
     : "—";
+  // ── 일반(비-동물병원) 장소용 "가능 동물" — 동물병원처럼 진료과목과 짝지어 보여줄
+  // 필드가 없어서, 대신 전화번호 옆 빈 공간에 같은 컬럼(treatable_animals)을 그대로
+  // 노출합니다. 값이 없으면 다른 필드들과 동일하게 "—"로 표기합니다.
+  const generalTreatableAnimals = place.treatable_animals?.trim() || "—";
 
   return (
     <>
@@ -847,8 +902,17 @@ export default function PlaceDetail({
       >
         {/* 장소명 */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-          <h1 className="ggk-title" style={{ fontSize: "18px", fontWeight: 800, marginBottom: "2px", color: "#111", letterSpacing: "-0.3px" }}>
+          <h1 className="ggk-title" style={{ fontSize: "18px", fontWeight: 800, marginBottom: "2px", color: "#111", letterSpacing: "-0.3px", display: "flex", alignItems: "center", gap: 6 }}>
             {place.name}
+            {isPlacePremiumNow(place) && (
+              <span title="프리미엄 등록 업장" style={{
+                display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800,
+                padding: "2px 8px", borderRadius: 999, flexShrink: 0,
+                background: "linear-gradient(135deg,#F0D28A,#D4A24C)", color: "#5C4106",
+              }}>
+                <Crown size={10} />PREMIUM
+              </span>
+            )}
           </h1>
 
           {/* ★ 관리자 전용 — 폐업 등으로 실제 존재하지 않는 장소를 정리하기 위한 삭제 메뉴.
@@ -874,7 +938,7 @@ export default function PlaceDetail({
                     style={{ ...dropdownBtnStyle, color: "#ef4444", display: "flex", alignItems: "center", gap: 5 }}
                   >
                     <Trash2 size={12} color="#ef4444" />
-                    {deletingPlace ? "처리 중..." : isPublicDataPlace ? "숨기기" : "삭제하기"}
+                    {deletingPlace ? "처리 중..." : (isPublicDataPlace && !isCsvSourcedPublicData) ? "숨기기" : "삭제하기"}
                   </button>
                 </div>
               )}
@@ -945,8 +1009,8 @@ export default function PlaceDetail({
         {/* 이미지 갤러리 */}
         <div style={{ position: "relative" }}>
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
-          {!hasImages ? (
-            <div style={{ display: "flex", gap: "8px" }}>
+          {!hasRealPhoto ? (
+            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px" }}>
               <div style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #d0d3d9", background:"#f5f6f8", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", color:"#bbb" }}>
                 <ImageOff size={26} color="#ccc" />
                 <span style={{ fontSize:"10px", color:"#bbb", textAlign:"center", lineHeight:1.4 }}>이미지를<br />추가해주세요</span>
@@ -1017,8 +1081,8 @@ export default function PlaceDetail({
               <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Clock size={10} />영업시간
               </div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.hours || "—"}
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6 }}>
+                <MultilineText text={place.hours} />
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
@@ -1053,20 +1117,46 @@ export default function PlaceDetail({
             </div>
           )}
 
-          {/* 행3: 전화번호 (펫 메뉴 칸 제거됨) */}
-          <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
-            <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
-              <Phone size={10} />전화번호
+          {/* 행3: 전화번호 (+ 동물병원이 아닌 일반 장소는 옆의 빈 공간에 가능 동물도 함께 표시) */}
+          {isVetHospital ? (
+            <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <Phone size={10} />전화번호
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                {place.phone
+                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                      {place.phone}
+                    </a>
+                  : "—"
+                }
+              </div>
             </div>
-            <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-              {place.phone
-                ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
-                    {place.phone}
-                  </a>
-                : "—"
-              }
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+              <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <Phone size={10} />전화번호
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {place.phone
+                    ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                        {place.phone}
+                      </a>
+                    : "—"
+                  }
+                </div>
+              </div>
+              <div style={{ padding:"10px 12px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <PawPrint size={10} />가능 동물
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {generalTreatableAnimals}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 행4: 홈페이지 / 휴무일  ← 신규 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>

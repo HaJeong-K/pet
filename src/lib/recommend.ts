@@ -33,6 +33,16 @@ export interface RecommendInput {
   largeDog?: boolean | null;
   /** 장소 등록 시각(ISO 문자열). 공공데이터 출처처럼 등록일을 알 수 없으면 null/undefined로 전달 */
   createdAt?: string | null;
+  /** 이 장소에서 가장 가까운 공원까지의 거리(km). 공원 데이터(parks 테이블)가 아직
+   *  없거나 계산하지 않았으면 null/undefined — 그 경우 가점 없이 0으로 처리됩니다. */
+  distanceToNearestParkKm?: number | null;
+  /** 사장님 프리미엄 등록 장소인지(관리자 승인 + premium_expires_at 유효). */
+  isPremium?: boolean | null;
+  /** 이 장소가 받은 찜(bookmark) 수. 데이터가 없으면(집계 전) 0으로 취급 — 신규 장소를
+   *  불리하게 만들지 않기 위해 감점이 아니라 가점만 있는 보너스입니다. */
+  bookmarkCount?: number | null;
+  /** 이 장소가 받은 좋아요 수. */
+  likeCount?: number | null;
 }
 
 export interface RecommendBreakdown {
@@ -40,6 +50,9 @@ export interface RecommendBreakdown {
   filterBonus: number;
   largeDogBonus: number;
   newPlaceBonus: number;
+  parkBonus: number;
+  premiumBonus: number;
+  popularityBonus: number;
   total: number;
 }
 
@@ -67,6 +80,31 @@ function newPlaceBonus(createdAt: string | null | undefined): number {
   return Math.max(0, RECOMMEND_WEIGHTS.NEW_PLACE_BONUS_MAX - days * decayPerDay);
 }
 
+/**
+ * 산책 겸 방문 가점: 가장 가까운 공원이 PARK_PROXIMITY_MAX_KM 이내면, 가까울수록
+ * 선형으로 큰 가점(0km에서 최댓값, 그 거리에서 0). 공원 데이터가 없으면(null) 0점.
+ */
+function parkProximityBonus(distanceToNearestParkKm: number | null | undefined): number {
+  if (distanceToNearestParkKm == null || Number.isNaN(distanceToNearestParkKm)) return 0;
+  const safeDistance = Math.max(0, distanceToNearestParkKm);
+  if (safeDistance >= RECOMMEND_WEIGHTS.PARK_PROXIMITY_MAX_KM) return 0;
+  const ratio = 1 - safeDistance / RECOMMEND_WEIGHTS.PARK_PROXIMITY_MAX_KM;
+  return ratio * RECOMMEND_WEIGHTS.PARK_PROXIMITY_BONUS_MAX;
+}
+
+/**
+ * 인기도 가점: 찜·좋아요를 많이 받은 장소일수록 가점(상한 있음). 지금은 초기 단계라
+ * 데이터가 적어 순위에 큰 영향은 없지만, 데이터가 쌓일수록 "찜/추천을 많이 받은 곳"이
+ * 자연스럽게 상위로 올라오도록 하는 장치입니다 — 별도 배치 없이 reactions 집계만으로
+ * 바로 작동합니다.
+ */
+function popularityBonus(bookmarkCount: number | null | undefined, likeCount: number | null | undefined): number {
+  const bookmarks = Math.max(0, bookmarkCount ?? 0);
+  const likes = Math.max(0, likeCount ?? 0);
+  const raw = bookmarks * RECOMMEND_WEIGHTS.POPULARITY_BOOKMARK_PER + likes * RECOMMEND_WEIGHTS.POPULARITY_LIKE_PER;
+  return Math.min(RECOMMEND_WEIGHTS.POPULARITY_BONUS_MAX, raw);
+}
+
 // ── 0~100점 정규화 ──
 // 예전에는 BASE_SCORE(100)에서 거리 감점을 빼고 가점(필터/대형견/신규)을 더하기만 해서,
 // 이론상 40~133점 사이로 나왔습니다(가점이 겹치면 100점을 넘어가버림 — "몇 점 만점인지"
@@ -79,7 +117,10 @@ const RAW_MAX =
   RECOMMEND_WEIGHTS.BASE_SCORE +
   RECOMMEND_WEIGHTS.FILTER_MATCH_BONUS +
   RECOMMEND_WEIGHTS.LARGE_DOG_BONUS +
-  RECOMMEND_WEIGHTS.NEW_PLACE_BONUS_MAX;
+  RECOMMEND_WEIGHTS.NEW_PLACE_BONUS_MAX +
+  RECOMMEND_WEIGHTS.PARK_PROXIMITY_BONUS_MAX +
+  RECOMMEND_WEIGHTS.PREMIUM_BONUS +
+  RECOMMEND_WEIGHTS.POPULARITY_BONUS_MAX;
 
 function normalizeTo100(raw: number): number {
   const ratio = (raw - RAW_MIN) / (RAW_MAX - RAW_MIN);
@@ -92,8 +133,11 @@ export function calculateRecommendBreakdown(input: RecommendInput): RecommendBre
   const filterBonus = input.matchesSelectedFilter ? RECOMMEND_WEIGHTS.FILTER_MATCH_BONUS : 0;
   const largeDogBonus = input.largeDog ? RECOMMEND_WEIGHTS.LARGE_DOG_BONUS : 0;
   const nBonus = newPlaceBonus(input.createdAt);
+  const pBonus = parkProximityBonus(input.distanceToNearestParkKm);
+  const premiumBonus = input.isPremium ? RECOMMEND_WEIGHTS.PREMIUM_BONUS : 0;
+  const popBonus = popularityBonus(input.bookmarkCount, input.likeCount);
 
-  const raw = RECOMMEND_WEIGHTS.BASE_SCORE - dPenalty + filterBonus + largeDogBonus + nBonus;
+  const raw = RECOMMEND_WEIGHTS.BASE_SCORE - dPenalty + filterBonus + largeDogBonus + nBonus + pBonus + premiumBonus + popBonus;
   const total = normalizeTo100(raw);
 
   return {
@@ -101,6 +145,9 @@ export function calculateRecommendBreakdown(input: RecommendInput): RecommendBre
     filterBonus,
     largeDogBonus,
     newPlaceBonus: Math.round(nBonus),
+    parkBonus: Math.round(pBonus),
+    premiumBonus,
+    popularityBonus: Math.round(popBonus * 10) / 10,
     total,
   };
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck } from "lucide-react";
+import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown } from "lucide-react";
 
 // ── 관리자 페이지 공통 상단 탭 — 대시보드 / 신고 관리 / 제보 관리 / 통계 분석 / 사장님 인증을
 // 어느 관리자 화면에서든 한 번에 오가며 확인할 수 있도록 하는 공용 네비게이션입니다.
@@ -14,6 +14,7 @@ const TABS = [
   { key: "reports", href: "/admin/reports", label: "신고 관리", icon: Flag },
   { key: "tips", href: "/admin/tips", label: "제보 관리", icon: FileText },
   { key: "owners", href: "/admin/owners", label: "사장님 인증", icon: BadgeCheck },
+  { key: "premium", href: "/admin/premium", label: "프리미엄", icon: Crown },
   { key: "analytics", href: "/admin/analytics", label: "통계 분석", icon: BarChart3 },
 ] as const;
 
@@ -21,16 +22,17 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefresh?: () => void }) {
   const router = useRouter();
-  const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number }>({ reports: 0, tips: 0, owners: 0 });
+  const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number; premium: number }>({ reports: 0, tips: 0, owners: 0, premium: 0 });
 
   useEffect(() => {
     const fetchCounts = async () => {
-      const [{ count: reportsCount }, { count: tipsCount }, { count: ownersCount }] = await Promise.all([
+      const [{ count: reportsCount }, { count: tipsCount }, { count: ownersCount }, { count: premiumCount }] = await Promise.all([
         supabase.from("reports").select("*", { count: "exact", head: true }).eq("is_resolved", false),
         supabase.from("proposals").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("users").select("*", { count: "exact", head: true }).eq("owner_status", "pending"),
+        supabase.from("premium_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
       ]);
-      setCounts({ reports: reportsCount ?? 0, tips: tipsCount ?? 0, owners: ownersCount ?? 0 });
+      setCounts({ reports: reportsCount ?? 0, tips: tipsCount ?? 0, owners: ownersCount ?? 0, premium: premiumCount ?? 0 });
     };
     fetchCounts();
   }, []);
@@ -55,7 +57,7 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
         <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
           {TABS.map((tab) => {
             const isActive = tab.key === active;
-            const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : 0;
+            const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : 0;
             const Icon = tab.icon;
             return (
               <button

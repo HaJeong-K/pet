@@ -118,13 +118,21 @@ export async function GET(req: NextRequest) {
     // 공공데이터 출처 장소가 숨김 처리되면 hidden_public_places에 올라갑니다. 두 경우 다
     // analytics_events에는 예전 방문 기록(place_id 포함)이 그대로 남아있어서, 아무 조치가
     // 없으면 이미 없어진 장소가 계속 "인기 장소"로 집계되는 문제가 있었습니다.
-    const existingPlaceIds = new Set((allPlaces || []).map((p: any) => p.id));
+    const existingPlaceIds = new Set((allPlaces || []).map((p: any) => Number(p.id)));
     const hiddenPlaceIds = new Set((hiddenPlaceRows || []).map((h: any) => Number(h.place_id)));
     // toNumericId(src/lib/publicDataPlaces.ts)가 공공데이터 출처 장소에는 10억 이상의
     // id를 부여하므로, 이 기준으로 "DB 장소"와 "공공데이터 장소"를 구분합니다.
     const PUBLIC_DATA_ID_THRESHOLD = 1_000_000_000;
-    const isPlaceStillVisible = (placeId: number | null | undefined) => {
-      if (placeId == null) return true; // place_id가 없는 예전 이벤트는 그대로 집계
+    // ⚠ analytics_events.place_id는 text 컬럼이라 여기 들어오는 e.place_id는 항상
+    // 문자열("1234567890")입니다. existingPlaceIds/hiddenPlaceIds는 숫자 Set이라,
+    // Number()로 변환하지 않고 문자열 그대로 .has()를 호출하면 타입이 달라 절대
+    // 매칭되지 않습니다(Set은 ===로 비교) — 그 결과 숨김/삭제된 공공데이터 장소가
+    // "항상 보임" 취급되어 통계에 계속 잡히는 버그가 있었습니다. 반드시 Number로
+    // 맞춰서 비교합니다.
+    const isPlaceStillVisible = (placeIdRaw: string | number | null | undefined) => {
+      if (placeIdRaw == null) return true; // place_id가 없는 예전 이벤트는 그대로 집계
+      const placeId = Number(placeIdRaw);
+      if (Number.isNaN(placeId)) return true; // 파싱 불가한 값은 예전처럼 그대로 통과
       if (placeId >= PUBLIC_DATA_ID_THRESHOLD) return !hiddenPlaceIds.has(placeId);
       return existingPlaceIds.has(placeId);
     };

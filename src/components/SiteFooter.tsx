@@ -33,12 +33,15 @@ function ModalShell({
 }) {
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, backdropFilter: "blur(4px)" }} />
+      {/* ⚠ z-index를 100000대로 높게 잡습니다 — 이 모달은 회원가입/사장님가입 모달
+          (z-index 99999) "안에서" 약관 보기 링크로도 열리기 때문에, 그보다 낮으면
+          뒤에 가려져 안 보입니다. */}
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100000, backdropFilter: "blur(4px)" }} />
       <div className="ggk-body" style={{
         position: "fixed", top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",
         width: "min(480px, 94vw)", maxHeight: "82vh", overflowY: "auto",
-        background: "white", borderRadius: "20px", zIndex: 301,
+        background: "white", borderRadius: "20px", zIndex: 100001,
         boxShadow: "0 24px 80px rgba(0,0,0,0.22)",
       }}>
         <div style={{ position: "sticky", top: 0, background: "white", padding: "16px 18px 12px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 1 }}>
@@ -114,120 +117,88 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-export default function SiteFooter() {
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showPolicy, setShowPolicy] = useState(false);
-  const [showContact, setShowContact] = useState(false);
-
+// ⚠ 이용약관/개인정보처리방침 모달을 SiteFooter 안에서만 쓸 수 있었는데, 회원가입
+// 화면(이메일 가입·사장님 가입)에서도 "약관 보기" 링크로 똑같은 내용을 띄워야 해서
+// (실제 동의를 받으려면 가입 화면에서도 봐야 함) 재사용 가능한 named export로 뽑았습니다.
+// PrivacyModal은 실제로 앱이 수집하는 항목(위치정보, 사업자등록증/OCR, 이미지 업로드,
+// 소셜 로그인, 비회원 식별자 등)을 정확히 반영하도록 함께 갱신했습니다.
+export function PrivacyModal({ onClose }: { onClose: () => void }) {
   return (
-    <>
-      <div style={{ textAlign: "center" }}>
-        <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", marginBottom: 10 }}>
-          같이가개
-        </div>
+    <ModalShell title="개인정보 처리방침" onClose={onClose}>
+      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 8월 10일</p>
 
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-          <button onClick={() => setShowTerms(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
-            이용약관
-          </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
-          <button onClick={() => setShowPrivacy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", fontWeight: 700 }}>
-            개인정보 처리방침
-          </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
-          <button onClick={() => setShowPolicy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
-            커뮤니티 운영정책
-          </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
-          <button onClick={() => setShowContact(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <Mail size={11} color="#6b7280" />
-            문의하기
-          </button>
-        </div>
+      <FooterSection title="1. 개인정보의 수집 및 이용 목적">
+        같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
+        • 회원 가입 및 관리: 회원 식별, 사장님(업주) 인증, 서비스 부정이용 방지<br />
+        • 서비스 제공: 반려동물 동반 장소 정보 제공, 리뷰·찜·신고·제보 기능 운영, 현재 위치 기반 주변 장소·보호소 공고 안내<br />
+        • 사장님 서비스: 사업자등록증 진위 확인을 통한 업주 인증, 본인 업장 정보 수정 권한 부여<br />
+        • 고객 지원: 문의 응대 및 민원 처리
+      </FooterSection>
 
-        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.9, marginBottom: 10, paddingTop: 10, borderTop: "1px solid #e2e5ea", maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
-          상호명: 같이가개&nbsp;|&nbsp;대표자: 김하정&nbsp;|&nbsp;사업자등록번호: [등록 예정]
-          <br />
-          사업장 주소: [주소 등록 예정]&nbsp;|&nbsp;고객센터: {ADMIN_EMAIL}
-          <br />
-          통신판매업신고번호: [해당 시 등록 예정]
-        </div>
+      <FooterSection title="2. 수집하는 개인정보 항목">
+        • <strong>이메일 회원가입 시(필수):</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br />
+        • <strong>소셜 로그인 시(카카오/구글):</strong> 이메일, 소셜 계정 고유 식별자, 프로필 이미지(제공되는 경우)<br />
+        • <strong>사장님(업주) 가입 시 추가:</strong> 사업장명, 사업장 주소, 연락처, 사업자등록증 이미지 및 그 안의 텍스트(OCR 자동 대조용)<br />
+        • <strong>비회원 이용 시:</strong> 브라우저에 저장되는 임의 식별값(로그인 없이 리뷰·제보 작성을 식별하기 위한 용도)<br />
+        • <strong>리뷰 작성 시:</strong> 비회원 리뷰의 수정·삭제 확인용 비밀번호<br />
+        • <strong>위치정보:</strong> 브라우저 위치정보 제공에 동의한 경우, 현재 위치(위도·경도) — 주변 장소 추천, 지도 중심 이동, 인근 보호소 공고 표시에 사용되며 별도 서버 저장 없이 그때그때 조회에만 사용됩니다<br />
+        • <strong>이용자가 업로드하는 이미지:</strong> 장소 사진, 제보 첨부 사진, 사업자등록증 이미지<br />
+        • <strong>서비스 이용 시 자동 수집:</strong> 접속 기록, 검색어, 조회한 장소, 접속 지역(주소 기반 시/도·시/군/구 단위)
+      </FooterSection>
 
-        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.7 }}>
-          © 2026 같이가개. All rights reserved.
+      <FooterSection title="3. 개인정보의 보유 및 이용 기간">
+        • 회원 탈퇴 시 지체 없이 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br />
+        • 사업자등록증 이미지 등 사장님 인증 자료는 인증 심사 및 사후 확인 목적으로 사장님 계정 활동 기간 동안 보관<br />
+        • 서비스 이용 관련 분쟁 발생 시 분쟁 해결 시까지 보관
+      </FooterSection>
+
+      <FooterSection title="4. 개인정보의 제3자 제공">
+        서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.<br />
+        • 이용자가 사전에 동의한 경우<br />
+        • 법령의 규정에 의거하거나 수사 목적으로 관련 기관의 요구가 있는 경우
+      </FooterSection>
+
+      <FooterSection title="5. 개인정보 처리 위탁">
+        서비스는 원활한 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.<br />
+        • <strong>Supabase Inc.:</strong> 데이터베이스, 인증(로그인), 이미지 저장소<br />
+        • <strong>Vercel Inc.:</strong> 서버 호스팅 및 배포<br />
+        • <strong>Kakao, Google:</strong> 소셜 로그인 인증, 지도·위치 서비스
+      </FooterSection>
+
+      <FooterSection title="6. 이용자의 권리 및 행사 방법">
+        이용자는 다음의 권리를 가집니다.<br />
+        • 개인정보 열람, 정정·삭제, 처리 정지 요청권<br />
+        • 위 권리 행사는 서비스 내 설정 메뉴 또는 이메일 문의를 통해 가능합니다.<br />
+        • 문의 이메일: <strong>{ADMIN_EMAIL}</strong>
+      </FooterSection>
+
+      <FooterSection title="7. 쿠키 및 브라우저 저장소 운용">
+        서비스는 로그인 상태 유지, 비회원 식별을 위해 쿠키 및 브라우저 로컬 저장소(localStorage)를 사용합니다. 브라우저 설정을 통해 저장을 거부할 수 있으나, 일부 서비스(리뷰 작성 등) 이용이 제한될 수 있습니다.
+      </FooterSection>
+
+      <FooterSection title="8. 개인정보 보호 책임자">
+        • <strong>책임자:</strong> 같이가개 관리자<br />
+        • <strong>이메일:</strong> {ADMIN_EMAIL}<br />
+        개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
+      </FooterSection>
+
+      <FooterSection title="9. 개인정보 처리방침 변경">
+        본 방침은 법령, 정책 또는 서비스 변경 사항을 반영하기 위해 수정될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 사전 안내합니다.
+      </FooterSection>
+
+      <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
+        <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
+          본 개인정보 처리방침은 <strong>2026년 8월 10일</strong>부터 적용됩니다.<br />
+          문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
         </div>
       </div>
+    </ModalShell>
+  );
+}
 
-      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
-
-      {showPrivacy && (
-        <ModalShell title="개인정보 처리방침" onClose={() => setShowPrivacy(false)}>
-          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2025년 1월 1일</p>
-
-          <FooterSection title="1. 개인정보의 수집 및 이용 목적">
-            같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
-            • 회원 가입 및 관리: 회원 식별, 서비스 이용 관리<br />
-            • 서비스 제공: 장소 정보 제공, 댓글·찜 기능 운영<br />
-            • 고객 지원: 문의 응대 및 민원 처리
-          </FooterSection>
-
-          <FooterSection title="2. 수집하는 개인정보 항목">
-            • <strong>필수 항목:</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br />
-            • <strong>소셜 로그인 시:</strong> 소셜 계정 고유 식별자, 프로필 사진(선택)<br />
-            • <strong>서비스 이용 시 자동 수집:</strong> 서비스 이용 기록, 접속 로그
-          </FooterSection>
-
-          <FooterSection title="3. 개인정보의 보유 및 이용 기간">
-            • 회원 탈퇴 시 즉시 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br />
-            • 전자상거래 기록: 5년 보관 (전자상거래 등에서의 소비자보호에 관한 법률)<br />
-            • 서비스 이용 관련 분쟁 시 분쟁 해결 시까지 보관
-          </FooterSection>
-
-          <FooterSection title="4. 개인정보의 제3자 제공">
-            서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 다만, 아래의 경우에는 예외로 합니다.<br />
-            • 이용자가 사전에 동의한 경우<br />
-            • 법령의 규정에 의거하거나 수사 목적으로 관련 기관의 요구가 있는 경우
-          </FooterSection>
-
-          <FooterSection title="5. 개인정보 처리 위탁">
-            서비스는 원활한 운영을 위해 아래와 같이 개인정보 처리를 위탁합니다.<br />
-            • <strong>Supabase Inc.:</strong> 데이터베이스 및 인증 서비스<br />
-            • <strong>Vercel Inc.:</strong> 서버 호스팅 및 배포
-          </FooterSection>
-
-          <FooterSection title="6. 이용자의 권리 및 행사 방법">
-            이용자는 다음의 권리를 가집니다.<br />
-            • 개인정보 열람, 정정·삭제, 처리 정지 요청권<br />
-            • 위 권리 행사는 서비스 내 설정 메뉴 또는 이메일 문의를 통해 가능합니다.<br />
-            • 문의 이메일: <strong>{ADMIN_EMAIL}</strong>
-          </FooterSection>
-
-          <FooterSection title="7. 쿠키(Cookie) 운용">
-            서비스는 로그인 상태 유지 등을 위해 쿠키를 사용합니다. 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 일부 서비스 이용이 제한될 수 있습니다.
-          </FooterSection>
-
-          <FooterSection title="8. 개인정보 보호 책임자">
-            • <strong>책임자:</strong> 같이가개 관리자<br />
-            • <strong>이메일:</strong> {ADMIN_EMAIL}<br />
-            개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
-          </FooterSection>
-
-          <FooterSection title="9. 개인정보 처리방침 변경">
-            본 방침은 법령, 정책 또는 서비스 변경 사항을 반영하기 위해 수정될 수 있습니다. 변경 시 서비스 내 공지사항을 통해 사전 안내합니다.
-          </FooterSection>
-
-          <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
-            <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
-              본 개인정보 처리방침은 <strong>2025년 1월 1일</strong>부터 적용됩니다.<br />
-              문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
-            </div>
-          </div>
-        </ModalShell>
-      )}
-
-      {showTerms && (
-        <ModalShell title="이용약관" onClose={() => setShowTerms(false)}>
+export function TermsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell title="이용약관" onClose={onClose}>
           <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 8월 3일</p>
 
           <FooterSection title="제1조 (목적)">
@@ -279,10 +250,12 @@ export default function SiteFooter() {
             </div>
           </div>
         </ModalShell>
-      )}
+  );
+}
 
-      {showPolicy && (
-        <ModalShell title="커뮤니티 운영정책" onClose={() => setShowPolicy(false)}>
+function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell title="커뮤니티 운영정책" onClose={onClose}>
           <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 8월 3일</p>
 
           <FooterSection title="1. 목적">
@@ -320,7 +293,58 @@ export default function SiteFooter() {
             </div>
           </div>
         </ModalShell>
-      )}
+  );
+}
+
+export default function SiteFooter() {
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPolicy, setShowPolicy] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+
+  return (
+    <>
+      <div style={{ textAlign: "center" }}>
+        <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", marginBottom: 10 }}>
+          같이가개
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <button onClick={() => setShowTerms(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
+            이용약관
+          </button>
+          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <button onClick={() => setShowPrivacy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", fontWeight: 700 }}>
+            개인정보 처리방침
+          </button>
+          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <button onClick={() => setShowPolicy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
+            커뮤니티 운영정책
+          </button>
+          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <button onClick={() => setShowContact(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <Mail size={11} color="#6b7280" />
+            문의하기
+          </button>
+        </div>
+
+        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.9, marginBottom: 10, paddingTop: 10, borderTop: "1px solid #e2e5ea", maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+          상호명: 같이가개&nbsp;|&nbsp;대표자: 김하정&nbsp;|&nbsp;사업자등록번호: [등록 예정]
+          <br />
+          사업장 주소: [주소 등록 예정]&nbsp;|&nbsp;고객센터: {ADMIN_EMAIL}
+          <br />
+          통신판매업신고번호: [해당 시 등록 예정]
+        </div>
+
+        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.7 }}>
+          © 2026 같이가개. All rights reserved.
+        </div>
+      </div>
+
+      {showContact && <ContactModal onClose={() => setShowContact(false)} />}
+      {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
+      {showTerms && <TermsModal onClose={() => setShowTerms(false)} />}
+      {showPolicy && <CommunityPolicyModal onClose={() => setShowPolicy(false)} />}
     </>
   );
 }

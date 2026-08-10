@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
+import { Crown } from "lucide-react";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "./ShelterNoticeCard";
 import { useUserRegion } from "@/lib/useUserRegion";
+import { supabase } from "@/lib/supabase";
+import { openPlaceDetail } from "@/lib/openPlace";
 
 // ── 좌우 사이드 레일 ──
 // 왼쪽: 광고 2개 — 오른쪽 보호소 공고 카드와 동일한 크기·간격으로 대칭 배치.
@@ -34,6 +38,70 @@ const RAIL_BOTTOM_GAP_VH = 2;
 const SHELTER_FULL_LIST_URL = "https://pawinhand.kr/shelter/animal";
 
 const PHRASES = ["나의 가족이 되어주세요", "나의 가족을 찾아주세요"];
+
+// ── 좌측(+우측 ad 모드) 레일의 실제 수익 메커니즘: 사장님이 마이페이지에서 프리미엄을
+// 신청하고 관리자가 승인하면 places.is_premium=true가 되고, 이 훅이 그 장소들을 가져와
+// "광고" 플레이스홀더 대신 실제로 노출합니다. 아직 프리미엄 고객이 하나도 없는 기간에는
+// (신청 자체가 없으면) 기존처럼 빈 "광고" 플레이스홀더로 자연스럽게 폴백됩니다.
+function usePremiumAdPlaces(enabled: boolean) {
+  const [places, setPlaces] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    supabase
+      .from("places")
+      .select("id, name, category, image_url, is_premium, premium_expires_at")
+      .eq("is_premium", true)
+      .gt("premium_expires_at", new Date().toISOString())
+      .then(({ data }) => {
+        if (cancelled) return;
+        // 여러 프리미엄 업장이 있을 때 특정 업장만 계속 상단에 노출되지 않도록 매 로드마다 섞습니다.
+        const shuffled = [...(data || [])].sort(() => Math.random() - 0.5);
+        setPlaces(shuffled);
+        setLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [enabled]);
+
+  return { places, loaded };
+}
+
+function PremiumAdCard({ place }: { place: any }) {
+  const router = useRouter();
+  return (
+    <div
+      onClick={() => openPlaceDetail(router, place)}
+      style={{
+        flex: 1, minHeight: 0, borderRadius: "16px", overflow: "hidden", cursor: "pointer",
+        position: "relative", display: "flex", flexDirection: "column",
+        border: "1px solid rgba(212,162,76,0.35)",
+        background: place.image_url ? `url(${place.image_url}) center/cover no-repeat` : "linear-gradient(145deg,#fff8ec,#ffe9c2)",
+      }}
+    >
+      <div style={{
+        position: "absolute", top: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3,
+        padding: "2px 7px", borderRadius: 999, fontSize: 9, fontWeight: 800,
+        background: "linear-gradient(135deg,#F0D28A,#D4A24C)", color: "#5C4106",
+      }}>
+        <Crown size={8} />AD
+      </div>
+      <div style={{
+        marginTop: "auto", padding: "8px 8px 7px",
+        background: place.image_url ? "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0))" : "transparent",
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 800, lineHeight: 1.3,
+          color: place.image_url ? "white" : "#5C4106",
+          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}>
+          {place.name}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function useShelterNotices(region: string | null, enabled: boolean, offset: number) {
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
@@ -92,18 +160,23 @@ const RAIL_STYLE_TAG = (
   `}</style>
 );
 
-/** 좌측 레일 — 항상 광고 2개(우측 보호소 카드와 대칭). */
+/** 좌측 레일 — 프리미엄 등록 업장이 있으면 실제로 노출하고, 없으면 빈 광고 자리로 폴백. */
 export function AdRailLeft() {
+  const { places, loaded } = usePremiumAdPlaces(true);
+  const slots = [places[0], places[1]];
   return (
     <>
       {RAIL_STYLE_TAG}
       <div className="ggk-side-ad-rail" style={railBase}>
-        <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-          <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
-        </div>
-        <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-          <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
-        </div>
+        {slots.map((p, i) =>
+          p ? (
+            <PremiumAdCard key={p.id} place={p} />
+          ) : (
+            <div key={i} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
+              <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{loaded ? "광고" : ""}</span>
+            </div>
+          )
+        )}
       </div>
     </>
   );
@@ -125,18 +198,25 @@ export function AdRailRight({
 }) {
   const region = useUserRegion();
   const { notices, loaded } = useShelterNotices(region, rightMode !== "ad", shelterOffset);
+  const { places: adPlaces, loaded: adLoaded } = usePremiumAdPlaces(rightMode === "ad");
 
   if (rightMode === "ad") {
+    // 좌측 레일과 다른 업장이 보이도록 뒤에서부터 2개를 씁니다(같은 페이지에 좌우 레일이
+    // 함께 있는 경우는 없지만, 프리미엄 업장이 여러 곳이면 자연스럽게 노출이 분산됩니다).
+    const slots = [adPlaces[adPlaces.length - 1], adPlaces[adPlaces.length - 2]];
     return (
       <>
         {RAIL_STYLE_TAG}
         <div className="ggk-side-ad-rail" style={railBase}>
-          <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-            <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
-          </div>
-          <div style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-            <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>광고</span>
-          </div>
+          {slots.map((p, i) =>
+            p ? (
+              <PremiumAdCard key={p.id} place={p} />
+            ) : (
+              <div key={i} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
+                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{adLoaded ? "광고" : ""}</span>
+              </div>
+            )
+          )}
         </div>
       </>
     );
