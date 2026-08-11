@@ -9,7 +9,7 @@ import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, FileText, CheckCircle, MapPin, Clock,
-  RefreshCw, AlertCircle, Dog, Bone, Phone, MessageCircle,
+  RefreshCw, AlertCircle, Dog, Phone, MessageCircle,
   ChefHat, CheckCircle2, XCircle, ChevronLeft, ChevronRight,
   X, Pencil, Save, MapPinCheckInside, PauseCircle, LandPlot, User, Trash2,
   Stethoscope, PawPrint, Home, Trees, Building2, ImageIcon, BadgeCheck,
@@ -499,7 +499,6 @@ export default function AdminProposalsPage() {
                             )}
                           />
 
-                          <FieldRow icon={<Bone size={12} color="#5C7A4A"/>}         label="펫 메뉴"  fieldKey="pet_menu"   value={tip.pet_menu}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           <FieldRow icon={<Phone size={12} color="#5C7A4A"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           <FieldRow icon={<Globe size={12} color="#5C7A4A"/>}        label="홈페이지" fieldKey="website"    value={tip.website}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           <FieldRow icon={<CalendarOff size={12} color="#5C7A4A"/>}  label="휴무일"   fieldKey="closed_days" value={tip.closed_days} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
@@ -525,7 +524,6 @@ export default function AdminProposalsPage() {
                               {tip.large_dog ? "대형견 가능":"대형견 불가"}
                             </span>
                           )}
-                          {tip.pet_menu && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Bone size={11} color="#5C7A4A"/>{tip.pet_menu}</span>}
                           {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#5C7A4A"/>{tip.phone}</span>}
                           {tip.website     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Globe size={11} color="#5C7A4A"/>{tip.website}</span>}
                           {tip.closed_days && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><CalendarOff size={11} color="#5C7A4A"/>{tip.closed_days}</span>}

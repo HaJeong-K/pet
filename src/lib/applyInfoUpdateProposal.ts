@@ -25,7 +25,6 @@ export interface InfoUpdateProposalLike {
   hours?: string | null;
   pet_zone?: string | null;
   large_dog?: boolean | null;
-  pet_menu?: string | null;
   phone?: string | null;
   memo?: string | null;
   website?: string | null;
@@ -59,7 +58,6 @@ export async function applyInfoUpdateProposal(
     hours: proposal.hours,
     pet_zone: proposal.pet_zone,
     large_dog: proposal.large_dog,
-    pet_menu: proposal.pet_menu,
     phone: proposal.phone,
     memo: proposal.memo,
     website: proposal.website,
@@ -101,7 +99,6 @@ export async function applyInfoUpdateProposal(
     category: provided.category ?? original.category,
     hours: provided.hours ?? original.hours,
     large_dog: provided.large_dog ?? original.large_dog,
-    pet_menu: provided.pet_menu ?? original.pet_menu,
     phone: provided.phone ?? original.phone,
     memo: provided.memo ?? original.memo,
     website: provided.website ?? original.website,

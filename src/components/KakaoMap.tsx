@@ -9,7 +9,7 @@ import { calculateRecommendScore } from "@/lib/recommend";
 import { isPlacePremiumNow } from "@/lib/premium";
 import {
   buildRoute, formatEstimatedTime, ROUTE_THEME_LABEL,
-  type RouteTheme, type RouteResult,
+  type RouteTheme, type RouteResult, type RoutablePlace,
 } from "@/lib/routeRecommend";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
@@ -20,7 +20,7 @@ import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
   ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
-  Footprints, Coffee, Landmark, CloudRain, Navigation,
+  Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import OwnerUpgradeForm from "@/components/OwnerUpgradeForm";
 
@@ -54,18 +54,19 @@ const getPlaceEmoji = (place: any) =>
   CATEGORY_EMOJI[place?.category] || PET_ZONE_EMOJI[place?.pet_zone] || null;
 
 // ── AI 맞춤 추천 경로 테마 탭 아이콘
+// ⚠ 카페 중심/비 오는 날 테마는 제거했습니다(요청) — 남은 테마는 산책 중심/관광 중심/
+// 실내 추천 3개입니다.
 const ROUTE_THEME_ICON: Record<RouteTheme, typeof Footprints> = {
   walk: Footprints,
-  cafe: Coffee,
   attraction: Landmark,
   indoor: Store,
-  rainy: CloudRain,
 };
 
-// 산책 중심/비 오는 날/실내 추천은 "동네를 벗어나지 않는" 코스를 원한다는 요구사항이라,
-// 이 세 테마만 후보를 현재 읍/면/동 안으로 좁힙니다. 카페 중심/관광 중심은 원래도
-// 반경 15km 전체에서 후보를 찾습니다(일부러 더 멀리까지 볼 수 있게 둔 테마라 그대로 둡니다).
-const DONG_RESTRICTED_THEMES: RouteTheme[] = ["walk", "rainy", "indoor"];
+// 산책 중심/실내 추천은 "동네를 벗어나지 않는" 코스를 원한다는 요구사항이라, 이 두
+// 테마만 후보를 현재 읍/면/동 안으로 좁힙니다. 관광 중심은 지역 내 관광지를 우선하되
+// 차로 이동 가능한 거리(외곽지역 한정 반경 5km)까지도 허용해야 해서 하드 필터링 대신
+// routeRecommend.ts의 pickAttractionStop에서 별도로 지역 우선순위를 처리합니다.
+const DONG_RESTRICTED_THEMES: RouteTheme[] = ["walk", "indoor"];
 
 const getPlaceLabel = (place: any) =>
   CATEGORY_EMOJI[place?.category]
@@ -313,9 +314,14 @@ export default function KakaoMap() {
   // 정거장 선정 둘 다 이 맵을 참고합니다(recommend.ts의 popularityBonus).
   const [popularityMap, setPopularityMap] = useState<Map<string, { bookmarks: number; likes: number }>>(new Map());
 
-  // ── AI 코스 "산책 중심/비 오는 날/실내 추천" 테마 전용: 현재 중심 좌표가 속한
-  // 읍/면/동 이름. 이 세 테마는 후보를 이 동 안으로만 좁힙니다(아래 DONG_RESTRICTED_THEMES).
+  // ── AI 코스 "산책 중심/실내 추천/관광 중심" 테마 전용: 현재 중심 좌표가 속한 읍/면/동
+  // 이름. 산책·실내는 후보를 이 동 안으로만 좁히고(DONG_RESTRICTED_THEMES), 관광 중심은
+  // 하드 필터링 없이 "지역 내 관광지 우선순위" 판정에만 씁니다.
   const [routeDongName, setRouteDongName] = useState<string | null>(null);
+
+  // ── "다른 코스 보기": 클릭 시 직전 코스에 나온 정거장들을 제외하고 재계산합니다.
+  // 테마를 바꾸거나 패널을 새로 열면 초기화됩니다.
+  const [routeExcludedIds, setRouteExcludedIds] = useState<Set<string | number>>(new Set());
 
   // ── 반응형: 리스트/신규 장소/추천 장소 패널이 화면 폭에 맞게 겹치지 않도록.
   // 좁은 화면(모바일 세로, 분할화면 등)에서는 리스트 패널을 기본으로 숨기고 토글로만
@@ -324,6 +330,15 @@ export default function KakaoMap() {
   const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
   const showListPanel = !isNarrowScreen || showListPanelMobile;
+
+  // ── 리스트 패널 좌/우 도킹 (웹 전용): 좁은 화면에서는 지도 위에 다른 패널과 겹칠 자리가
+  // 없어서 의미가 없으므로 무시하고 항상 좌측 취급합니다. 넓은 화면에서 사용자가 우측으로
+  // 옮기면, 신규 장소/추천 장소/AI 코스 패널(모두 우측 고정)과 자리가 겹치지 않도록 그
+  // 패널들을 자동으로 반대편(좌측)으로 옮깁니다 — 두 그룹이 항상 서로 반대편에 있도록
+  // "리스트 패널의 편"과 "나머지 패널들의 편"을 한 상태에서 함께 계산합니다.
+  const [listPanelSide, setListPanelSide] = useState<"left" | "right">("left");
+  const effectiveListPanelSide: "left" | "right" = isNarrowScreen ? "left" : listPanelSide;
+  const otherPanelsSide: "left" | "right" = effectiveListPanelSide === "right" ? "left" : "right";
 
   // ── 플로팅 헤더 실제 높이를 측정해서, 리스트/신규/추천 패널과 "넓게 둘러보기" 버튼의
   // 상단 위치를 여기에 맞춥니다. 헤더는 화면이 좁아지면 검색창·필터·버튼이 줄바꿈되며
@@ -441,19 +456,18 @@ export default function KakaoMap() {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
 
-      // 느린 공공데이터 3종은 별도로 이어서 fetch — 도착하면 기존 DB places 위에 덧붙입니다.
-      const publicDataPlaces = await fetchPublicDataPlaces();
+      // 느린 공공데이터 3종 + 공원(parks)은 서로 무관한 별개 소스라 순차 await 대신
+      // Promise.all로 동시에 요청합니다 — 둘 다 도착하는 데 걸리는 시간이 "가장 느린
+      // 쪽 하나" 수준으로 줄어듭니다(예전엔 공공데이터 3종을 다 기다린 뒤에야 공원 fetch를
+      // 시작해서 두 대기시간이 그대로 더해졌습니다). 둘 다 기존 DB places 위에 비동기로
+      // 덧붙이는 구조라 지도 첫 렌더(위 setPlaces)는 그대로 막지 않습니다.
+      const [publicDataPlaces, parkPlaces] = await Promise.all([
+        fetchPublicDataPlaces(),
+        fetchParks(),
+      ]);
       if (cancelled) return;
       setPlaces((prev) => [...prev, ...publicDataPlaces]);
-
-      // ⚠ 공원 데이터는 data.go.kr 오픈API(SERVICETIMEOUT_ERROR) 자체가 아직 불안정해서
-      // parks 테이블이 비어있는 상태입니다 — 당분간 fetch 자체를 꺼둡니다(parks는 계속
-      // 빈 배열이라 마커/추천 가점 코드는 그대로 있어도 자동으로 아무 영향이 없지만,
-      // 굳이 매번 빈 결과를 기다릴 이유가 없어 아예 호출을 건너뜁니다). 나중에 API가
-      // 복구되면 아래 두 줄만 다시 살리면 됩니다.
-      // const parkPlaces = await fetchParks();
-      // if (cancelled) return;
-      // setParks(parkPlaces);
+      setParks(parkPlaces);
     };
     init();
     // ⚠ 예전엔 이 콜백이 비어 있어서(auth 이벤트를 구독만 하고 아무것도 안 함), 로그인
@@ -699,6 +713,27 @@ export default function KakaoMap() {
       });
   }, [filteredPlaces, debouncedSearch, userLocation]);
 
+  // ── 리스트 패널 상단 고정 "프리미엄 업장" 섹션: 지금 화면(=nearbyPlaces, 이미 거리순
+  // 정렬됨)에 활성 프리미엄 업장이 있으면 가까운 순으로 최대 3곳만 보여줍니다. 전국 아무
+  // 프리미엄 업장이나 노출하면 무관한 지역 광고가 떠서 리스트 신뢰도만 떨어뜨리므로,
+  // 지금 보고 있는 지역 근처에 없으면 섹션 자체를 렌더링하지 않습니다.
+  const pinnedPremiumPlaces = useMemo(
+    () => nearbyPlaces.filter((p) => isPlacePremiumNow(p)).slice(0, 3),
+    [nearbyPlaces]
+  );
+
+  // ── 신규 장소 패널(showRecentPanel)에 쓸 "최근 등록순 상위 10개"입니다.
+  // ⚠ 최적화: 예전엔 이 정렬([...places].sort(...).slice(0,10))이 JSX 안에 그대로
+  // 있어서, 패널이 열려 있는 동안 컴포넌트가 리렌더링될 때마다(지도 팬/줌으로 인한
+  // mapBounds 갱신 등 이 패널과 무관한 상태 변화에도) places 전체(공공데이터 병합 후
+  // 수천 건)를 매번 복사+정렬했습니다. places가 실제로 바뀔 때만 다시 계산하도록
+  // useMemo로 옮겼습니다.
+  const recentPlaces = useMemo(() => {
+    return [...places]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 10);
+  }, [places]);
+
   // ── 리스트 패널에 실제로 표시할 목록: 가게명 검색 결과가 있으면 그걸 우선,
   // 없으면(검색어가 없거나 지역명 검색인 경우) 기존 반경 기반 목록을 보여줍니다.
   const displayedPlaces = useMemo(() => {
@@ -819,11 +854,11 @@ export default function KakaoMap() {
       .slice(0, 10);
   }, [filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap]);
 
-  // ── 산책 중심/비 오는 날/실내 추천 테마일 때만, 중심 좌표가 속한 읍/면/동을 조회합니다.
-  // useMemo는 동기 함수라 fetch를 못 하므로, 별도 effect로 미리 구해서 state에 담아두고
-  // currentRoute useMemo는 이 값을 참고만 하도록 분리했습니다.
+  // ── 산책 중심/실내 추천(하드 필터) + 관광 중심(지역 내 우선순위 판정용)일 때 중심
+  // 좌표가 속한 읍/면/동을 조회합니다. useMemo는 동기 함수라 fetch를 못 하므로, 별도
+  // effect로 미리 구해서 state에 담아두고 currentRoute useMemo는 이 값을 참고만 합니다.
   useEffect(() => {
-    if (!showRoutePanel || !DONG_RESTRICTED_THEMES.includes(routeTheme)) return;
+    if (!showRoutePanel || !(DONG_RESTRICTED_THEMES.includes(routeTheme) || routeTheme === "attraction")) return;
     // AI 코스는 항상 "현재 내 위치"를 출발지로 삼습니다 — searchCenter(검색/지도 이동으로
     // 바뀐 중심)가 있어도 코스 추천 목적에서는 우선순위를 낮춥니다(위치 권한이 없어
     // userLocation을 못 구했을 때만 searchCenter로 대체).
@@ -849,26 +884,47 @@ export default function KakaoMap() {
     const center = userLocation || searchCenter;
     if (!center) return null;
 
+    // ⚠ 공원(parks)은 places와 별개 테이블/state라 id 체계가 다릅니다(둘 다 숫자 id라
+    // 그대로 합치면 places.id=3과 parks.id=3이 충돌할 수 있음) — `park-${id}` 형태로
+    // 네임스페이스를 씌워 RoutablePlace로 변환한 뒤 후보 풀에 합류시킵니다. category가
+    // "공원"류라 classifyStopRole이 자동으로 "walk" 역할로 분류해줍니다.
+    const parksAsRoutable: RoutablePlace[] = parks.map((park) => ({
+      id: `park-${park.id}`,
+      name: park.name,
+      lat: park.lat,
+      lng: park.lng,
+      category: park.category,
+      address: park.address,
+    }));
+
+    const withinRadius = <T extends { lat: string | number; lng: string | number }>(
+      list: T[],
+      latD: number,
+      lngD: number
+    ) =>
+      list.filter((item) => {
+        const lat = typeof item.lat === "number" ? item.lat : parseFloat(item.lat);
+        const lng = typeof item.lng === "number" ? item.lng : parseFloat(item.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return Math.abs(lat - center.lat) <= latD && Math.abs(lng - center.lng) <= lngD;
+      });
+
     const ROUTE_RADIUS_KM = 15;
     const latDelta = ROUTE_RADIUS_KM / 111;
     const lngDelta = ROUTE_RADIUS_KM / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
-    let nearby = places.filter((place) => {
-      const lat = parseFloat(place.lat);
-      const lng = parseFloat(place.lng);
-      if (isNaN(lat) || isNaN(lng)) return false;
-      return Math.abs(lat - center.lat) <= latDelta && Math.abs(lng - center.lng) <= lngDelta;
-    });
+    let nearby: RoutablePlace[] = [
+      ...withinRadius(places, latDelta, lngDelta),
+      ...withinRadius(parksAsRoutable, latDelta, lngDelta),
+    ];
     // 반경 안 후보가 너무 적으면(외곽 지역 등) 반경을 한 번 더 넓혀서 재시도합니다.
     if (nearby.length < 4) {
       const wideKm = 30;
       const wLatDelta = wideKm / 111;
       const wLngDelta = wideKm / (111 * Math.max(0.1, Math.cos((center.lat * Math.PI) / 180)));
-      nearby = places.filter((place) => {
-        const lat = parseFloat(place.lat);
-        const lng = parseFloat(place.lng);
-        if (isNaN(lat) || isNaN(lng)) return false;
-        return Math.abs(lat - center.lat) <= wLatDelta && Math.abs(lng - center.lng) <= wLngDelta;
-      });
+      nearby = [
+        ...withinRadius(places, wLatDelta, wLngDelta),
+        ...withinRadius(parksAsRoutable, wLatDelta, wLngDelta),
+      ];
     }
 
     // 산책 중심/비 오는 날/실내 추천: 같은 읍/면/동 주소를 가진 곳으로만 좁힙니다.
@@ -888,8 +944,19 @@ export default function KakaoMap() {
       return { ...place, bookmarkCount: popularity?.bookmarks ?? 0, likeCount: popularity?.likes ?? 0 };
     });
 
-    return buildRoute(nearbyWithPopularity, center, routeTheme, 4);
-  }, [showRoutePanel, places, userLocation, searchCenter, routeTheme, popularityMap, routeDongName]);
+    const buildOptions = { localAreaName: routeDongName, excludeIds: routeExcludedIds };
+    // "다른 코스 보기"로 제외 목록이 쌓였는데 그걸로는 더 이상 코스를 못 만들면(대안
+    // 소진), 처음 추천으로 자연스럽게 되돌아갑니다 — 빈 화면보다 낫다는 판단입니다.
+    return (
+      buildRoute(nearbyWithPopularity, center, routeTheme, 4, buildOptions) ??
+      (routeExcludedIds.size > 0 ? buildRoute(nearbyWithPopularity, center, routeTheme, 4, { localAreaName: routeDongName }) : null)
+    );
+  }, [showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeDongName, routeExcludedIds]);
+
+  // 테마를 바꾸거나 패널을 새로 열면 "다른 코스 보기" 제외 목록을 초기화합니다.
+  useEffect(() => {
+    setRouteExcludedIds(new Set());
+  }, [routeTheme, showRoutePanel]);
 
   // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
@@ -1563,16 +1630,19 @@ export default function KakaoMap() {
           </button>
         )}
 
-        {/* 공유 버튼 — 하단 탭바(플로팅 필)는 좁은 화면일수록 폭이 화면 거의 전체(calc(100vw - 28px))로
-            늘어나면서 오른쪽 끝이 항상 화면 우측에서 14px 지점까지 옵니다. 이 버튼들이 예전
-            위치(96px/42px)에 있으면 좁은 화면에서 탭바 위에 그대로 겹쳐 보였습니다. 탭바
-            높이(약 58px) + 여백을 감안해 더 위로 올렸습니다. */}
+        {/* 공유·내 위치 버튼 — 넓은 화면에서는 탭바가 가운데 450px 폭으로만 떠 있어서
+            오른쪽에 여유가 많아, 내 위치 버튼을 탭바와 세로 중앙이 맞도록 내렸습니다
+            (탭바 bottom 20px + 높이 58px → 중심 49px = 버튼 bottom 29px). 공유 버튼은
+            그 위로 기존 간격(54px)을 그대로 유지합니다.
+            ⚠ 좁은 화면(모바일)에서는 탭바 폭이 화면 거의 전체(calc(100vw - 28px))로 늘어나
+            오른쪽 끝이 화면 우측 14px 지점까지 와서, 같은 높이로 내리면 탭바와 겹칩니다.
+            그래서 좁은 화면에서는 기존처럼 탭바 위로 띄운 위치를 그대로 유지합니다. */}
         <button
           onClick={() => setShowShareModal(true)}
           title="공유하기"
           style={{
             position: "absolute",
-            bottom: "144px",
+            bottom: isNarrowScreen ? "138px" : "83px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -1596,7 +1666,7 @@ export default function KakaoMap() {
           title="내 위치로 이동"
           style={{
             position: "absolute",
-            bottom: "90px",
+            bottom: isNarrowScreen ? "84px" : "29px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -1739,8 +1809,13 @@ export default function KakaoMap() {
                 {selectedPark.address || "주소 정보 없음"}
               </div>
               {selectedPark.facilityNote && (
-                <div style={{ fontSize: "11px", color: "#7a7a7a", marginTop: "8px", padding: "8px 10px", background: "#f7f7f5", borderRadius: "10px", lineHeight: 1.5 }}>
-                  {selectedPark.facilityNote}
+                <div style={{ fontSize: "11px", color: "#7a7a7a", marginTop: "8px", padding: "8px 10px", background: "#f7f7f5", borderRadius: "10px", lineHeight: 1.6 }}>
+                  {/* facilityNote는 import-parks.mjs의 buildFacilityNote()가 "운동시설: ... · 편익시설: ..."
+                      처럼 " · "로 이어붙여 저장합니다 — 한 줄로 뭉쳐 있으면 시설이 여러 개일 때 읽기 어려워서,
+                      시설 종류별로 한 줄씩 줄바꿈해서 보여줍니다. */}
+                  {selectedPark.facilityNote.split(" · ").map((line, i) => (
+                    <div key={i}>{line}</div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1847,30 +1922,29 @@ export default function KakaoMap() {
               <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
               <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
               <button onClick={() => setSelectedPetZone("pharmacy")} style={getButtonStyle("pharmacy")}>💊 동물약국</button>
-              {/* ⚠ 공원 오픈API(data.go.kr)가 SERVICETIMEOUT_ERROR로 아직 불안정해서
-                  parks 데이터 자체가 없습니다 — 토글 버튼도 당분간 숨겨둡니다.
-                  API가 복구되고 데이터를 받으면 아래 버튼을 다시 켜면 됩니다. */}
-              {false && (
-                <button
-                  onClick={() => setShowParks((v) => !v)}
-                  style={{
-                    padding: "4px 9px",
-                    fontSize: "11px",
-                    borderRadius: "999px",
-                    border: showParks ? "none" : "1px solid #d8dcd6",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    background: showParks ? "#3a7438" : "white",
-                    color: showParks ? "white" : "#666",
-                    boxShadow: showParks ? "0 1px 6px rgba(0,0,0,0.22)" : "0 1px 3px rgba(0,0,0,0.07)",
-                    whiteSpace: "nowrap",
-                    transition: "all 0.15s ease",
-                    fontFamily: "'Noto Sans KR', sans-serif",
-                  }}
-                >
-                  🌳 공원 {showParks ? "표시중" : "숨김"}
-                </button>
-              )}
+              {/* ⚠ 공원 버튼 자체가 눌림/안눌림 상태를 통째로 표현합니다(다른 필터 버튼과
+                  같은 톤) — 텍스트는 "🌳 공원"으로 고정, 켜져 있으면 진한 초록으로 채워지고
+                  꺼지면 옅은 외곽선만 남는 식으로 버튼 전체가 토글됩니다. */}
+              <button
+                onClick={() => setShowParks((v) => !v)}
+                aria-pressed={showParks}
+                style={{
+                  padding: "4px 9px",
+                  fontSize: "11px",
+                  borderRadius: "999px",
+                  border: showParks ? "none" : "1px solid #d8dcd6",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  background: showParks ? "#3a7438" : "white",
+                  color: showParks ? "white" : "#666",
+                  boxShadow: showParks ? "0 1px 6px rgba(0,0,0,0.22)" : "0 1px 3px rgba(0,0,0,0.07)",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                }}
+              >
+                🌳 공원
+              </button>
             </div>
           </div>
 
@@ -2048,32 +2122,130 @@ export default function KakaoMap() {
 
       {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
           좁은 화면에서는 헤더의 "목록" 토글을 켰을 때만 보이고, 폭도 clamp()로 화면 크기에
-          비례해서 줄어듭니다(고정 210px이면 좁은 화면에서 지도 대부분을 가려버립니다). */}
+          비례해서 줄어듭니다(고정 210px이면 좁은 화면에서 지도 대부분을 가려버립니다).
+          ⚠ 리디자인(2026.08): 예전엔 헤더 없이 바로 카드 목록만 있었습니다 — 다른 패널
+          (신규 장소/추천 장소/AI 코스)은 전부 제목이 있는 헤더 바를 갖고 있어서 상대적으로
+          이 패널만 밋밋해 보였습니다. 제목+개수 헤더를 추가하고, 활성 프리미엄 업장이 있으면
+          그 위에 고정 노출 섹션을 얹었습니다. */}
       {showListPanel && (
       <div
         className="ggk-body"
         style={{
           position: "fixed",
           top: panelTop,
-          left: "14px",
-          width: isNarrowScreen ? "clamp(160px, 46vw, 210px)" : "210px",
+          ...(effectiveListPanelSide === "left" ? { left: "14px" } : { right: "14px" }),
+          width: isNarrowScreen ? "clamp(160px, 46vw, 210px)" : "222px",
           height: "60vh",
           background: "#ffffff",
           border: "1px solid #e8eaed",
           borderRadius: "20px",
           overflow: "hidden",
           zIndex: 20,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          boxShadow: "0 10px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.05)",
           display: "flex",
           flexDirection: "column",
-          padding: "14px 0",
         }}
       >
         <div
           style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 13px 10px",
+            borderBottom: "1px solid #f0f1f3",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", minWidth: 0 }}>
+            <div className="ggk-logo" style={{ fontSize: "13px", fontWeight: 800, color: "#111" }}>
+              주변 장소
+            </div>
+            <div style={{ fontSize: "10px", color: "#aaa", fontWeight: 600, flexShrink: 0 }}>
+              {displayedPlaces.length}곳
+            </div>
+          </div>
+          {/* ⚠ 웹 전용 좌/우 도킹 토글: 좁은 화면에서는 지도 대부분을 패널이 차지해서
+              반대편으로 옮겨도 의미가 없고, 다른 좁은 화면 UI와 자리 다툼만 생기므로
+              !isNarrowScreen일 때만 노출합니다. */}
+          {!isNarrowScreen && (
+            <button
+              onClick={() => setListPanelSide((s) => (s === "left" ? "right" : "left"))}
+              title={listPanelSide === "left" ? "패널을 오른쪽으로 이동" : "패널을 왼쪽으로 이동"}
+              style={{
+                border: "1px solid #eee", background: "#fafafa", borderRadius: "50%",
+                width: "20px", height: "20px", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", flexShrink: 0, padding: 0,
+              }}
+            >
+              {listPanelSide === "left"
+                ? <ChevronRight size={12} color="#888" />
+                : <ChevronLeft size={12} color="#888" />}
+            </button>
+          )}
+        </div>
+
+        {/* ⚠ 프리미엄 고정 섹션: 지금 보이는 지역 근처에 활성 프리미엄 업장이 있을 때만
+            나타납니다(pinnedPremiumPlaces가 빈 배열이면 렌더링 자체를 안 함) — 관련 없는
+            지역 업장을 노출하지 않기 위해서입니다. */}
+        {pinnedPremiumPlaces.length > 0 && (
+          <div
+            style={{
+              flexShrink: 0,
+              padding: "9px 10px 8px",
+              background: "linear-gradient(135deg,#fffaf1,#fdf1da)",
+              borderBottom: "1px solid #f5e6c4",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "9.5px", fontWeight: 800, color: "#9a6b1f", marginBottom: "6px", letterSpacing: "0.2px" }}>
+              <Crown size={10} color="#c8952e" />
+              프리미엄 업장
+            </div>
+            <div style={{ display: "flex", gap: "6px", overflowX: "auto", scrollbarWidth: "none", paddingBottom: "1px" }}>
+              {pinnedPremiumPlaces.map((place) => (
+                <div
+                  key={`premium-${place.id}`}
+                  onClick={() => {
+                    setSelectedPlace(place);
+                    const lat = parseFloat(place.lat);
+                    const lng = parseFloat(place.lng);
+                    if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+                      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+                    }
+                  }}
+                  style={{
+                    flexShrink: 0, width: "84px", cursor: "pointer", borderRadius: "10px",
+                    overflow: "hidden", border: "1px solid rgba(212,162,76,0.4)", background: "white",
+                  }}
+                >
+                  <div style={{ position: "relative", width: "84px", height: "56px" }}>
+                    <img
+                      src={place.image_url || "/images/default-place.png"}
+                      alt={place.name}
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    <div style={{
+                      position: "absolute", top: 3, left: 3, display: "inline-flex", alignItems: "center", gap: 2,
+                      padding: "1px 5px", borderRadius: 999, fontSize: 7.5, fontWeight: 800,
+                      background: "linear-gradient(135deg,#F0D28A,#D4A24C)", color: "#5C4106",
+                    }}>
+                      <Sparkles size={7} />AD
+                    </div>
+                  </div>
+                  <div style={{ padding: "5px 6px 6px", fontSize: "9.5px", fontWeight: 700, color: "#5C4106", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {place.name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div
+          style={{
             overflowY: "auto",
             flex: 1,
-            height: "100%",
             marginTop: "6px",
             marginBottom: "6px",
             paddingLeft: "10px",
@@ -2081,7 +2253,6 @@ export default function KakaoMap() {
             scrollbarWidth: "thin",
           }}
         >
-          <div style={{ height: "8px" }} />
           {displayedPlaces.length === 0 && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
@@ -2110,15 +2281,17 @@ export default function KakaoMap() {
                   }
                 }}
                 style={{
-                  marginBottom: "6px",
+                  marginBottom: "7px",
                   background: selectedPlace?.id === place.id ? "#eef6ff" : "white",
-                  borderRadius: "12px",
+                  borderRadius: "14px",
                   cursor: "pointer",
                   border:
                     selectedPlace?.id === place.id
                       ? "1.5px solid #93c5fd"
                       : "1px solid #eee",
+                  boxShadow: selectedPlace?.id === place.id ? "0 2px 10px rgba(59,130,246,0.14)" : "0 1px 3px rgba(0,0,0,0.03)",
                   overflow: "hidden",
+                  transition: "box-shadow 0.15s ease, border-color 0.15s ease",
                 }}
               >
                 {/* lazy loading + 기본 이미지 fallback */}
@@ -2127,9 +2300,9 @@ export default function KakaoMap() {
                   alt={place.name}
                   loading="lazy"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
-                  style={{ width: "100%", height: "85px", objectFit: "cover", display: "block" }}
+                  style={{ width: "100%", height: "88px", objectFit: "cover", display: "block" }}
                 />
-                <div style={{ padding: "6px 9px" }}>
+                <div style={{ padding: "7px 9px 8px" }}>
                   <div style={{ fontWeight: 700, fontSize: "11px", color: "#111", display: "flex", alignItems: "center", gap: 4 }}>
                     {place.name}
                     {isPlacePremiumNow(place) && (
@@ -2141,8 +2314,11 @@ export default function KakaoMap() {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                  <div style={{ fontSize: "10px", color: "#666", marginTop: "3px" }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: "3px",
+                      background: "#f5f6f8", padding: "2px 6px", borderRadius: "999px",
+                    }}>
                       {getPlaceEmoji(place)
                         ? <span>{getPlaceEmoji(place)}</span>
                         : <PawPrint size={10} color="#888" />}
@@ -2153,7 +2329,7 @@ export default function KakaoMap() {
                     style={{
                       fontSize: "10px",
                       color: "#999",
-                      marginTop: "1px",
+                      marginTop: "4px",
                       display: "flex",
                       alignItems: "center",
                       gap: "3px",
@@ -2178,7 +2354,9 @@ export default function KakaoMap() {
           style={{
             position: "fixed",
             top: panelTop,
-            right: "14px",
+            // ⚠ 리스트 패널이 우측으로 도킹되면(listPanelSide) 이 패널들과 자리가
+            // 겹치므로, 항상 리스트 패널의 반대편(otherPanelsSide)에 붙습니다.
+            ...(otherPanelsSide === "left" ? { left: "14px" } : { right: "14px" }),
             width: isNarrowScreen ? "clamp(220px, 78vw, 280px)" : "280px",
             maxHeight: "64vh",
             background: "#ffffff",
@@ -2241,9 +2419,7 @@ export default function KakaoMap() {
                 새로운 장소가 아직 없습니다
               </div>
             )}
-            {[...places]
-              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              .slice(0, 10)
+            {recentPlaces
               .map((place, idx) => (
                 <div
                   key={place.id}
@@ -2350,7 +2526,9 @@ export default function KakaoMap() {
           style={{
             position: "fixed",
             top: panelTop,
-            right: "14px",
+            // ⚠ 리스트 패널이 우측으로 도킹되면(listPanelSide) 이 패널들과 자리가
+            // 겹치므로, 항상 리스트 패널의 반대편(otherPanelsSide)에 붙습니다.
+            ...(otherPanelsSide === "left" ? { left: "14px" } : { right: "14px" }),
             width: isNarrowScreen ? "clamp(220px, 78vw, 280px)" : "280px",
             maxHeight: "64vh",
             background: "#ffffff",
@@ -2506,7 +2684,9 @@ export default function KakaoMap() {
           style={{
             position: "fixed",
             top: panelTop,
-            right: "14px",
+            // ⚠ 리스트 패널이 우측으로 도킹되면(listPanelSide) 이 패널들과 자리가
+            // 겹치므로, 항상 리스트 패널의 반대편(otherPanelsSide)에 붙습니다.
+            ...(otherPanelsSide === "left" ? { left: "14px" } : { right: "14px" }),
             width: isNarrowScreen ? "clamp(240px, 82vw, 320px)" : "320px",
             maxHeight: "76vh",
             background: "#ffffff",
@@ -2612,6 +2792,40 @@ export default function KakaoMap() {
                 );
               })}
             </div>
+
+            {currentRoute && (
+              <button
+                onClick={() => {
+                  // 지금 보이는 코스의 정거장들을 제외 목록에 더해서 다른 조합이
+                  // 나오도록 만듭니다. 대안이 바닥나면 useMemo 쪽에서 자동으로
+                  // 처음 추천으로 되돌립니다.
+                  setRouteExcludedIds((prev) => {
+                    const next = new Set(prev);
+                    currentRoute.stops.forEach((s) => next.add(s.place.id));
+                    return next;
+                  });
+                }}
+                className="ggk-body"
+                style={{
+                  width: "100%",
+                  marginTop: "8px",
+                  padding: "7px 0",
+                  borderRadius: "10px",
+                  border: "1px dashed rgba(91,33,182,0.4)",
+                  background: "rgba(255,255,255,0.5)",
+                  color: "#5b21b6",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "5px",
+                }}
+              >
+                <RefreshCw size={11} />이 조합 말고 다른 코스 보기
+              </button>
+            )}
           </div>
 
           <div
@@ -2650,7 +2864,15 @@ export default function KakaoMap() {
                     // 목록 패널·마커 클릭과 동일하게: 바로 상세 모달로 넘어가지 않고
                     // 하단 중앙에 "자세히 보기" 미리보기 카드를 띄우면서 지도를 이
                     // 정거장 중심으로 이동합니다.
-                    setSelectedPlace(stop.place);
+                    // ⚠ 정거장이 공원(`park-${id}` 네임스페이스)이면 places 테이블에
+                    // 없는 place라 일반 상세 모달(openPlaceDetail)을 열 수 없습니다 —
+                    // 공원 전용 가벼운 정보 카드(selectedPark)를 대신 띄웁니다.
+                    const rawId = String(stop.place.id);
+                    if (rawId.startsWith("park-")) {
+                      selectParkRef.current(Number(rawId.slice("park-".length)));
+                    } else {
+                      setSelectedPlace(stop.place);
+                    }
                     const lat = parseFloat(String(stop.place.lat));
                     const lng = parseFloat(String(stop.place.lng));
                     if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
@@ -2690,6 +2912,7 @@ export default function KakaoMap() {
                     <img
                       src={stop.place.image_url}
                       alt={stop.place.name}
+                      loading="lazy"
                       style={{ width: "56px", height: "56px", borderRadius: "10px", objectFit: "cover", flexShrink: 0 }}
                     />
                   ) : (

@@ -13,7 +13,7 @@ const supabaseAdmin = createClient(
 
 const EDITABLE_FIELDS = [
   "hours", "phone", "closed_days", "pet_zone", "memo",
-  "parking", "entry_fee", "website", "large_dog", "pet_menu",
+  "parking", "entry_fee", "website", "large_dog",
 ] as const;
 
 export async function PATCH(req: NextRequest) {

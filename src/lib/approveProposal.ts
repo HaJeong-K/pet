@@ -20,7 +20,6 @@ export interface ProposalLike {
   category?: string | null;
   hours?: string | null;
   large_dog?: boolean | null;
-  pet_menu?: string | null;
   phone?: string | null;
   memo?: string | null;
   image_urls?: string[] | null;
@@ -63,7 +62,6 @@ export async function approveProposal(
       category: proposal.category,
       hours: proposal.hours,
       large_dog: proposal.large_dog,
-      pet_menu: proposal.pet_menu,
       phone: proposal.phone,
       memo: proposal.memo,
       image_url: proposal.image_urls?.[0] || null,

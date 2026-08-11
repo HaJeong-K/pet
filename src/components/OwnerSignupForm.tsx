@@ -124,9 +124,13 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const agreedAll = agreedTerms && agreedPrivacy;
 
+  // ⚠ 최적화: Tesseract.js는 사업자등록증 이미지를 실제로 골랐을 때만 필요한데, 예전엔
+  // 폼이 열리자마자(마운트 시) 무조건 미리 받아왔습니다 — 회원가입 폼만 열어보고 이미지를
+  // 안 올리는 사람도 수 MB짜리 OCR 스크립트를 다운로드하게 되는 낭비였습니다. 이제는
+  // handleCertChange(실제 파일 선택 시점)에서 로드를 시작합니다(다음 주소검색은 대부분의
+  // 사용자가 곧바로 쓰는 흐름이라 그대로 미리 받아둡니다).
   useEffect(() => {
     loadDaumPostcode().catch((e) => console.error("다음 주소검색 로드 실패:", e));
-    loadTesseract().catch((e) => console.error("OCR 스크립트 로드 실패:", e));
   }, []);
 
   const nicknamePreview =
@@ -183,6 +187,9 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
     setCertFile(file);
     if (certPreviewUrl) URL.revokeObjectURL(certPreviewUrl);
     setCertPreviewUrl(file ? URL.createObjectURL(file) : null);
+    // 실제로 파일을 고른 시점에만 OCR 스크립트를 미리 받아둡니다(제출 시 runOcr가
+    // 다시 loadTesseract를 부르지만, 이미 로드돼 있으면 즉시 반환되므로 중복 비용 없음).
+    if (file) loadTesseract().catch((e2) => console.error("OCR 스크립트 로드 실패:", e2));
   };
 
   const isSubmitDisabled =

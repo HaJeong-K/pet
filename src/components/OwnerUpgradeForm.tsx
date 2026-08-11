@@ -103,9 +103,11 @@ export default function OwnerUpgradeForm({
   const [submitting, setSubmitting] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<"idle" | "uploading" | "verifying">("idle");
 
+  // ⚠ 최적화: Tesseract.js는 사업자등록증 이미지를 실제로 골랐을 때만 필요합니다 —
+  // 마운트 시 무조건 미리 받아오면 이미지를 안 올리는 사람도 수 MB짜리 OCR 스크립트를
+  // 다운로드하게 됩니다. handleCertChange(파일 선택 시점)에서 로드를 시작합니다.
   useEffect(() => {
     loadDaumPostcode().catch((e) => console.error("다음 주소검색 로드 실패:", e));
-    loadTesseract().catch((e) => console.error("OCR 스크립트 로드 실패:", e));
   }, []);
 
   const nicknamePreview =
@@ -143,6 +145,7 @@ export default function OwnerUpgradeForm({
     setCertFile(file);
     if (certPreviewUrl) URL.revokeObjectURL(certPreviewUrl);
     setCertPreviewUrl(file ? URL.createObjectURL(file) : null);
+    if (file) loadTesseract().catch((e2) => console.error("OCR 스크립트 로드 실패:", e2));
   };
 
   const isSubmitDisabled =

@@ -125,7 +125,6 @@ export async function fetchPublicDataPlaces(): Promise<any[]> {
       pet_zone: item.pet_zone ?? "both", // 공공데이터 원본에 실내외 구분이 없어 기본값으로 표기
       hours: item.hours ?? null,
       large_dog: item.large_dog ?? null,
-      pet_menu: item.pet_menu ?? null,
       phone: item.phone ?? null,
       memo: item.memo ?? null,
       website: item.website ?? null,

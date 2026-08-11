@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { approveProposal } from "@/lib/approveProposal";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
-  Dog, Bone, MessageCircle, Plus, X, AlertCircle,
+  Dog, MessageCircle, Plus, X, AlertCircle,
   MapPinPlus, CheckCircle2, XCircle, Search,
   Stethoscope, PawPrint, Pencil, Pill, Coffee, Trees, Hotel,
   Home, Building2,
@@ -86,7 +86,6 @@ export default function JeboModal() {
   const [petZone,  setPetZone]  = useState<"indoor" | "terrace" | "both" | "">("");
   const [hours,    setHours]    = useState("");
   const [largeDog, setLargeDog] = useState<boolean | null>(null);
-  const [petMenu,  setPetMenu]  = useState("");
   const [phone,    setPhone]    = useState("");
   const [memo,     setMemo]     = useState("");
   const [useCustomCategory, setUseCustomCategory] = useState(false);
@@ -224,7 +223,6 @@ export default function JeboModal() {
           hours:        hours.trim()    || null,
           pet_zone:     petZone         || null,
           large_dog:    largeDog,
-          pet_menu:     petMenu.trim()  || null,
           phone:        phone.trim()    || null,
           memo:         memo.trim()     || null,
           // 동물병원 제보 전용 필드(그 외 카테고리는 null로 저장)
@@ -537,7 +535,7 @@ export default function JeboModal() {
                   </div>
                   <input
                     className="jebo-input"
-                    placeholder="예: 심장내과 (특정 전문과가 없다면 비워두세요 → '종합진료'로 등록됩니다)"
+                    placeholder="예: 심장내과 (없으면 비워두세요)"
                     value={specialtyDepartment}
                     onChange={(e) => setSpecialtyDepartment(e.target.value)}
                     style={inputStyle}
@@ -549,7 +547,7 @@ export default function JeboModal() {
                   </div>
                   <input
                     className="jebo-input"
-                    placeholder="예: 강아지, 고양이, 소동물"
+                    placeholder="예: 강아지, 고양이, 햄스터 등"
                     value={treatableAnimals}
                     onChange={(e) => setTreatableAnimals(e.target.value)}
                     style={inputStyle}
@@ -637,12 +635,6 @@ export default function JeboModal() {
                   불가
                 </button>
               </div>
-            </div>
-
-            {/* ────── 펫 메뉴 ────── */}
-            <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}><Bone size={11} color="#8b5cf6" /> 펫 메뉴</div>
-              <input className="jebo-input" placeholder="예: 멍푸치노, 수제간식 등" value={petMenu} onChange={(e) => setPetMenu(e.target.value)} style={inputStyle} />
             </div>
 
             {/* ────── 전화번호 ────── */}

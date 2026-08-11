@@ -120,7 +120,6 @@ export default function ModalPage() {
      제안이라 필드별 입력 폼입니다. 전부 선택 입력이며, 최소 1개는 채워야 제출 가능. */
   const [tipHours,      setTipHours]      = useState("");
   const [tipLargeDog,   setTipLargeDog]   = useState<"" | "yes" | "no">("");
-  const [tipPetMenu,    setTipPetMenu]    = useState("");
   const [tipPhone,      setTipPhone]      = useState("");
   const [tipWebsite,    setTipWebsite]    = useState("");
   const [tipClosedDays, setTipClosedDays] = useState("");
@@ -130,7 +129,7 @@ export default function ModalPage() {
   const [isTipSubmitting, setIsTipSubmitting] = useState(false);
 
   const tipHasAnyValue =
-    tipHours.trim() || tipLargeDog || tipPetMenu.trim() || tipPhone.trim() ||
+    tipHours.trim() || tipLargeDog || tipPhone.trim() ||
     tipWebsite.trim() || tipClosedDays.trim() || tipParking.trim() ||
     tipEntryFee.trim() || tipMemo.trim();
 
@@ -271,7 +270,7 @@ export default function ModalPage() {
 
   /* ── 제보(정보 추가) 핸들러 ── */
   const resetTipForm = () => {
-    setTipHours(""); setTipLargeDog(""); setTipPetMenu(""); setTipPhone("");
+    setTipHours(""); setTipLargeDog(""); setTipPhone("");
     setTipWebsite(""); setTipClosedDays(""); setTipParking(""); setTipEntryFee("");
     setTipMemo("");
   };
@@ -301,7 +300,6 @@ export default function ModalPage() {
 
             hours: tipHours.trim() || null,
             large_dog: tipLargeDog ? tipLargeDog === "yes" : null,
-            pet_menu: tipPetMenu.trim() || null,
             phone: tipPhone.trim() || null,
             website: tipWebsite.trim() || null,
             closed_days: tipClosedDays.trim() || null,
@@ -875,7 +873,6 @@ export default function ModalPage() {
                   </div>
                 </div>
 
-                <TipField label="펫 메뉴/서비스" value={tipPetMenu} onChange={setTipPetMenu} placeholder="예: 강아지 전용 간식 판매" />
                 <TipField label="전화번호" value={tipPhone} onChange={setTipPhone} placeholder="예: 051-123-4567" />
                 <TipField label="홈페이지" value={tipWebsite} onChange={setTipWebsite} placeholder="예: https://..." />
                 <TipField label="휴무일" value={tipClosedDays} onChange={setTipClosedDays} placeholder="예: 매주 월요일" />
