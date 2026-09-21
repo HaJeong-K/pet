@@ -118,60 +118,69 @@ export default function MyPage() {
   const [deletingBookmarkId, setDeletingBookmarkId] = useState<number|null>(null);
   const [deletingReviewId, setDeletingReviewId]     = useState<string|null>(null);
 
+  // ⚠ Promise.all 중 하나라도 실패(네트워크 오류 등)하면 통째로 reject되는데, 예전엔
+  // 이걸 잡는 try/catch나 finally가 없어서 setLoading(false)가 영영 호출되지 않았습니다.
+  // 아래 opacity:loading?0:1 스타일 때문에 로딩이 끝나지 않으면 페이지 전체가 투명한
+  // 채로 남아 "하얀 화면"처럼 보였던 원인이 바로 이것입니다. try/finally로 감싸서
+  // 오류가 나도 항상 로딩 상태를 끝내고(일부 데이터가 비어 있더라도) 화면이 뜨게 합니다.
   const loadData = async (sess: any) => {
     setBookmarks([]);
     setMyReviews([]);
-    
+
     const uid = sess.user.id;
 
-    const [
-      { data: profile },
-      { data: bookmarkReactions },
-      { data: reviews },
-      { data: reviewReplies },
-      { data: communityComments },
-    ] = await Promise.all([
-      supabase.from("users").select("*").eq("auth_user_id", uid).single(),
-      supabase.from("reactions")
-        .select("place_id")
-        .eq("user_key", uid)
-        .eq("type", "bookmark"),
-      supabase.from("reviews")
-        .select("id, content, created_at, likes, place_id, places(name, address, image_url, category)")
-        .eq("auth_user_id", uid)
-        .eq("deleted", false)
-        .eq("is_admin_deleted", false)
-        .order("created_at", { ascending: false }),
-      supabase.from("review_replies")
-        .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url, category))")
-        .eq("auth_user_id", uid)
-        .eq("deleted", false)
-        .eq("is_admin_deleted", false)
-        .order("created_at", { ascending: false }),
-      supabase.from("community_comments")
-        .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
-        .eq("author_auth_key", uid)   // ← auth_user_id → author_auth_key 로 변경
-        .eq("deleted", false)
-        .neq("is_admin_deleted", true)
-        .order("created_at", { ascending: false }),
-    ]);
-    setUserProfile(profile);
-    setMyReviews(reviews || []);
-    setMyReviewReplies(reviewReplies || []);
-    setMyCommunityComments(communityComments || []);
+    try {
+      const [
+        { data: profile },
+        { data: bookmarkReactions },
+        { data: reviews },
+        { data: reviewReplies },
+        { data: communityComments },
+      ] = await Promise.all([
+        supabase.from("users").select("*").eq("auth_user_id", uid).single(),
+        supabase.from("reactions")
+          .select("place_id")
+          .eq("user_key", uid)
+          .eq("type", "bookmark"),
+        supabase.from("reviews")
+          .select("id, content, created_at, likes, place_id, places(name, address, image_url, category)")
+          .eq("auth_user_id", uid)
+          .eq("deleted", false)
+          .eq("is_admin_deleted", false)
+          .order("created_at", { ascending: false }),
+        supabase.from("review_replies")
+          .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url, category))")
+          .eq("auth_user_id", uid)
+          .eq("deleted", false)
+          .eq("is_admin_deleted", false)
+          .order("created_at", { ascending: false }),
+        supabase.from("community_comments")
+          .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
+          .eq("author_auth_key", uid)   // ← auth_user_id → author_auth_key 로 변경
+          .eq("deleted", false)
+          .neq("is_admin_deleted", true)
+          .order("created_at", { ascending: false }),
+      ]);
+      setUserProfile(profile);
+      setMyReviews(reviews || []);
+      setMyReviewReplies(reviewReplies || []);
+      setMyCommunityComments(communityComments || []);
 
-    const ids = (bookmarkReactions || []).map((x: any) => x.place_id);
-    if (ids.length > 0) {
-      const { data: places } = await supabase
-        .from("places")
-        .select("id, name, address, image_url, pet_zone") // ✅ * 대신 필요한 것만
-        .in("id", ids);
-      setBookmarks(places || []);
-    } else {
-      setBookmarks([]);
+      const ids = (bookmarkReactions || []).map((x: any) => x.place_id);
+      if (ids.length > 0) {
+        const { data: places } = await supabase
+          .from("places")
+          .select("id, name, address, image_url, pet_zone") // ✅ * 대신 필요한 것만
+          .in("id", ids);
+        setBookmarks(places || []);
+      } else {
+        setBookmarks([]);
+      }
+    } catch (e) {
+      console.error("[mypage] loadData failed:", e);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -182,6 +191,9 @@ export default function MyPage() {
       }
       setSession(session);
       loadData(session);
+    }).catch((e) => {
+      console.error("[mypage] getSession failed:", e);
+      setLoading(false);
     });
     // onAuthStateChange 제거 - getSession으로 충분
   }, []);
@@ -356,7 +368,7 @@ export default function MyPage() {
           레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
       <div className="ggk-body" style={{
         display: "grid",
-        gridTemplateColumns: "1fr min(1200px, 100%) 1fr",
+        gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
         columnGap: "16px",
         minHeight: "100vh",
         background: "#F7F3E8",

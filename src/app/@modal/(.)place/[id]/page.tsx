@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import PlaceDetail from "@/app/place/[id]/page";
 import { supabase } from "@/lib/supabase";
-import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { fetchPublicDataPlaces, invalidatePublicDataPlacesCache } from "@/lib/publicDataPlaces";
 
 /* ── 장소 신고 사유 목록 ─────────────────────────────── */
 const PLACE_REPORT_CATEGORIES = [
@@ -89,6 +89,22 @@ export default function ModalPage() {
   // fetch용 useEffect들이 전부 처음부터 다시 실행됩니다 — 지도/모달 바깥은 그대로
   // 유지한 채 이 모달 콘텐츠만 새로고침되는 효과입니다.
   const [refreshKey, setRefreshKey] = useState(0);
+  // 버튼을 눌렀다는 게 실제로 눈에 보이도록 짧게 도는 애니메이션 상태(순수 시각 피드백).
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    // ⚠ 예전엔 key만 바꿔서 PlaceDetail을 remount했는데, place/reviews/replies 등
+    // 실제 상세 데이터는 Supabase에서 매번 새로 조회해 remount만으로도 충분했지만,
+    // "places 테이블에 없는" 공공데이터 출처 장소(관광공사·문화정보원·식약처)는
+    // fetchPublicDataPlaces()의 5분짜리 모듈 캐시를 그대로 다시 읽어서, 그 장소가
+    // 처음 로딩 실패로 빠졌던 경우엔 새로고침을 눌러도 같은 실패 결과가 캐시에서
+    // 그대로 나와 "안 눌리는 것처럼" 보였습니다. 캐시를 먼저 비워서 진짜로 다시
+    // 네트워크를 타게 만듭니다.
+    invalidatePublicDataPlacesCache();
+    setRefreshKey((k) => k + 1);
+    setIsRefreshing(true);
+    setTimeout(() => setIsRefreshing(false), 600);
+  };
 
   /* ── 관리자 삭제 메뉴 — PlaceDetail 내부 상태를 이 헤더의 기존 점세개 버튼으로
      끌어올립니다(중복 버튼 방지). deletePlace 함수는 매 렌더마다 새로 만들어지므로
@@ -496,21 +512,36 @@ export default function ModalPage() {
               </div>
 
               {/* 새로고침 버튼 — 이 모달(PlaceDetail)만 다시 마운트해서 데이터를 새로
-                  불러옵니다. 전체 페이지 새로고침(F5)과 달리 지도 상태는 그대로 유지됩니다. */}
+                  불러옵니다. 전체 페이지 새로고침(F5)과 달리 지도 상태는 그대로 유지됩니다.
+                  공공데이터 캐시도 함께 비우고(handleRefresh), 눌렀을 때 아이콘이 잠깐
+                  회전해 실제로 동작했다는 걸 눈으로 바로 확인할 수 있게 합니다. */}
               <button
-                onClick={() => setRefreshKey((k) => k + 1)}
+                onClick={handleRefresh}
+                disabled={isRefreshing}
                 title="새로고침"
                 style={{
                   width: 34, height: 34, border: "none",
                   background: "transparent",
-                  borderRadius: 9, cursor: "pointer",
+                  borderRadius: 9, cursor: isRefreshing ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   transition: "background 0.13s",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f2f5")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <RotateCw size={16} color="#555" />
+                <RotateCw
+                  size={16}
+                  color="#555"
+                  style={{
+                    animation: isRefreshing ? "ggk-refresh-spin 0.6s linear" : "none",
+                  }}
+                />
+                <style>{`
+                  @keyframes ggk-refresh-spin {
+                    from { transform: rotate(0deg); }
+                    to   { transform: rotate(360deg); }
+                  }
+                `}</style>
               </button>
 
               {/* 닫기 버튼 */}

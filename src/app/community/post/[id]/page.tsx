@@ -8,6 +8,7 @@ import {
   MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
+import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 
 const FONT_STYLE = `
   * { box-sizing: border-box; }
@@ -133,6 +134,22 @@ export default function CommunityDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminDeletedPopup, setShowAdminDeletedPopup] = useState(false);
 
+  // ⚠ 조회수 중복 방지 — 예전엔 이 페이지를 열 때마다(새로고침 포함) 무조건 +1 했습니다.
+  // 글쓴이 본인이나 같은 사람이 여러 번 새로고침만 해도 조회수가 끝없이 올라가는 문제가
+  // 있어서, 같은 브라우저에서는 글 하나당 하루 1회만 세도록 localStorage에 "이 글을
+  // 오늘 이미 세었다"는 날짜를 남깁니다. 로그인 계정이 아니라 브라우저(기기) 기준인
+  // 이유는, 이 프로젝트가 조회수 집계 전용 서버 API가 따로 없이 클라이언트에서 직접
+  // Supabase를 갱신하는 구조라 IP 기반 서버 판정은 별도 API 라우트가 필요하기
+  // 때문입니다 — 시크릿 모드/다른 브라우저로 우회하면 다시 세어지는 한계는 있지만,
+  // "새로고침 연타로 조회수 무한 증가"라는 실제 문제는 이걸로 충분히 막힙니다.
+  const hasCountedViewToday = (postId: string | number): boolean => {
+    const key = `post_view_${postId}`;
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    if (localStorage.getItem(key) === today) return true;
+    localStorage.setItem(key, today);
+    return false;
+  };
+
     // ─────────────────────────────
   // 게시글 불러오기
   // ─────────────────────────────
@@ -152,12 +169,28 @@ export default function CommunityDetailPage() {
       }
       // 조회수는 여기서 바로 +1 해서 화면에 최신값을 보여주고, DB에도 반영합니다.
       // (기존에는 증가시키기 전 값을 화면에 표시해서 새로고침 전까지 1씩 낮게 보이는 문제가 있었습니다.)
-      const newViews = (data.views || 0) + 1;
-      setPost({ ...data, views: newViews });
-      await supabase
-        .from("community_posts")
-        .update({ views: newViews })
-        .eq("id", Number(postId));
+      // 단, 같은 브라우저로 오늘 이미 조회한 글이면 화면에는 그대로 보여주되 DB는 더
+      // 올리지 않습니다(hasCountedViewToday가 처음 호출될 때만 false를 반환).
+      const alreadyCountedToday = hasCountedViewToday(postId);
+      const newViews = alreadyCountedToday ? (data.views || 0) : (data.views || 0) + 1;
+
+      // ⚠ 좋아요 수 실시간 보정 — community_posts.likes 컬럼은 좋아요 토글 시마다
+      // +1/-1로 갱신하는 방식이라, 과거 어떤 경로로든 한 번이라도 갱신이 누락되면
+      // 실제 community_post_likes 개수와 어긋난 채 계속 잘못된 값이 보입니다.
+      // 커뮤니티 목록(community/page.tsx)과 동일하게, 저장된 컬럼 대신 실제 좋아요
+      // 테이블 행 수를 세어 항상 정확한 값을 보여줍니다.
+      const { count: liveLikes } = await supabase
+        .from("community_post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", Number(postId));
+
+      setPost({ ...data, views: newViews, likes: liveLikes ?? data.likes ?? 0 });
+      if (!alreadyCountedToday) {
+        await supabase
+          .from("community_posts")
+          .update({ views: newViews })
+          .eq("id", Number(postId));
+      }
     }
   };
 
@@ -730,9 +763,11 @@ export default function CommunityDetailPage() {
       )}
 
       {/* ══════════════════════════════════════
-          전체 레이아웃 — 680px 중앙 정렬
-          height:100vh + overflow:hidden 으로
-          내부 post-scroll 에서만 스크롤 발생
+          전체 레이아웃 — 커뮤니티 목록/마이페이지와 동일한 3단 grid(여백 1fr / 본문
+          min(1000px,100%) / 여백 1fr)를 그대로 써서, 게시글 상세에서도 좌우 광고
+          레일과 유기동물 공고 레일이 같이 뜹니다. 본문 칼럼 안의 680px 읽기 폭은
+          그대로 유지하고(justifySelf:center로 본문 칼럼 정가운데에 배치), 세로
+          스크롤 방식(height:100vh + overflow:hidden + 내부 post-scroll)도 그대로입니다.
       ══════════════════════════════════════ */}
       <div
         className="ggk-body"
@@ -740,11 +775,13 @@ export default function CommunityDetailPage() {
           height: "100vh",       /* ← 뷰포트 높이 고정 */
           overflow: "hidden",    /* ← 바깥 스크롤 차단 */
           background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
+          columnGap: "16px",
         }}
       >
+        <AdRailLeft />
+
         {/* 680px 컬럼 */}
         <div
           style={{
@@ -753,6 +790,7 @@ export default function CommunityDetailPage() {
             height: "100%",
             display: "flex",
             flexDirection: "column",
+            justifySelf: "center",
           }}
         >
           {/* ── 상단바 (고정) ── */}
@@ -1549,6 +1587,10 @@ export default function CommunityDetailPage() {
             <SiteFooter />
           </div>
         </div>{/* /680px 컬럼 */}
+
+        {/* 우측 레일 — 커뮤니티 목록(offset 0)·마이페이지(offset 2)와 겹치지 않도록
+            shelterOffset=4로 순위 5~6위 공고를 보여줍니다. */}
+        <AdRailRight rightMode="shelter" shelterOffset={4} />
       </div>{/* /전체 레이아웃 */}
       {postReportOpen && (
         <>

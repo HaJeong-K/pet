@@ -39,14 +39,25 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     if (checkedRef.current) return;
     checkedRef.current = true;
 
+    // ⚠ 아래 두 await 중 하나라도 예외를 던지면(네트워크 오류 등) checkAdmin() 전체가
+    // reject되는데, 예전엔 이걸 잡는 코드가 없어서 setIsChecking(false)가 호출되지
+    // 않고 "권한 확인 중..."이 영영 끝나지 않았습니다(사용자에게는 그냥 계속 느린
+    // 것처럼 보임). try/catch/finally로 감싸서 오류가 나도 항상 로딩 화면을 끝내고
+    // 로그인 페이지로 돌려보내도록 합니다.
     const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setIsChecking(false); router.push("/login?redirect=/admin"); return; }
-      const { data: profile } = await supabase
-        .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-      if (!profile?.is_admin) { setIsChecking(false); router.push("/"); return; }
-      setIsAuth(true);
-      setIsChecking(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { router.push("/login?redirect=/admin"); return; }
+        const { data: profile } = await supabase
+          .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
+        if (!profile?.is_admin) { router.push("/"); return; }
+        setIsAuth(true);
+      } catch (e) {
+        console.error("[AdminAuthContext] checkAdmin failed:", e);
+        router.push("/login?redirect=/admin");
+      } finally {
+        setIsChecking(false);
+      }
     };
     checkAdmin();
   }, [router]);

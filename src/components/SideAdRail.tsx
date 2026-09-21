@@ -20,16 +20,20 @@ import { openPlaceDetail } from "@/lib/openPlace";
 // 반응형 구간으로 취급되어 콘텐츠 출력 범위가 예상치 못하게 좁아지는 문제가 있었습니다.
 // 이제는 가로:세로 비율이 1:1 이상(정사각형 ~ 가로형)이면 화면이 아무리 좁아도(=분할화면,
 // 태블릿 등) 레일이 얇게 나타나고, 1:1 미만(모바일처럼 세로로 긴 화면)이면 숨깁니다. 본문
-// 컬럼은 항상 flex:1(최대 1200px)로 자연스럽게 폭을 나눠 갖기 때문에, 일반 노트북 풀스크린
-// 처럼 넓은 화면에서는 예전과 거의 동일한 콘텐츠 출력 범위(≈1200px)가 그대로 유지됩니다.
+// 컬럼은 항상 min(1000px, 100%)로 고정 폭을 갖기 때문에, 레일 폭(최소 190px)이 넓어져도
+// 본문이 함께 줄어들며 전체 구성이 화면 안에 자연스럽게 들어맞습니다.
 //
 // ── 세로 길이: 페이지마다 다시 재지 않고, 모든 페이지가 동일한 고정값을 씁니다 ──
 // 예전엔 페이지마다 헤더 높이를 실측(topOffset)해서 썼는데, 헤더 구성이 페이지마다
 // 달라(커뮤니티: 배너+탭+검색줄, 마이페이지: 헤더+히어로) 레일의 세로 길이가 페이지마다
 // 제각각으로 보이는 문제가 있었습니다. 이제는 모든 페이지가 동일한 값(RAIL_TOP_OFFSET)을
 // 공유해서, 어느 페이지에서 봐도 레일의 시작 위치·길이가 완전히 같습니다.
-const RAIL_TOP_OFFSET_PX = 100;
-const RAIL_BOTTOM_GAP_VH = 2;
+// ⚠ 예전엔 100px/2vh로 여백을 크게 잡아서, 카드 2개가 화면 세로 영역의 아래쪽에 뭉쳐
+// 있는 것처럼 보였습니다(카드 자체는 항상 반반이지만, 그 반반을 나누는 전체 구간이
+// 화면 위쪽 100px를 비워두고 시작). 여백을 최소로 줄여 레일이 화면 맨 위부터 맨
+// 아래까지 거의 꽉 차게 폈습니다.
+const RAIL_TOP_OFFSET_PX = 16;
+const RAIL_BOTTOM_GAP_VH = 1;
 
 // ── 가로 위치: 레일이 "여백 칼럼"의 정 가운데에 옵니다 ──
 // 페이지의 grid 레이아웃(1fr 여백 / 본문(최대 1200px) / 1fr 여백)에서, 레일은 자기
@@ -109,15 +113,28 @@ function useShelterNotices(region: string | null, enabled: boolean, offset: numb
 
   useEffect(() => {
     if (!enabled) return;
+    // ⚠ 실제로 겪은 버그: 페이지가 막 열리면 위치 감지(useUserRegion)가 아직 끝나기 전이라
+    // region이 처음엔 null입니다 — 그 순간 이 effect가 먼저 "전국(region 없음)" 요청을
+    // 한 번 보냅니다. 잠시 후 위치 감지가 끝나 region이 실제 값("경북" 등)으로 바뀌면
+    // 이 effect가 다시 실행되어 "그 지역" 요청을 새로 보내는데, 문제는 두 요청이
+    // 순서대로 응답한다는 보장이 없다는 것입니다 — 전국 요청은 서버 캐시가 이미 데워져
+    // 있어 빨리 끝나는 경우가 많고, 특정 지역 요청은 캐시가 비어 있으면 외부 사이트를
+    // 직접 조회하느라 더 오래 걸립니다. 그래서 "전국" 응답이 "지역" 응답보다 늦게
+    // 도착하면, 이미 맞게 뜬 지역 공고를 오래된 전국 공고가 덮어써버렸습니다.
+    // 새로고침하면 위치가 이미 캐시돼 있어 처음부터 "지역" 요청 하나만 나가서 이
+    // 경쟁 자체가 없었던 것이라 우연히 정상으로 보였던 것입니다.
+    // 요청마다 순번을 매겨서, 가장 나중에 "보낸" 요청의 응답만 반영하도록 고칩니다.
+    let ignore = false;
     setLoaded(false);
     const params = new URLSearchParams({ limit: "2" });
     if (region) params.set("region", region);
     if (offset) params.set("offset", String(offset));
     fetch(`/api/shelter-notices?${params.toString()}`)
       .then((r) => r.json())
-      .then((data) => setNotices(data.notices || []))
-      .catch(() => setNotices([]))
-      .finally(() => setLoaded(true));
+      .then((data) => { if (!ignore) setNotices(data.notices || []); })
+      .catch(() => { if (!ignore) setNotices([]); })
+      .finally(() => { if (!ignore) setLoaded(true); });
+    return () => { ignore = true; };
   }, [region, enabled, offset]);
 
   return { notices, loaded };
@@ -132,10 +149,13 @@ const adPanelStyle: CSSProperties = {
   justifyContent: "center",
 };
 
-// 항상 본문 컬럼과 같은 grid 행의 형제(position:static)로 자연스럽게 배치됩니다. 폭은
-// <style> 미디어쿼리가 담당하고, 세로 길이·위치는 모든 페이지가 동일한 고정값을 씁니다.
+// 항상 본문 컬럼과 같은 grid 행의 형제(position:static)로 자연스럽게 배치됩니다. 폭·표시
+// 여부는 <style> 미디어쿼리(.ggk-side-ad-rail)가 담당하고, 세로 길이·위치는 모든 페이지가
+// 동일한 고정값을 씁니다. ⚠ display는 여기 인라인 스타일에 넣지 않습니다 — 인라인 스타일은
+// 항상 스타일시트 규칙(미디어쿼리의 display:none 포함)보다 우선 적용되기 때문에, 여기에
+// display:flex를 넣으면 좁은 화면에서 미디어쿼리가 매치되지 않아도 레일이 숨겨지지 않고
+// 아주 얇은 조각으로 계속 남아 화면을 어지럽히는 문제가 있었습니다.
 const railBase: CSSProperties = {
-  display: "flex",
   flexDirection: "column",
   gap: "12px",
   alignSelf: "flex-start",
@@ -150,11 +170,19 @@ const RAIL_STYLE_TAG = (
     .ggk-side-ad-rail { display: none; }
 
     /* 가로:세로 비율이 1:1 이상(정사각형~가로형)이면 화면이 좁아도(분할화면·태블릿 등)
-       레일을 얇게 표시합니다. 최소 폭 안전장치로 600px 미만은 표시하지 않습니다. */
-    @media (min-aspect-ratio: 1/1) and (min-width: 600px) {
+       레일을 얇게 표시합니다. 최소 폭은 190px로 고정("나의 가족이 되어주세요" 같은
+       보호소 공고 문구가 항상 한 줄로 출력되도록, 이전엔 72px까지 좁아져 줄바꿈이 생겼음).
+       ⚠ min-width가 600px일 때는 본문(min(1000px,100%)) + 레일 2개(각 190px 이상) +
+       칼럼 간격(16px×2)을 더하면 필요한 총 폭이 1412px인데 화면은 600~1412px 사이일 수
+       있어서, 레일이 190px를 억지로 채우려다 화면 밖으로 넘쳐 잘려 보이는 문제가 있었습니다.
+       그래서 min-width를 "본문 1000px + 레일 최소폭 190px×2 + 간격 16px×2"가 실제로
+       다 들어가는 지점(1444px)보다 여유 있게 잡아, 레일이 뜰 때는 항상 화면 안에
+       완전히 들어가고(clamp가 최솟값 190px에 걸리지 않고 계산값을 그대로 씀), 그보다
+       좁은 화면에서는 아예 숨겨서(레일 없이 본문만) 잘림이 생기지 않게 합니다. */
+    @media (min-aspect-ratio: 1/1) and (min-width: 1460px) {
       .ggk-side-ad-rail {
         display: flex;
-        width: clamp(72px, calc((100vw - 1200px) / 2 - 32px), 240px);
+        width: clamp(190px, calc((100vw - 1000px) / 2 - 32px), 240px);
       }
     }
   `}</style>

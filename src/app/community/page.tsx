@@ -207,27 +207,32 @@ export default function CommunityPage() {
           .order("created_at", { ascending: false })
           .range(from, to);
 
-        // ── 댓글 수 실시간 보정 ──
-        // community_posts.comment_count 컬럼은 예전에 댓글 작성/삭제 시 갱신되지
-        // 않던 버그가 있어 값이 어긋나 있는 글이 많습니다. 저장된 컬럼을 그대로
-        // 믿는 대신, 실제 community_comments 테이블에서 삭제되지 않은 댓글·답글
-        // 개수를 직접 세어 덮어써서 화면에는 항상 정확한 값이 보이게 합니다.
+        // ── 댓글 수·좋아요 수 실시간 보정 ──
+        // community_posts.comment_count/likes 컬럼은 각각 댓글 작성/삭제, 좋아요
+        // 토글 시 별도로 +1/-1 갱신하는 방식이라, 과거 어떤 경로(예전 버그, 관리자의
+        // 직접 삭제 등)에서 카운터 갱신이 누락되면 실제 개수와 어긋난 채로 남습니다.
+        // 저장된 컬럼을 그대로 믿는 대신, 실제 community_comments/community_post_likes
+        // 테이블에서 직접 세어 덮어써서 화면에는 항상 정확한 값이 보이게 합니다.
         // (이제 페이지당 최대 15건만 대상이라 이 보정 쿼리도 훨씬 가벼워졌습니다.)
         let commentCountMap: Record<string, number> = {};
+        let likeCountMap: Record<string, number> = {};
         if (postData && postData.length > 0) {
           const postIds = postData.map((p: any) => p.id);
-          const { data: commentRows } = await supabase
-            .from("community_comments")
-            .select("post_id")
-            .eq("deleted", false)
-            .in("post_id", postIds);
+          const [{ data: commentRows }, { data: likeRows }] = await Promise.all([
+            supabase.from("community_comments").select("post_id").eq("deleted", false).in("post_id", postIds),
+            supabase.from("community_post_likes").select("post_id").in("post_id", postIds),
+          ]);
           (commentRows || []).forEach((c: any) => {
             commentCountMap[c.post_id] = (commentCountMap[c.post_id] || 0) + 1;
+          });
+          (likeRows || []).forEach((l: any) => {
+            likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1;
           });
         }
         const postsWithLiveCounts = (postData || []).map((p: any) => ({
           ...p,
           comment_count: commentCountMap[p.id] ?? p.comment_count ?? 0,
+          likes: likeCountMap[p.id] ?? p.likes ?? 0,
         }));
 
         if (!cancelled) {
@@ -266,7 +271,7 @@ export default function CommunityPage() {
           minHeight: "100vh",
           background: "#F7F3E8",
           display: "grid",
-          gridTemplateColumns: "1fr min(1200px, 100%) 1fr",
+          gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
           columnGap: "16px",
         }}
       >

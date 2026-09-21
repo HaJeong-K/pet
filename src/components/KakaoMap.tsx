@@ -7,13 +7,14 @@ import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { calculateRecommendScore } from "@/lib/recommend";
 import { isPlacePremiumNow } from "@/lib/premium";
+import { RECOMMEND_WEIGHTS, CARD_BADGE } from "@/lib/scoringConfig";
 import {
   buildRoute, formatEstimatedTime, ROUTE_THEME_LABEL,
   type RouteTheme, type RouteResult, type RoutablePlace,
 } from "@/lib/routeRecommend";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
-import { trackEvent } from "@/lib/analytics";
+import { trackEvent, extractRegion } from "@/lib/analytics";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
@@ -314,6 +315,11 @@ export default function KakaoMap() {
   // 정거장 선정 둘 다 이 맵을 참고합니다(recommend.ts의 popularityBonus).
   const [popularityMap, setPopularityMap] = useState<Map<string, { bookmarks: number; likes: number }>>(new Map());
 
+  // ── 리스트 패널 카드에 보여줄 "최근 조회수" — place_view 이벤트를 최근 30일
+  // 기준으로 장소별로 센 값입니다(/api/analytics/place-view-counts). 순위/정렬에는
+  // 관여하지 않고 카드에 보조 정보로만 표시합니다.
+  const [recentViewCounts, setRecentViewCounts] = useState<Map<string, number>>(new Map());
+
   // ── AI 코스 "산책 중심/실내 추천/관광 중심" 테마 전용: 현재 중심 좌표가 속한 읍/면/동
   // 이름. 산책·실내는 후보를 이 동 안으로만 좁히고(DONG_RESTRICTED_THEMES), 관광 중심은
   // 하드 필터링 없이 "지역 내 관광지 우선순위" 판정에만 씁니다.
@@ -330,6 +336,59 @@ export default function KakaoMap() {
   const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
   const showListPanel = !isNarrowScreen || showListPanelMobile;
+
+  // ── 액션 버튼 첫 방문 안내 투어 ──
+  // 신규 장소/추천 장소/AI 코스/사장님 등록/제보하기 버튼을 텍스트 없이 아이콘만
+  // 남기면서(화면이 좁을 때 자꾸 줄바꿈되던 문제 해결), 처음 보는 사용자는 아이콘
+  // 뜻을 알기 어려워질 수 있습니다. 그래서 처음 방문했을 때만(로컬스토리지 체크)
+  // 각 아이콘을 순서대로 짚어주는 짧은 안내를 보여주고, 한 번 보거나 건너뛰면
+  // 다시 뜨지 않습니다. 마우스를 올렸을 때도 각 버튼의 title 속성으로 이름이 뜹니다.
+  const ACTION_TOUR_STORAGE_KEY = "ggk_action_tour_seen_v1";
+  const recentBtnRef = useRef<HTMLButtonElement>(null);
+  const recommendBtnRef = useRef<HTMLButtonElement>(null);
+  const routeBtnRef = useRef<HTMLButtonElement>(null);
+  const ownerBtnRef = useRef<HTMLButtonElement>(null);
+  const jeboBtnRef = useRef<HTMLButtonElement>(null);
+  const ACTION_TOUR_STEPS = [
+    { ref: recentBtnRef, text: "새로 등록된 장소를 모아 보여줘요." },
+    { ref: recommendBtnRef, text: "취향에 맞는 장소를 AI가 추천해드려요." },
+    { ref: routeBtnRef, text: "AI가 산책하기 좋은 코스를 짜드려요." },
+    { ref: ownerBtnRef, text: "사장님이시라면 여기서 업장을 등록하세요." },
+    { ref: jeboBtnRef, text: "새로운 장소나 정보를 제보할 수 있어요." },
+  ];
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const [tourRect, setTourRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(ACTION_TOUR_STORAGE_KEY)) return;
+    setTourStep(0);
+  }, []);
+
+  useEffect(() => {
+    if (tourStep === null) { setTourRect(null); return; }
+    const step = ACTION_TOUR_STEPS[tourStep];
+    const measure = () => {
+      const el = step.ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setTourRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourStep]);
+
+  const endActionTour = () => {
+    if (typeof window !== "undefined") localStorage.setItem(ACTION_TOUR_STORAGE_KEY, "1");
+    setTourStep(null);
+  };
+  const advanceActionTour = () => {
+    if (tourStep === null) return;
+    if (tourStep >= ACTION_TOUR_STEPS.length - 1) endActionTour();
+    else setTourStep(tourStep + 1);
+  };
 
   // ── 리스트 패널 좌/우 도킹 (웹 전용): 좁은 화면에서는 지도 위에 다른 패널과 겹칠 자리가
   // 없어서 의미가 없으므로 무시하고 항상 좌측 취급합니다. 넓은 화면에서 사용자가 우측으로
@@ -368,10 +427,35 @@ export default function KakaoMap() {
   // 거칩니다) 하단 카드만 뜨고 지도는 그대로였는데, 마커가 화면 가장자리에 걸쳐
   // 있으면 카드에 가려 잘 안 보였습니다. 리스트 항목 클릭 때처럼 지도도 그 위치로
   // 중심 이동시킵니다.
+  // ⚠ 하단 중앙 팝업 카드는 항상 하나만 떠 있어야 합니다 — 장소 카드(selectedPlace)와
+  // 공원 카드(selectedPark)를 각자 따로 열면, 예전엔 이미 떠 있던 다른 쪽 카드를 닫지
+  // 않아서 두 카드가 겹쳐 보이는 문제가 있었습니다. 새로 열 때 반대쪽을 항상 같이
+  // 닫도록 openPlacePopup/openParkPopup으로 통일하고, 마커·리스트·정거장 클릭 등
+  // 팝업을 여는 모든 자리에서 setSelectedPlace/setSelectedPark를 직접 부르지 않고
+  // 이 두 함수만 거치도록 합니다.
+  const openPlacePopup = (place: any) => {
+    setSelectedPark(null);
+    setSelectedPlace(place);
+  };
+  const openParkPopup = (park: ParkPlace) => {
+    setSelectedPlace(null);
+    setSelectedPark(park);
+    // ⚠ 공원은 장소와 달리 별도 상세페이지가 없어 place_view가 한 번도 기록되지
+    // 않았습니다 — 그래서 리스트/팝업의 "최근 조회수" 배지가 공원에는 항상 비어
+    // 있었습니다. 장소 상세페이지를 열 때와 동일한 이벤트를 "park-{id}" ID로 남겨서
+    // (currentRoute 정거장 등 다른 곳에서도 이미 쓰는 네임스페이스) 같은 집계
+    // API(/api/analytics/place-view-counts)에서 그대로 함께 세어지도록 합니다.
+    trackEvent("place_view", {
+      placeId: `park-${park.id}`,
+      placeName: park.name,
+      region: extractRegion(park.address),
+    });
+  };
+
   selectPlaceRef.current = (id: number) => {
     const found = places.find((p) => p.id === id);
     if (!found) return;
-    setSelectedPlace(found);
+    openPlacePopup(found);
     const lat = parseFloat(found.lat);
     const lng = parseFloat(found.lng);
     if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
@@ -381,7 +465,7 @@ export default function KakaoMap() {
   selectParkRef.current = (id: number) => {
     const found = parks.find((p) => p.id === id);
     if (!found) return;
-    setSelectedPark(found);
+    openParkPopup(found);
     const lat = parseFloat(found.lat);
     const lng = parseFloat(found.lng);
     if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
@@ -452,6 +536,16 @@ export default function KakaoMap() {
         }
         setPopularityMap(counts);
       });
+
+      // ⚠ 리스트 패널의 "최근 조회수" 배지도 위와 같은 이유로 지도 첫 렌더를 막지 않고
+      // 따로 흘려보냅니다 — 최근 30일 place_view 집계라 도착이 조금 늦어도 무방합니다.
+      fetch("/api/analytics/place-view-counts")
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled) return;
+          setRecentViewCounts(new Map(Object.entries(data.counts || {})));
+        })
+        .catch(() => {});
       if ((window as any).Kakao && !(window as any).Kakao.isInitialized()) {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
@@ -526,9 +620,21 @@ export default function KakaoMap() {
     // 캐시 유무와 무관하게 항상 최신 GPS 위치를 다시 조회해 갱신(여행지 이동 반영).
     // 권한 거부/조회 실패 시엔 위에서 세팅한 캐시 값이 그대로 유지됩니다.
     if (!navigator.geolocation) { setLocating(false); return; }
+    const hadCachedLocation = Boolean(savedLat && savedLng);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        // ⚠ "위치가 가끔 엉뚱한 곳으로 잡히는" 문제의 실제 원인 중 하나 — 데스크톱·실내
+        // 등 GPS 신호가 약한 환경에서는 브라우저가 Wi-Fi/IP 기반의 부정확한 좌표를
+        // (때로는 accuracy가 수km~수십km인 채로) 그대로 콜백에 넘겨줄 때가 있습니다.
+        // 이미 신뢰할 만한 캐시 위치가 있는데 이번 조회의 정확도가 너무 나쁘면(반경
+        // 3km 초과), 그 부정확한 값으로 덮어쓰지 않고 기존 캐시 위치를 그대로 둡니다.
+        // 캐시가 아예 없는 첫 방문이면 부정확하더라도 없는 것보단 나으므로 그대로 씁니다.
+        const ACCURACY_THRESHOLD_M = 3000;
+        if (hadCachedLocation && accuracy > ACCURACY_THRESHOLD_M) {
+          setLocating(false);
+          return;
+        }
         setUserLocation({ lat: latitude, lng: longitude });
         setSearchCenter(null); // 실제 위치가 갱신되면 이전 검색 기준 중심은 초기화
         pendingLocationRef.current = { lat: latitude, lng: longitude };
@@ -632,30 +738,34 @@ export default function KakaoMap() {
 
   // ── 리스트 패널 전용: 지도를 드래그/확대·축소하면 "지금 화면에 보이는 영역"(mapBounds)
   // 기준으로 갱신됩니다. 지도가 아직 준비되지 않은 아주 짧은 초기 순간에만 예전처럼
-  // 검색 좌표 또는 실제 위치 기준 반경 5km로 임시 표시합니다.
+  // 검색 좌표 또는 실제 위치 기준 반경 10km로 임시 표시합니다.
   // 너무 축소해서 화면 안에 장소가 수천 개씩 들어오는 경우를 대비해, 기준 좌표(검색
   // 좌표 > 실제 위치 > 화면 중심)에서 가까운 순으로 정렬 후 상위 300개까지만 보여줍니다.
   const MAX_LIST_ITEMS = 300;
   const nearbyPlaces = useMemo(() => {
     // ⚠ 거리순 정렬은 항상 여기(화면/반경으로 이미 좁혀진, 최대 몇백 건짜리 부분집합)에서만
     // 합니다 — filteredPlaces(수만 건일 수 있는 전체 목록)를 통째로 정렬하지 않기 위함입니다.
+    // ⚠ 최적화: 예전엔 sort()의 비교 함수 안에서 매번 getDistance를 다시 계산했습니다 —
+    // Array.sort는 항목당 한 번이 아니라 O(n log n)번 비교 함수를 호출하므로, 화면을
+    // 축소해서 목록이 수백~수천 건으로 늘어나면 같은 장소의 거리를 십수 번씩 다시
+    // 계산하는 셈이라 그만큼 느려졌습니다. 거리를 항목당 딱 한 번만 미리 계산해두고
+    // (Schwartzian transform) 그 값으로만 비교하도록 바꿨습니다.
     const sortByDistance = (list: any[], center: { lat: number; lng: number }) =>
-      [...list].sort(
-        (a, b) =>
-          getDistance(center.lat, center.lng, parseFloat(a.lat), parseFloat(a.lng)) -
-          getDistance(center.lat, center.lng, parseFloat(b.lat), parseFloat(b.lng))
-      );
+      list
+        .map((place) => ({ place, dist: getDistance(center.lat, center.lng, parseFloat(place.lat), parseFloat(place.lng)) }))
+        .sort((a, b) => a.dist - b.dist)
+        .map((entry) => entry.place);
 
     if (!mapBounds) {
       const center = searchCenter || userLocation;
       if (!center) return filteredPlaces;
-      const within5km = filteredPlaces.filter((place) => {
+      const within10km = filteredPlaces.filter((place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
         if (isNaN(lat) || isNaN(lng)) return false;
-        return getDistance(center.lat, center.lng, lat, lng) <= 5;
+        return getDistance(center.lat, center.lng, lat, lng) <= 10;
       });
-      return sortByDistance(within5km, center);
+      return sortByDistance(within10km, center);
     }
 
     const inView = filteredPlaces.filter((place) => {
@@ -681,21 +791,97 @@ export default function KakaoMap() {
     // "이 화면에 보이는 장소가 없습니다"만 보여줬습니다. 화면을 살짝만 옮겨도
     // 리스트가 텅 비어버리는 게 불편하다는 피드백이 있어서, 화면 안이 비어 있을
     // 때는 대신 지금 보고 있는 위치(검색 좌표 > 실제 위치 > 화면 중심) 기준
-    // 반경 5km 이내 장소를 보여주도록 폴백을 추가했습니다.
+    // 반경 10km 이내 장소를 보여주도록 폴백을 추가했습니다.
     if (inView.length === 0) {
-      const within5km = filteredPlaces.filter((place) => {
+      const within10km = filteredPlaces.filter((place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
         if (isNaN(lat) || isNaN(lng)) return false;
-        return getDistance(sortCenter.lat, sortCenter.lng, lat, lng) <= 5;
+        return getDistance(sortCenter.lat, sortCenter.lng, lat, lng) <= 10;
       });
-      const sortedNearby = sortByDistance(within5km, sortCenter);
+      const sortedNearby = sortByDistance(within10km, sortCenter);
       return sortedNearby.length <= MAX_LIST_ITEMS ? sortedNearby : sortedNearby.slice(0, MAX_LIST_ITEMS);
     }
 
     const sorted = sortByDistance(inView, sortCenter);
     return inView.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
   }, [filteredPlaces, userLocation, searchCenter, mapBounds]);
+
+  // ── 리스트 카드 배지("TOP n") 순위 — "지역 내 인기 장소"는 지금 화면(또는 반경)에
+  // 걸린 장소들(nearbyPlaces) 중 찜+좋아요 점수(recommend.ts의 popularityBonus와 동일한
+  // 가중치)가 높은 순으로 매깁니다. 전국 순위가 아니라 "지금 보고 있는 지역 안에서"의
+  // 순위라, 지도를 옮기거나 확대/축소하면 랭킹도 그 지역 기준으로 다시 계산됩니다.
+  // 점수가 0(찜·좋아요가 전혀 없음)인 장소에는 순위를 매기지 않습니다 — 데이터가 없는
+  // 장소까지 TOP10에 억지로 채우면 배지의 신뢰도만 떨어집니다.
+  const topPopularityRanks = useMemo(() => {
+    const ranked = nearbyPlaces
+      .map((place) => {
+        const pop = popularityMap.get(String(place.id));
+        const score =
+          (pop?.bookmarks ?? 0) * RECOMMEND_WEIGHTS.POPULARITY_BOOKMARK_PER +
+          (pop?.likes ?? 0) * RECOMMEND_WEIGHTS.POPULARITY_LIKE_PER;
+        return { id: place.id, score };
+      })
+      .filter((p) => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, CARD_BADGE.TOP_RANK_MAX);
+    const map = new Map<number, number>();
+    ranked.forEach((p, i) => map.set(p.id, i + 1));
+    return map;
+  }, [nearbyPlaces, popularityMap]);
+
+  // ── 리스트 카드 썸네일 우측 상단 배지 — 카드 하나에 하나만 뜨며 TOP > NEW > HOT
+  // 순으로 우선합니다(이미 TOP에 든 장소에 HOT까지 겹쳐 붙이면 정보가 아니라 잡음이라
+  // 배타적으로 고릅니다). 공원은 찜/좋아요·등록일 개념이 없어 TOP·NEW 대상에서 빠지고
+  // HOT(최근 조회수)만 대상입니다.
+  const getCardBadge = (place: any, isPark: boolean): { label: string; color: string } | null => {
+    if (!isPark) {
+      const rank = topPopularityRanks.get(place.id);
+      if (rank) return { label: `TOP ${rank}`, color: "#FFD24C" };
+
+      const createdAtMs = place.created_at ? new Date(place.created_at).getTime() : NaN;
+      if (!Number.isNaN(createdAtMs)) {
+        const days = (Date.now() - createdAtMs) / (1000 * 60 * 60 * 24);
+        if (days >= 0 && days <= RECOMMEND_WEIGHTS.NEW_PLACE_WINDOW_DAYS) {
+          return { label: "NEW", color: "#5CC8FF" };
+        }
+      }
+    }
+
+    const viewCount = recentViewCounts.get(isPark ? `park-${place.id}` : String(place.id)) ?? 0;
+    if (viewCount >= CARD_BADGE.HOT_VIEW_MIN) return { label: "HOT", color: "#FF7A5C" };
+
+    return null;
+  };
+
+  // ── 리스트 패널에 같이 섞어 보여줄 공원 — 공원 토글(showParks)이 켜져 있을 때만,
+  // places와 같은 기준(화면 영역 우선, 없으면 반경 10km)으로 좁힙니다. 공원 데이터는
+  // places보다 훨씬 적어서(전국 기준 수천 건 이하) places처럼 300개 상한을 따로 두지
+  // 않고 그대로 displayedPlaces에서 합쳐 정렬한 뒤 상한을 적용합니다.
+  const nearbyParks = useMemo(() => {
+    if (!showParks) return [];
+    if (!mapBounds) {
+      const center = searchCenter || userLocation;
+      if (!center) return [];
+      return parks.filter((park) => {
+        const lat = parseFloat(park.lat);
+        const lng = parseFloat(park.lng);
+        if (isNaN(lat) || isNaN(lng)) return false;
+        return getDistance(center.lat, center.lng, lat, lng) <= 10;
+      });
+    }
+    return parks.filter((park) => {
+      const lat = parseFloat(park.lat);
+      const lng = parseFloat(park.lng);
+      if (isNaN(lat) || isNaN(lng)) return false;
+      return (
+        lat >= mapBounds.swLat &&
+        lat <= mapBounds.neLat &&
+        lng >= mapBounds.swLng &&
+        lng <= mapBounds.neLng
+      );
+    });
+  }, [parks, showParks, mapBounds, userLocation, searchCenter]);
 
   // ── 가게명 검색 결과: 검색어가 가게명에 일부라도 포함되면 매칭하고, 실제 위치
   // 기준으로 가까운 순으로 정렬합니다. 반경 5km 제한 없이(찾는 가게가 멀리 있어도
@@ -734,12 +920,31 @@ export default function KakaoMap() {
       .slice(0, 10);
   }, [places]);
 
-  // ── 리스트 패널에 실제로 표시할 목록: 가게명 검색 결과가 있으면 그걸 우선,
-  // 없으면(검색어가 없거나 지역명 검색인 경우) 기존 반경 기반 목록을 보여줍니다.
+  // ── 리스트 패널에 실제로 표시할 목록: 가게명 검색 결과가 있으면 그걸 우선(공원은
+  // 가게명 검색 대상이 아니므로 제외), 없으면(검색어가 없거나 지역명 검색인 경우)
+  // 기존 반경 기반 장소 목록에 공원 토글이 켜져 있을 때만 nearbyParks를 함께 섞어서
+  // 거리순으로 다시 정렬해 보여줍니다. 공원 항목은 __isPark 플래그로 구분해서, 클릭
+  // 시 장소 상세(setSelectedPlace) 대신 지도 위 공원 마커를 눌렀을 때와 동일한 공원
+  // 정보 카드(setSelectedPark)로 연결합니다.
   const displayedPlaces = useMemo(() => {
     if (debouncedSearch.trim() && nameSearchResults.length > 0) return nameSearchResults;
-    return nearbyPlaces;
-  }, [debouncedSearch, nameSearchResults, nearbyPlaces]);
+    if (nearbyParks.length === 0) return nearbyPlaces;
+
+    const center =
+      searchCenter ||
+      userLocation ||
+      (mapBounds
+        ? { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 }
+        : null);
+    const combined = [...nearbyPlaces, ...nearbyParks.map((park) => ({ ...park, __isPark: true as const }))];
+    if (!center) return combined.slice(0, MAX_LIST_ITEMS);
+
+    const sorted = combined
+      .map((item) => ({ item, dist: getDistance(center.lat, center.lng, parseFloat(item.lat), parseFloat(item.lng)) }))
+      .sort((a, b) => a.dist - b.dist)
+      .map((entry) => entry.item);
+    return sorted.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
+  }, [debouncedSearch, nameSearchResults, nearbyPlaces, nearbyParks, searchCenter, userLocation, mapBounds]);
 
   // ── debouncedSearch 변경 시 지도 이동 + searchCenter 갱신
   // 1순위: 가게명이 일부라도 일치하는 곳이 있으면 그중 가장 가까운 곳을 지도
@@ -1405,7 +1610,13 @@ export default function KakaoMap() {
         localStorage.setItem("user_lng", String(longitude));
         localStorage.setItem("user_region", region);
       },
-      () => { alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요."); }
+      () => { alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요."); },
+      // ⚠ 예전엔 옵션 없이(기본값 enableHighAccuracy:false) 호출해서, 자동 위치 확인
+      // 효과(위쪽)와 정확도 기준이 서로 달랐습니다 — 같은 사용자가 자동 감지 때는
+      // 정확한 위치를, 이 버튼을 눌렀을 땐 부정확한 Wi-Fi/IP 기반 위치를 받는 식으로
+      // 결과가 들쭉날쭉했던 원인 중 하나입니다. 자동 감지와 동일한 기준으로 맞췄고,
+      // 사용자가 지금 직접 누른 액션이라 maximumAge:0으로 캐시 없이 매번 새로 조회합니다.
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   };
 
@@ -2003,121 +2214,180 @@ export default function KakaoMap() {
             )}
 
             <button
+              ref={recentBtnRef}
+              title="신규 장소"
+              aria-label="신규 장소"
               onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
               className="ggk-body"
               style={{
-                padding: "5px 10px",
-                fontSize: "11px",
+                padding: "7px",
                 borderRadius: "8px",
                 border: "1px solid rgba(210,160,45,0.4)",
                 background: "linear-gradient(145deg, #FCEDB0, #F5C840)",
-                fontWeight: 600,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 color: "#7A5300",
                 boxShadow: "0 1px 5px rgba(240,195,60,0.22)",
-                whiteSpace: "nowrap",
               }}
             >
-              <MapPinPlus size={11} />
-              신규 장소
+              <MapPinPlus size={15} />
             </button>
 
             <button
+              ref={recommendBtnRef}
+              title="추천 장소"
+              aria-label="추천 장소"
               onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
               className="ggk-body"
               style={{
-                padding: "5px 10px",
-                fontSize: "11px",
+                padding: "7px",
                 borderRadius: "8px",
                 border: "1px solid rgba(92,122,74,0.35)",
                 background: "linear-gradient(145deg, #DCE7CD, #A9C48A)",
-                fontWeight: 600,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 color: "#3F5230",
                 boxShadow: "0 1px 5px rgba(92,122,74,0.22)",
-                whiteSpace: "nowrap",
               }}
             >
-              <Bot size={12} />추천 장소
+              <Bot size={15} />
             </button>
 
             <button
+              ref={routeBtnRef}
+              title="AI 코스"
+              aria-label="AI 코스"
               onClick={() => { setShowRoutePanel(!showRoutePanel); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
               className="ggk-body"
               style={{
-                padding: "5px 10px",
-                fontSize: "11px",
+                padding: "7px",
                 borderRadius: "8px",
                 border: "1px solid rgba(139,92,246,0.35)",
                 background: showRoutePanel
                   ? "linear-gradient(145deg, #a78bfa, #7c3aed)"
                   : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
-                fontWeight: 600,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 color: showRoutePanel ? "white" : "#5b21b6",
                 boxShadow: "0 1px 5px rgba(139,92,246,0.22)",
-                whiteSpace: "nowrap",
               }}
             >
-              <RouteIcon size={12} />AI 코스
+              <RouteIcon size={15} />
             </button>
 
             <button
+              ref={ownerBtnRef}
+              title="사장님 등록"
+              aria-label="사장님 등록"
               onClick={handleOwnerRegisterClick}
               disabled={ownerCheckLoading}
               className="ggk-body"
               style={{
-                padding: "5px 10px",
-                fontSize: "11px",
+                padding: "7px",
                 borderRadius: "8px",
                 border: "1px solid rgba(184,134,11,0.35)",
                 background: "linear-gradient(145deg, #FFF3D6, #F0D28A)",
-                fontWeight: 600,
                 cursor: ownerCheckLoading ? "default" : "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 color: "#7A5300",
-                whiteSpace: "nowrap",
                 opacity: ownerCheckLoading ? 0.7 : 1,
               }}
             >
-              <Store size={11} />
-              사장님 등록
+              <Store size={15} />
             </button>
 
             <button
+              ref={jeboBtnRef}
+              title="제보하기"
+              aria-label="제보하기"
               onClick={() => router.push("/jebo")}
               className="ggk-body"
               style={{
-                padding: "5px 10px",
-                fontSize: "11px",
+                padding: "7px",
                 borderRadius: "8px",
                 border: "1px solid rgba(0,0,0,0.08)",
                 background: "#f5f6f8",
-                fontWeight: 600,
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                justifyContent: "center",
                 color: "#444",
-                whiteSpace: "nowrap",
               }}
             >
-              <Pencil size={11} />
-              제보하기
+              <Pencil size={15} />
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── 액션 버튼 첫 방문 안내 투어: position:fixed라 트리 안 위치는 상관없습니다. ── */}
+      {tourStep !== null && tourRect && (
+        <>
+          <div onClick={endActionTour} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.5)" }} />
+          <div
+            style={{
+              position: "fixed",
+              top: tourRect.top - 4,
+              left: tourRect.left - 4,
+              width: tourRect.width + 8,
+              height: tourRect.height + 8,
+              borderRadius: 10,
+              boxShadow: "0 0 0 3px white, 0 0 0 5px #3a7438",
+              zIndex: 2001,
+              pointerEvents: "none",
+              transition: "top 0.2s ease, left 0.2s ease",
+            }}
+          />
+          <div
+            className="ggk-body"
+            style={{
+              position: "fixed",
+              top: tourRect.top + tourRect.height + 12,
+              left: Math.max(12, Math.min(tourRect.left, (typeof window !== "undefined" ? window.innerWidth : 400) - 222)),
+              width: 210,
+              zIndex: 2002,
+              background: "white",
+              borderRadius: 12,
+              padding: "12px 14px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
+              transition: "top 0.2s ease, left 0.2s ease",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#333", lineHeight: 1.5, marginBottom: 10 }}>
+              {ACTION_TOUR_STEPS[tourStep].text}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <button
+                onClick={endActionTour}
+                style={{ border: "none", background: "transparent", color: "#999", fontSize: 11, cursor: "pointer", padding: 0, fontFamily: "'Noto Sans KR', sans-serif" }}
+              >
+                건너뛰기
+              </button>
+              <div style={{ display: "flex", gap: 4 }}>
+                {ACTION_TOUR_STEPS.map((_, i) => (
+                  <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === tourStep ? "#3a7438" : "#ddd" }} />
+                ))}
+              </div>
+              <button
+                onClick={advanceActionTour}
+                style={{
+                  border: "none", background: "#3a7438", color: "white", fontSize: 11, fontWeight: 700,
+                  padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
+                }}
+              >
+                {tourStep >= ACTION_TOUR_STEPS.length - 1 ? "완료" : "다음"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
@@ -2205,7 +2475,7 @@ export default function KakaoMap() {
                 <div
                   key={`premium-${place.id}`}
                   onClick={() => {
-                    setSelectedPlace(place);
+                    openPlacePopup(place);
                     const lat = parseFloat(place.lat);
                     const lng = parseFloat(place.lng);
                     if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
@@ -2263,49 +2533,83 @@ export default function KakaoMap() {
               <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "이 화면에 보이는 장소가 없습니다"}</div>
             </div>
           )}
-          {displayedPlaces.map((place) => (
-            <div key={place.id}>
+          {displayedPlaces.map((place) => {
+            // ⚠ 공원 토글이 켜져 있으면 displayedPlaces에 공원이 __isPark 플래그를 달고
+            // 섞여 들어옵니다. 공원은 image_url/pet_zone 등 장소 전용 필드가 없어서
+            // 카드 내용과 클릭 동작(장소 상세 대신 지도 위 공원 마커와 동일한 공원
+            // 정보 카드)을 분기합니다.
+            const isPark = (place as any).__isPark === true;
+            const isSelected = isPark ? selectedPark?.id === place.id : selectedPlace?.id === place.id;
+            return (
+            <div key={`${isPark ? "park" : "place"}-${place.id}`}>
               <div
                 onClick={() => {
-                  // ⚠ 예전엔 리스트 항목을 누르면 바로 상세 모달로 넘어갔는데, 지도 위
-                  // 마커를 누를 때는 먼저 하단 중앙에 "자세히 보기" 미리보기 카드가 뜨는
-                  // 것과 동작이 달랐습니다. 마커를 눌렀을 때(setSelectedPlace)와 똑같이
-                  // 동작을 통일합니다 — 실제 상세 모달 진입은 그 카드의 "자세히 보기"
-                  // 버튼에서 이루어집니다.
-                  setSelectedPlace(place);
-                  // 리스트에서 고른 장소가 화면 중심에 오도록 지도도 함께 이동합니다.
                   const lat = parseFloat(place.lat);
                   const lng = parseFloat(place.lng);
+                  if (isPark) {
+                    // 지도 위 공원 마커를 눌렀을 때(selectParkRef.current)와 동일하게 동작을 통일합니다.
+                    openParkPopup(place as unknown as ParkPlace);
+                  } else {
+                    // ⚠ 예전엔 리스트 항목을 누르면 바로 상세 모달로 넘어갔는데, 지도 위
+                    // 마커를 누를 때는 먼저 하단 중앙에 "자세히 보기" 미리보기 카드가 뜨는
+                    // 것과 동작이 달랐습니다. 마커를 눌렀을 때(setSelectedPlace)와 똑같이
+                    // 동작을 통일합니다 — 실제 상세 모달 진입은 그 카드의 "자세히 보기"
+                    // 버튼에서 이루어집니다.
+                    openPlacePopup(place);
+                  }
+                  // 리스트에서 고른 장소/공원이 화면 중심에 오도록 지도도 함께 이동합니다.
                   if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
                     mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
                   }
                 }}
                 style={{
                   marginBottom: "7px",
-                  background: selectedPlace?.id === place.id ? "#eef6ff" : "white",
+                  background: isSelected ? "#eef6ff" : "white",
                   borderRadius: "14px",
                   cursor: "pointer",
-                  border:
-                    selectedPlace?.id === place.id
-                      ? "1.5px solid #93c5fd"
-                      : "1px solid #eee",
-                  boxShadow: selectedPlace?.id === place.id ? "0 2px 10px rgba(59,130,246,0.14)" : "0 1px 3px rgba(0,0,0,0.03)",
+                  border: isSelected ? "1.5px solid #93c5fd" : "1px solid #eee",
+                  boxShadow: isSelected ? "0 2px 10px rgba(59,130,246,0.14)" : "0 1px 3px rgba(0,0,0,0.03)",
                   overflow: "hidden",
                   transition: "box-shadow 0.15s ease, border-color 0.15s ease",
                 }}
               >
-                {/* lazy loading + 기본 이미지 fallback */}
-                <img
-                  src={place.image_url || "/images/default-place.png"}
-                  alt={place.name}
-                  loading="lazy"
-                  onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
-                  style={{ width: "100%", height: "88px", objectFit: "cover", display: "block" }}
-                />
+                <div style={{ position: "relative" }}>
+                  {isPark ? (
+                    <div style={{ width: "100%", height: "88px", background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "26px" }}>🌳</span>
+                    </div>
+                  ) : (
+                    // lazy loading + 기본 이미지 fallback
+                    <img
+                      src={place.image_url || "/images/default-place.png"}
+                      alt={place.name}
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
+                      style={{ width: "100%", height: "88px", objectFit: "cover", display: "block" }}
+                    />
+                  )}
+                  {(() => {
+                    const badge = getCardBadge(place, isPark);
+                    if (!badge) return null;
+                    return (
+                      <span
+                        style={{
+                          position: "absolute", top: "6px", right: "6px",
+                          padding: "2px 7px", borderRadius: "6px",
+                          fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.2px",
+                          background: "rgba(0,0,0,0.72)", color: badge.color,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <div style={{ padding: "7px 9px 8px" }}>
                   <div style={{ fontWeight: 700, fontSize: "11px", color: "#111", display: "flex", alignItems: "center", gap: 4 }}>
                     {place.name}
-                    {isPlacePremiumNow(place) && (
+                    {!isPark && isPlacePremiumNow(place) && (
                       <span title="프리미엄 등록 업장" style={{
                         display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
                         background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
@@ -2319,10 +2623,16 @@ export default function KakaoMap() {
                       display: "inline-flex", alignItems: "center", gap: "3px",
                       background: "#f5f6f8", padding: "2px 6px", borderRadius: "999px",
                     }}>
-                      {getPlaceEmoji(place)
-                        ? <span>{getPlaceEmoji(place)}</span>
-                        : <PawPrint size={10} color="#888" />}
-                      {getPlaceLabel(place)}
+                      {isPark ? (
+                        <>🌳 {place.category}</>
+                      ) : (
+                        <>
+                          {getPlaceEmoji(place)
+                            ? <span>{getPlaceEmoji(place)}</span>
+                            : <PawPrint size={10} color="#888" />}
+                          {getPlaceLabel(place)}
+                        </>
+                      )}
                     </span>
                   </div>
                   <div
@@ -2341,7 +2651,8 @@ export default function KakaoMap() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
           <div style={{ height: "8px" }} />
         </div>
       </div>
@@ -2871,7 +3182,7 @@ export default function KakaoMap() {
                     if (rawId.startsWith("park-")) {
                       selectParkRef.current(Number(rawId.slice("park-".length)));
                     } else {
-                      setSelectedPlace(stop.place);
+                      openPlacePopup(stop.place);
                     }
                     const lat = parseFloat(String(stop.place.lat));
                     const lng = parseFloat(String(stop.place.lng));

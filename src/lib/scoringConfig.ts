@@ -60,6 +60,20 @@ export const AFFINITY_WEIGHTS = {
   AMENITY: 0.1,
 } as const;
 
+// ─────────────────────────────────────────────────────────────
+// 3) 리스트 카드 배지 (TOP N / HOT / NEW) — KakaoMap.tsx
+//    카드 썸네일 우측 상단에 뜨는 배지 기준값입니다. 한 카드에는 하나만 뜨며,
+//    TOP 랭킹 > NEW > HOT 순으로 우선합니다(KakaoMap.tsx의 getCardBadge 참고).
+// ─────────────────────────────────────────────────────────────
+export const CARD_BADGE = {
+  /** "TOP n" 배지를 매기는 상한 순위. 화면에 보이는(또는 반경 내) 장소를 찜+좋아요
+   *  기준으로 정렬해 이 순위 안에 들고 점수가 0보다 큰 장소에만 매깁니다. */
+  TOP_RANK_MAX: 10,
+  /** 최근 30일 조회수가 이 값 이상이면 "HOT" 배지. TOP 랭킹에 이미 들어간 장소는
+   *  중복으로 붙이지 않습니다. */
+  HOT_VIEW_MIN: 15,
+} as const;
+
 /** 각 하위 점수 계산에 쓰이는 세부 기준값 */
 export const AFFINITY_SUBSCORES = {
   // ── 리뷰 만족도 ──

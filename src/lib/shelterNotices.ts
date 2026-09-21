@@ -54,8 +54,7 @@ async function getSessionCookie(): Promise<string> {
   return cookie;
 }
 
-// 카카오 coord2regioncode의 region_1depth_name(예: "경남", "제주")과
-// animal.go.kr 검색조건의 시도 코드 매핑. 2026년 기준 전남·광주는 통합 코드 사용.
+// animal.go.kr 검색조건의 시도 코드 매핑(짧은 이름 기준). 2026년 기준 전남·광주는 통합 코드 사용.
 export const SIDO_CODE_MAP: Record<string, string> = {
   "서울": "6110000",
   "부산": "6260000",
@@ -75,6 +74,40 @@ export const SIDO_CODE_MAP: Record<string, string> = {
   "전남": "6130000",
   "광주": "6130000",
 };
+
+// 카카오 coord2regioncode의 region_1depth_name은 "부산광역시", "경상남도", "제주특별자치도"처럼
+// 정식 전체 명칭을 내려줍니다(짧은 이름이 아닙니다 — 예전에 이 파일 주석이 잘못 적혀 있었고,
+// useUserRegion 훅이 이 전체 명칭을 그대로 SIDO_CODE_MAP에 조회하면서 항상 매칭에 실패해
+// 위치 기반 지역 필터가 조용히 무시되고 전국 공고가 뒤섞여 나오는 버그가 있었습니다.
+// 2024년 전북특별자치도, 2023년 강원특별자치도 개편 등 신·구 명칭을 모두 인식합니다.
+const REGION_FULLNAME_TO_SHORT: Record<string, string> = {
+  "서울특별시": "서울",
+  "부산광역시": "부산",
+  "대구광역시": "대구",
+  "인천광역시": "인천",
+  "세종특별자치시": "세종",
+  "대전광역시": "대전",
+  "울산광역시": "울산",
+  "경기도": "경기",
+  "강원도": "강원",
+  "강원특별자치도": "강원",
+  "충청북도": "충북",
+  "충청남도": "충남",
+  "전라북도": "전북",
+  "전북특별자치도": "전북",
+  "경상북도": "경북",
+  "경상남도": "경남",
+  "제주도": "제주",
+  "제주특별자치도": "제주",
+  "전라남도": "전남",
+  "광주광역시": "광주",
+};
+
+/** 카카오가 내려주는 시/도 전체 명칭을 SIDO_CODE_MAP이 쓰는 짧은 이름으로 정규화합니다.
+ *  이미 짧은 이름이거나 매핑에 없는 값은 그대로 돌려줍니다(안전한 폴백). */
+export function normalizeSidoName(name: string): string {
+  return REGION_FULLNAME_TO_SHORT[name] ?? name;
+}
 
 export type ShelterNotice = {
   desertionNo: string;
@@ -287,7 +320,31 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
   return null;
 }
 
+// 목록 조회 결과를 짧게 캐시합니다 — 이 함수는 사이드 레일(커뮤니티·마이페이지)이
+// 페이지를 볼 때마다 호출되는데, 캐시가 없으면 방문자마다 매번 정부 사이트(또는
+// data.go.kr)에 새로 요청을 보내게 되어 응답이 느려지고 외부 API 호출량도 불필요하게
+// 늘어납니다. 공고 목록은 자주 바뀌는 데이터가 아니라(마감 계산은 하루 단위) 5분 정도
+// 지연되어 보여도 문제가 없습니다. 세션 쿠키 캐시(cachedCookie)와 같은 이유·같은
+// 방식(모듈 스코프, TTL)입니다. 빈 결과(일시적 장애 등)는 짧게만 캐시해서, 정상화되면
+// 최대 30초 안에 다시 시도하도록 합니다.
+const noticePageCache = new Map<string, { data: ShelterNotice[]; expires: number }>();
+const NOTICE_CACHE_TTL_MS = 5 * 60 * 1000;
+const NOTICE_EMPTY_CACHE_TTL_MS = 30 * 1000;
+
 async function fetchNoticePage(sidoCode: string | null, pageSize = 40): Promise<ShelterNotice[]> {
+  const cacheKey = `${sidoCode ?? "ALL"}:${pageSize}`;
+  const cached = noticePageCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
+  const notices = await fetchNoticePageUncached(sidoCode, pageSize);
+  noticePageCache.set(cacheKey, {
+    data: notices,
+    expires: Date.now() + (notices.length > 0 ? NOTICE_CACHE_TTL_MS : NOTICE_EMPTY_CACHE_TTL_MS),
+  });
+  return notices;
+}
+
+async function fetchNoticePageUncached(sidoCode: string | null, pageSize: number): Promise<ShelterNotice[]> {
   // 1순위: 공식 Open API (키가 설정돼 있을 때만)
   const viaOpenApi = await fetchFromOpenApi(sidoCode, pageSize);
   if (viaOpenApi !== null) return viaOpenApi;
@@ -371,39 +428,41 @@ function sortActive(notices: ShelterNotice[]): ShelterNotice[] {
     .sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
-// 사용자 지역(시도 짧은 이름, 예: "경남")을 우선으로, 부족하면 전국 공고로 채웁니다.
+// 사용자 지역(시도 짧은 이름, 예: "경남")이 감지되면 그 지역 공고만, 지역을 전혀
+// 모르면(위치 권한 거부 등) 전국 공고를 보여줍니다.
 // offset: 정렬된 결과에서 몇 번째부터 자를지. 커뮤니티 페이지(offset=0, 가장 마감임박인
 // 상위 N건)와 마이페이지(offset=N, 그다음 순위 N건)가 서로 다른 공고를 보여주도록
 // 하기 위한 용도입니다 — 지역 우선·마감임박순이라는 "주의사항(선정 규칙)"은 완전히
 // 동일하게 유지하면서, 순위 구간만 다르게 잘라서 두 페이지에 노출되는 공고가 겹치지
 // 않게 합니다.
+//
+// ⚠ 예전엔 감지된 지역의 활성 공고가 offset+limit개보다 적으면 전국에서 마감임박순으로
+// 나머지를 채워 넣었습니다. 그러면 "경북 사용자인데 세종 공고가 뜬다" 처럼, 지역이
+// 정상적으로 감지됐는데도 전혀 무관한 다른 지역 공고가 같이 섞여 나와 위치 필터가
+// 고장난 것처럼 보였습니다. 이제는 지역이 감지된 경우 그 지역 공고만 보여주고(모자라면
+// 카드 개수가 적게, 최악의 경우 0개로 나오는 게 맞습니다 — 화면단의 "표시할 공고가
+// 없습니다" 문구가 이 경우를 처리합니다), 지역을 아예 모를 때만 전국으로 대체합니다.
 export async function getPrioritizedShelterNotices(
   regionShort: string | null,
   limit = 2,
   offset = 0
 ): Promise<ShelterNotice[]> {
-  const sidoCode = regionShort ? SIDO_CODE_MAP[regionShort] ?? null : null;
+  const sidoCode = regionShort ? SIDO_CODE_MAP[normalizeSidoName(regionShort)] ?? null : null;
 
-  const regional = sidoCode ? sortActive(await fetchNoticePage(sidoCode)) : [];
-
-  let pool: ShelterNotice[];
-  if (regional.length >= offset + limit) {
-    pool = regional;
-  } else {
+  if (!sidoCode) {
     const nationwide = sortActive(await fetchNoticePage(null));
-    const seen = new Set(regional.map((n) => n.desertionNo));
-    const fill = nationwide.filter((n) => !seen.has(n.desertionNo));
-    pool = [...regional, ...fill];
+    return nationwide.slice(offset, offset + limit);
   }
 
-  return pool.slice(offset, offset + limit);
+  const regional = sortActive(await fetchNoticePage(sidoCode));
+  return regional.slice(offset, offset + limit);
 }
 
 // "전국 보호소 공고 전체보기" 전용 페이지(/shelter-notices)에서 씁니다. 사이드 레일의
 // 2건 미리보기와 달리, 선택한 지역(없으면 전국) 공고만 마감임박순으로 최대 limit개
 // 그대로 보여줍니다 — 다른 지역으로 자동 채워 넣지 않습니다(사용자가 직접 지역을 고름).
 export async function getRegionShelterNotices(regionShort: string | null, limit = 60): Promise<ShelterNotice[]> {
-  const sidoCode = regionShort ? SIDO_CODE_MAP[regionShort] ?? null : null;
+  const sidoCode = regionShort ? SIDO_CODE_MAP[normalizeSidoName(regionShort)] ?? null : null;
   const notices = sortActive(await fetchNoticePage(sidoCode, Math.max(limit, 60)));
   return notices.slice(0, limit);
 }

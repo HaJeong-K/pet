@@ -84,6 +84,14 @@ function dedupeAcrossSources(...sources: any[][]): any[] {
   return out;
 }
 
+// 장소 상세페이지의 "새로고침" 버튼처럼 사용자가 직접 최신 데이터를 요청했을 때 씁니다.
+// 이 캐시가 남아있으면(최대 5분) 그 안에는 fetchPublicDataPlaces()가 네트워크를 다시
+// 타지 않고 예전 결과(로딩 실패로 특정 장소가 빠져 있던 상태 등)를 그대로 돌려줘서,
+// 컴포넌트를 remount해도 "실제로는 새로고침되지 않는" 것처럼 보이는 문제가 있었습니다.
+export function invalidatePublicDataPlacesCache() {
+  cachedPlaces = null;
+}
+
 export async function fetchPublicDataPlaces(): Promise<any[]> {
   if (cachedPlaces && Date.now() - cachedAt < CACHE_TTL_MS) {
     return cachedPlaces;
