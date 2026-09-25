@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import KakaoMap from "@/components/KakaoMap";
+import KakaoMap from "@/components/KakaoMapLoader";
 
 export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <KakaoMap />
-    </Suspense>
-  );
+  return <KakaoMap />;
 }

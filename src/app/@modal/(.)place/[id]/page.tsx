@@ -9,9 +9,9 @@ import {
   Copy, AlertOctagon, MessageSquare, Trash2, ImageOff,
   RotateCw, MapPinPlus,
 } from "lucide-react";
-import PlaceDetail from "@/app/place/[id]/page";
+import PlaceDetail from "@/app/place/[id]/PlaceDetailClient";
 import { supabase } from "@/lib/supabase";
-import { fetchPublicDataPlaces, invalidatePublicDataPlacesCache } from "@/lib/publicDataPlaces";
+import { fetchPublicDataPlaceById, invalidatePublicDataPlacesCache } from "@/lib/publicDataPlaces";
 
 /* ── 장소 신고 사유 목록 ─────────────────────────────── */
 const PLACE_REPORT_CATEGORIES = [
@@ -63,12 +63,12 @@ export default function ModalPage() {
         return;
       }
       // ⚠ 관광공사·문화정보원·식품안전나라 공공데이터 출처 장소는 `places` 테이블에
-      // 실제 행이 없는 합성 ID라 위 조회가 항상 비어있습니다. place/[id]/page.tsx가
-      // 하는 것과 동일하게 공공데이터 쪽에서 한 번 더 찾습니다 — 이게 없으면 신고
-      // 시 장소명이 빈 값(관리자 화면엔 "—")으로 저장됩니다.
-      const publicDataPlaces = await fetchPublicDataPlaces();
+      // 실제 행이 없는 합성 ID라 위 조회가 항상 비어있습니다. PlaceDetailClient.tsx가
+      // 하는 것과 동일하게 공공데이터 쪽에서 한 번 더 찾습니다(단건 조회 — 전국
+      // 데이터 전체를 받지 않습니다) — 이게 없으면 신고 시 장소명이 빈 값(관리자
+      // 화면엔 "—")으로 저장됩니다.
+      const found = await fetchPublicDataPlaceById(Number(placeId));
       if (cancelled) return;
-      const found = publicDataPlaces.find((p) => String(p.id) === String(placeId));
       if (found) {
         setPlaceName(found.name || "");
         setPlaceAddress(found.address || "");
@@ -96,7 +96,7 @@ export default function ModalPage() {
     // ⚠ 예전엔 key만 바꿔서 PlaceDetail을 remount했는데, place/reviews/replies 등
     // 실제 상세 데이터는 Supabase에서 매번 새로 조회해 remount만으로도 충분했지만,
     // "places 테이블에 없는" 공공데이터 출처 장소(관광공사·문화정보원·식약처)는
-    // fetchPublicDataPlaces()의 5분짜리 모듈 캐시를 그대로 다시 읽어서, 그 장소가
+    // fetchPublicDataPlaceById()의 클라이언트 캐시를 그대로 다시 읽어서, 그 장소가
     // 처음 로딩 실패로 빠졌던 경우엔 새로고침을 눌러도 같은 실패 결과가 캐시에서
     // 그대로 나와 "안 눌리는 것처럼" 보였습니다. 캐시를 먼저 비워서 진짜로 다시
     // 네트워크를 타게 만듭니다.

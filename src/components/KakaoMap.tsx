@@ -1,29 +1,42 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { fetchAllRows } from "@/lib/supabasePaging";
-import { calculateRecommendScore } from "@/lib/recommend";
-import { isPlacePremiumNow } from "@/lib/premium";
-import { RECOMMEND_WEIGHTS, CARD_BADGE } from "@/lib/scoringConfig";
 import {
-  buildRoute, formatEstimatedTime, ROUTE_THEME_LABEL,
+  calculateRecommendScore, calculateRecommendBreakdownV2, rerankForDiversity, categoryKey, recommendReasons, pickDistinctReasons,
+  buildUserPreferenceProfile, personalMatch, EMPTY_PREFERENCE_PROFILE, RECOMMEND_ALGO_VERSION,
+  type PlaceSignals, type UserReaction, type ScoredCandidate,
+} from "@/lib/recommend";
+import { calculateAffinityScore } from "@/lib/affinityScore";
+import { isPlacePremiumNow } from "@/lib/premium";
+import { RECOMMEND_WEIGHTS, RECOMMEND_V2_WEIGHTS, CARD_BADGE } from "@/lib/scoringConfig";
+import {
+  buildRoute, applyWalkingLegs, formatEstimatedTime, ROUTE_THEME_LABEL,
   type RouteTheme, type RouteResult, type RoutablePlace,
 } from "@/lib/routeRecommend";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
-import { trackEvent, extractRegion } from "@/lib/analytics";
+import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
+import { assignRecVariant, type RecVariant } from "@/lib/experiment";
+import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
-  ZoomIn, ZoomOut, Link, Upload, MessageCircle, PawPrint, X,
+  Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
-import OwnerUpgradeForm from "@/components/OwnerUpgradeForm";
+// ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
+// 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
+// 코드를 첫 로드 때 그대로 받게 됩니다. next/dynamic으로 실제 열릴 때만
+// 별도 청크를 내려받도록 분리합니다.
+const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
 // 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
@@ -128,7 +141,7 @@ const searchRegionAndMoveMap = async (
       mapInstance.setCenter(new window.kakao.maps.LatLng(result.lat, result.lng));
       // "OO구 OO동"처럼 세부 단위면 좁게, 시/도 단위면 넓게
       const isDetailed = /\s/.test(trimmed) || /(동|읍|면)$/.test(trimmed);
-      mapInstance.setLevel(isDetailed ? 5 : 8);
+      mapInstance.setLevel(isDetailed ? 5 : 8, { animate: true });
       return result;
     }
   }
@@ -165,19 +178,21 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
 // 않게 해달라는 요구사항 때문에 필요한, 좌표 → 읍/면/동(region_3depth_name) 조회입니다.
 // coord2regioncode는 위 reverseGeocode(시군구, 2depth)와 같은 엔드포인트를 쓰지만
 // 3depth(읍/면/동)까지 내려가야 해서 별도 함수로 뒀습니다.
-const reverseGeocodeDong = async (lat: number, lng: number): Promise<string> => {
+// 행정동(H)과 법정동(B)을 둘 다 돌려줍니다. 장소 주소는 출처마다 둘 중 하나로 적혀 있어서
+// (예: 서울시청 좌표 = 행정동 "명동" / 법정동 "태평로1가", 공원 표준데이터 주소는 법정동)
+// 한쪽만으로 거르면 같은 동네 장소가 빠집니다.
+const reverseGeocodeDong = async (lat: number, lng: number): Promise<{ admin: string; legal: string }> => {
   try {
     const res = await fetch(
       `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
       { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
     );
     const data = await res.json();
-    // 법정동(B)과 행정동(H) 문서가 둘 다 올 수 있는데, 주소 문자열 매칭에는 행정동이
-    // 더 흔히 쓰이는 표기라 H를 우선하고 없으면 첫 문서를 씁니다.
-    const region = data.documents?.find((d: any) => d.region_type === "H") || data.documents?.[0];
-    return region?.region_3depth_name || "";
+    const admin = data.documents?.find((d: any) => d.region_type === "H")?.region_3depth_name || "";
+    const legal = data.documents?.find((d: any) => d.region_type === "B")?.region_3depth_name || "";
+    return { admin: admin || legal, legal };
   } catch {
-    return "";
+    return { admin: "", legal: "" };
   }
 };
 
@@ -197,9 +212,6 @@ export default function KakaoMap() {
   // /signup-owner(OwnerSignupForm)로 이동합니다.
   const [showOwnerRegisterModal, setShowOwnerRegisterModal] = useState(false);
   const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
-
-  const [wideView, setWideView] = useState(false);
-  const savedLevelRef = useRef<number>(4);
 
   // ── 마커: Map 객체로 관리 (증분 업데이트) — 상세 pill 마커(CustomOverlay)용
   const markerMapRef = useRef<Map<number, any>>(new Map());
@@ -227,6 +239,9 @@ export default function KakaoMap() {
   // 첫 방문자에게만 "위치 확인 중" 오버레이를 보여주기 위한 상태입니다.
   const pendingLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(true);
+  // 아래 "지역 범위로 공공데이터 재요청" 효과가 이미 어느 좌표로 재요청했는지 기록해서,
+  // GPS 좌표가 미세하게(수백m 이내) 흔들릴 때마다 매번 네트워크를 다시 타지 않도록 합니다.
+  const regionalFetchKeyRef = useRef<string | null>(null);
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
@@ -315,6 +330,20 @@ export default function KakaoMap() {
   // 정거장 선정 둘 다 이 맵을 참고합니다(recommend.ts의 popularityBonus).
   const [popularityMap, setPopularityMap] = useState<Map<string, { bookmarks: number; likes: number }>>(new Map());
 
+  // ── 추천 v2 신호 ──
+  // placeSignals: 서버 집계(/api/recommend/signals) — 시간 감쇠 반응 수, 싫어요 수, 리뷰 만족도
+  // myReactions : 내 찜/좋아요/싫어요 — 개인 취향 프로필과 "이미 찜/싫어요한 곳" 처리에 사용
+  // recVariant  : A/B 그룹(experiment.ts). 마운트 후에 정해서 SSR/하이드레이션 불일치를 피합니다.
+  const [placeSignals, setPlaceSignals] = useState<Map<string, PlaceSignals>>(new Map());
+  const [myReactions, setMyReactions] = useState<UserReaction[]>([]);
+  // A/B 그룹은 추천 패널(처음엔 닫혀 있음) 안에서만 화면에 드러나서 SSR 결과와 달라도 하이드레이션 불일치가 없습니다.
+  const [recVariant] = useState<RecVariant | null>(() =>
+    typeof window === "undefined" ? null : assignRecVariant(getUserKey())
+  );
+  // 실제 도보 경로(TMAP) 조회 결과. key = 코스 좌표 서명 — 코스가 바뀌면 자동으로 무효화됩니다.
+  const [walkRouting, setWalkRouting] = useState<{ key: string; legsKm: number[]; legsMinutes: number[]; path: [number, number][] } | null>(null);
+  const walkRoutingDisabledRef = useRef(false);
+
   // ── 리스트 패널 카드에 보여줄 "최근 조회수" — place_view 이벤트를 최근 30일
   // 기준으로 장소별로 센 값입니다(/api/analytics/place-view-counts). 순위/정렬에는
   // 관여하지 않고 카드에 보조 정보로만 표시합니다.
@@ -324,6 +353,8 @@ export default function KakaoMap() {
   // 이름. 산책·실내는 후보를 이 동 안으로만 좁히고(DONG_RESTRICTED_THEMES), 관광 중심은
   // 하드 필터링 없이 "지역 내 관광지 우선순위" 판정에만 씁니다.
   const [routeDongName, setRouteDongName] = useState<string | null>(null);
+  // 같은 좌표의 법정동 이름 — 주소가 법정동으로 적힌 장소(공원 등)도 "같은 동"으로 인정하기 위함
+  const [routeLegalDongName, setRouteLegalDongName] = useState<string | null>(null);
 
   // ── "다른 코스 보기": 클릭 시 직전 코스에 나온 정거장들을 제외하고 재계산합니다.
   // 테마를 바꾸거나 패널을 새로 열면 초기화됩니다.
@@ -399,7 +430,7 @@ export default function KakaoMap() {
   const effectiveListPanelSide: "left" | "right" = isNarrowScreen ? "left" : listPanelSide;
   const otherPanelsSide: "left" | "right" = effectiveListPanelSide === "right" ? "left" : "right";
 
-  // ── 플로팅 헤더 실제 높이를 측정해서, 리스트/신규/추천 패널과 "넓게 둘러보기" 버튼의
+  // ── 플로팅 헤더 실제 높이를 측정해서, 리스트/신규/추천 패널의
   // 상단 위치를 여기에 맞춥니다. 헤더는 화면이 좁아지면 검색창·필터·버튼이 줄바꿈되며
   // 키(높이)가 늘어나는데, 예전처럼 top 값을 고정 px(122px)로 박아두면 헤더가 늘어난
   // 만큼 패널들이 헤더 뒤에 가려지거나 겹치는 문제가 있었습니다.
@@ -513,7 +544,13 @@ export default function KakaoMap() {
       // 돌려줘서, places가 1000건을 넘어가는 순간부터 나머지가 조용히 지도에서 빠집니다.
       const [{ data: { session } }, placesData] = await Promise.all([
         supabase.auth.getSession(),
-        fetchAllRows("places", "id, name, lat, lng, pet_zone, category, address, image_url, created_at, is_premium, premium_expires_at"),
+        // ⚠ large_dog/hours/closed_days/parking/entry_fee/website/phone은 추천 점수(대형견 가점),
+        // 친화도(정보 완성도), AI 코스(운영시간 판정)에 쓰입니다 — 예전엔 이 컬럼들을 안
+        // 불러와서 제보 장소는 대형견 가점이 항상 0이었습니다.
+        fetchAllRows(
+          "places",
+          "id, name, lat, lng, pet_zone, category, address, image_url, created_at, is_premium, premium_expires_at, large_dog, hours, closed_days, parking, entry_fee, website, phone"
+        ),
       ]);
       if (cancelled) return;
       setSession(session);
@@ -524,18 +561,32 @@ export default function KakaoMap() {
       // — 도착하는 대로 recommend.ts 점수 계산에 반영되면 충분하지, 마커가 뜨는 걸
       // 늦출 이유가 없습니다. place_id만 보고 카운트하므로 실제 places 행이 없는
       // 공공데이터 장소(합성 숫자 id)도 동일하게 집계됩니다.
-      fetchAllRows("reactions", "place_id, type").then((rows) => {
-        if (cancelled) return;
-        const counts = new Map<string, { bookmarks: number; likes: number }>();
-        for (const row of rows) {
-          const key = String(row.place_id);
-          const entry = counts.get(key) || { bookmarks: 0, likes: 0 };
-          if (row.type === "bookmark") entry.bookmarks += 1;
-          else if (row.type === "like") entry.likes += 1;
-          counts.set(key, entry);
-        }
-        setPopularityMap(counts);
-      });
+      // 예전엔 reactions 테이블 전체 행을 브라우저로 내려받아 직접 셌는데, 이제는 서버가
+      // 집계한 결과(장소당 숫자 몇 개, 5분 캐시)만 받습니다.
+      fetch("/api/recommend/signals")
+        .then((r) => r.json())
+        .then((data) => {
+          if (cancelled || !data?.signals) return;
+          const signals = new Map<string, PlaceSignals>(Object.entries(data.signals as Record<string, PlaceSignals>));
+          const counts = new Map<string, { bookmarks: number; likes: number }>();
+          for (const [id, s] of signals) counts.set(id, { bookmarks: s.b, likes: s.l });
+          setPlaceSignals(signals);
+          setPopularityMap(counts);
+        })
+        .catch(() => {});
+
+      // 내 반응(개인화용). 비로그인 user_key와 로그인 계정 id 둘 다로 남긴 반응을 모두 봅니다
+      // (상세페이지가 로그인 여부에 따라 둘 중 하나를 키로 씁니다).
+      const myKeys = [getUserKey(), session?.user?.id].filter(Boolean) as string[];
+      if (myKeys.length > 0) {
+        supabase
+          .from("reactions")
+          .select("place_id, type")
+          .in("user_key", myKeys)
+          .then(({ data }) => {
+            if (!cancelled && data) setMyReactions(data as UserReaction[]);
+          });
+      }
 
       // ⚠ 리스트 패널의 "최근 조회수" 배지도 위와 같은 이유로 지도 첫 렌더를 막지 않고
       // 따로 흘려보냅니다 — 최근 30일 place_view 집계라 도착이 조금 늦어도 무방합니다.
@@ -555,12 +606,29 @@ export default function KakaoMap() {
       // 쪽 하나" 수준으로 줄어듭니다(예전엔 공공데이터 3종을 다 기다린 뒤에야 공원 fetch를
       // 시작해서 두 대기시간이 그대로 더해졌습니다). 둘 다 기존 DB places 위에 비동기로
       // 덧붙이는 구조라 지도 첫 렌더(위 setPlaces)는 그대로 막지 않습니다.
+      //
+      // ⚠ 최적화(지역 필터링): 캐시된 위치(localStorage, 아래 다른 useEffect가 매번
+      // 최신 GPS로 갱신)가 있으면 그 좌표 반경으로만 서버에서 걸러진 데이터를
+      // 받습니다 — 전국 21,000여 건을 매번 받던 것을 사용자 주변 수십~수백 건으로
+      // 줄이는 핵심 지점입니다. 아직 위치를 모르는 첫 방문(캐시 없음)이면 인자
+      // 없이 호출해 예전과 동일하게 전국 데이터를 받습니다(하위 호환 폴백).
+      const cachedLat = parseFloat(localStorage.getItem("user_lat") || "");
+      const cachedLng = parseFloat(localStorage.getItem("user_lng") || "");
+      const geoOptions = !isNaN(cachedLat) && !isNaN(cachedLng) ? { lat: cachedLat, lng: cachedLng } : {};
+
       const [publicDataPlaces, parkPlaces] = await Promise.all([
-        fetchPublicDataPlaces(),
-        fetchParks(),
+        fetchPublicDataPlaces(geoOptions),
+        fetchParks(geoOptions),
       ]);
       if (cancelled) return;
-      setPlaces((prev) => [...prev, ...publicDataPlaces]);
+      // ⚠ 중복 렌더 버그 수정: 캐시된 위치가 있으면 이 fetch도 이미 지역 범위(geoOptions)로
+      // 걸러진 데이터를 받는데, 아래 "지역 범위로 공공데이터 재요청" 효과가 userLocation이
+      // 설정되는 즉시(이 init()과 별개로, 더 일찍) 똑같은 지역 데이터를 따로 받아 먼저
+      // setPlaces로 반영해버릴 수 있습니다. 그 뒤에 여기서 filter 없이 그냥 append하면,
+      // 같은 장소가 두 번 들어가 React key 중복 경고(place-<id> 중복)가 났습니다. 그
+      // 효과와 동일하게 기존 공공데이터부터 걷어내고 넣어서, 어느 쪽이 나중에 끝나도
+      // 항상 "교체"가 되도록(추가가 아니라) 맞춥니다.
+      setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...publicDataPlaces]);
       setParks(parkPlaces);
     };
     init();
@@ -610,7 +678,7 @@ export default function KakaoMap() {
         // "내 위치로" 버튼(moveToMyLocation)과 똑같이 고정 레벨 3(골목이 보이는
         // 수준)을 써서 화면 비율과 무관하게 항상 같은 확대 정도로 보여줍니다.
         mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
-        mapRef.current.setLevel(3);
+        mapRef.current.setLevel(3, { animate: true });
         mapRef.current.relayout();
       }
       // 캐시가 있으면 "위치 확인 중" 오버레이 없이 바로 그 위치로 보여줍니다.
@@ -640,7 +708,7 @@ export default function KakaoMap() {
         pendingLocationRef.current = { lat: latitude, lng: longitude };
         if (mapRef.current) {
           mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-          mapRef.current.setLevel(3);
+          mapRef.current.setLevel(3, { animate: true });
           mapRef.current.relayout();
         }
         setLocating(false);
@@ -657,6 +725,33 @@ export default function KakaoMap() {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 }
     );
   }, []);
+
+  // ⚠ 최적화(공공데이터 지역 재요청): 위치를 전혀 모르는 첫 방문(캐시 없음) 순간에는
+  // 위 초기 데이터 로드 효과가 fetchPublicDataPlaces()/fetchParks()를 인자 없이 불러
+  // "전국 데이터"(문화시설 등 합쳐 2만 건 이상)를 그대로 받습니다 — 그래야 "결과 없음"
+  // 화면을 보여주지 않을 수 있기 때문입니다. 하지만 그 상태로 계속 있으면 리스트 패널이
+  // 수만 개 카드를 그리려 해서 화면이 멈춘 것처럼 느려집니다. userLocation이 실제로
+  // (캐시든 방금 받은 GPS든) 확정되는 즉시, 그 좌표 반경으로 다시 요청해서 공공데이터
+  // 부분만 "전국"에서 "내 주변"으로 축소 교체합니다. DB places(source 없음)는 그대로
+  // 두고 공공데이터(source==='public-data')만 걷어내고 새 결과로 바꿔치기합니다.
+  useEffect(() => {
+    if (!userLocation) return;
+    const key = `${userLocation.lat.toFixed(1)},${userLocation.lng.toFixed(1)}`;
+    if (regionalFetchKeyRef.current === key) return;
+    regionalFetchKeyRef.current = key;
+
+    let cancelled = false;
+    (async () => {
+      const [regionalPublicData, regionalParks] = await Promise.all([
+        fetchPublicDataPlaces({ lat: userLocation.lat, lng: userLocation.lng }),
+        fetchParks({ lat: userLocation.lat, lng: userLocation.lng }),
+      ]);
+      if (cancelled) return;
+      setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...regionalPublicData]);
+      setParks(regionalParks);
+    })();
+    return () => { cancelled = true; };
+  }, [userLocation]);
 
   // ── 현위치 파란 점 오버레이
   useEffect(() => {
@@ -758,7 +853,14 @@ export default function KakaoMap() {
 
     if (!mapBounds) {
       const center = searchCenter || userLocation;
-      if (!center) return filteredPlaces;
+      // ⚠ 성능 안전장치: 지도가 아직 준비되지 않았고(mapBounds 없음) 위치도 모르는
+      // 아주 짧은 초기 순간에 filteredPlaces를 그대로 반환하면, 공공데이터 폴백이
+      // 전국 데이터(수만 건)를 내려준 경우 그 전체가 카드로 렌더링을 시도해
+      // 브라우저 탭이 멈추는 원인이 됩니다. center/mapBounds 둘 다 없을 땐 정렬
+      // 기준이 없어 어차피 의미 있는 "가까운 순"을 보여줄 수도 없으므로, 상한만
+      // 걸어 안전하게 앞부분만 보여줍니다 — mapBounds가 생기는 즉시(수백ms 내)
+      // 이 useMemo가 다시 계산되어 정상적인 화면 기준 목록으로 바뀝니다.
+      if (!center) return filteredPlaces.slice(0, MAX_LIST_ITEMS);
       const within10km = filteredPlaces.filter((place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
@@ -966,7 +1068,7 @@ export default function KakaoMap() {
       const lng = parseFloat(nearest.lng);
       if (!isNaN(lat) && !isNaN(lng)) {
         mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
-        mapRef.current.setLevel(5);
+        mapRef.current.setLevel(5, { animate: true });
         setSearchCenter({ lat, lng });
       }
       return;
@@ -980,8 +1082,74 @@ export default function KakaoMap() {
 
   // ── AI 추천 장소: 거리 + 현재 선택된 필터 일치도 + 편의시설 + 신규 등록 여부를 종합한
   // Content-Based 스코어링(calculateRecommendScore)으로 정렬한 Top 10. "추천 장소" 우측 패널에서 사용.
-  const recommendedPlaces = useMemo(() => {
+  const activeRecVariant: RecVariant = recVariant ?? "v2";
+
+  // 최근 7일 추천 노출 횟수(recFatigue.ts). 패널을 "열 때"만 새로 읽습니다 — 목록을 보여주는
+  // 동안 기록이 바뀌어 순서가 계속 흔들리는(노출 기록 → 재정렬 → 또 노출 기록) 일이 없도록.
+  const impressionCounts = useMemo(
+    () => (showRecommendPanel ? getImpressionCounts() : new Map<string, number>()),
+    [showRecommendPanel]
+  );
+
+  // 장소 id → 장소 정보(취향 프로필 계산용). 공원은 추천 목록 대상이 아니라 제외합니다.
+  const placeById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const p of places) map.set(String(p.id), p);
+    return map;
+  }, [places]);
+
+  const preferenceProfile = useMemo(
+    () => (myReactions.length === 0 ? EMPTY_PREFERENCE_PROFILE : buildUserPreferenceProfile(myReactions, (id) => placeById.get(id))),
+    [myReactions, placeById]
+  );
+
+  // 친화도 점수 — 상세페이지(PlaceDetailClient)와 같은 계산식·같은 입력(서버에서 같은 함수로
+  // 계산한 리뷰 만족도 포함)이라 목록/코스/상세 어디서 봐도 같은 점수가 나옵니다.
+  const affinityOf = useCallback(
+    (place: any): number => {
+      const id = String(place.id);
+      const s = placeSignals.get(id);
+      const isPark = id.startsWith("park-");
+      const score = calculateAffinityScore({
+        reviews: [],
+        reviewSatisfactionOverride: s?.rs ?? null,
+        likesCount: s?.l ?? 0,
+        dislikesCount: s?.d ?? 0,
+        bookmarkCount: s?.b ?? 0,
+        isPublicDataVerified: isPark || place.source === "public-data",
+        amenities: {
+          largeDog: place.large_dog,
+          petZone: place.pet_zone,
+          hours: place.hours,
+          phone: place.phone,
+          parking: place.parking,
+          entryFee: place.entry_fee,
+          website: place.website,
+        },
+      });
+      return score;
+    },
+    [placeSignals]
+  );
+
+  const recommendation = useMemo(() => {
     const center = searchCenter || userLocation;
+
+    // ⚠ 성능 안전장치: center(내 위치/검색 중심)가 아직 전혀 없는 상태(위치 권한 대기 중인
+    // 첫 방문 등)에서는 "내 주변 추천"이라는 개념 자체가 의미가 없을뿐더러, 이 아래 로직이
+    // candidates(최악의 경우 공공데이터 포함 전국 수만 건) × parks(전국 공원)를 그대로
+    // 전부 순회하며 점수를 계산해 브라우저 탭이 통째로 멈추는 원인이었습니다(30km 박스
+    // 필터는 center가 있을 때만 적용되어, center가 없으면 아무 것도 걸러지지 않았습니다).
+    // center가 생기는 즉시(캐시 위치 반영 또는 GPS 수신 직후) 이 useMemo가 다시 계산되어
+    // 정상적으로 추천이 채워지므로, 그 전까지는 빈 배열을 반환해 이 무거운 연산 자체를
+    // 건너뜁니다.
+    if (!center) {
+      return {
+        list: [] as { place: any; score: number; reason: string | null; distanceKm: number | null }[],
+        ad: null as { place: any; score: number } | null,
+      };
+    }
+
     const filterCategory =
       selectedPetZone === "vet" ? "동물병원" : selectedPetZone === "pharmacy" ? "동물약국" : null;
 
@@ -1033,31 +1201,131 @@ export default function KakaoMap() {
       return Number.isFinite(min) ? min : null;
     };
 
-    const scoreOf = (place: any) => {
+    const distanceOf = (place: any) => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
-      const distanceKm =
-        center && !isNaN(lat) && !isNaN(lng) ? getDistance(center.lat, center.lng, lat, lng) : null;
-      const matchesSelectedFilter =
-        selectedPetZone !== "all" &&
-        (place.pet_zone === selectedPetZone || (filterCategory && place.category === filterCategory));
-      const popularity = popularityMap.get(String(place.id));
-      return calculateRecommendScore({
+      return center && !isNaN(lat) && !isNaN(lng) ? getDistance(center.lat, center.lng, lat, lng) : null;
+    };
+    const matchesFilterOf = (place: any) =>
+      selectedPetZone !== "all" &&
+      (place.pet_zone === selectedPetZone || (!!filterCategory && place.category === filterCategory));
+
+    // ── v1(기존 규칙): A/B 비교·롤백용으로 그대로 유지 ──
+    if (activeRecVariant === "v1") {
+      const scoreOf = (place: any) => {
+        const popularity = popularityMap.get(String(place.id));
+        return calculateRecommendScore({
+          distanceKm: distanceOf(place),
+          matchesSelectedFilter: matchesFilterOf(place),
+          largeDog: place.large_dog,
+          createdAt: place.created_at,
+          distanceToNearestParkKm: nearestParkDistanceKm(parseFloat(place.lat), parseFloat(place.lng)),
+          isPremium: isPlacePremiumNow(place),
+          bookmarkCount: popularity?.bookmarks,
+          likeCount: popularity?.likes,
+        });
+      };
+      const list = [...candidates]
+        .map((place) => ({ place, score: scoreOf(place), reason: null as string | null, distanceKm: distanceOf(place) }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+      return { list, ad: null as { place: any; score: number } | null };
+    }
+
+    // ── v2: 점수 계산 → 광고 슬롯 분리 → 다양성 재정렬 ──
+    const scored: (ScoredCandidate<any> & { distanceKm: number | null })[] = candidates.map((place) => {
+      const id = String(place.id);
+      const signals = placeSignals.get(id);
+      const distanceKm = distanceOf(place);
+      const breakdown = calculateRecommendBreakdownV2({
         distanceKm,
-        matchesSelectedFilter: !!matchesSelectedFilter,
+        matchesSelectedFilter: matchesFilterOf(place),
         largeDog: place.large_dog,
         createdAt: place.created_at,
-        distanceToNearestParkKm: nearestParkDistanceKm(lat, lng),
-        isPremium: isPlacePremiumNow(place),
-        bookmarkCount: popularity?.bookmarks,
-        likeCount: popularity?.likes,
+        distanceToNearestParkKm: nearestParkDistanceKm(parseFloat(place.lat), parseFloat(place.lng)),
+        bookmarksDecayed: signals?.bd ?? 0,
+        likesDecayed: signals?.ld ?? 0,
+        affinityScore: affinityOf(place),
+        personalMatch: personalMatch(preferenceProfile, place),
+        isDisliked: preferenceProfile.disliked.has(id),
+        isBookmarked: preferenceProfile.bookmarked.has(id),
+        impressionCount: impressionCounts.get(id) ?? 0,
       });
-    };
-    return [...candidates]
-      .map((place) => ({ place, score: scoreOf(place) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  }, [filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap]);
+      return {
+        place,
+        score: breakdown.total,
+        rawScore: breakdown.raw,
+        category: categoryKey(place.category),
+        distanceKm,
+        reasons: recommendReasons(breakdown, distanceKm, { reviewCount: signals?.rc ?? 0 }),
+      };
+    });
+
+    // 프리미엄(유료) 장소는 정렬 점수에 가점을 섞지 않고, 목록 맨 위 "광고" 한 칸으로 분리합니다.
+    // 너무 멀거나 사용자가 싫어요한 곳은 광고로도 띄우지 않습니다.
+    const adCandidate = scored
+      .filter(
+        (c) =>
+          isPlacePremiumNow(c.place) &&
+          c.distanceKm != null &&
+          c.distanceKm <= RECOMMEND_V2_WEIGHTS.AD_SLOT_MAX_DISTANCE_KM &&
+          !preferenceProfile.disliked.has(String(c.place.id))
+      )
+      .sort((a, b) => (b.rawScore ?? b.score) - (a.rawScore ?? a.score))[0];
+    const organic = adCandidate ? scored.filter((c) => c.place.id !== adCandidate.place.id) : scored;
+
+    const reranked = rerankForDiversity(organic, 10);
+    const distinctReasons = pickDistinctReasons(reranked.map((c) => c.reasons ?? []));
+    const list = reranked.map(({ place, score, distanceKm }, i) => ({ place, score, reason: distinctReasons[i], distanceKm }));
+    return { list, ad: adCandidate ? { place: adCandidate.place, score: adCandidate.score } : null };
+  }, [
+    filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap,
+    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf,
+  ]);
+  const recommendedPlaces = recommendation.list;
+  const recommendedAd = recommendation.ad;
+
+  // ── 추천 노출 로깅 ──
+  // 지도를 움직이는 동안에는 목록이 계속 바뀌므로, 같은 목록이 1.5초 이상 유지됐을 때만
+  // "실제로 본 것"으로 보고 한 번 기록합니다(같은 목록은 패널을 다시 열기 전까지 중복 기록 안 함).
+  const lastRecImpressionRef = useRef<string>("");
+  useEffect(() => {
+    if (!showRecommendPanel) {
+      lastRecImpressionRef.current = "";
+      return;
+    }
+    if (recommendedPlaces.length === 0 && !recommendedAd) return;
+    const signature = [recommendedAd ? `ad:${recommendedAd.place.id}` : "", ...recommendedPlaces.map((r) => r.place.id)].join(",");
+    if (signature === lastRecImpressionRef.current) return;
+    const timer = setTimeout(() => {
+      lastRecImpressionRef.current = signature;
+      recordImpressions(recommendedPlaces.map((r) => r.place.id));
+      trackEvent("rec_impression", {
+        authUserId: session?.user?.id ?? null,
+        variant: activeRecVariant,
+        meta: {
+          algo: RECOMMEND_ALGO_VERSION[activeRecVariant],
+          items: recommendedPlaces.map((r, i) => ({ id: String(r.place.id), pos: i + 1, score: r.score })),
+          ad: recommendedAd ? String(recommendedAd.place.id) : null,
+          filter: selectedPetZone,
+        },
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [showRecommendPanel, recommendedPlaces, recommendedAd, activeRecVariant, selectedPetZone, session]);
+
+  const handleRecommendClick = (place: any, pos: number, score: number, slot: "organic" | "ad") => {
+    clearImpression(place.id);
+    trackEvent("rec_click", {
+      authUserId: session?.user?.id ?? null,
+      placeId: place.id,
+      placeName: place.name,
+      region: extractRegion(place.address),
+      variant: activeRecVariant,
+      meta: { algo: RECOMMEND_ALGO_VERSION[activeRecVariant], pos, score, slot },
+    });
+    openPlaceDetail(place);
+  };
 
   // ── 산책 중심/실내 추천(하드 필터) + 관광 중심(지역 내 우선순위 판정용)일 때 중심
   // 좌표가 속한 읍/면/동을 조회합니다. useMemo는 동기 함수라 fetch를 못 하므로, 별도
@@ -1070,8 +1338,10 @@ export default function KakaoMap() {
     const center = userLocation || searchCenter;
     if (!center) return;
     let cancelled = false;
-    reverseGeocodeDong(center.lat, center.lng).then((dong) => {
-      if (!cancelled) setRouteDongName(dong || null);
+    reverseGeocodeDong(center.lat, center.lng).then(({ admin, legal }) => {
+      if (cancelled) return;
+      setRouteDongName(admin || null);
+      setRouteLegalDongName(legal || null);
     });
     return () => { cancelled = true; };
   }, [showRoutePanel, routeTheme, searchCenter, userLocation]);
@@ -1082,12 +1352,12 @@ export default function KakaoMap() {
   // 안 만들어질 때가 많습니다), 그래도 부족하면 30km까지 한 번 더 넓혀서 재시도합니다.
   // 산책 중심/비 오는 날/실내 추천은 여기서 한 번 더 "같은 읍/면/동" 후보로만 좁힙니다
   // (routeDongName — 위 effect가 미리 조회해둔 값).
-  const currentRoute = useMemo<RouteResult | null>(() => {
-    if (!showRoutePanel) return null;
+  const routeBuild = useMemo<{ route: RouteResult | null; exhausted: boolean }>(() => {
+    if (!showRoutePanel) return { route: null, exhausted: false };
     // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
     // 우선순위). searchCenter는 위치 권한이 없을 때만 대체로 씁니다.
     const center = userLocation || searchCenter;
-    if (!center) return null;
+    if (!center) return { route: null, exhausted: false };
 
     // ⚠ 공원(parks)은 places와 별개 테이블/state라 id 체계가 다릅니다(둘 다 숫자 id라
     // 그대로 합치면 places.id=3과 parks.id=3이 충돌할 수 있음) — `park-${id}` 형태로
@@ -1139,24 +1409,148 @@ export default function KakaoMap() {
     // 잠깐 비어 보이는 것보다 낫다고 판단했습니다). 좁힌 결과가 2곳 미만이면
     // buildRoute가 null을 반환하고, 패널은 "장소가 충분하지 않습니다" 안내를 보여줍니다.
     if (DONG_RESTRICTED_THEMES.includes(routeTheme) && routeDongName) {
-      nearby = nearby.filter((place) => typeof place.address === "string" && place.address.includes(routeDongName));
+      const dongNames = [routeDongName, routeLegalDongName].filter(Boolean) as string[];
+      nearby = nearby.filter(
+        (place) => typeof place.address === "string" && dongNames.some((dong) => place.address!.includes(dong))
+      );
+
+      // 산책 중심인데 동 이름으로 거른 결과에 공원이 하나도 없으면, 행정동 하나가 여러
+      // 법정동에 걸쳐 있어 주소 표기만 달랐을 가능성이 큽니다 — 출발지 1km 이내 공원은
+      // 같은 동네로 보고 후보에 다시 넣어서 "산책 코스에 공원이 없는" 상황을 막습니다.
+      const hasPark = nearby.some((place) => String(place.id).startsWith("park-"));
+      if (routeTheme === "walk" && !hasPark) {
+        const WALK_PARK_FALLBACK_KM = 1;
+        const closeParks = parksAsRoutable.filter(
+          (park) => getDistance(center.lat, center.lng, Number(park.lat), Number(park.lng)) <= WALK_PARK_FALLBACK_KM
+        );
+        nearby = [...nearby, ...closeParks];
+      }
     }
 
     // 인기도(찜/좋아요)를 후보에 얹어서 buildRoute가 정거장 선정·친화도 점수 계산에
     // 반영할 수 있게 합니다.
-    const nearbyWithPopularity = nearby.map((place) => {
-      const popularity = popularityMap.get(String(place.id));
-      return { ...place, bookmarkCount: popularity?.bookmarks ?? 0, likeCount: popularity?.likes ?? 0 };
-    });
+    // 친화도(affinityOf)도 같이 얹어서 정거장 친화도가 상세페이지 점수와 같게 나오게 합니다.
+    // 내가 싫어요한 장소는 코스 후보에서 뺍니다.
+    const nearbyWithPopularity = nearby
+      .filter((place) => !preferenceProfile.disliked.has(String(place.id)))
+      .map((place) => {
+        const popularity = popularityMap.get(String(place.id));
+        return {
+          ...place,
+          bookmarkCount: popularity?.bookmarks ?? 0,
+          likeCount: popularity?.likes ?? 0,
+          affinityScore: placeSignals.size > 0 ? affinityOf(place) : null,
+        };
+      });
 
     const buildOptions = { localAreaName: routeDongName, excludeIds: routeExcludedIds };
     // "다른 코스 보기"로 제외 목록이 쌓였는데 그걸로는 더 이상 코스를 못 만들면(대안
     // 소진), 처음 추천으로 자연스럽게 되돌아갑니다 — 빈 화면보다 낫다는 판단입니다.
-    return (
-      buildRoute(nearbyWithPopularity, center, routeTheme, 4, buildOptions) ??
-      (routeExcludedIds.size > 0 ? buildRoute(nearbyWithPopularity, center, routeTheme, 4, { localAreaName: routeDongName }) : null)
-    );
-  }, [showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeDongName, routeExcludedIds]);
+    // exhausted=true면 패널에 "다른 조합이 없어요"를 안내해서, 버튼을 눌렀는데 같은 코스가
+    // 그대로 나와 고장난 것처럼 보이지 않게 합니다.
+    const alternative = buildRoute(nearbyWithPopularity, center, routeTheme, 4, buildOptions);
+    if (alternative || routeExcludedIds.size === 0) return { route: alternative, exhausted: false };
+    return {
+      route: buildRoute(nearbyWithPopularity, center, routeTheme, 4, { localAreaName: routeDongName }),
+      exhausted: true,
+    };
+  }, [
+    showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeDongName, routeLegalDongName, routeExcludedIds,
+    preferenceProfile, placeSignals, affinityOf,
+  ]);
+  const currentRoute = routeBuild.route;
+  const routeAlternativesExhausted = routeBuild.exhausted;
+
+  // ── 실제 도보 경로(TMAP) ──
+  // 코스가 확정되면 출발지+정거장 좌표로 /api/route/walk를 한 번 불러 실제 걷는 길의 거리·
+  // 시간·경로선을 받아옵니다. 서버에 TMAP 키가 없으면(501) 이번 세션에선 더 부르지 않고
+  // 기존 추정치를 그대로 씁니다.
+  const routeSignature = useMemo(() => {
+    if (!currentRoute) return "";
+    return [
+      `${currentRoute.origin.lat.toFixed(5)},${currentRoute.origin.lng.toFixed(5)}`,
+      ...currentRoute.stops.map((s) => `${Number(s.place.lat).toFixed(5)},${Number(s.place.lng).toFixed(5)}`),
+    ].join("|");
+  }, [currentRoute]);
+
+  useEffect(() => {
+    if (!currentRoute || !routeSignature || walkRoutingDisabledRef.current) return;
+    if (walkRouting?.key === routeSignature) return;
+    const controller = new AbortController();
+    const points = [
+      { lat: currentRoute.origin.lat, lng: currentRoute.origin.lng },
+      ...currentRoute.stops.map((s) => ({ lat: Number(s.place.lat), lng: Number(s.place.lng) })),
+    ];
+    fetch("/api/route/walk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        // 501 = 서버에 TMAP 키 없음, 429 = 호출 한도 초과 → 이번 세션에선 더 부르지 않고 추정치 사용
+        if (res.status === 501 || res.status === 429) {
+          walkRoutingDisabledRef.current = true;
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        const legs: { km: number; minutes: number; path: [number, number][] }[] = data?.legs ?? [];
+        if (legs.length !== currentRoute.stops.length) return;
+        setWalkRouting({
+          key: routeSignature,
+          legsKm: legs.map((l) => l.km),
+          legsMinutes: legs.map((l) => l.minutes),
+          path: legs.flatMap((l) => l.path),
+        });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeSignature]);
+
+  // 화면에 보여줄 코스 — 실제 도보 경로가 도착했으면 그 거리·시간으로 갈아끼운 버전
+  const displayRoute = useMemo<RouteResult | null>(() => {
+    if (!currentRoute) return null;
+    if (walkRouting && walkRouting.key === routeSignature) {
+      return applyWalkingLegs(currentRoute, walkRouting.legsKm, walkRouting.legsMinutes);
+    }
+    return currentRoute;
+  }, [currentRoute, walkRouting, routeSignature]);
+  const walkPath = walkRouting && walkRouting.key === routeSignature ? walkRouting.path : null;
+
+  // 코스 관련 이벤트 공통 부가정보
+const courseMeta = (route: RouteResult) => ({
+    theme: routeTheme,
+    stops: route.stops.map((s) => String(s.place.id)),
+    km: route.totalDistanceKm,
+    min: route.estimatedMinutes,
+    friendliness: route.avgFriendliness,
+    distanceSource: route.distanceSource,
+    regenerated: routeExcludedIds.size > 0,
+  });
+
+  // ── 코스 노출 로깅(추천 목록과 같은 방식: 1.5초 유지된 코스만 1회 기록) ──
+  const lastCourseImpressionRef = useRef<string>("");
+  useEffect(() => {
+    if (!showRoutePanel || !currentRoute) {
+      if (!showRoutePanel) lastCourseImpressionRef.current = "";
+      return;
+    }
+    const signature = `${routeTheme}:${currentRoute.stops.map((s) => s.place.id).join(",")}`;
+    if (signature === lastCourseImpressionRef.current) return;
+    const timer = setTimeout(() => {
+      lastCourseImpressionRef.current = signature;
+      trackEvent("course_impression", {
+        authUserId: session?.user?.id ?? null,
+        variant: activeRecVariant,
+        meta: courseMeta(currentRoute),
+      });
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRoutePanel, currentRoute, routeTheme]);
+
 
   // 테마를 바꾸거나 패널을 새로 열면 "다른 코스 보기" 제외 목록을 초기화합니다.
   useEffect(() => {
@@ -1214,14 +1608,20 @@ export default function KakaoMap() {
     return () => { cancelled = true; };
   }, []);
 
-  // ── 줌 레벨 10 이상(넓게 볼 때)이면 클러스터링, 그보다 좁으면 지금까지의 이름표 pill 마커.
-  // 카카오맵 레벨은 숫자가 클수록 더 넓게(축소) 보이는 상태입니다.
-  // 예전엔 7이었는데, (1) 이름표 pill이 보이는 구간이 좁아서 조금만 축소해도 클러스터
-  // 뭉치로 바뀌어버리고 (2) 카카오 SDK 스크립트에 libraries=clusterer 파라미터가 빠져 있어서
-  // 클러스터러 자체가 undefined인 채로 7 이상 구간에서 마커가 아예 안 그려지는 버그가
-  // 겹쳐 있었습니다. libraries=clusterer는 layout.tsx에서 추가했고, 여기서는 이름표 마커가
-  // 보이는 구간(축소 가능 범위) 자체를 10으로 넓혔습니다.
-  const CLUSTER_ZOOM_THRESHOLD = 10;
+  // ⚠ 실제 거리(m) 기준 대신 카카오맵 "레벨" 숫자로 되돌렸습니다. 실측 거리로 정확히
+  // 맞추려던 시도(반경 250m)는 화면 크기에 따라 같은 레벨이라도 실제로 보이는 면적이
+  // 달라져서 의도와 다르게 동작했고, 실제로 네이버지도·구글맵 클러스터링 유틸리티도
+  // 고정된 실측 km가 아니라 줌 레벨 구간 또는 화면 픽셀 거리 기준으로 전환합니다
+  // (참고: navermaps.github.io 마커 클러스터링 가이드, Google Maps 클러스터링 문서 —
+  // "일정한 km 기준보다는 줌 레벨/화면상 거리 기준이 일반적"). 카카오맵 레벨 1~5(대략
+  // 시내 골목~동 단위)까지는 이름표 pill을, 레벨 6 이상(더 넓게 축소)부터는 클러스터
+  // 숫자 마커를 씁니다.
+  const CLUSTER_ZOOM_THRESHOLD = 6;
+  // MarkerClusterer 자체의 minLevel(카카오 SDK 옵션) — 위 기준으로 이미 "클러스터 모드"에
+  // 들어가기로 정한 뒤에도 이 값이 그보다 크면 정작 클러스터러가 "아직 안 뭉쳐도 됨"이라
+  // 판단해 낱개 마커를 그대로 그려버립니다. 클러스터러에 마커를 넘기는 시점엔 항상 바로
+  // 뭉쳐 보여주길 원하므로 최솟값으로 둡니다.
+  const CLUSTER_MIN_LEVEL = 1;
 
   // ── 줌 레벨에 따라 상세 pill 마커 / 클러스터링 마커를 전환
   useEffect(() => {
@@ -1234,14 +1634,24 @@ export default function KakaoMap() {
       clustererRef.current = new window.kakao.maps.MarkerClusterer({
         map: null, // 처음엔 지도에 안 붙이고, 모드 전환될 때만 붙임
         averageCenter: true,
-        minLevel: CLUSTER_ZOOM_THRESHOLD,
-        disableClickZoom: false,
+        minLevel: CLUSTER_MIN_LEVEL,
+        // ⚠ 카카오 기본 클릭 동작(disableClickZoom:false)은 클러스터를 누르면 "그 클러스터가
+        // 풀릴 만큼만" 애매하게 몇 단계 확대합니다. 그 대신 아래 clusterclick 리스너에서
+        // 항상 초기 기본 레벨(3, 골목이 보이는 수준)로 확실하게 돌아가도록 직접 제어합니다
+        // — 화면 중심을 그 클러스터 위치로 옮기는 동작은 그대로 유지됩니다.
+        disableClickZoom: true,
         calculator: [10, 50, 100],
         styles: [
           { width: "34px", height: "34px", background: "rgba(76,110,245,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "34px", fontSize: "12px", fontWeight: "700" },
           { width: "44px", height: "44px", background: "rgba(59,90,220,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "44px", fontSize: "13px", fontWeight: "700" },
           { width: "54px", height: "54px", background: "rgba(37,70,190,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "54px", fontSize: "14px", fontWeight: "700" },
         ],
+      });
+      // 클러스터러를 새로 만들 때 한 번만 붙입니다 — 매 렌더마다 다시 붙이면 리스너가
+      // 계속 중복 등록됩니다.
+      window.kakao.maps.event.addListener(clustererRef.current, "clusterclick", (cluster: any) => {
+        map.setCenter(cluster.getCenter());
+        map.setLevel(3, { animate: true });
       });
     }
 
@@ -1252,6 +1662,11 @@ export default function KakaoMap() {
 
     const clearClusterMarkers = () => {
       clustererRef.current?.clear();
+      // ⚠ 마커 0건 버그 수정: 클러스터러를 map: null로 만들어두고 이후 어디서도
+      // setMap()으로 지도에 실제로 붙이지 않아서, addMarkers()로 마커를 아무리
+      // 넣어도 화면에 그려지지 않는 경우가 있었습니다(상세 pill 모드로 전환될
+      // 때 확실히 떼어냅니다 — 아래 renderClusterMarkers가 다시 붙입니다).
+      clustererRef.current?.setMap(null);
       clusterMarkersRef.current = [];
     };
 
@@ -1316,6 +1731,7 @@ export default function KakaoMap() {
       clearDetailMarkers();
       clearClusterMarkers();
       if (!clustererRef.current) return; // libraries=clusterer 누락 시 여기서 조용히 중단
+      clustererRef.current.setMap(map); // clearClusterMarkers()가 setMap(null)로 떼어냈던 것을 다시 붙임
 
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
@@ -1338,6 +1754,11 @@ export default function KakaoMap() {
             position: new window.kakao.maps.LatLng(lat, lng),
           });
           window.kakao.maps.event.addListener(marker, "click", () => {
+            // ⚠ 넓게 축소된 상태에서는 주변에 묶일 장소가 없어 클러스터가 아니라 낱개
+            // 마커로 뜨는 경우가 있습니다(예: 외곽의 병원 하나만). 이런 낱개 마커도
+            // 클러스터를 눌렀을 때와 동일하게 초기 레벨(3)로 돌아가도록 맞춥니다 —
+            // selectPlaceRef.current는 panTo로 중심만 옮기고 확대는 하지 않아서 따로 붙입니다.
+            map.setLevel(3, { animate: true });
             selectPlaceRef.current(place.id);
           });
           return marker;
@@ -1349,8 +1770,7 @@ export default function KakaoMap() {
     };
 
     const updateByZoom = () => {
-      const level = map.getLevel();
-      if (level >= CLUSTER_ZOOM_THRESHOLD) {
+      if (map.getLevel() >= CLUSTER_ZOOM_THRESHOLD) {
         renderClusterMarkers();
       } else {
         renderDetailMarkers();
@@ -1395,6 +1815,7 @@ export default function KakaoMap() {
     };
     const clearParkClusterMarkers = () => {
       parkClustererRef.current?.clear();
+      parkClustererRef.current?.setMap(null); // 마커 0건 버그 수정 — renderClusterMarkers 쪽과 동일한 이유
       parkClusterMarkersRef.current = [];
     };
 
@@ -1408,14 +1829,20 @@ export default function KakaoMap() {
       parkClustererRef.current = new window.kakao.maps.MarkerClusterer({
         map: null,
         averageCenter: true,
-        minLevel: CLUSTER_ZOOM_THRESHOLD,
-        disableClickZoom: false,
+        minLevel: CLUSTER_MIN_LEVEL,
+        // ⚠ places 클러스터러와 동일한 이유(위 clusterclick 리스너 주석 참고) — 카카오
+        // 기본 클릭 확대 대신 항상 초기 레벨 3으로 돌아가도록 직접 제어합니다.
+        disableClickZoom: true,
         calculator: [10, 50, 100],
         styles: [
           { width: "30px", height: "30px", background: "rgba(76,140,74,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "30px", fontSize: "11px", fontWeight: "700" },
           { width: "38px", height: "38px", background: "rgba(58,116,56,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "38px", fontSize: "12px", fontWeight: "700" },
           { width: "46px", height: "46px", background: "rgba(43,94,41,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "46px", fontSize: "13px", fontWeight: "700" },
         ],
+      });
+      window.kakao.maps.event.addListener(parkClustererRef.current, "clusterclick", (cluster: any) => {
+        map.setCenter(cluster.getCenter());
+        map.setLevel(3, { animate: true });
       });
     }
 
@@ -1466,6 +1893,7 @@ export default function KakaoMap() {
       clearParkDetailMarkers();
       clearParkClusterMarkers();
       if (!parkClustererRef.current) return;
+      parkClustererRef.current.setMap(map);
 
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
@@ -1488,6 +1916,9 @@ export default function KakaoMap() {
             position: new window.kakao.maps.LatLng(lat, lng),
           });
           window.kakao.maps.event.addListener(marker, "click", () => {
+            // ⚠ places 클러스터러 쪽과 동일한 이유 — 낱개 공원 마커도 클러스터 클릭과
+            // 동일하게 초기 레벨(3)로 돌아가도록 맞춥니다.
+            map.setLevel(3, { animate: true });
             window.selectPark(park.id);
           });
           return marker;
@@ -1499,8 +1930,7 @@ export default function KakaoMap() {
     };
 
     const updateParksByZoom = () => {
-      const level = map.getLevel();
-      if (level >= CLUSTER_ZOOM_THRESHOLD) {
+      if (map.getLevel() >= CLUSTER_ZOOM_THRESHOLD) {
         renderParkClusterMarkers();
       } else {
         renderParkDetailMarkers();
@@ -1541,12 +1971,14 @@ export default function KakaoMap() {
       }),
     ];
 
+    // 실제 도보 경로(TMAP)가 있으면 그 길을 따라 실선으로, 없으면 정거장끼리 잇는 점선(추정)으로 그립니다.
+    const hasWalkPath = !!walkPath && walkPath.length >= 2;
     const polyline = new window.kakao.maps.Polyline({
-      path,
-      strokeWeight: 4,
+      path: hasWalkPath ? walkPath!.map(([lat, lng]) => new window.kakao.maps.LatLng(lat, lng)) : path,
+      strokeWeight: hasWalkPath ? 5 : 4,
       strokeColor: "#7c3aed",
       strokeOpacity: 0.85,
-      strokeStyle: "shortdot",
+      strokeStyle: hasWalkPath ? "solid" : "shortdot",
     });
     polyline.setMap(map);
     routePolylineRef.current = polyline;
@@ -1588,7 +2020,7 @@ export default function KakaoMap() {
       routeMarkerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
       routeMarkerOverlaysRef.current = [];
     };
-  }, [showRoutePanel, currentRoute, mapReady]);
+  }, [showRoutePanel, currentRoute, mapReady, walkPath]);
 
   const moveToMyLocation = () => {
     if (!navigator.geolocation) {
@@ -1600,7 +2032,7 @@ export default function KakaoMap() {
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-        mapRef.current.setLevel(3);
+        mapRef.current.setLevel(3, { animate: true });
         setUserLocation({ lat: latitude, lng: longitude });
         setSearchCenter(null); // 내 위치로 이동하면 검색 기준은 초기화
         setSearchQuery("");
@@ -1618,18 +2050,6 @@ export default function KakaoMap() {
       // 사용자가 지금 직접 누른 액션이라 maximumAge:0으로 캐시 없이 매번 새로 조회합니다.
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
-  };
-
-  const handleWideView = () => {
-    if (!mapRef.current || !window.kakao?.maps) return;
-    if (!wideView) {
-      savedLevelRef.current = mapRef.current.getLevel();
-      mapRef.current.setLevel(Math.min(savedLevelRef.current + 2, 14));
-      setWideView(true);
-    } else {
-      mapRef.current.setLevel(savedLevelRef.current);
-      setWideView(false);
-    }
   };
 
   const handleKakaoShare = () => {
@@ -1699,6 +2119,11 @@ export default function KakaoMap() {
   const handleRouteDirectionsKakao = (route: RouteResult) => {
     const points = buildRouteWaypoints(route);
     if (points.length < 2) return;
+    trackEvent("course_start", {
+      authUserId: session?.user?.id ?? null,
+      variant: activeRecVariant,
+      meta: { ...courseMeta(route), app: "kakao" },
+    });
     const sp = points[0];
     const ep = points[points.length - 1];
     const viaPoints = points.slice(1, -1).slice(0, 5); // 카카오 경유지 상한: 5개(vp, vp2~vp5)
@@ -1713,6 +2138,11 @@ export default function KakaoMap() {
   const handleRouteDirectionsNaver = (route: RouteResult) => {
     const points = buildRouteWaypoints(route);
     if (points.length < 2) return;
+    trackEvent("course_start", {
+      authUserId: session?.user?.id ?? null,
+      variant: activeRecVariant,
+      meta: { ...courseMeta(route), app: "naver" },
+    });
     const sp = points[0];
     const ep = points[points.length - 1];
     const viaPoints = points.slice(1, -1).slice(0, 5); // 네이버 경유지 상한: 5개(v1~v5)
@@ -1805,40 +2235,6 @@ export default function KakaoMap() {
             }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>내 위치를 확인하고 있어요</span>
           </div>
-        )}
-
-        {/* 넓게 둘러보기 버튼 — 지도 위에 떠 있는 가운데 정렬 버튼이라 좁은 화면에서는
-            리스트/신규/추천 패널과 자리를 다투다 겹치는 문제가 있었습니다. 좁은 화면에서는
-            이 버튼을 지도 위에 띄우지 않고, 아래 헤더의 버튼 줄 안에 똑같은 기능으로
-            넣어서(다른 버튼들처럼 flex 흐름을 타므로 절대 겹치지 않음) 대체합니다. */}
-        {mapReady && !isNarrowScreen && (
-          <button
-            onClick={handleWideView}
-            className="ggk-body"
-            style={{
-              position: "absolute",
-              top: panelTop,
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 5,
-              padding: "6px 14px",
-              borderRadius: "999px",
-              background: wideView ? "linear-gradient(135deg, #2a2a2a, #111)" : "white",
-              color: wideView ? "white" : "#111",
-              border: wideView ? "none" : "1px solid rgba(0,0,0,0.09)",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.12)",
-              cursor: "pointer",
-              fontSize: "11px",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              transition: "all 0.18s ease",
-            }}
-          >
-            {wideView ? <><ZoomOut size={13} /> 돌아가기</> : <><ZoomIn size={13} /> 넓게 둘러보기</>}
-          </button>
         )}
 
         {/* 공유·내 위치 버튼 — 넓은 화면에서는 탭바가 가운데 450px 폭으로만 떠 있어서
@@ -2066,10 +2462,13 @@ export default function KakaoMap() {
         >
           {/* 좌측: 로고 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
-            <img
+            <Image
               src="/icons/header_logo_final.png"
               alt="같이가개"
-              style={{ height: "60px", display: "block", objectFit: "contain" }}
+              width={141}
+              height={60}
+              priority
+              style={{ height: "60px", width: "auto", display: "block", objectFit: "contain" }}
             />
             <div
               className="ggk-body"
@@ -2184,32 +2583,6 @@ export default function KakaoMap() {
               >
                 <List size={11} />
                 목록
-              </button>
-            )}
-
-            {/* 넓게 둘러보기 — 좁은 화면 전용. 데스크톱에서는 지도 위에 떠 있는 별도
-                버튼(위쪽 "넓게 둘러보기 버튼" 참고)으로 계속 보여주고, 좁은 화면에서는
-                다른 버튼들과 같은 flex 줄에 넣어 겹칠 걱정 없이 배치합니다. */}
-            {isNarrowScreen && mapReady && (
-              <button
-                onClick={handleWideView}
-                className="ggk-body"
-                style={{
-                  padding: "5px 10px",
-                  fontSize: "11px",
-                  borderRadius: "8px",
-                  border: wideView ? "none" : "1px solid rgba(0,0,0,0.08)",
-                  background: wideView ? "linear-gradient(145deg, #2a2a2a, #111)" : "#f5f6f8",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: wideView ? "white" : "#444",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {wideView ? <><ZoomOut size={11} /> 돌아가기</> : <><ZoomIn size={11} /> 넓게</>}
               </button>
             )}
 
@@ -2488,12 +2861,14 @@ export default function KakaoMap() {
                   }}
                 >
                   <div style={{ position: "relative", width: "84px", height: "56px" }}>
-                    <img
+                    <Image
                       src={place.image_url || "/images/default-place.png"}
                       alt={place.name}
+                      fill
+                      sizes="84px"
                       loading="lazy"
                       onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      style={{ objectFit: "cover" }}
                     />
                     <div style={{
                       position: "absolute", top: 3, left: 3, display: "inline-flex", alignItems: "center", gap: 2,
@@ -2580,13 +2955,17 @@ export default function KakaoMap() {
                     </div>
                   ) : (
                     // lazy loading + 기본 이미지 fallback
-                    <img
+                    <div style={{ position: "relative", width: "100%", height: "88px" }}>
+                    <Image
                       src={place.image_url || "/images/default-place.png"}
                       alt={place.name}
+                      fill
+                      sizes="(max-width: 720px) 100vw, 320px"
                       loading="lazy"
                       onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
-                      style={{ width: "100%", height: "88px", objectFit: "cover", display: "block" }}
+                      style={{ objectFit: "cover" }}
                     />
+                    </div>
                   )}
                   {(() => {
                     const badge = getCardBadge(place, isPark);
@@ -2869,7 +3248,9 @@ export default function KakaoMap() {
                   추천 장소
                 </div>
                 <div style={{ fontSize: "10px", color: "#48603A", marginTop: "3px", fontWeight: 500 }}>
-                  위치·선호·편의시설 기반 AI 추천순
+                  {activeRecVariant === "v2"
+                    ? "거리·취향·평판·편의시설 기반 맞춤 추천순"
+                    : "위치·선호·편의시설 기반 AI 추천순"}
                 </div>
               </div>
               <div
@@ -2897,15 +3278,63 @@ export default function KakaoMap() {
               scrollbarColor: "#ddd transparent",
             }}
           >
-            {recommendedPlaces.length === 0 && (
+            {recommendedPlaces.length === 0 && !recommendedAd && (
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
                 추천할 장소가 없습니다
               </div>
             )}
-            {recommendedPlaces.map(({ place, score }, idx) => (
+            {/* 광고 슬롯 — 프리미엄 업장은 추천 순위에 섞지 않고 여기 한 칸에만, "광고"로
+                명확히 구분해 보여줍니다(추천 목록의 신뢰도 유지). */}
+            {recommendedAd && (
+              <div
+                onClick={() => handleRecommendClick(recommendedAd.place, 0, recommendedAd.score, "ad")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "11px",
+                  padding: "10px 11px",
+                  borderRadius: "14px",
+                  marginBottom: "8px",
+                  cursor: "pointer",
+                  border: "1px solid rgba(212,162,76,0.35)",
+                  background: "#fffaf0",
+                }}
+              >
+                <div
+                  style={{
+                    width: "28px", height: "28px", borderRadius: "9px", flexShrink: 0,
+                    background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <Crown size={13} color="#5C4106" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    className="ggk-logo"
+                    style={{ fontWeight: 700, fontSize: "13px", color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {recommendedAd.place.name}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#8a6d2b", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span
+                      style={{
+                        fontSize: "9px", fontWeight: 800, padding: "1px 5px", borderRadius: 4,
+                        border: "1px solid #D4A24C", color: "#8a6d2b", lineHeight: "12px",
+                      }}
+                    >
+                      광고
+                    </span>
+                    <span>{getPlaceLabel(recommendedAd.place)}</span>
+                  </div>
+                </div>
+                <div style={{ color: "#d9c28f", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
+              </div>
+            )}
+            {recommendedPlaces.map(({ place, score, reason, distanceKm }, idx) => (
               <div
                 key={place.id}
-                onClick={() => openPlaceDetail(place)}
+                onClick={() => handleRecommendClick(place, idx + 1, score, "organic")}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -2978,7 +3407,17 @@ export default function KakaoMap() {
                     </span>
                     <span>{getPlaceLabel(place)}</span>
                     <span style={{ color: "#A9C48A" }}>·</span>
-                    <span style={{ color: "#5C7A4A", fontWeight: 700 }}>추천점수 {score}</span>
+                    {activeRecVariant === "v2" ? (
+                      // v2는 다양성 재정렬 때문에 점수가 순서와 꼭 일치하지 않아서, 숫자 대신
+                      // 거리와 "왜 추천됐는지"를 보여줍니다(점수는 마우스를 올리면 확인).
+                      <span title={`추천점수 ${score}`} style={{ color: "#5C7A4A", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {distanceKm != null && (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`)}
+                        {distanceKm != null && reason && " · "}
+                        {reason}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#5C7A4A", fontWeight: 700 }}>추천점수 {score}</span>
+                    )}
                   </div>
                 </div>
                 <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
@@ -3045,12 +3484,12 @@ export default function KakaoMap() {
               </div>
             </div>
 
-            {currentRoute && (
+            {displayRoute && (
               <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
                 {[
-                  { icon: <PawPrint size={11} />, label: "친화도", value: `${currentRoute.avgFriendliness}점` },
-                  { icon: <Navigation size={11} />, label: "총 거리", value: `${currentRoute.totalDistanceKm}km` },
-                  { icon: <Footprints size={11} />, label: "예상 시간", value: formatEstimatedTime(currentRoute.estimatedMinutes) },
+                  { icon: <PawPrint size={11} />, label: "친화도", value: `${displayRoute.avgFriendliness}점` },
+                  { icon: <Navigation size={11} />, label: "총 거리", value: `${displayRoute.totalDistanceKm}km` },
+                  { icon: <Footprints size={11} />, label: "예상 시간", value: formatEstimatedTime(displayRoute.estimatedMinutes) },
                 ].map((stat, i) => (
                   <div
                     key={i}
@@ -3104,15 +3543,20 @@ export default function KakaoMap() {
               })}
             </div>
 
-            {currentRoute && (
+            {displayRoute && (
               <button
                 onClick={() => {
                   // 지금 보이는 코스의 정거장들을 제외 목록에 더해서 다른 조합이
                   // 나오도록 만듭니다. 대안이 바닥나면 useMemo 쪽에서 자동으로
                   // 처음 추천으로 되돌립니다.
+                  trackEvent("course_regenerate", {
+                    authUserId: session?.user?.id ?? null,
+                    variant: activeRecVariant,
+                    meta: courseMeta(displayRoute),
+                  });
                   setRouteExcludedIds((prev) => {
                     const next = new Set(prev);
-                    currentRoute.stops.forEach((s) => next.add(s.place.id));
+                    displayRoute.stops.forEach((s) => next.add(s.place.id));
                     return next;
                   });
                 }}
@@ -3137,6 +3581,11 @@ export default function KakaoMap() {
                 <RefreshCw size={11} />이 조합 말고 다른 코스 보기
               </button>
             )}
+            {displayRoute && routeAlternativesExhausted && (
+              <div style={{ marginTop: "6px", fontSize: "10px", color: "#6d28d9", textAlign: "center" }}>
+                이 근처에서 만들 수 있는 다른 조합이 없어 처음 코스를 다시 보여드려요
+              </div>
+            )}
           </div>
 
           <div
@@ -3148,27 +3597,27 @@ export default function KakaoMap() {
               scrollbarColor: "#ddd transparent",
             }}
           >
-            {!currentRoute && (
+            {!displayRoute && (
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
                 {(userLocation || searchCenter)
                   ? "이 근처에서 코스를 만들 만큼 장소가 충분하지 않습니다"
                   : "위치 정보를 확인하는 중입니다"}
               </div>
             )}
-            {currentRoute && (
+            {displayRoute && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#7c3aed", fontSize: "10.5px", fontWeight: 700 }}>
                 <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#2563eb", border: "2px solid white", boxShadow: "0 0 0 1px rgba(37,99,235,0.4)", flexShrink: 0 }} />
                 출발: 현재 위치
                 <span style={{ color: "#bbb", fontWeight: 500 }}>
                   · 첫 정거장까지 도보 약{" "}
-                  {currentRoute.distanceFromOriginKm < 1
-                    ? `${Math.round(currentRoute.distanceFromOriginKm * 1000)}m`
-                    : `${currentRoute.distanceFromOriginKm.toFixed(1)}km`}
-                  {" "}({Math.max(1, Math.round((currentRoute.distanceFromOriginKm / 4) * 60))}분)
+                  {displayRoute.distanceFromOriginKm < 1
+                    ? `${Math.round(displayRoute.distanceFromOriginKm * 1000)}m`
+                    : `${displayRoute.distanceFromOriginKm.toFixed(1)}km`}
+                  {" "}({Math.max(1, Math.round((displayRoute.distanceFromOriginKm / 4) * 60))}분)
                 </span>
               </div>
             )}
-            {currentRoute?.stops.map((stop, idx) => (
+            {displayRoute?.stops.map((stop, idx) => (
               <div key={stop.place.id}>
                 <div
                   onClick={() => {
@@ -3178,6 +3627,13 @@ export default function KakaoMap() {
                     // ⚠ 정거장이 공원(`park-${id}` 네임스페이스)이면 places 테이블에
                     // 없는 place라 일반 상세 모달(openPlaceDetail)을 열 수 없습니다 —
                     // 공원 전용 가벼운 정보 카드(selectedPark)를 대신 띄웁니다.
+                    trackEvent("course_stop_click", {
+                      authUserId: session?.user?.id ?? null,
+                      placeId: String(stop.place.id),
+                      placeName: stop.place.name,
+                      variant: activeRecVariant,
+                      meta: { theme: routeTheme, pos: idx + 1, role: stop.role },
+                    });
                     const rawId = String(stop.place.id);
                     if (rawId.startsWith("park-")) {
                       selectParkRef.current(Number(rawId.slice("park-".length)));
@@ -3219,10 +3675,11 @@ export default function KakaoMap() {
                   </div>
 
                   {stop.place.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={stop.place.image_url}
                       alt={stop.place.name}
+                      width={56}
+                      height={56}
                       loading="lazy"
                       style={{ width: "56px", height: "56px", borderRadius: "10px", objectFit: "cover", flexShrink: 0 }}
                     />
@@ -3275,11 +3732,11 @@ export default function KakaoMap() {
             ))}
           </div>
 
-          {currentRoute && (
+          {displayRoute && (
             <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: "6px" }}>
                 <button
-                  onClick={() => handleRouteDirectionsKakao(currentRoute)}
+                  onClick={() => handleRouteDirectionsKakao(displayRoute)}
                   className="ggk-body"
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: "12px", border: "none",
@@ -3292,7 +3749,7 @@ export default function KakaoMap() {
                   <Navigation size={12} />카카오맵
                 </button>
                 <button
-                  onClick={() => handleRouteDirectionsNaver(currentRoute)}
+                  onClick={() => handleRouteDirectionsNaver(displayRoute)}
                   className="ggk-body"
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: "12px", border: "1px solid #03C75A",

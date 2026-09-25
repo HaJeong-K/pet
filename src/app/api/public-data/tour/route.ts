@@ -147,15 +147,13 @@ function extractIntroFields(contentTypeId: string | undefined, intro: any) {
   }
 }
 
-export async function GET(req: NextRequest) {
+// ⚠ /api/public-data/nearby(publicDataPlaces 지역 필터링 집계)가 이 로직을 자기
+// GET 핸들러를 HTTP로 다시 호출하지 않고 함수로 직접 재사용할 수 있도록 분리했습니다
+// — 서버리스 함수가 자기 자신을 fetch로 호출하는 건 URL 구성(절대경로/헤더)이
+// 번거롭고 왕복이 하나 더 늘어나 느려지기만 합니다.
+export async function getTourPlaces(areaCode = "", numOfRows = "100"): Promise<any[]> {
   const apiKey = process.env.TOUR_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json([]);
-  }
-
-  const { searchParams } = new URL(req.url);
-  const areaCode = searchParams.get("areaCode") || "";
-  const numOfRows = searchParams.get("numOfRows") || "100";
+  if (!apiKey) return [];
 
   try {
     const qs = new URLSearchParams();
@@ -178,7 +176,7 @@ export async function GET(req: NextRequest) {
       data = JSON.parse(rawText);
     } catch {
       console.error("TourAPI 응답이 JSON이 아님:", rawText.slice(0, 300));
-      return NextResponse.json([]);
+      return [];
     }
 
     // 공공데이터포털 Open API는 서비스마다 성공 코드 표기가 달라서("0", "00", "0000" 등)
@@ -188,7 +186,7 @@ export async function GET(req: NextRequest) {
     const SUCCESS_CODES = new Set(["0", "00", "0000"]);
     if (!res.ok || (resultCode && !SUCCESS_CODES.has(resultCode))) {
       console.error("TourAPI 응답 오류:", res.status, resultCode, data?.response?.header?.resultMsg);
-      return NextResponse.json([]);
+      return [];
     }
 
     const items = data?.response?.body?.items?.item ?? [];
@@ -249,9 +247,17 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json(mapped);
+    return mapped;
   } catch (e) {
     console.error("TourAPI fetch 실패:", e);
-    return NextResponse.json([]);
+    return [];
   }
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const areaCode = searchParams.get("areaCode") || "";
+  const numOfRows = searchParams.get("numOfRows") || "100";
+  const items = await getTourPlaces(areaCode, numOfRows);
+  return NextResponse.json(items);
 }

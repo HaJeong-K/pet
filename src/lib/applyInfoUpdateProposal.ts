@@ -14,7 +14,7 @@
 //      지도/검색에서 중복으로 안 뜨게 합니다(이미 있는 "장소 숨기기" 메커니즘 재사용).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
+import { fetchPublicDataPlaceById } from "@/lib/publicDataPlaces";
 
 export interface InfoUpdateProposalLike {
   id: number;
@@ -83,9 +83,8 @@ export async function applyInfoUpdateProposal(
   }
 
   // 2) 실제 행이 없는 공공데이터 출처 장소 — 원본 정보를 찾아 제안 내용과 합쳐
-  //    새 행으로 승격시킵니다.
-  const publicDataPlaces = await fetchPublicDataPlaces();
-  const original = publicDataPlaces.find((p) => String(p.id) === String(proposal.place_id));
+  //    새 행으로 승격시킵니다. (단건 조회 — 전국 데이터 전체를 받지 않습니다.)
+  const original = await fetchPublicDataPlaceById(Number(proposal.place_id));
   if (!original) {
     return { ok: false, reason: "place_not_found" };
   }

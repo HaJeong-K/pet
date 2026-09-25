@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import SiteFooter from "@/components/SiteFooter";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 import PetIllustration from "@/components/illustrations/PetIllustration";
@@ -724,10 +725,11 @@ export default function CommunityPage() {
                                 background: "#E4EBDC",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 fontSize: 14, fontWeight: 700, color: "#5C7A4A", overflow: "hidden", flexShrink: 0,
+                                position: "relative",
                               }}
                             >
                               {post.avatar_url ? (
-                                <img src={post.avatar_url} alt={post.nickname} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                <Image src={post.avatar_url} alt={post.nickname} fill sizes="40px" style={{ objectFit: "cover" }} />
                               ) : (
                                 (post.nickname || "?").charAt(0)
                               )}
@@ -799,7 +801,7 @@ export default function CommunityPage() {
                               {/* 썸네일 — 게시글 출력 범위의 우측에 배치 */}
                               {thumb && (
                                 <div style={{ position: "relative", width: 104, height: 104, borderRadius: 13, overflow: "hidden", background: "#f7f8fa", flexShrink: 0 }}>
-                                  <img src={thumb} alt="thumbnail" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  <Image src={thumb} alt="thumbnail" fill sizes="104px" style={{ objectFit: "cover" }} />
                                   {extraImages > 0 && (
                                     <div style={{ position: "absolute", right: 6, bottom: 6, background: "rgba(0,0,0,0.6)", color: "white", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 999 }}>
                                       +{extraImages}

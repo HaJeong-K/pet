@@ -3,6 +3,7 @@ import "./globals.css";
 import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import ErrorReporter from "@/components/ErrorReporter";
 import { AuthProvider } from "@/lib/AuthContext";
 import Script from "next/script";
 
@@ -52,6 +53,11 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        {/* ⚠ 최적화: 카카오맵 SDK·로그인 스크립트가 afterInteractive로 늦게 붙긴 하지만,
+            실제 요청이 시작될 때 DNS 조회/TLS 핸드셰이크부터 새로 하면 그만큼 늦어집니다.
+            preconnect로 미리 커넥션만 열어두면 그 시간을 아낄 수 있습니다. */}
+        <link rel="preconnect" href="https://dapi.kakao.com" />
+        <link rel="preconnect" href="https://t1.kakaocdn.net" crossOrigin="" />
         {/* 공통 웹폰트 — CSS @import 대신 <link>로 로드합니다. globals.css에서
             @import url(...)로 불러오면 Tailwind v4 PostCSS 처리 순서와 충돌해
             "@import rules must precede all rules" 빌드 에러가 났었습니다. */}
@@ -88,6 +94,7 @@ export default function RootLayout({
         <AuthProvider>
           <AuthGuard />
           <AnalyticsTracker />
+          <ErrorReporter />
           {children}
           {modal}
           <TabBar />

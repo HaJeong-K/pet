@@ -1,0 +1,1889 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  ArrowLeft, Heart, Eye, Send, Mail, X, Shield,
+  ChevronLeft, ChevronRight, MessageCircle,
+  MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
+} from "lucide-react";
+import SiteFooter from "@/components/SiteFooter";
+import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
+
+const FONT_STYLE = `
+  * { box-sizing: border-box; }
+
+  /* 세로 스크롤 */
+  .post-scroll { overflow-y: auto; }
+  .post-scroll::-webkit-scrollbar { width: 4px; }
+  .post-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 999px; }
+
+  /* 이미지 가로 스크롤 */
+  .img-scroll { overflow-x: auto; }
+  .img-scroll::-webkit-scrollbar { height: 4px; }
+  .img-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 999px; }
+
+  /* 이미지 hover 효과 */
+  .img-thumb { cursor: zoom-in; transition: opacity 0.15s; }
+  .img-thumb:hover { opacity: 0.85; }
+`;
+
+const profileColors = [
+  "#FF6B6B","#F06595","#CC5DE8","#845EF7","#5C7CFA","#339AF0","#22B8CF","#20C997",
+  "#51CF66","#94D82D","#FCC419","#FF922B","#E64980","#BE4BDB","#7950F2","#4C6EF5",
+  "#228BE6","#15AABF","#12B886","#40C057","#82C91E","#FAB005","#FD7E14","#FA5252",
+  "#D6336C","#AE3EC9","#7048E8","#4263EB","#1C7ED6","#1098AD","#0CA678","#37B24D",
+  "#74B816","#F59F00","#F76707",
+];
+
+const getProfileColor = (nickname: string) => {
+  if (!nickname) return "#999";
+  const code = nickname.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return profileColors[code % profileColors.length];
+};
+
+const sortBtn = (active: boolean) => ({
+  padding: "5px 11px",
+  borderRadius: "8px",
+  border: "none",
+  background: active ? "linear-gradient(145deg,#5C7A4A,#48603A)" : "linear-gradient(145deg,#f5f6f8,#eaebee)",
+  color: active ? "white" : "#555",
+  cursor: "pointer",
+  marginLeft: "5px",
+  fontSize: "11px",
+  fontWeight: 600,
+  boxShadow: active ? "0 1px 5px rgba(0,0,0,0.22)" : "0 1px 3px rgba(0,0,0,0.07)",
+  transition: "all 0.15s ease",
+  fontFamily: "'Noto Sans KR', sans-serif",
+});
+
+import { supabase } from "@/lib/supabase";
+
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  board_id: string;
+  post_type?: string | null;
+  image_urls?: string[];
+  nickname: string;
+  avatar_url?: string | null;
+  created_at: string;
+  likes?: number;
+  views?: number;
+}
+
+interface CommentItem {
+  id: string;
+  content: string;
+  nickname: string;
+  avatar_url?: string | null;
+  parent_id: string | null;
+  created_at: string;
+  likes?: number;
+}
+
+export default function CommunityDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const postId = params?.id as string;
+
+  const [post, setPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [comment, setComment] = useState("");
+  const [replyMap, setReplyMap] = useState<Record<string, string>>({});
+  const [replyTarget, setReplyTarget] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // ── 게시글 메뉴 & 편집/신고
+  const [showPostMenu,       setShowPostMenu]       = useState(false);
+  const [editingPost,        setEditingPost]         = useState(false);
+  const [editPostTitle,      setEditPostTitle]       = useState("");
+  const [editPostContent,    setEditPostContent]     = useState("");
+  const [deletingPost,       setDeletingPost]        = useState(false);
+  const [postReportOpen,     setPostReportOpen]      = useState(false);
+  const [postReportCategory, setPostReportCategory] = useState("");
+  const [postReportReason,   setPostReportReason]   = useState("");
+
+  // ── 댓글/답글 메뉴 & 편집/삭제/신고
+  const [openedCommentMenuId,  setOpenedCommentMenuId]  = useState<string | null>(null);
+  const [editingCommentId,     setEditingCommentId]     = useState<string | null>(null);
+  const [editCommentContent,   setEditCommentContent]   = useState("");
+  const [deletingCommentId,    setDeletingCommentId]    = useState<string | null>(null);
+
+  const [openedReplyMenuId2,   setOpenedReplyMenuId2]   = useState<string | null>(null);
+  const [editingReplyId2,      setEditingReplyId2]      = useState<string | null>(null);
+  const [editReplyContent2,    setEditReplyContent2]    = useState("");
+  const [deletingReplyId2,     setDeletingReplyId2]     = useState<string | null>(null);
+
+  const [commentReportOpen,    setCommentReportOpen]    = useState(false);
+  const [commentReportTargetId, setCommentReportTargetId] = useState<string | null>(null);
+  const [commentReportType, setCommentReportType] = useState<"community_comment"|"community_reply">("community_comment");
+  const [commentReportCategory,setCommentReportCategory]= useState("");
+  const [commentReportReason,  setCommentReportReason] = useState("");
+
+  // 이미지 확대 모달: 인덱스로 관리 (prev/next 지원)
+  const [modalIndex, setModalIndex] = useState<number | null>(null);
+
+  const [session, setSession] = useState<any>(null);
+  const [sort, setSort] = useState<"latest" | "like">("latest");
+  const [likedPost, setLikedPost] = useState(false);
+  const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const [likedReplyIds2, setLikedReplyIds2] = useState<Set<string>>(new Set());
+  const [isAdminDeleted, setIsAdminDeleted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminDeletedPopup, setShowAdminDeletedPopup] = useState(false);
+
+  // ⚠ 조회수 중복 방지 — 예전엔 이 페이지를 열 때마다(새로고침 포함) 무조건 +1 했습니다.
+  // 글쓴이 본인이나 같은 사람이 여러 번 새로고침만 해도 조회수가 끝없이 올라가는 문제가
+  // 있어서, 같은 브라우저에서는 글 하나당 하루 1회만 세도록 localStorage에 "이 글을
+  // 오늘 이미 세었다"는 날짜를 남깁니다. 로그인 계정이 아니라 브라우저(기기) 기준인
+  // 이유는, 이 프로젝트가 조회수 집계 전용 서버 API가 따로 없이 클라이언트에서 직접
+  // Supabase를 갱신하는 구조라 IP 기반 서버 판정은 별도 API 라우트가 필요하기
+  // 때문입니다 — 시크릿 모드/다른 브라우저로 우회하면 다시 세어지는 한계는 있지만,
+  // "새로고침 연타로 조회수 무한 증가"라는 실제 문제는 이걸로 충분히 막힙니다.
+  const hasCountedViewToday = (postId: string | number): boolean => {
+    const key = `post_view_${postId}`;
+    const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    if (localStorage.getItem(key) === today) return true;
+    localStorage.setItem(key, today);
+    return false;
+  };
+
+    // ─────────────────────────────
+  // 게시글 불러오기
+  // ─────────────────────────────
+  const fetchPost = async () => {
+    const { data } = await supabase
+      .from("community_posts")
+      .select("*")
+      .eq("id", Number(postId))
+      .single();
+
+    if (data) {
+      // ★ 관리자 삭제된 게시글이면 팝업 표시 후 목록으로 이동
+      if (data.is_admin_deleted) {
+        setIsAdminDeleted(true);
+        setShowAdminDeletedPopup(true);
+        return;
+      }
+      // 조회수는 여기서 바로 +1 해서 화면에 최신값을 보여주고, DB에도 반영합니다.
+      // (기존에는 증가시키기 전 값을 화면에 표시해서 새로고침 전까지 1씩 낮게 보이는 문제가 있었습니다.)
+      // 단, 같은 브라우저로 오늘 이미 조회한 글이면 화면에는 그대로 보여주되 DB는 더
+      // 올리지 않습니다(hasCountedViewToday가 처음 호출될 때만 false를 반환).
+      const alreadyCountedToday = hasCountedViewToday(postId);
+      const newViews = alreadyCountedToday ? (data.views || 0) : (data.views || 0) + 1;
+
+      // ⚠ 좋아요 수 실시간 보정 — community_posts.likes 컬럼은 좋아요 토글 시마다
+      // +1/-1로 갱신하는 방식이라, 과거 어떤 경로로든 한 번이라도 갱신이 누락되면
+      // 실제 community_post_likes 개수와 어긋난 채 계속 잘못된 값이 보입니다.
+      // 커뮤니티 목록(community/page.tsx)과 동일하게, 저장된 컬럼 대신 실제 좋아요
+      // 테이블 행 수를 세어 항상 정확한 값을 보여줍니다.
+      const { count: liveLikes } = await supabase
+        .from("community_post_likes")
+        .select("*", { count: "exact", head: true })
+        .eq("post_id", Number(postId));
+
+      setPost({ ...data, views: newViews, likes: liveLikes ?? data.likes ?? 0 });
+      if (!alreadyCountedToday) {
+        await supabase
+          .from("community_posts")
+          .update({ views: newViews })
+          .eq("id", Number(postId));
+      }
+    }
+  };
+
+  // ─────────────────────────────
+  // 사용자 식별 키 — 회원은 auth uid, 비회원은 로컬스토리지에 저장된 익명 키
+  // ─────────────────────────────
+  const getUserKey = () => {
+    if (session?.user?.id) return session.user.id;
+    let k = localStorage.getItem("user_key");
+    if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+    return k;
+  };
+
+  // ─────────────────────────────
+  // 게시글 좋아요 여부 불러오기
+  // ─────────────────────────────
+  const fetchPostLikeStatus = async () => {
+    const userKey = getUserKey();
+    const { data } = await supabase
+      .from("community_post_likes")
+      .select("id")
+      .eq("post_id", Number(postId))
+      .eq("user_key", userKey)
+      .maybeSingle();
+    setLikedPost(!!data);
+  };
+
+  // ─────────────────────────────
+  // 게시글 좋아요 토글 — 댓글 좋아요와 동일한 방식(좋아요 테이블 + 카운터 컬럼)
+  // ─────────────────────────────
+  const handlePostLike = async () => {
+    if (!post) return;
+    const userKey = getUserKey();
+    if (likedPost) {
+      await supabase.from("community_post_likes").delete().eq("post_id", Number(postId)).eq("user_key", userKey);
+      const newLikes = Math.max(0, (post.likes || 0) - 1);
+      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
+      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
+      setLikedPost(false);
+    } else {
+      const { error } = await supabase.from("community_post_likes").insert([{ post_id: Number(postId), user_key: userKey }]);
+      if (error) { console.error(error); return; }
+      const newLikes = (post.likes || 0) + 1;
+      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
+      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
+      setLikedPost(true);
+    }
+  };
+
+  // ─────────────────────────────
+  // 댓글 불러오기
+  // ─────────────────────────────
+  const fetchComments = async () => {
+    const { data, error } = await supabase
+      .from("community_comments")
+      .select("*")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    if (error) { console.error(error); return; }
+    setComments(data || []);
+
+    // 내가 좋아요한 댓글 목록 로드
+    const userKey = session?.user?.id || (() => {
+      let k = localStorage.getItem("user_key");
+      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      return k;
+    })();
+    const { data: myLikes } = await supabase
+      .from("community_comment_likes")
+      .select("comment_id")
+      .eq("user_key", userKey);
+    setLikedCommentIds(new Set((myLikes || []).map((l: any) => String(l.comment_id))));
+  };
+
+  // ─────────────────────────────
+  // 게시글의 댓글 수 카운터 증감 — 댓글/답글 작성·삭제 시 함께 호출해
+  // community_posts.comment_count가 실제 댓글 수와 어긋나지 않도록 합니다.
+  // ─────────────────────────────
+  const bumpCommentCount = async (delta: number) => {
+    setPost((prev: any) => prev ? { ...prev, comment_count: Math.max(0, (prev.comment_count || 0) + delta) } : prev);
+    const { data } = await supabase.from("community_posts").select("comment_count").eq("id", Number(postId)).single();
+    const newCount = Math.max(0, (data?.comment_count || 0) + delta);
+    await supabase.from("community_posts").update({ comment_count: newCount }).eq("id", Number(postId));
+  };
+
+  // ─────────────────────────────
+  // 댓글 작성
+  // ─────────────────────────────
+  const handleComment = async () => {
+    if (!session) return;
+    if (!comment.trim()) return;
+
+    const user = session.user;
+    const { error } = await supabase
+      .from("community_comments")
+      .insert([
+        {
+          post_id: postId,
+          parent_id: null,
+          author_auth_key: user.id,
+          nickname:
+            user.user_metadata?.nickname ||
+            user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "사용자",
+          avatar_url: user.user_metadata?.avatar_url || null,
+          content: comment.trim(),
+        },
+      ]);
+
+    if (error) { console.error(error); return; }
+    setComment("");
+    await bumpCommentCount(1);
+    fetchComments();
+  };
+
+  // ─────────────────────────────
+  // 답글 작성
+  // ─────────────────────────────
+  const handleReply = async (parentId: string) => {
+    if (!session) return;
+    const value = replyMap[parentId];
+    if (!value?.trim()) return;
+
+    const user = session.user;
+    const { error } = await supabase
+      .from("community_comments")
+      .insert([
+        {
+          post_id: postId,
+          parent_id: parentId,
+          author_auth_key: user.id,
+          nickname:
+            user.user_metadata?.nickname ||
+            user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "사용자",
+          avatar_url: user.user_metadata?.avatar_url || null,
+          content: value.trim(),
+        },
+      ]);
+
+    if (error) { console.error(error); return; }
+    setReplyMap((prev) => ({ ...prev, [parentId]: "" }));
+    setReplyTarget(null);
+    await bumpCommentCount(1);
+    fetchComments();
+  };
+
+  // ── 게시글 수정
+  const handlePostEdit = async () => {
+    if (!editPostTitle.trim() || !editPostContent.trim()) return;
+    const { error } = await supabase
+      .from("community_posts")
+      .update({ title: editPostTitle, content: editPostContent })
+      .eq("id", Number(postId));
+    if (error) { console.error(error); return; }
+    setPost((prev: any) => prev ? { ...prev, title: editPostTitle, content: editPostContent } : prev);
+    setEditingPost(false);
+  };
+
+  const handlePostDelete = async () => {
+    console.log("삭제 시도 postId:", postId);
+
+    const { data, error } = await supabase
+      .from("community_posts")
+      .update({
+        deleted: true,
+      })
+      .eq("id", Number(postId))
+      .select();
+      
+    if (error) {
+      alert("삭제 실패");
+      console.error(error);
+      return;
+    }
+
+    setDeletingPost(false);
+
+    alert("삭제되었습니다.");
+
+    router.replace("/community");
+  };
+
+  // ── 게시글 신고 제출
+  const handlePostReport = async () => {
+    if (!postReportCategory || !postReportReason.trim()) return;
+    const userKey = session?.user?.id || (() => {
+      let k = localStorage.getItem("user_key");
+      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      return k;
+    })();
+    const { error: reportError, data: reportData, status, statusText } = await supabase
+      .from("reports")
+      .insert([{
+        type: "community_post",
+        target_id: String(postId),
+        reporter_key: userKey,
+        report_category: postReportCategory,
+        report_reason: postReportReason,
+        nickname: post?.nickname || "—",
+        is_resolved: false,
+      }])
+      .select(); // ← .select() 추가
+
+    console.log("status:", status);
+    console.log("statusText:", statusText);
+    console.log("error:", JSON.stringify(reportError, null, 2));
+    console.log("data:", JSON.stringify(reportData, null, 2));
+    if (reportError) {
+      console.error("신고 저장 실패:", reportError);
+      alert("신고 접수에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
+    alert("신고가 접수되었습니다.");
+    setPostReportOpen(false);
+    setPostReportCategory(""); setPostReportReason("");
+  };
+
+  // ── 댓글 수정
+  const handleCommentEdit = async (commentId: string) => {
+    if (!editCommentContent.trim()) return;
+    const { error } = await supabase
+      .from("community_comments")
+      .update({ content: editCommentContent, is_edited: true })
+      .eq("id", commentId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentContent, is_edited: true } : c));
+    setEditingCommentId(null);
+  };
+
+  // ── 댓글 삭제
+  const handleCommentDelete = async (commentId: string) => {
+    const { error } = await supabase.from("community_comments").update({
+      deleted: true,
+    }).eq("id", commentId);
+    if (error) { console.error(error); return; }
+
+    // 답글이 있으면 "삭제된 댓글" 상태 유지, 없으면 목록에서 완전 제거
+    const hasReplies = comments.some(
+      c => c.parent_id === commentId && !(c as any).deleted
+    );
+    if (hasReplies) {
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, deleted: true } : c));
+    } else {
+      setComments(prev => prev.filter(c => c.id !== commentId));
+    }
+    setDeletingCommentId(null);
+    await bumpCommentCount(-1);
+  };
+
+  // ── 답글 수정
+  const handleReplyEdit2 = async (replyId: string) => {
+    if (!editReplyContent2.trim()) return;
+    const { error } = await supabase
+      .from("community_comments")
+      .update({ content: editReplyContent2, is_edited: true })
+      .eq("id", replyId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === replyId ? { ...c, content: editReplyContent2, is_edited: true } : c));
+    setEditingReplyId2(null);
+  };
+
+  // ── 답글 삭제
+  const handleReplyDelete2 = async (replyId: string) => {
+    const { error } = await supabase.from("community_comments").update({
+      deleted: true,
+    }).eq("id", replyId);
+    if (error) { console.error(error); return; }
+
+    // 답글은 그냥 목록에서 완전 제거
+    setComments(prev => prev.filter(c => c.id !== replyId));
+    setDeletingReplyId2(null);
+    await bumpCommentCount(-1);
+  };
+
+  // ── 관리자 댓글 삭제
+  const handleAdminDeleteComment = async (commentId: string) => {
+    if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("community_comments").update({
+      is_admin_deleted: true,
+      deleted: true,
+    }).eq("id", commentId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_admin_deleted: true, deleted: true } : c));
+    setOpenedCommentMenuId(null);
+    await bumpCommentCount(-1);
+  };
+
+  // ── 관리자 답글 삭제
+  const handleAdminDeleteReply2 = async (replyId: string) => {
+    if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
+    const { error } = await supabase.from("community_comments").update({
+      is_admin_deleted: true,
+      deleted: true,
+    }).eq("id", replyId);
+    if (error) { console.error(error); return; }
+    setComments(prev => prev.map(c => c.id === replyId ? { ...c, is_admin_deleted: true, deleted: true } : c));
+    setOpenedReplyMenuId2(null);
+    await bumpCommentCount(-1);
+  };
+
+  // ── 댓글/답글 신고 제출
+  const handleCommentReport = async () => {
+    if (!commentReportCategory || !commentReportReason.trim()) return;
+    const userKey = session?.user?.id || (() => {
+      let k = localStorage.getItem("user_key");
+      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      return k;
+    })();
+
+    // ★ 신고 대상 댓글/답글의 닉네임 가져오기
+    const targetComment = comments.find(c => c.id === commentReportTargetId);
+
+    const { error: reportError } = await supabase.from("reports").insert([{
+      type: commentReportType,
+      target_id: commentReportTargetId,
+      reporter_key: userKey,
+      report_category: commentReportCategory,
+      report_reason: commentReportReason,
+      nickname: targetComment?.nickname || "—",
+      is_resolved: false,  // 명시적으로 false 지정
+    }]);
+    if (reportError) {
+      console.error("신고 저장 실패:", reportError);
+      alert("신고 접수에 실패했습니다. 다시 시도해주세요.");
+      return;
+    }
+    alert("신고가 접수되었습니다.");
+    setCommentReportOpen(false);
+    setCommentReportCategory(""); setCommentReportReason("");
+  };
+
+  // ── 댓글/답글 좋아요
+  const likeComment = async (commentId: string) => {
+    const userKey = session?.user?.id || (() => {
+      let k = localStorage.getItem("user_key");
+      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      return k;
+    })();
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+    const isLiked = likedCommentIds.has(String(commentId));
+    if (isLiked) {
+      await supabase.from("community_comment_likes").delete().eq("comment_id", commentId).eq("user_key", userKey);
+      const newLikes = Math.max(0, (comment.likes || 0) - 1);
+      await supabase.from("community_comments").update({ likes: newLikes }).eq("id", commentId);
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, likes: newLikes } : c));
+      setLikedCommentIds(prev => { const next = new Set(prev); next.delete(String(commentId)); return next; });
+    } else {
+      await supabase.from("community_comment_likes").insert([{ comment_id: commentId, user_key: userKey }]);
+      const newLikes = (comment.likes || 0) + 1;
+      await supabase.from("community_comments").update({ likes: newLikes }).eq("id", commentId);
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, likes: newLikes } : c));
+      setLikedCommentIds(prev => new Set(prev).add(String(commentId)));
+    }
+  };
+
+  // ── 소유자 확인 헬퍼
+  const isCommentOwner = (comment: CommentItem) =>
+    !!session && session.user.id === (comment as any).author_auth_key;
+
+  // ─────────────────────────────
+  // 최초 로딩
+  // ─────────────────────────────
+  useEffect(() => {
+    const init = async () => {
+      const { data: { session: sess } } = await supabase.auth.getSession();
+      setSession(sess);
+      if (sess?.user) {
+        const { data } = await supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single();
+        setIsAdmin(!!data?.is_admin);
+      }
+      await Promise.all([fetchPost(), fetchComments(), fetchPostLikeStatus()]);
+      setLoading(false);
+    };
+    init();
+  }, []);
+
+  // ─────────────────────────────
+  // 날짜 포맷
+  // ─────────────────────────────
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const yy  = String(date.getFullYear()).slice(2);
+    const mm  = String(date.getMonth() + 1).padStart(2, "0");
+    const dd  = String(date.getDate()).padStart(2, "0");
+    const hh  = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    return `${yy}-${mm}-${dd} ${hh}:${min}`;
+  };
+
+  // ─────────────────────────────
+  // 게시판 이름
+  // ─────────────────────────────
+  const getBoardLabel = (id: string) => {
+    const map: Record<string, string> = {
+      free: "자유게시판",
+      seoul: "서울",
+      gyeonggi: "경기",
+      busan: "부산",
+      daegu: "대구",
+      jeju: "제주",
+    };
+    return map[id] || "게시판";
+  };
+
+  // ─────────────────────────────
+  // 이미지 목록 (모달용)
+  // ─────────────────────────────
+  const images = post?.image_urls ?? [];
+
+  // 모달 닫기
+  const closeModal = () => setModalIndex(null);
+
+  // 키보드 이동 지원
+  useEffect(() => {
+    if (modalIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft")  setModalIndex((i) => i !== null ? (i - 1 + images.length) % images.length : i);
+      if (e.key === "ArrowRight") setModalIndex((i) => i !== null ? (i + 1) % images.length : i);
+      if (e.key === "Escape") closeModal();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalIndex, images.length]);
+
+  if (loading || !post) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "#f5f6f8",
+        }}
+      >
+        불러오는 중...
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <style>{FONT_STYLE}</style>
+
+      {/* ★ 관리자 삭제 게시글 팝업 */}
+      {showAdminDeletedPopup && (
+        <>
+          <div
+            style={{
+              position: "fixed", inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              zIndex: 9999,
+              backdropFilter: "blur(4px)",
+            }}
+          />
+          <div
+            className="ggk-body"
+            style={{
+              position: "fixed",
+              top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(340px, 88vw)",
+              background: "white",
+              borderRadius: 20,
+              padding: "28px 24px 22px",
+              zIndex: 10000,
+              boxShadow: "0 24px 80px rgba(0,0,0,0.22)",
+              textAlign: "center",
+            }}
+          >
+            {/* 아이콘 */}
+            <div style={{
+              width: 56, height: 56,
+              borderRadius: 16,
+              background: "#fee2e2",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 16px",
+            }}>
+              <AlertCircle size={26} color="#ef4444" />
+            </div>
+
+            <div
+              className="ggk-logo"
+              style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 8 }}
+            >
+              삭제된 게시글입니다
+            </div>
+
+            <div
+              style={{ fontSize: 12, color: "#666", lineHeight: 1.7, marginBottom: 22 }}
+            >
+              부적절한 내용으로 관리자에 의해 삭제되었습니다.
+              <br />
+              게시글 목록으로 돌아갑니다.
+            </div>
+
+            <button
+              onClick={() => {
+                setShowAdminDeletedPopup(false);
+                router.replace("/community"); // ★ 목록으로 이동 (뒤로가기 히스토리에 안 남음)
+              }}
+              className="ggk-body"
+              style={{
+                width: "100%", padding: "12px",
+                borderRadius: 12, border: "none",
+                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                color: "white", fontWeight: 700,
+                fontSize: 13, cursor: "pointer",
+                fontFamily: "'Noto Sans KR', sans-serif",
+              }}
+            >
+              목록으로 돌아가기
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 이미지 확대 모달 */}
+      {modalIndex !== null && images.length > 0 && (
+        <div
+          onClick={() => setModalIndex(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.82)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ position:"relative", display:"flex", alignItems:"center", gap:"12px" }}>
+
+            {/* 닫기 버튼 */}
+            <button
+              onClick={() => setModalIndex(null)}
+              style={{ position:"absolute", top:"-44px", right:0, width:"34px", height:"34px", borderRadius:"50%", border:"none", background:"rgba(0,0,0,0.55)", color:"white", fontSize:"16px", cursor:"pointer", zIndex:2, backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+            >✕</button>
+
+            {/* 이전 버튼 */}
+            <button
+              onClick={() => setModalIndex((i) => i !== null ? (i - 1 + images.length) % images.length : i)}
+              style={{ width:"40px", height:"40px", borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", color:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)", flexShrink:0, transition:"background 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.30)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+            >
+              <ChevronLeft size={22} color="white" />
+            </button>
+
+            {/* 이미지 + 인덱스 */}
+            <div style={{ position:"relative" }}>
+              <img
+                src={images[modalIndex!]}
+                alt={`image-${modalIndex!}`}
+                style={{ maxWidth:"80vw", maxHeight:"85vh", borderRadius:"14px", objectFit:"contain", display:"block", boxShadow:"0 24px 80px rgba(0,0,0,0.5)", userSelect:"none" }}
+              />
+              <div style={{ position:"absolute", bottom:"12px", left:"50%", transform:"translateX(-50%)", background:"rgba(0,0,0,0.5)", color:"white", fontSize:"12px", fontWeight:600, padding:"4px 12px", borderRadius:"999px", backdropFilter:"blur(4px)", whiteSpace:"nowrap" }}>
+                {modalIndex! + 1} / {images.length}
+              </div>
+            </div>
+
+            {/* 다음 버튼 */}
+            <button
+              onClick={() => setModalIndex((i) => i !== null ? (i + 1) % images.length : i)}
+              style={{ width:"40px", height:"40px", borderRadius:"50%", border:"none", background:"rgba(255,255,255,0.15)", color:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)", flexShrink:0, transition:"background 0.15s" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.30)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
+            >
+              <ChevronRight size={22} color="white" />
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+          전체 레이아웃 — 커뮤니티 목록/마이페이지와 동일한 3단 grid(여백 1fr / 본문
+          min(1000px,100%) / 여백 1fr)를 그대로 써서, 게시글 상세에서도 좌우 광고
+          레일과 유기동물 공고 레일이 같이 뜹니다. 본문 칼럼 안의 680px 읽기 폭은
+          그대로 유지하고(justifySelf:center로 본문 칼럼 정가운데에 배치), 세로
+          스크롤 방식(height:100vh + overflow:hidden + 내부 post-scroll)도 그대로입니다.
+      ══════════════════════════════════════ */}
+      <div
+        className="ggk-body"
+        style={{
+          height: "100vh",       /* ← 뷰포트 높이 고정 */
+          overflow: "hidden",    /* ← 바깥 스크롤 차단 */
+          background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
+          columnGap: "16px",
+        }}
+      >
+        <AdRailLeft />
+
+        {/* 680px 컬럼 */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "680px",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifySelf: "center",
+          }}
+        >
+          {/* ── 상단바 (고정) ── */}
+          <div
+            style={{
+              flexShrink: 0,
+              background: "rgba(255,255,255,0.95)",
+              backdropFilter: "blur(12px)",
+              borderBottom: "1px solid #eee",
+              height: "56px",
+              display: "flex",
+              alignItems: "center",
+              padding: "0 14px",
+              boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+              zIndex: 20,
+            }}
+          >
+            <button
+              onClick={() => router.back()}
+              style={{
+                border: "none", background: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginRight: "8px",
+              }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div className="ggk-logo" style={{ fontSize: "16px", fontWeight: 800 }}>
+              게시글
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════
+              스크롤 가능한 본문 영역
+          ══════════════════════════════════════ */}
+          <div
+            className="post-scroll"
+            style={{
+              flex: 1,
+              padding: "14px",
+            }}
+          >
+
+            {/* ── 게시글 카드 ── */}
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                border: "1px solid #e8eaed",
+                padding: "18px",
+              }}
+            >
+              {/* 게시판 배지 + 점세개 */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "10px",
+                }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: "#f5f6f8",
+                      color: "#555",
+                      padding: "4px 9px",
+                      borderRadius: "999px",
+                      marginRight: "6px",
+                    }}
+                  >
+                    {getBoardLabel(post.board_id)}
+                  </span>
+
+                  {post.post_type && (
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        background: "#fff3e8",
+                        color: "#ff7a00",
+                        padding: "4px 9px",
+                        borderRadius: "999px",
+                      }}
+                    >
+                      {post.post_type}
+                    </span>
+                  )}
+                </div>
+
+                {/* 점세개 */}
+                <div style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setShowPostMenu(v => !v)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      padding: 4,
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <MoreVertical size={16} color="#999" />
+                  </button>
+
+                  {showPostMenu && (
+                    <>
+                      <div
+                        onClick={() => setShowPostMenu(false)}
+                        style={{
+                          position: "fixed",
+                          inset: 0,
+                          zIndex: 50
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          right: 0,
+                          width: 130,
+                          background: "white",
+                          border: "1px solid #eee",
+                          borderRadius: 10,
+                          boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+                          overflow: "hidden",
+                          zIndex: 51,
+                        }}
+                      >
+                        {post && session?.user?.id === (post as any).author_auth_key ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setShowPostMenu(false);
+                                setEditPostTitle(post.title);
+                                setEditPostContent(post.content);
+                                setEditingPost(true);
+                              }}
+                              style={dropdownBtnStyleCom}
+                            >
+                              수정
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setShowPostMenu(false);
+                                setDeletingPost(true);
+                              }}
+                              style={{
+                                ...dropdownBtnStyleCom,
+                                color: "#ef4444"
+                              }}
+                            >
+                              삭제
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setShowPostMenu(false);
+                              setPostReportOpen(true);
+                            }}
+                            style={dropdownBtnStyleCom}
+                          >
+                            신고
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* 제목 */}
+              <div
+                className="ggk-logo"
+                style={{
+                  fontSize: "20px", fontWeight: 800, color: "#111",
+                  lineHeight: 1.4, marginBottom: "14px",
+                }}
+              >
+                {post.title}
+              </div>
+
+              {/* 작성자 + 통계 */}
+              <div style={{
+                display: "flex", alignItems: "center",
+                justifyContent: "space-between", marginBottom: "18px",
+              }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    flex: 1,
+                  }}
+                >
+                  <div style={{
+                    width: 34, height: 34, borderRadius: "50%",
+                    background: "#ddd", overflow: "hidden",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "13px", fontWeight: 700, color: "white",
+                    position: "relative",
+                  }}>
+                    {post.avatar_url ? (
+                      <Image
+                        src={post.avatar_url}
+                        alt={post.nickname}
+                        fill
+                        sizes="34px"
+                        referrerPolicy="no-referrer"
+                        style={{ objectFit: "cover" }}
+                      />
+                    ) : (
+                      (post.nickname || "?").charAt(0)
+                    )}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#222" }}>
+                      {post.nickname}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: "2px",
+                        width: "100%",
+                        fontSize: "11px",
+                        color: "#999",
+                      }}
+                    >
+                      <span>{formatDate(post.created_at)}</span>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <button
+                          onClick={handlePostLike}
+                          style={{
+                            display: "flex", alignItems: "center", gap: "3px",
+                            border: "none", background: "transparent", padding: 0, cursor: "pointer",
+                            color: likedPost ? "#e0574c" : "#999",
+                          }}
+                        >
+                          <Heart size={12} fill={likedPost ? "#e0574c" : "none"} color={likedPost ? "#e0574c" : "#999"} />
+                          {post.likes || 0}
+                        </button>
+
+                        <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+                          <Eye size={12} />
+                          {post.views || 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ══════════════════════════════════════
+                  이미지 영역
+                  · 1장   : 단독 출력 (절반 높이)
+                  · 2~3장 : 같은 행에 그리드 (스크롤 없음)
+                  · 4장+  : 고정 크기 + 하단 가로 스크롤
+              ══════════════════════════════════════ */}
+              {images.length > 0 && (
+                <div style={{ marginBottom: "18px" }}>
+
+                  {/* ── 1장 ── */}
+                  {images.length === 1 && (
+                    <div
+                      className="img-thumb"
+                      onClick={() => setModalIndex(0)}
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        height: "160px",      /* 절반 크기 */
+                        borderRadius: "10px",
+                        border: "1px solid #f0f0f0",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Image src={images[0]} alt="image-0" fill sizes="100vw" priority style={{ objectFit: "cover" }} />
+                    </div>
+                  )}
+
+                  {/* ── 2~3장: 같은 행 그리드 ── */}
+                  {images.length >= 2 && images.length <= 3 && (
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: images.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr",
+                      gap: "6px",
+                    }}>
+                      {images.map((img, i) => (
+                        <div
+                          key={i}
+                          className="img-thumb"
+                          onClick={() => setModalIndex(i)}
+                          style={{
+                            position: "relative",
+                            width: "100%",
+                            height: images.length === 2 ? "150px" : "120px",
+                            borderRadius: "10px",
+                            border: "1px solid #f0f0f0",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Image src={img} alt={`image-${i}`} fill sizes={images.length === 2 ? "50vw" : "33vw"} priority={i === 0} style={{ objectFit: "cover" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── 4장 이상: 고정 크기 + 가로 스크롤 ── */}
+                  {images.length >= 4 && (
+                    <div
+                      className="img-scroll"
+                      style={{
+                        display: "flex",
+                        gap: "6px",
+                        paddingBottom: "8px",  /* 스크롤바 공간 */
+                      }}
+                    >
+                      {images.map((img, i) => (
+                        <div
+                          key={i}
+                          className="img-thumb"
+                          onClick={() => setModalIndex(i)}
+                          style={{
+                            position: "relative",
+                            flexShrink: 0,
+                            width: "140px",    /* 절반 수준 고정 너비 */
+                            height: "140px",
+                            borderRadius: "10px",
+                            border: "1px solid #f0f0f0",
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Image src={img} alt={`image-${i}`} fill sizes="140px" priority={i === 0} style={{ objectFit: "cover" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 게시글 수정 폼 */}
+              {editingPost ? (
+                <div style={{ marginBottom: 16 }}>
+                  <input
+                    value={editPostTitle}
+                    onChange={e => setEditPostTitle(e.target.value)}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8,
+                            border: "1px solid #ddd", fontSize: 14, marginBottom: 8,
+                            fontFamily: "'Noto Sans KR', sans-serif" }}
+                  />
+                  <textarea
+                    value={editPostContent}
+                    onChange={e => setEditPostContent(e.target.value)}
+                    style={{ width: "100%", minHeight: 120, padding: "10px 12px",
+                            borderRadius: 8, border: "1px solid #ddd", fontSize: 13,
+                            resize: "vertical", fontFamily: "'Noto Sans KR', sans-serif" }}
+                  />
+                  <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
+                    <button onClick={handlePostEdit}
+                            style={{ padding: "8px 16px", borderRadius: 7, border: "none",
+                                    background: "#111", color: "white", fontWeight: 700,
+                                    fontSize: 12, cursor: "pointer" }}>저장</button>
+                    <button onClick={() => setEditingPost(false)}
+                            style={{ padding: "8px 16px", borderRadius: 7,
+                                    border: "1px solid #ddd", background: "white",
+                                    fontWeight: 700, fontSize: 12, cursor: "pointer" }}>취소</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* 기존 본문 텍스트 */}
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      color: "#222",
+                      lineHeight: 1.8,
+                      whiteSpace: "pre-wrap"
+                    }}
+                  >
+                    {post.content}
+                  </div>
+
+                  {/* 추천 / 비추천 버튼 */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: "10px",
+                      marginTop: "22px",
+                    }}
+                  >
+                    <button
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "8px 14px",
+                        borderRadius: "999px",
+                        border: "1px solid #e5e7eb",
+                        background: "white",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        color: "#444",
+                      }}
+                    >
+                      <ThumbsUp size={14} />
+                      좋아요
+                    </button>
+
+                    <button
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "8px 14px",
+                        borderRadius: "999px",
+                        border: "1px solid #e5e7eb",
+                        background: "white",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        color: "#444",
+                      }}
+                    >
+                      <ThumbsDown size={14} />
+                      싫어요
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ══════════════════════════════════════
+                댓글 영역
+            ══════════════════════════════════════ */}
+            <div style={{
+              marginTop: "14px",
+              background: "white",
+              borderRadius: "16px",
+              border: "1px solid #e8eaed",
+              padding: "16px",
+            }}>
+              {/* 댓글 헤더 */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
+                <div className="ggk-logo" style={{ fontSize:"15px", fontWeight:800 }}>
+                  댓글 {comments.filter(c => 
+                    !c.parent_id && 
+                    !(c as any).deleted
+                  ).length + comments.filter(c => 
+                    !!c.parent_id && 
+                    !(c as any).deleted
+                  ).length}개
+                </div>
+                <div>
+                  <button style={sortBtn(sort === "latest")} onClick={() => setSort("latest")}>최신순</button>
+                  <button style={sortBtn(sort === "like")} onClick={() => setSort("like")}>좋아요순</button>
+                </div>
+              </div>
+
+              {/* ── 댓글 입력 영역 ── */}
+              <div style={{ marginBottom: "16px" }}>
+                {session ? (
+                  /* 회원: 실제 입력창 */
+                  <>
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="댓글을 입력하세요"
+                      style={{
+                        width: "100%",
+                        minHeight: "90px",
+                        resize: "none",
+                        borderRadius: "14px",
+                        border: "1px solid #ddd",
+                        padding: "14px",
+                        fontSize: "12px",
+                        background: "white",
+                        color: "#111",
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        outline: "none",
+                      }}
+                    />
+                    <button
+                      onClick={handleComment}
+                      style={{
+                        width: "100%", height: "44px", marginTop: "10px",
+                        borderRadius: "12px", border: "none",
+                        background: "linear-gradient(145deg, #5C7A4A, #48603A)",
+                        color: "white", fontWeight: 700, cursor: "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+                        fontFamily: "'Noto Sans KR', sans-serif",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <Send size={13} />
+                      댓글 작성
+                    </button>
+                  </>
+                ) : (
+                  /* 비회원: 고정 안내 문구 (수정·삭제 불가) */
+                  <div style={{
+                    width: "100%",
+                    minHeight: "90px",
+                    borderRadius: "14px",
+                    border: "1px solid #e8eaed",
+                    padding: "14px",
+                    background: "#fafafa",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}>
+                    <span style={{
+                      fontSize: "12px",
+                      color: "#c0c4cc",
+                      fontFamily: "'Noto Sans KR', sans-serif",
+                      textAlign: "center",
+                      lineHeight: 1.7,
+                    }}>
+                      회원가입 후 더 많은 기능을 이용해보세요
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* ── 댓글 리스트 ── */}
+              <div style={{ display:"flex", flexDirection:"column", gap:"0" }}>
+                {[...comments]
+                  .filter(c => !c.parent_id)
+                  .sort((a, b) => {
+                    if (sort === "like") {
+                      const diff = (b.likes || 0) - (a.likes || 0);
+                      return diff !== 0 ? diff : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    }
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                  })
+                  .map((item) => {
+                    const itemReplies = comments.filter(
+                      r => r.parent_id === item.id && !(r as any).deleted
+                    );
+                    if ((item as any).deleted && !(item as any).is_admin_deleted && itemReplies.length === 0) return null;
+                    const replies = comments.filter(r => r.parent_id === item.id);
+                    return (
+                      <div key={item.id} style={{ borderBottom:"1px solid #eee", padding:"10px 0" }}>
+
+                        {/* 상단 - 아바타 + 닉네임 + 점세개 */}
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                            <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:getProfileColor(item.nickname), color:"white", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", fontWeight:700, flexShrink:0, overflow:"hidden", position:"relative" }}>
+                              {item.avatar_url
+                                ? <Image src={item.avatar_url} alt={item.nickname} fill sizes="24px" referrerPolicy="no-referrer" style={{ objectFit:"cover" }} />
+                                : item.nickname?.charAt(0)}
+                            </div>
+                            <div style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{item.nickname}</div>
+                            {isCommentOwner(item) && (
+                              <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
+                            )}
+                          </div>
+
+                          {/* 점세개 메뉴 */}
+                          {!(item as any).is_admin_deleted && (
+                            <div style={{ position:"relative" }}>
+                              <button onClick={() => setOpenedCommentMenuId(openedCommentMenuId === item.id ? null : item.id)}
+                                      style={{ border:"none", background:"transparent", cursor:"pointer", padding:2 }}>
+                                <MoreVertical size={15} color="#999" />
+                              </button>
+                              {openedCommentMenuId === item.id && (
+                                <>
+                                  <div onClick={() => setOpenedCommentMenuId(null)} style={{ position:"fixed", inset:0, zIndex:50 }} />
+                                  <div style={{ position:"absolute", top:"20px", right:0, width:"120px", background:"white", border:"1px solid #eee", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.10)", overflow:"hidden", zIndex:51 }}>
+                                    {isCommentOwner(item) ? (
+                                      <>
+                                        <button onClick={() => { setOpenedCommentMenuId(null); setEditingCommentId(item.id); setEditCommentContent(item.content); }} style={dropdownBtnStyleCom}>수정</button>
+                                        <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
+                                      </>
+                                    ) : isAdmin ? (
+                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
+                                        <Shield size={11} color="#5C7A4A" />관리자 삭제
+                                      </button>
+                                    ) : (
+                                      <button onClick={() => { setOpenedCommentMenuId(null); setCommentReportTargetId(item.id); setCommentReportType("community_comment"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 내용 */}
+                        {editingCommentId === item.id ? (
+                          <div style={{ marginTop:"7px" }}>
+                            <textarea value={editCommentContent} onChange={e => setEditCommentContent(e.target.value)}
+                              style={{ width:"100%", minHeight:"52px", padding:"7px", borderRadius:"6px", border:"1px solid #ddd", fontSize:"12px", boxSizing:"border-box", resize:"none", fontFamily:"'Noto Sans KR',sans-serif" }} />
+                            <div style={{ marginTop:"6px", display:"flex", gap:"6px" }}>
+                              <button onClick={() => handleCommentEdit(item.id)} style={saveBtnCom}>저장하기</button>
+                              <button onClick={() => setEditingCommentId(null)} style={cancelBtnCom}>취소</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            marginTop: "4px",
+                            fontSize: "12px",
+                            lineHeight: 1.5,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+
+                            color: (item as any).is_admin_deleted ? "#ef4444" : "#333",
+                            fontStyle: (item as any).is_admin_deleted ? "italic" : "normal",
+                            opacity: (item as any).is_admin_deleted ? 0.8 : 1,
+                          }}>
+                            {(item as any).is_admin_deleted
+                              ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
+                              : item.content}
+                          </div>
+                        )}
+
+                        {/* 삭제 확인 */}
+                        {deletingCommentId === item.id && (
+                          <div style={{ marginTop:"7px", background:"#fff3f3", padding:"9px 11px", borderRadius:"8px", border:"1px solid #fecaca" }}>
+                            <p style={{ margin:"0 0 6px", fontSize:"12px", color:"#c00" }}>정말 삭제하시겠습니까?</p>
+                            <div style={{ display:"flex", gap:"6px" }}>
+                              <button onClick={() => handleCommentDelete(item.id)} style={{ padding:"5px 12px", borderRadius:"5px", border:"none", background:"#ef4444", color:"white", cursor:"pointer", fontSize:"12px" }}>삭제하기</button>
+                              <button onClick={() => setDeletingCommentId(null)} style={{ padding:"5px 12px", borderRadius:"5px", border:"1px solid #ddd", background:"white", cursor:"pointer", fontSize:"12px" }}>취소</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 하단 - 좋아요 + 답글 + 날짜 */}
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"7px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+                            <button onClick={() => likeComment(item.id)} style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
+                              <Heart size={13} color={likedCommentIds.has(String(item.id)) ? "#ef4444" : "#bbb"} fill={likedCommentIds.has(String(item.id)) ? "#ef4444" : "none"} />
+                              <span style={{ fontSize:"11px", color:"#777" }}>{item.likes || 0}</span>
+                            </button>
+                            {session && (
+                              <button
+                                onClick={() => setReplyTarget(replyTarget === item.id ? null : item.id)}
+                                style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0, color:"#777", fontSize:"11px" }}>
+                                <MessageCircle size={13} />답글
+                              </button>
+                            )}
+                          </div>
+                          <span style={{ fontSize:"10px", color:"#bbb" }}>
+                            {formatDate(item.created_at)}
+                            {(item as any).is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                          </span>
+                        </div>
+
+                        {/* 답글 입력창 */}
+                        {session && replyTarget === item.id && (
+                          <div style={{ marginTop:"8px", marginLeft:"28px", padding:"10px", background:"#f8fafc", borderRadius:"9px", border:"1px solid #e2e8f0" }}>
+                            <div style={{ display:"flex", gap:"7px" }}>
+                              <textarea
+                                placeholder="답글을 입력하세요"
+                                value={replyMap[item.id] || ""}
+                                onChange={e => setReplyMap(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box", fontFamily:"'Noto Sans KR',sans-serif" }}
+                              />
+                              <button
+                                disabled={!(replyMap[item.id] || "").trim()}
+                                onClick={() => handleReply(item.id)}
+                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
+                                등록
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 답글 목록 */}
+                        {replies.map((reply) => (
+                          <div key={reply.id} style={{ marginLeft:"28px", marginTop:"8px", padding:"8px 10px", background:"#f8fafc", borderRadius:"9px", border:"1px solid #e2e8f0" }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                              <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
+                                <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:getProfileColor(reply.nickname), color:"white", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"10px", fontWeight:700, overflow:"hidden", position:"relative" }}>
+                                  {reply.avatar_url
+                                    ? <Image src={reply.avatar_url} referrerPolicy="no-referrer" alt={reply.nickname} fill sizes="20px" style={{ objectFit:"cover" }} />
+                                    : reply.nickname?.charAt(0)}
+                                </div>
+                                <div style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
+                                {isCommentOwner(reply) && (
+                                  <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
+                                )}
+                              </div>
+
+                              {/* 답글 점세개 */}
+                              {!(reply as any).is_admin_deleted && (
+                                <div style={{ position:"relative" }}>
+                                  <button onClick={() => setOpenedReplyMenuId2(openedReplyMenuId2 === reply.id ? null : reply.id)}
+                                    style={{ border:"none", background:"transparent", cursor:"pointer", padding:0 }}>
+                                    <MoreVertical size={13} color="#999" />
+                                  </button>
+                                  {openedReplyMenuId2 === reply.id && (
+                                    <>
+                                      <div onClick={() => setOpenedReplyMenuId2(null)} style={{ position:"fixed", inset:0, zIndex:50 }} />
+                                      <div style={{ position:"absolute", top:"18px", right:0, width:"120px", background:"white", border:"1px solid #eee", borderRadius:"10px", boxShadow:"0 4px 16px rgba(0,0,0,0.10)", overflow:"hidden", zIndex:51 }}>
+                                        {isCommentOwner(reply) ? (
+                                          <>
+                                            <button onClick={() => { setOpenedReplyMenuId2(null); setEditingReplyId2(reply.id); setEditReplyContent2(reply.content); }} style={dropdownBtnStyleCom}>수정</button>
+                                            <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
+                                          </>
+                                        ) : isAdmin ? (
+                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
+                                            <Shield size={11} color="#5C7A4A" />관리자 삭제
+                                          </button>
+                                        ) : (
+                                          <button onClick={() => { setOpenedReplyMenuId2(null); setCommentReportTargetId(reply.id); setCommentReportType("community_reply"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 답글 내용 */}
+                            {editingReplyId2 === reply.id ? (
+                              <div style={{ marginTop:"6px" }}>
+                                <textarea value={editReplyContent2} onChange={e => setEditReplyContent2(e.target.value)}
+                                  style={{ width:"100%", minHeight:"48px", padding:"6px", borderRadius:"5px", border:"1px solid #ddd", fontSize:"11px", boxSizing:"border-box", resize:"none", fontFamily:"'Noto Sans KR',sans-serif" }} />
+                                <div style={{ marginTop:"5px", display:"flex", gap:"5px" }}>
+                                  <button onClick={() => handleReplyEdit2(reply.id)} style={{ ...saveBtnCom, fontSize:"11px", padding:"5px 10px" }}>저장</button>
+                                  <button onClick={() => setEditingReplyId2(null)} style={{ ...cancelBtnCom, fontSize:"11px", padding:"5px 10px" }}>취소</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{
+                                marginTop: "4px",
+                                fontSize: "11px",
+                                lineHeight: 1.5,
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+
+                                color: (reply as any).is_admin_deleted ? "#ef4444" : "#333",
+                                fontStyle: (reply as any).is_admin_deleted ? "italic" : "normal",
+                                opacity: (reply as any).is_admin_deleted ? 0.8 : 1,
+                              }}>
+                                {(reply as any).is_admin_deleted
+                                  ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
+                                  : reply.content}
+                              </div>
+                            )}
+
+                            {/* 삭제 확인 */}
+                            {deletingReplyId2 === reply.id && (
+                              <div style={{ marginTop:"6px", background:"#fff3f3", padding:"8px 10px", borderRadius:"7px", border:"1px solid #fecaca" }}>
+                                <p style={{ margin:"0 0 6px", fontSize:"11px", color:"#c00" }}>정말 삭제하시겠습니까?</p>
+                                <div style={{ display:"flex", gap:"5px" }}>
+                                  <button onClick={() => handleReplyDelete2(reply.id)} style={{ padding:"5px 10px", borderRadius:"5px", border:"none", background:"#ef4444", color:"white", cursor:"pointer", fontSize:"11px" }}>삭제하기</button>
+                                  <button onClick={() => setDeletingReplyId2(null)} style={{ padding:"5px 10px", borderRadius:"5px", border:"1px solid #ddd", background:"white", cursor:"pointer", fontSize:"11px" }}>취소</button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* 답글 하단 - 좋아요 + 날짜 */}
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"6px" }}>
+                              <button onClick={() => likeComment(reply.id)} style={{ display:"flex", alignItems:"center", gap:"3px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
+                                <Heart size={12} color={likedCommentIds.has(String(reply.id)) ? "#ef4444" : "#bbb"} fill={likedCommentIds.has(String(reply.id)) ? "#ef4444" : "none"} />
+                                <span style={{ fontSize:"10px", color:"#777" }}>{reply.likes || 0}</span>
+                              </button>
+                              <span style={{ fontSize:"10px", color:"#bbb" }}>
+                                {formatDate(reply.created_at)}
+                                {(reply as any).is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>{/* /post-scroll */}
+
+          {/* ── 하단 푸터 — 스크롤 영역(post-scroll) 밖으로 빼서 마이페이지/커뮤니티
+              목록과 동일하게 항상 탭바 바로 위에 고정됩니다. 다른 페이지와 완전히
+              같은 공용 SiteFooter 컴포넌트라 이용약관/운영정책 링크 누락, 문의 이메일
+              불일치 같은 문제가 다시 생기지 않고, 배경도 흰 카드가 아니라 페이지
+              배경(#F7F3E8)과 동일하게 맞췄습니다. ── */}
+          <div style={{
+            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
+            padding: "18px 14px calc(78px + 18px)", boxSizing: "border-box",
+          }}>
+            <SiteFooter />
+          </div>
+        </div>{/* /680px 컬럼 */}
+
+        {/* 우측 레일 — 커뮤니티 목록(offset 0)·마이페이지(offset 2)와 겹치지 않도록
+            shelterOffset=4로 순위 5~6위 공고를 보여줍니다. */}
+        <AdRailRight rightMode="shelter" shelterOffset={4} />
+      </div>{/* /전체 레이아웃 */}
+      {postReportOpen && (
+        <>
+          <div onClick={() => setPostReportOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999 }} />
+          <div onClick={e => e.stopPropagation()}
+              style={{
+                position: "fixed", top: "50%", left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "min(380px, 92vw)", maxHeight: "80vh", overflowY: "auto",
+                background: "white", borderRadius: 18, padding: 20, zIndex: 10000,
+                boxShadow: "0 16px 48px rgba(0,0,0,0.22)",
+                fontFamily: "'Noto Sans KR', sans-serif",
+              }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 800 }}>신고하기</h2>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: "#444" }}>신고 유형</div>
+              <select value={postReportCategory} onChange={e => setPostReportCategory(e.target.value)}
+                      style={{ width: "100%", padding: "9px 10px", borderRadius: 8,
+                              border: "1px solid #ddd", fontSize: 12 }}>
+                <option value="">선택해주세요</option>
+                <option value="spam">광고 / 도배</option>
+                <option value="abuse">욕설 / 비방</option>
+                <option value="sexual">음란물</option>
+                <option value="hate">혐오 표현</option>
+                <option value="etc">기타</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: "#444" }}>상세 사유</div>
+              <textarea value={postReportReason} onChange={e => setPostReportReason(e.target.value)}
+                        placeholder="신고 사유를 입력해주세요."
+                        style={{ width: "100%", minHeight: 90, padding: "9px 10px",
+                                borderRadius: 8, border: "1px solid #ddd",
+                                resize: "none", fontSize: 12, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setPostReportOpen(false)}
+                      style={{ flex: 1, padding: 11, borderRadius: 8,
+                              border: "1px solid #ddd", background: "white",
+                              cursor: "pointer", fontWeight: 700, fontSize: 12 }}>취소</button>
+              <button onClick={handlePostReport}
+                      disabled={!postReportCategory || !postReportReason.trim()}
+                      style={{
+                        flex: 1, padding: 11, borderRadius: 8, border: "none",
+                        background: (!postReportCategory || !postReportReason.trim()) ? "#ccc" : "#ef4444",
+                        color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                      }}>신고하기</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 게시글 삭제 팝업 */}
+      {deletingPost && (
+        <>
+          {/* 배경 */}
+          <div
+            onClick={() => setDeletingPost(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+
+              background: "rgba(0,0,0,0.45)",
+
+              zIndex: 9999,
+
+              backdropFilter: "blur(4px)",
+            }}
+          />
+
+          {/* 팝업 */}
+          <div
+            className="ggk-body"
+            style={{
+              position: "fixed",
+
+              top: "50%",
+              left: "50%",
+
+              transform: "translate(-50%, -50%)",
+
+              width: "min(340px, 88vw)",
+
+              background: "white",
+
+              borderRadius: "20px",
+
+              padding: "24px 22px",
+
+              zIndex: 10000,
+
+              boxShadow:
+                "0 24px 80px rgba(0,0,0,0.22)",
+
+              textAlign: "center",
+            }}
+          >
+            {/* 아이콘 */}
+            <div
+              style={{
+                width: 56,
+                height: 56,
+
+                borderRadius: 16,
+
+                background: "#fee2e2",
+
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+
+                margin: "0 auto 16px",
+              }}
+            >
+              <Trash2 size={24} color="#ef4444" />
+            </div>
+
+            {/* 제목 */}
+            <div
+              className="ggk-body"
+              style={{
+                fontSize: 16,
+                fontWeight: 800,
+
+                color: "#111",
+
+                marginBottom: 8,
+              }}
+            >
+              게시글 삭제
+            </div>
+
+            {/* 설명 */}
+            <div
+              style={{
+                fontSize: 12,
+
+                color: "#666",
+
+                lineHeight: 1.7,
+
+                marginBottom: 22,
+              }}
+            >
+              삭제한 게시글은 복구할 수 없습니다.
+            </div>
+
+            {/* 버튼 */}
+            <div
+              style={{
+                display: "flex",
+
+                gap: "10px",
+              }}
+            >
+              {/* 취소 */}
+              <button
+                onClick={() => setDeletingPost(false)}
+                style={{
+                  flex: 1,
+
+                  height: "44px",
+
+                  borderRadius: "12px",
+
+                  border: "1px solid #e5e7eb",
+
+                  background: "white",
+
+                  color: "#666",
+
+                  fontSize: "13px",
+                  fontWeight: 700,
+
+                  cursor: "pointer",
+                }}
+              >
+                취소
+              </button>
+
+              {/* 삭제 */}
+              <button
+                onClick={handlePostDelete}
+                style={{
+                  flex: 1,
+
+                  height: "44px",
+
+                  borderRadius: "12px",
+
+                  border: "none",
+
+                  background:
+                    "linear-gradient(135deg, #ef4444, #dc2626)",
+
+                  color: "white",
+
+                  fontSize: "13px",
+                  fontWeight: 700,
+
+                  cursor: "pointer",
+                }}
+              >
+                삭제하기
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 댓글/답글 신고 모달 */}
+      {commentReportOpen && (
+        <>
+          <div
+            onClick={() => setCommentReportOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              zIndex: 9999
+            }}
+          />
+
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "min(380px, 92vw)",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              background: "white",
+              borderRadius: 18,
+              padding: 20,
+              zIndex: 10000,
+            }}
+          >
+            <h2 className="ggk-title" style={{ margin:"0 0 16px", fontSize:"18px", fontWeight:800 }}>신고하기</h2>
+<div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: "#444" }}>신고 유형</div>
+              <select value={commentReportCategory} onChange={e => setCommentReportCategory(e.target.value)}
+                      style={{ width: "100%", padding: "9px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 12 }}>
+                <option value="">선택해주세요</option>
+                <option value="spam">광고 / 도배</option>
+                <option value="abuse">욕설 / 비방</option>
+                <option value="sexual">음란물</option>
+                <option value="hate">혐오 표현</option>
+                <option value="etc">기타</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, color: "#444" }}>상세 사유</div>
+              <textarea value={commentReportReason} onChange={e => setCommentReportReason(e.target.value)}
+                        placeholder="신고 사유를 입력해주세요."
+                        style={{ width: "100%", minHeight: 90, padding: "9px 10px", borderRadius: 8, border: "1px solid #ddd", resize: "none", fontSize: 12, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setCommentReportOpen(false)}
+                      style={{ flex: 1, padding: 11, borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>취소</button>
+              <button onClick={handleCommentReport}
+                      disabled={!commentReportCategory || !commentReportReason.trim()}
+                      style={{ flex: 1, padding: 11, borderRadius: 8, border: "none", background: (!commentReportCategory || !commentReportReason.trim()) ? "#ccc" : "#ef4444", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>신고하기</button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/* 개인정보 처리방침 섹션 컴포넌트 */
+
+const dropdownBtnStyleCom: React.CSSProperties = {
+  width: "100%", padding: "9px 12px", border: "none",
+  background: "white", cursor: "pointer", textAlign: "left",
+  fontSize: 12, fontFamily: "'Noto Sans KR', sans-serif",
+};
+const saveBtnCom: React.CSSProperties = {
+  padding: "5px 12px", borderRadius: "5px", border: "none",
+  background: "linear-gradient(145deg,#5C7A4A,#48603A)", color: "white",
+  cursor: "pointer", fontSize: "12px", fontFamily: "'Noto Sans KR', sans-serif",
+};
+const cancelBtnCom: React.CSSProperties = {
+  padding: "5px 12px", borderRadius: "5px", border: "1px solid #ddd",
+  background: "white", cursor: "pointer", fontSize: "12px",
+  fontFamily: "'Noto Sans KR', sans-serif",
+};

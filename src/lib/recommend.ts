@@ -23,7 +23,7 @@
 // (2) calculateRecommendScore에 "가장 가까운 공원까지의 거리" 항목을 가중치로 추가해
 // 산책 겸 방문에 유리한 장소가 상위로 오도록 확장하면 됩니다.
 
-import { RECOMMEND_WEIGHTS } from "@/lib/scoringConfig";
+import { RECOMMEND_WEIGHTS, RECOMMEND_V2_WEIGHTS } from "@/lib/scoringConfig";
 
 export interface RecommendInput {
   /** 기준 위치(내 위치 또는 검색 중심)로부터의 거리(km). 검색 결과 등 거리 개념이 없으면 null */
@@ -154,4 +154,309 @@ export function calculateRecommendBreakdown(input: RecommendInput): RecommendBre
 
 export function calculateRecommendScore(input: RecommendInput): number {
   return calculateRecommendBreakdown(input).total;
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// 추천 v2 — 후보 생성 → 점수 계산 → 재정렬(다양성) 3단계 구조
+// (Google Recommendation Systems 강의의 candidate generation / scoring / re-ranking,
+//  오늘의집 Twiddler 방식의 노출 조정 참고). v1(calculateRecommendScore)은 A/B 비교와
+//  롤백을 위해 그대로 둡니다 — 어느 쪽을 쓸지는 experiment.ts가 사용자별로 정합니다.
+// ═════════════════════════════════════════════════════════════════════
+
+export const RECOMMEND_ALGO_VERSION = { v1: "rule-v1", v2: "rule-v2" } as const;
+
+/** /api/recommend/signals가 장소별로 내려주는 집계 신호 */
+export interface PlaceSignals {
+  /** 찜 수(원본) */
+  b: number;
+  /** 좋아요 수(원본) */
+  l: number;
+  /** 싫어요 수(원본) */
+  d: number;
+  /** 시간 감쇠를 적용한 찜 수 */
+  bd: number;
+  /** 시간 감쇠를 적용한 좋아요 수 */
+  ld: number;
+  /** 리뷰 만족도(0~100). 리뷰가 없으면 null */
+  rs: number | null;
+  /** 리뷰 수 */
+  rc: number;
+}
+
+/** 카테고리 문자열 정규화 — "동물병원(24시)" → "동물병원" 처럼 출처별 표기 차이를 흡수 */
+export function categoryKey(category: string | null | undefined): string {
+  const key = (category || "").replace(/\(.*?\)/g, "").trim();
+  return key || "기타";
+}
+
+// ── 개인화: 사용자 취향 프로필 ──────────────────────────────────────────
+export interface UserReaction {
+  place_id: string | number;
+  type: string; // "bookmark" | "like" | "dislike"
+}
+
+export interface PreferencePlaceInfo {
+  category?: string | null;
+  pet_zone?: string | null;
+}
+
+export interface UserPreferenceProfile {
+  categoryWeights: Map<string, number>;
+  petZoneWeights: Map<string, number>;
+  totalWeight: number;
+  /** 취향 추정에 쓰인 긍정 반응 장소 수 */
+  signalCount: number;
+  bookmarked: Set<string>;
+  disliked: Set<string>;
+}
+
+export const EMPTY_PREFERENCE_PROFILE: UserPreferenceProfile = {
+  categoryWeights: new Map(),
+  petZoneWeights: new Map(),
+  totalWeight: 0,
+  signalCount: 0,
+  bookmarked: new Set(),
+  disliked: new Set(),
+};
+
+/**
+ * 내 반응(찜/좋아요/싫어요)으로 취향 프로필을 만듭니다. 찜은 좋아요보다 강한 신호로
+ * 봅니다(재방문 의사). lookup으로 장소 정보를 못 찾는 반응(삭제된 장소 등)은 건너뜁니다.
+ */
+export function buildUserPreferenceProfile(
+  reactions: UserReaction[],
+  lookup: (placeId: string) => PreferencePlaceInfo | undefined
+): UserPreferenceProfile {
+  const categoryWeights = new Map<string, number>();
+  const petZoneWeights = new Map<string, number>();
+  const bookmarked = new Set<string>();
+  const disliked = new Set<string>();
+  const positivePlaces = new Map<string, number>();
+
+  for (const r of reactions) {
+    const id = String(r.place_id);
+    if (r.type === "dislike") {
+      disliked.add(id);
+      continue;
+    }
+    const w = r.type === "bookmark" ? 1 : r.type === "like" ? 0.7 : 0;
+    if (w === 0) continue;
+    if (r.type === "bookmark") bookmarked.add(id);
+    positivePlaces.set(id, Math.max(positivePlaces.get(id) ?? 0, w));
+  }
+
+  let totalWeight = 0;
+  let signalCount = 0;
+  for (const [id, w] of positivePlaces) {
+    if (disliked.has(id)) continue;
+    const info = lookup(id);
+    if (!info) continue;
+    signalCount++;
+    totalWeight += w;
+    const cat = categoryKey(info.category);
+    categoryWeights.set(cat, (categoryWeights.get(cat) ?? 0) + w);
+    if (info.pet_zone) petZoneWeights.set(info.pet_zone, (petZoneWeights.get(info.pet_zone) ?? 0) + w);
+  }
+
+  return { categoryWeights, petZoneWeights, totalWeight, signalCount, bookmarked, disliked };
+}
+
+/** 이 장소가 내 취향과 얼마나 맞는지 0~1. 신호가 부족하면 0(가점 없음). */
+export function personalMatch(profile: UserPreferenceProfile, place: PreferencePlaceInfo): number {
+  if (profile.signalCount < RECOMMEND_V2_WEIGHTS.PERSONAL_MIN_SIGNALS || profile.totalWeight <= 0) return 0;
+  const catShare = (profile.categoryWeights.get(categoryKey(place.category)) ?? 0) / profile.totalWeight;
+  const zoneShare = place.pet_zone ? (profile.petZoneWeights.get(place.pet_zone) ?? 0) / profile.totalWeight : 0;
+  return Math.max(0, Math.min(1, catShare * 0.7 + zoneShare * 0.3));
+}
+
+// ── v2 점수 ────────────────────────────────────────────────────────────
+export interface RecommendV2Input {
+  distanceKm: number | null;
+  matchesSelectedFilter: boolean;
+  largeDog?: boolean | null;
+  createdAt?: string | null;
+  distanceToNearestParkKm?: number | null;
+  /** 시간 감쇠 적용 찜 수 */
+  bookmarksDecayed?: number | null;
+  /** 시간 감쇠 적용 좋아요 수 */
+  likesDecayed?: number | null;
+  /** 친화도 점수(0~100, affinityScore.ts). 계산할 수 없으면 null — 가·감점 없음 */
+  affinityScore?: number | null;
+  /** 취향 일치도 0~1 (personalMatch) */
+  personalMatch?: number | null;
+  isDisliked?: boolean;
+  isBookmarked?: boolean;
+  /** 최근 FATIGUE_WINDOW_DAYS 동안 클릭 없이 추천 목록에 노출된 횟수 */
+  impressionCount?: number | null;
+}
+
+export interface RecommendV2Breakdown {
+  distancePenalty: number;
+  filterBonus: number;
+  largeDogBonus: number;
+  newPlaceBonus: number;
+  parkBonus: number;
+  popularityBonus: number;
+  qualityAdjust: number;
+  personalBonus: number;
+  feedbackPenalty: number;
+  fatiguePenalty: number;
+  /** 정렬용 원점수(정규화 전) — 표시 점수가 같아도 순서를 안정적으로 가르기 위함 */
+  raw: number;
+  total: number;
+}
+
+/** 포화 곡선 인기도: 초반 반응에는 민감하고, 많아질수록 완만하게 상한에 수렴 */
+export function popularityBonusV2(bookmarksDecayed: number, likesDecayed: number): number {
+  const raw =
+    Math.max(0, bookmarksDecayed) * RECOMMEND_WEIGHTS.POPULARITY_BOOKMARK_PER +
+    Math.max(0, likesDecayed) * RECOMMEND_WEIGHTS.POPULARITY_LIKE_PER;
+  return RECOMMEND_WEIGHTS.POPULARITY_BONUS_MAX * (1 - Math.exp(-raw / RECOMMEND_V2_WEIGHTS.POPULARITY_SATURATION_K));
+}
+
+/** 친화도 → 가·감점. 기준점(QUALITY_PIVOT)보다 높으면 가점, 낮으면 감점 */
+export function qualityAdjustment(affinity: number | null | undefined): number {
+  if (affinity == null || Number.isNaN(affinity)) return 0;
+  const a = Math.max(0, Math.min(100, affinity));
+  const pivot = RECOMMEND_V2_WEIGHTS.QUALITY_PIVOT;
+  if (a >= pivot) return ((a - pivot) / (100 - pivot)) * RECOMMEND_V2_WEIGHTS.QUALITY_BONUS_MAX;
+  return -((pivot - a) / pivot) * RECOMMEND_V2_WEIGHTS.QUALITY_PENALTY_MAX;
+}
+
+export function fatiguePenalty(impressionCount: number | null | undefined): number {
+  const n = Math.max(0, impressionCount ?? 0) - RECOMMEND_V2_WEIGHTS.FATIGUE_FREE_IMPRESSIONS;
+  if (n <= 0) return 0;
+  return Math.min(RECOMMEND_V2_WEIGHTS.FATIGUE_PENALTY_MAX, n * RECOMMEND_V2_WEIGHTS.FATIGUE_PENALTY_PER);
+}
+
+// 표시 점수(0~100) 정규화 구간. 개인 피드백 감점(싫어요/찜/피로도)은 "이 사람에게 덜
+// 보여주기" 위한 정렬용이라 구간 계산에서 빼고 0에서 잘라냅니다 — 그래야 일반적인
+// 장소들의 점수가 좁은 구간에 뭉치지 않고 0~100을 고르게 씁니다.
+const RAW_MIN_V2 =
+  RECOMMEND_WEIGHTS.BASE_SCORE - RECOMMEND_WEIGHTS.DISTANCE_PENALTY_MAX - RECOMMEND_V2_WEIGHTS.QUALITY_PENALTY_MAX;
+const RAW_MAX_V2 =
+  RECOMMEND_WEIGHTS.BASE_SCORE +
+  RECOMMEND_WEIGHTS.FILTER_MATCH_BONUS +
+  RECOMMEND_WEIGHTS.LARGE_DOG_BONUS +
+  RECOMMEND_WEIGHTS.NEW_PLACE_BONUS_MAX +
+  RECOMMEND_WEIGHTS.PARK_PROXIMITY_BONUS_MAX +
+  RECOMMEND_WEIGHTS.POPULARITY_BONUS_MAX +
+  RECOMMEND_V2_WEIGHTS.QUALITY_BONUS_MAX +
+  RECOMMEND_V2_WEIGHTS.PERSONAL_BONUS_MAX;
+
+export function calculateRecommendBreakdownV2(input: RecommendV2Input): RecommendV2Breakdown {
+  const dPenalty = distancePenalty(input.distanceKm);
+  const filterBonus = input.matchesSelectedFilter ? RECOMMEND_WEIGHTS.FILTER_MATCH_BONUS : 0;
+  const largeDogBonus = input.largeDog ? RECOMMEND_WEIGHTS.LARGE_DOG_BONUS : 0;
+  const nBonus = newPlaceBonus(input.createdAt);
+  const pBonus = parkProximityBonus(input.distanceToNearestParkKm);
+  const popBonus = popularityBonusV2(input.bookmarksDecayed ?? 0, input.likesDecayed ?? 0);
+  const quality = qualityAdjustment(input.affinityScore);
+  const personal = Math.max(0, Math.min(1, input.personalMatch ?? 0)) * RECOMMEND_V2_WEIGHTS.PERSONAL_BONUS_MAX;
+  const feedback =
+    (input.isDisliked ? RECOMMEND_V2_WEIGHTS.DISLIKED_PENALTY : 0) +
+    (input.isBookmarked ? RECOMMEND_V2_WEIGHTS.ALREADY_BOOKMARKED_PENALTY : 0);
+  const fatigue = fatiguePenalty(input.impressionCount);
+
+  const raw =
+    RECOMMEND_WEIGHTS.BASE_SCORE - dPenalty + filterBonus + largeDogBonus + nBonus + pBonus + popBonus + quality + personal -
+    feedback -
+    fatigue;
+  const ratio = (raw - RAW_MIN_V2) / (RAW_MAX_V2 - RAW_MIN_V2);
+  const total = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+
+  return {
+    distancePenalty: Math.round(dPenalty),
+    filterBonus,
+    largeDogBonus,
+    newPlaceBonus: Math.round(nBonus),
+    parkBonus: Math.round(pBonus),
+    popularityBonus: Math.round(popBonus * 10) / 10,
+    qualityAdjust: Math.round(quality * 10) / 10,
+    personalBonus: Math.round(personal * 10) / 10,
+    feedbackPenalty: feedback,
+    fatiguePenalty: fatigue,
+    raw,
+    total,
+  };
+}
+
+/**
+ * 추천 이유 한 줄 — 점수 내역에서 가장 크게 기여한 긍정 요인을 사람이 읽을 수 있는 말로
+ * 바꿉니다. 다양성 재정렬 때문에 점수가 목록 순서와 꼭 일치하지 않으므로, 목록에는 숫자
+ * 대신 "왜 추천됐는지"를 보여줍니다(설명 가능한 추천). 해당 요인이 없으면 null.
+ */
+export function recommendReasons(
+  b: RecommendV2Breakdown,
+  distanceKm: number | null,
+  opts: { reviewCount?: number } = {}
+): string[] {
+  // 우선순위 순. 흔해서 변별력이 없는 요인(도심에선 거의 모든 곳이 공원 근처)은 기준을
+  // 높게 잡고, "평판"은 실제 리뷰가 있을 때만 말합니다(공공데이터 검증만으로 좋다고 하지 않음).
+  const reasons: string[] = [];
+  if (b.personalBonus >= 3) reasons.push("내 취향과 비슷해요");
+  if (b.qualityAdjust >= 3 && (opts.reviewCount ?? 0) > 0) reasons.push("리뷰 평이 좋아요");
+  if (b.popularityBonus >= 4) reasons.push("찜이 많아요");
+  if (b.newPlaceBonus >= 3) reasons.push("새로 등록됐어요");
+  if (b.largeDogBonus > 0) reasons.push("대형견 동반 가능");
+  if (distanceKm != null && distanceKm < 0.3) reasons.push("바로 근처예요");
+  if (b.parkBonus >= 6) reasons.push("산책할 공원이 바로 옆");
+  return reasons;
+}
+
+/**
+ * 목록 전체를 보고 각 항목의 이유를 하나씩 고릅니다. 목록 대부분(40% 초과)에 똑같이 붙는
+ * 이유는 변별력이 없으므로(예: 한 동네 전부 "대형견 동반 가능") 건너뛰고 그 항목만의 다음
+ * 이유를 씁니다. 남는 이유가 없으면 null(화면엔 거리만 표시).
+ */
+export function pickDistinctReasons(reasonLists: string[][]): (string | null)[] {
+  const freq = new Map<string, number>();
+  for (const list of reasonLists) for (const r of new Set(list)) freq.set(r, (freq.get(r) ?? 0) + 1);
+  const limit = Math.max(1, Math.floor(reasonLists.length * 0.4));
+  return reasonLists.map((list) => list.find((r) => (freq.get(r) ?? 0) <= limit) ?? null);
+}
+
+// ── 재정렬: 다양성 ─────────────────────────────────────────────────────
+export interface ScoredCandidate<T> {
+  place: T;
+  score: number;
+  /** 정렬용 원점수(정규화·반올림 전). 없으면 score 사용 */
+  rawScore?: number;
+  category: string;
+  /** 추천 이유 후보(recommendReasons) — pickDistinctReasons로 하나를 골라 화면에 표시 */
+  reasons?: string[];
+  distanceKm?: number | null;
+}
+
+/**
+ * 점수 순으로 하나씩 뽑되, 이미 뽑힌 같은 카테고리 수만큼 감점해서 한 카테고리가 목록을
+ * 독점하지 않게 합니다(MMR 방식의 단순화 버전). 표시 점수(score)는 바꾸지 않고 순서만
+ * 조정합니다.
+ */
+export function rerankForDiversity<T>(candidates: ScoredCandidate<T>[], topN: number): ScoredCandidate<T>[] {
+  // 상위권만 재정렬 대상으로 삼으면 충분합니다(하위 후보가 다양성 보정만으로 올라올 수
+  // 있는 폭은 제한적) — 후보 전체를 매 라운드 훑지 않도록 미리 자릅니다.
+  const pool = [...candidates]
+    .sort((a, b) => (b.rawScore ?? b.score) - (a.rawScore ?? a.score))
+    .slice(0, Math.max(topN * 5, 50));
+  const picked: ScoredCandidate<T>[] = [];
+  const categoryCount = new Map<string, number>();
+  const penalty = RECOMMEND_V2_WEIGHTS.DIVERSITY_PENALTY_PER_SAME_CATEGORY;
+
+  while (picked.length < topN && pool.length > 0) {
+    let bestIdx = 0;
+    let bestValue = -Infinity;
+    for (let i = 0; i < pool.length; i++) {
+      const c = pool[i];
+      const value = (c.rawScore ?? c.score) - (categoryCount.get(c.category) ?? 0) * penalty;
+      if (value > bestValue) {
+        bestValue = value;
+        bestIdx = i;
+      }
+    }
+    const [chosen] = pool.splice(bestIdx, 1);
+    picked.push(chosen);
+    categoryCount.set(chosen.category, (categoryCount.get(chosen.category) ?? 0) + 1);
+  }
+  return picked;
 }

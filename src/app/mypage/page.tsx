@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
@@ -10,6 +11,7 @@ import {
   Eye, EyeOff, BadgeCheck, Store, Crown,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
+import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
@@ -82,7 +84,7 @@ export default function MyPage() {
   const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium">("menu");
+  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium"|"owner-place">("menu");
 
   // ── 사장님 프리미엄 등록 ──
   const [premiumPlace, setPremiumPlace] = useState<{ is_premium: boolean; premium_expires_at: string | null } | null>(null);
@@ -93,6 +95,11 @@ export default function MyPage() {
   const [premiumMemo, setPremiumMemo] = useState("");
   const [premiumMsg, setPremiumMsg] = useState<{ok:boolean;text:string}|null>(null);
   const [premiumSubmitting, setPremiumSubmitting] = useState(false);
+
+  // ── 사장님 업장 정보 수정 — 마이페이지 설정에서 바로 수정(place/[id]의
+  // OwnerPlaceEditPanel을 그대로 재사용, place 데이터만 여기서 조회)
+  const [ownerPlace, setOwnerPlace] = useState<any>(null);
+  const [ownerPlaceLoading, setOwnerPlaceLoading] = useState(false);
 
   const [bookmarkPage, setBookmarkPage] = useState(1);
   const [reviewPage, setReviewPage]     = useState(1);
@@ -267,6 +274,21 @@ export default function MyPage() {
     setPremiumPlace(placeRow || null);
     setPremiumRequest(reqRow || null);
     setPremiumLoading(false);
+  };
+
+  // ── 사장님 업장 정보 수정: 본인 업장(owner_place_id) 전체 필드 조회 후
+  // OwnerPlaceEditPanel(place/[id]/page.tsx와 동일 컴포넌트)에 그대로 넘깁니다.
+  const openOwnerPlacePane = async () => {
+    setSettingView("owner-place");
+    if (!userProfile?.owner_place_id) return;
+    setOwnerPlaceLoading(true);
+    const { data } = await supabase
+      .from("places")
+      .select("id, name, hours, phone, closed_days, pet_zone, parking, entry_fee, website, memo")
+      .eq("id", userProfile.owner_place_id)
+      .maybeSingle();
+    setOwnerPlace(data || null);
+    setOwnerPlaceLoading(false);
   };
 
   const handlePremiumApply = async () => {
@@ -451,9 +473,11 @@ export default function MyPage() {
 									}}
 								>
 									{userProfile?.avatar_url ? (
-										<img
+										<Image
 											src={userProfile.avatar_url}
 											alt={userProfile.nickname}
+											width={48}
+											height={48}
                       referrerPolicy="no-referrer"
 											style={{
 												width: "100%",
@@ -696,9 +720,11 @@ export default function MyPage() {
                           boxSizing: "border-box",
                         }}
                       >
-												<img
+												<Image
 													src={place.image_url}
 													alt={place.name}
+													width={70}
+													height={70}
 													loading="lazy"
 													style={{
 														width: 70,
@@ -805,7 +831,7 @@ export default function MyPage() {
                                 overflow: "hidden",
                               }}>
                                 {item.places?.image_url
-                                  ? <img src={item.places.image_url} alt={item.places?.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                  ? <Image src={item.places.image_url} alt={item.places?.name} width={36} height={36} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                   : <MapPin size={16} color="#ea580c" />
                                 }
                               </div>
@@ -975,7 +1001,7 @@ export default function MyPage() {
                 <div style={{ margin:"12px 14px", padding:"12px 14px", background:"#f8fafc", borderRadius:12, display:"flex", alignItems:"center", gap:10, border:"1px solid #e8eaed" }}>
                   <div style={{ width:38, height:38, borderRadius:"50%", background: userProfile?.avatar_url ? "transparent" : getProfileColor(userProfile?.nickname||""), flexShrink:0, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:800, color:"white" }}>
                     {userProfile?.avatar_url
-                      ? <img src={userProfile.avatar_url} alt="" referrerPolicy="no-referrer" style={{ width:"100%", height:"100%", objectFit:"cover" }} onError={(e)=>{(e.target as HTMLImageElement).style.display="none"}} />
+                      ? <Image src={userProfile.avatar_url} alt="" width={38} height={38} referrerPolicy="no-referrer" style={{ width:"100%", height:"100%", objectFit:"cover" }} onError={(e)=>{(e.target as HTMLImageElement).style.display="none"}} />
                       : userProfile?.nickname?.charAt(0)||"?"}
                   </div>
                   <div>
@@ -988,15 +1014,13 @@ export default function MyPage() {
                 </div>
 
                 <div style={{ padding:"0 14px 18px" }}>
-                  {/* 인증된 사장님만 보이는 진입점 — 본인 업장 상세페이지로 이동하면
-                      place/[id]/page.tsx의 OwnerPlaceEditPanel이 자동으로 노출되어
-                      바로 정보를 수정할 수 있습니다(별도 수정 화면을 새로 안 만들고
-                      기존 패널을 재사용). openPlaceDetail이 모달 인터셉트 라우팅까지
-                      맞춰서 열어줍니다. */}
+                  {/* 인증된 사장님만 보이는 진입점 — 마이페이지 설정 안에서 바로 수정합니다
+                      (place/[id]/page.tsx의 OwnerPlaceEditPanel을 그대로 재사용하되,
+                      더 이상 상세페이지로 이동시키지 않고 이 설정 패널 안에서 엽니다). */}
                   {userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null && (
                     <button
                       className="setting-row"
-                      onClick={() => { closeSettings(); openPlaceDetail(router, { id: userProfile.owner_place_id }); }}
+                      onClick={openOwnerPlacePane}
                       style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f0f7ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
                     >
                       <div style={{ width:32, height:32, borderRadius:9, background:"#dcecd3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
@@ -1208,6 +1232,31 @@ export default function MyPage() {
                       </>
                     )}
                   </>
+                )}
+              </div>
+            )}
+
+            {/* 사장님 업장 정보 수정 */}
+            {settingView === "owner-place" && (
+              <div style={{ padding:"18px" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#111", display:"flex", alignItems:"center", gap:5 }}>
+                    <Store size={15} color="#5C7A4A" />가게 정보 수정
+                  </div>
+                  <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <X size={14} color="#666" />
+                  </button>
+                </div>
+
+                {ownerPlaceLoading ? (
+                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
+                ) : ownerPlace ? (
+                  <OwnerPlaceEditPanel
+                    place={ownerPlace}
+                    onUpdated={(fields) => setOwnerPlace((prev: any) => ({ ...prev, ...fields }))}
+                  />
+                ) : (
+                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>업장 정보를 불러오지 못했습니다.</div>
                 )}
               </div>
             )}

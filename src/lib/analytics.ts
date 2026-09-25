@@ -7,17 +7,39 @@
 // - 실패해도 화면 동작에 영향 없도록 항상 fire-and-forget(await하지 않음, 에러 무시)입니다.
 // - user_key: 비로그인 사용자도 구분할 수 있도록 기존에 쓰던 localStorage user_key를 재사용합니다.
 
-const getUserKey = (): string => {
+export const getUserKey = (): string => {
   if (typeof window === "undefined") return "";
-  let key = localStorage.getItem("user_key");
-  if (!key) {
-    key = crypto.randomUUID();
-    localStorage.setItem("user_key", key);
+  try {
+    let key = localStorage.getItem("user_key");
+    if (!key) {
+      key = crypto.randomUUID();
+      localStorage.setItem("user_key", key);
+    }
+    return key;
+  } catch {
+    return "";
   }
-  return key;
 };
 
-export type AnalyticsEventType = "page_view" | "search" | "place_view";
+// ── 추천 시스템 측정용 이벤트 ──
+// rec_impression    : 추천 장소 패널에 Top N 목록이 노출됨 (meta.items = [{id, pos, score}])
+// rec_click         : 추천 목록의 장소 클릭 (meta.pos = 노출 위치 — 위치 편향 보정용)
+// course_impression : AI 코스가 노출됨 (meta.stops, meta.theme)
+// course_regenerate : "다른 코스 보기" 클릭 — 코스 불만족의 간접 지표
+// course_stop_click : 코스 정거장 클릭
+// course_start      : 카카오맵/네이버 길찾기로 코스 출발 — 코스 수락 지표
+// 모든 추천 이벤트는 variant(A/B 그룹)와 meta.algo(알고리즘 버전)를 함께 남겨서
+// /admin/analytics의 "추천 성과" 섹션에서 그룹별로 비교합니다.
+export type AnalyticsEventType =
+  | "page_view"
+  | "search"
+  | "place_view"
+  | "rec_impression"
+  | "rec_click"
+  | "course_impression"
+  | "course_regenerate"
+  | "course_stop_click"
+  | "course_start";
 
 export function trackEvent(
   type: AnalyticsEventType,
@@ -29,6 +51,8 @@ export function trackEvent(
     region?: string;
     subRegion?: string;
     authUserId?: string | null;
+    variant?: string | null;
+    meta?: Record<string, unknown> | null;
   } = {}
 ) {
   try {
@@ -42,6 +66,8 @@ export function trackEvent(
       placeName: payload.placeName ?? null,
       region: payload.region ?? null,
       subRegion: payload.subRegion ?? null,
+      variant: payload.variant ?? null,
+      meta: payload.meta ?? null,
     });
 
     // sendBeacon은 페이지 이탈 중에도 안전하게 전송되고 응답을 기다리지 않아 가장 가볍습니다.

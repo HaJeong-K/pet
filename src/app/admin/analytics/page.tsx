@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
+import RecommendMetricsSection from "@/components/RecommendMetricsSection";
 import { Users, TrendingUp, Search, MapPin, Repeat, UserCheck, RotateCcw } from "lucide-react";
 
 type AnalyticsData = {
@@ -300,6 +301,8 @@ export default function AdminAnalytics() {
                   )}
                 </div>
               </div>
+
+              <RecommendMetricsSection />
             </>
           )}
         </div>

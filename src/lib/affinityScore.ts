@@ -36,6 +36,10 @@ export interface AffinityReviewInput {
 
 export interface AffinityInput {
   reviews: AffinityReviewInput[];
+  /** 서버에서 이미 계산한 리뷰 만족도(0~100). 주어지면 reviews 대신 이 값을 씁니다 —
+   *  지도 목록처럼 장소마다 리뷰 원문을 전부 내려받을 수 없는 곳에서 쓰입니다
+   *  (/api/recommend/signals가 같은 reviewSatisfactionScore로 계산해서 내려줌). */
+  reviewSatisfactionOverride?: number | null;
   likesCount: number;
   dislikesCount: number;
   bookmarkCount: number;
@@ -82,7 +86,7 @@ function reviewWeight(likes: number | undefined): number {
   return Math.min(AFFINITY_SUBSCORES.REVIEW_LIKE_WEIGHT_MAX, 1 + boost);
 }
 
-function reviewSatisfactionScore(reviews: AffinityReviewInput[]): number {
+export function reviewSatisfactionScore(reviews: AffinityReviewInput[]): number {
   if (!reviews || reviews.length === 0) return AFFINITY_SUBSCORES.NO_REVIEW_NEUTRAL;
 
   let pos = 0;
@@ -121,8 +125,13 @@ function governmentVerificationScore(verified: boolean): number {
 }
 
 function userReactionScore(likes: number, dislikes: number, bookmarks: number): number {
-  const votes = Math.max(0, likes) + Math.max(0, dislikes);
-  const voteRatioScore = votes === 0 ? AFFINITY_SUBSCORES.NO_VOTES_NEUTRAL : (likes / votes) * 100;
+  const safeLikes = Math.max(0, likes);
+  const votes = safeLikes + Math.max(0, dislikes);
+  // 베이지안 평활: 중립값(60%)에 해당하는 가상 투표 VOTE_PRIOR_STRENGTH개를 섞어서, 투표가
+  // 적을수록 중립값에 가깝고 많을수록 실제 비율에 수렴하게 합니다. 투표 0개면 정확히 중립값.
+  const prior = AFFINITY_SUBSCORES.VOTE_PRIOR_STRENGTH;
+  const priorRatio = AFFINITY_SUBSCORES.NO_VOTES_NEUTRAL / 100;
+  const voteRatioScore = ((safeLikes + prior * priorRatio) / (votes + prior)) * 100;
   const bookmarkBonus = Math.min(
     AFFINITY_SUBSCORES.BOOKMARK_BONUS_MAX,
     Math.max(0, bookmarks) * AFFINITY_SUBSCORES.BOOKMARK_BONUS_PER
@@ -160,7 +169,11 @@ function amenityScore(amenities: AffinityInput["amenities"]): number {
 }
 
 export function calculateAffinityBreakdown(input: AffinityInput): AffinityBreakdown {
-  const reviewSatisfaction = reviewSatisfactionScore(input.reviews);
+  const override = input.reviewSatisfactionOverride;
+  const reviewSatisfaction =
+    override != null && !Number.isNaN(override)
+      ? Math.max(0, Math.min(100, Math.round(override)))
+      : reviewSatisfactionScore(input.reviews);
   const governmentVerification = governmentVerificationScore(input.isPublicDataVerified);
   const userReaction = userReactionScore(input.likesCount, input.dislikesCount, input.bookmarkCount);
   const amenity = amenityScore(input.amenities);
