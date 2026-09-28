@@ -26,7 +26,6 @@ export interface RoutablePlace {
   lat: string | number;
   lng: string | number;
   category?: string | null;
-  /** "관광 중심" 테마에서 지역 내(localAreaName 포함 여부) 관광지 여부를 판정하는 데 씁니다. */
   address?: string | null;
   pet_zone?: string | null;
   large_dog?: boolean | null;
@@ -45,7 +44,20 @@ export interface RoutablePlace {
   /** 친화도 점수(affinityScore.ts, 0~100). KakaoMap.tsx가 서버 집계 신호로 미리 계산해
    *  붙여주면 상세페이지와 같은 점수를 정거장에도 그대로 씁니다. 없으면 필드 기반 추정치. */
   affinityScore?: number | null;
+  /** 공공데이터 출처 id("tour-…" = 한국관광공사 반려동물 동반여행 선정지). "유명 관광지" 판정에 씁니다. */
+  sourceId?: string | null;
+  /** 리뷰 수(서버 집계 신호 rc) — "후기 핫플" 판정 */
+  reviewCount?: number | null;
+  /** 리뷰 만족도 0~100(서버 집계 신호 rs). 리뷰가 없으면 null */
+  reviewScore?: number | null;
+  /** 시간 감쇠를 적용한 최근 찜+좋아요 수(서버 집계 신호 bd+ld) */
+  recentReactions?: number | null;
+  /** 최근 30일 조회수(/api/analytics/place-view-counts) */
+  recentViews?: number | null;
 }
+
+/** 정거장이 코스에 들어간 이유 — 관광 중심 코스의 필수 정거장 표시용 */
+export type StopHighlight = "famous" | "hot" | "pick";
 
 export interface RouteStop {
   place: RoutablePlace;
@@ -55,6 +67,8 @@ export interface RouteStop {
   friendliness: number;
   /** 이 정거장에서 다음 정거장까지의 거리(km). 마지막 정거장이면 null. */
   distanceToNextKm: number | null;
+  /** famous = 유명 관광지, hot = 후기가 핫한 곳, pick = 후기 데이터가 없어 대신 고른 추천 장소 */
+  highlight?: StopHighlight;
 }
 
 export interface RouteResult {
@@ -107,20 +121,17 @@ export function classifyStopRole(place: RoutablePlace): StopRole {
   const combined = `${cat} ${name}`;
   if (combined.includes("동물병원")) return "vet";
   if (combined.includes("동물약국")) return "pharmacy";
-  if (cat.includes("카페") || cat.includes("음식점") || cat.includes("쇼핑")) return "cafe";
+  // ⚠ "쇼핑"(관광공사 데이터의 안경점·의류매장 등)은 카페 자리에 들어가면 어색해서 "기타"로 둡니다.
+  if (cat.includes("카페") || cat.includes("음식점") || cat.includes("식당") || cat.includes("제과")) return "cafe";
   if (
     cat.includes("공원") ||
     /해수욕장|해변|숲길|생태공원|수변공원|산책로|둘레길/.test(name + cat)
   ) {
     return "walk";
   }
-  if (
-    cat.includes("관광") ||
-    cat.includes("문화시설") ||
-    cat.includes("레포츠") ||
-    cat.includes("축제") ||
-    cat.includes("여행코스")
-  ) {
+  // ⚠ 문화정보원 데이터는 관광지를 "여행지"·"박물관"·"미술관"으로 표기해서, 예전처럼 "관광"·
+  // "문화시설"만 보면 전부 "기타"로 빠져 관광 중심 코스에 관광지가 안 잡혔습니다.
+  if (/관광|문화시설|레포츠|축제|여행코스|여행지|박물관|미술관|전시|갤러리|기념관|테마파크|전망대/.test(cat)) {
     return "attraction";
   }
   return "etc";
@@ -187,6 +198,22 @@ export function buildStopBullets(place: RoutablePlace, role: StopRole): string[]
   return bullets.slice(0, 3);
 }
 
+/** 관광 중심 필수 정거장이 들어간 근거 문구 — 실제 데이터가 있을 때만 만듭니다. */
+function highlightBullets(place: RoutablePlace, highlight: StopHighlight | undefined): string[] {
+  if (highlight === "famous") {
+    return isTourCurated(place) ? ["한국관광공사 반려동물 동반여행지"] : [];
+  }
+  if (highlight === "hot") {
+    const out: string[] = [];
+    const rc = place.reviewCount ?? 0;
+    if (rc > 0) out.push(place.reviewScore != null ? `후기 ${rc}개 · 만족도 ${Math.round(place.reviewScore)}점` : `후기 ${rc}개`);
+    if ((place.recentReactions ?? 0) >= 1) out.push("최근 찜·좋아요가 늘고 있어요");
+    if ((place.recentViews ?? 0) >= 15) out.push(`최근 30일 조회 ${place.recentViews}회`);
+    return out.slice(0, 2);
+  }
+  return [];
+}
+
 // ── 실제 도보 거리 근사치 ──────────────────────────────────────────────
 // 카카오는 보행자(도보) 길찾기 REST API를 공개로 제공하지 않아(자동차 길찾기만 있음),
 // 이 앱의 카카오 키로는 실시간으로 "진짜 걸을 수 있는 길"의 정확한 거리를 매 후보마다
@@ -196,88 +223,218 @@ export function buildStopBullets(place: RoutablePlace, role: StopRole): string[]
 // 훨씬 가깝습니다). 정거장 선택과 화면에 표시되는 "다음 정거장까지 거리"에 모두 이
 // 보정치를 일관되게 사용합니다.
 const WALK_DETOUR_FACTOR = 1.3;
-const TARGET_HOP_KM = 2; // 정거장 사이 이상적인 도보 이동 거리
-const MAX_HOP_KM = 3.5; // 이 거리를 넘는 후보는 "그나마 나은 후보"가 없을 때만 선택
 
 function estimateWalkKm(straightKm: number): number {
   return straightKm * WALK_DETOUR_FACTOR;
 }
 
+// ── 테마별 거리 튜닝 ──
+// ⚠ 예전엔 산책·실내 코스를 "출발지와 같은 읍/면/동 주소"로만 좁혔는데, 장소 주소의 대부분이
+// 도로명주소라 동 이름이 아예 없고(부산 서면 반경 2km 152곳 중 2곳만 통과), 카카오가 주는
+// 행정동 이름("온천2동")도 주소 표기와 달라 주변에 장소가 있어도 코스가 안 만들어졌습니다.
+// 그래서 "같은 동네"를 주소 문자열이 아니라 출발지로부터의 추정 도보거리로 판단합니다.
+// 기본 반경에서 정거장이 모자라면 한 번 넓혀서 다시 시도합니다(buildRoute).
+interface ThemeTuning {
+  /** 정거장 후보를 찾는 기본 반경(출발지 기준 추정 도보 km) */
+  radiusKm: number;
+  /** 기본 반경으로 코스가 부실하면 넓혀 보는 반경 */
+  expandedRadiusKm: number;
+  /** 한 구간을 이보다 길게 걸으면 비용이 가파르게 커지는 "편하게 걷는 거리" */
+  comfortHopKm: number;
+}
+
+const THEME_TUNING: Record<RouteTheme, ThemeTuning> = {
+  walk: { radiusKm: 2, expandedRadiusKm: 3.5, comfortHopKm: 1.2 },
+  indoor: { radiusKm: 2.5, expandedRadiusKm: 4, comfortHopKm: 1.5 },
+  // 관광지까지는 차로 이동할 수도 있어서 넓게 잡습니다(관광지 이후 정거장은 관광지 기준).
+  attraction: { radiusKm: 5, expandedRadiusKm: 5, comfortHopKm: 2 },
+};
+
+/** 코스를 "쓸 만하다"고 보는 최소 정거장 수 — 기본 반경 결과가 이보다 적으면 넓혀 봅니다. */
+const MIN_GOOD_STOPS = 3;
+
 // 테마별로 원하는 정거장 "역할" 순서. 실제로 후보가 없는 역할은 건너뜁니다.
-// ⚠ 동물병원(vet)·동물약국(pharmacy)은 모든 테마에서 딱 1개씩만 포함합니다 — 산책
-// 코스 특성상 응급 상황 대비용으로 "가장 이상적인 곳" 하나씩만 있으면 충분하고, 같은
-// 카테고리가 여러 개 섞이면(공공데이터에 병원/약국이 유독 많은 지역이 있음) 코스의
-// 다양성이 떨어집니다. CRITICAL_ROLES로 따로 표시해서 나머지 빈 자리를 채우는
-// 로직에서 제외합니다(아래 buildRoute 참고).
+// ⚠ 동물병원(vet)·동물약국(pharmacy)은 여기 넣지 않고, 사용자가 코스 패널 토글로 켠 것만
+// 코스 자리 중 뒤쪽을 1곳씩 차지합니다(buildRoute의 includeVet/includePharmacy). 켜면
+// 산책·카페 자리가 그만큼 줄어듭니다. 두 역할은 CRITICAL_ROLES로 표시해 빈 자리를 채우는
+// 로직에서는 항상 제외합니다(병원·약국이 여러 곳 섞이지 않게).
 // ⚠ "attraction" 테마에는 여기 "attraction" 역할을 넣지 않습니다 — 관광 중심 코스는
 // 관광지가 "반드시" 포함되어야 해서(요청사항), 일반 role 루프의 "후보 없으면 건너뛰기"
 // 방식 대신 buildRoute 맨 앞에서 pickAttractionStop()으로 별도 확정합니다.
 const THEME_ROLE_SEQUENCE: Record<RouteTheme, StopRole[]> = {
-  walk: ["walk", "cafe", "vet", "pharmacy"],
-  attraction: ["cafe", "vet", "pharmacy"],
-  indoor: ["cafe", "attraction", "vet", "pharmacy"],
+  walk: ["walk", "cafe", "walk", "cafe"],
+  attraction: ["cafe", "walk", "cafe"],
+  indoor: ["cafe", "attraction", "cafe", "attraction"],
 };
 
 const CRITICAL_ROLES: StopRole[] = ["vet", "pharmacy"];
 
-// "관광 중심" 코스에서 지역 내(주소 기준) 관광지가 하나도 없는 외곽지역에 한해서만,
-// 이 반경(km) 이내의 타 지역 관광지를 차선으로 허용합니다.
-const ATTRACTION_LOCAL_FALLBACK_KM = 5;
+// ── 관광 중심 필수 정거장 ──────────────────────────────────────────────
+// 관광 중심 코스는 ① 근방의 유명 관광지 ② 후기가 핫한 장소를 반드시 포함해야 합니다(요청사항).
+/** 유명 관광지를 찾는 반경(출발지 기준 직선 km) — 관광지까지는 차로 가는 코스도 허용 */
+const ATTRACTION_MAX_KM = 5;
+/** 유명도 1점이 거리 몇 km와 맞먹는지 — 가까운 평범한 곳보다 조금 멀어도 유명한 곳을 고릅니다 */
+const FAME_KM_PER_POINT = 1;
+/** 한국관광공사가 반려동물 동반여행지로 선정한 곳의 유명도 가점 */
+const TOUR_CURATED_FAME = 3;
+/** 후기 핫플을 찾는 반경(관광지 기준 추정 도보 km) — 관광지와 같이 들르기 좋은 거리 */
+const HOT_MAX_WALK_KM = 3;
+/** 이 점수 이상이면 "후기 핫플"(리뷰 3개, 최근 찜·좋아요 6개, 최근 조회 15회 중 하나 수준) */
+const HOT_MIN_SCORE = 3;
+/** 만족도가 이보다 낮은 곳은 후기가 많아도 핫플로 보지 않습니다(나쁜 후기로 핫한 곳 제외) */
+const HOT_MIN_SATISFACTION = 60;
+const DEFAULT_PLACE_IMAGE = "/images/default-place.png";
 
-function isIndoorFriendly(place: RoutablePlace): boolean {
-  // ⚠ 동물병원·동물약국은 pet_zone이 "실내 추천" 테마 후보 분류에 영향을 주면 안 됩니다
-  // (상세페이지 표시 전용 필드) — 그 두 역할은 pet_zone 값과 무관하게 원래 로직대로
-  // pool 전체에서 필요할 때(critical role) 채워지도록 이 판정에서 제외합니다.
-  const role = classifyStopRole(place);
-  if (role === "vet" || role === "pharmacy") return false;
-  return place.pet_zone === "indoor" || place.pet_zone === "both";
+export function isTourCurated(place: RoutablePlace): boolean {
+  return typeof place.sourceId === "string" && place.sourceId.startsWith("tour-");
+}
+
+/** 유명도(0~): 관광공사 선정 + 인기(찜·좋아요) + 리뷰 수 + 실제 사진 */
+export function fameScore(place: RoutablePlace): number {
+  const popularity = Math.max(0, place.bookmarkCount ?? 0) * 0.3 + Math.max(0, place.likeCount ?? 0) * 0.2;
+  const reviews = Math.max(0, place.reviewCount ?? 0) * 0.3;
+  const hasPhoto = !!place.image_url && place.image_url !== DEFAULT_PLACE_IMAGE;
+  return (isTourCurated(place) ? TOUR_CURATED_FAME : 0) + Math.min(3, popularity) + Math.min(2, reviews) + (hasPhoto ? 0.5 : 0);
+}
+
+/** 후기가 얼마나 "핫한지"(0~). 만족도가 낮으면 0 */
+export function hotScore(place: RoutablePlace): number {
+  if (place.reviewScore != null && place.reviewScore < HOT_MIN_SATISFACTION) return 0;
+  return (
+    Math.max(0, place.reviewCount ?? 0) +
+    Math.max(0, place.recentReactions ?? 0) * 0.5 +
+    Math.max(0, place.recentViews ?? 0) / 5
+  );
 }
 
 /**
- * "관광 중심" 테마 전용 — 실제 관광지 하나를 최우선으로 확보합니다.
- * 1) localAreaName(현재 위치가 속한 읍/면/동)이 주소에 포함되는 "지역 내" 관광지가
- *    있으면 그중 가장 이상적인 곳을 고릅니다.
- * 2) 지역 내에 하나도 없으면("외곽지역") ATTRACTION_LOCAL_FALLBACK_KM(5km) 이내의
- *    타 지역 관광지를 차선으로 허용합니다.
- * 3) 그마저도 없으면 null — 없는 관광지를 지어내지 않고 정직하게 포기합니다.
- * 관광지는 도보권을 벗어나 차로 이동하는 코스도 허용해야 해서(요청사항), 다른 역할과
- * 달리 estimateWalkKm/TARGET_HOP_KM 제약 없이 직선거리 기준으로 고릅니다.
+ * "실내 추천" 코스 후보인지. 동물병원·약국은 pet_zone과 무관하게(상세페이지 표시 전용 필드)
+ * 응급 대비 정거장으로 항상 후보에 둡니다 — 예전엔 여기서 false를 돌려 실내 코스에서
+ * 병원·약국이 늘 빠졌습니다. 공원·테라스 전용 장소는 실내 코스에 넣지 않고, 동반 범위
+ * 정보가 없는 카페·관광(문화시설 등)은 실내일 가능성이 높아 후보로 인정합니다.
  */
-function pickAttractionStop(
-  pool: RoutablePlace[],
-  used: Set<string | number>,
-  center: { lat: number; lng: number },
-  localAreaName?: string | null
-): RoutablePlace | null {
-  const candidates = pool.filter((p) => !used.has(p.id) && classifyStopRole(p) === "attraction");
-  if (candidates.length === 0) return null;
+function isIndoorCandidate(place: RoutablePlace): boolean {
+  const role = classifyStopRole(place);
+  if (CRITICAL_ROLES.includes(role)) return true;
+  if (role === "walk" || place.pet_zone === "terrace") return false;
+  // 관광지는 카테고리로 실내형(박물관·미술관·전시 등)만 인정합니다 — 공공데이터는 pet_zone이 없으면
+  // 기본값 "both"가 채워져서, 그 값만 믿으면 "문탠로드"·"달맞이길" 같은 야외 관광지가 실내 코스에 섞였습니다.
+  if (role === "attraction") return INDOOR_ATTRACTION_PATTERN.test(place.category || "");
+  if (place.pet_zone === "indoor" || place.pet_zone === "both") return true;
+  return !place.pet_zone && role === "cafe";
+}
 
-  const bestOf = (list: RoutablePlace[]): RoutablePlace | null => {
-    if (list.length === 0) return null;
-    let best: RoutablePlace | null = null;
-    let bestScore = Infinity;
-    for (const p of list) {
-      const d = haversineKm(center.lat, center.lng, Number(p.lat), Number(p.lng));
-      const popDiscount = popularityDistanceDiscountKm(p);
-      const idealDiscount = Math.max(0, (estimateStopFriendliness(p) - 70) / 10) * 0.5;
-      const score = Math.max(0, d - popDiscount - idealDiscount);
-      if (score < bestScore) {
-        bestScore = score;
-        best = p;
+const INDOOR_ATTRACTION_PATTERN = /문화시설|박물관|미술관|전시|갤러리|기념관/;
+
+/** 코스에 넣지 않는 장소 — 관광공사 "쇼핑"(안경점·의류매장 등)은 반려동물 동반 코스로 어색합니다. */
+function isCourseExcluded(place: RoutablePlace): boolean {
+  return (place.category || "").includes("쇼핑");
+}
+
+const normalizeName = (name: string) => name.replace(/\(.*?\)|\s|[·.,'"-]/g, "").toLowerCase();
+
+/**
+ * 출처가 다른 같은 장소(관광공사 "부산시민공원" + 공원 데이터 "시민공원" 등)가 한 코스에 두 번
+ * 들어가지 않도록, 이름이 같거나 한쪽이 다른 쪽을 포함하고 300m 안에 있으면 하나만 남깁니다.
+ * 먼저 나온 쪽을 남기므로 호출부의 후보 순서(우리 DB 장소 → 공공데이터 → 공원)를 따릅니다.
+ */
+function dedupeSamePlace(pool: RoutablePlace[]): RoutablePlace[] {
+  // 후보가 수천 곳이라 전부 서로 비교하지 않고, 약 300m 격자 칸과 이웃 칸끼리만 비교합니다.
+  const CELL = 0.003;
+  type Kept = { place: RoutablePlace; key: string; lat: number; lng: number };
+  const grid = new Map<string, Kept[]>();
+  const out: RoutablePlace[] = [];
+  for (const place of pool) {
+    const key = normalizeName(place.name || "");
+    const lat = Number(place.lat);
+    const lng = Number(place.lng);
+    const cy = Math.floor(lat / CELL);
+    const cx = Math.floor(lng / CELL);
+    let dup = false;
+    if (key.length >= 2) {
+      for (let dy = -1; dy <= 1 && !dup; dy++) {
+        for (let dx = -1; dx <= 1 && !dup; dx++) {
+          for (const k of grid.get(`${cy + dy},${cx + dx}`) ?? []) {
+            const sameName = k.key === key || (Math.min(k.key.length, key.length) >= 3 && (k.key.includes(key) || key.includes(k.key)));
+            if (sameName && haversineKm(k.lat, k.lng, lat, lng) <= 0.3) {
+              dup = true;
+              break;
+            }
+          }
+        }
       }
     }
-    return best;
-  };
+    if (dup) continue;
+    const cell = `${cy},${cx}`;
+    grid.set(cell, [...(grid.get(cell) ?? []), { place, key, lat, lng }]);
+    out.push(place);
+  }
+  return out;
+}
 
-  const localOnes = localAreaName
-    ? candidates.filter((p) => typeof p.address === "string" && p.address.includes(localAreaName))
-    : [];
-  if (localOnes.length > 0) return bestOf(localOnes);
+/**
+ * "관광 중심" 필수 정거장 ① — 근방(ATTRACTION_MAX_KM)의 유명 관광지 하나.
+ * 관광공사 선정지를 크게 우대하고, 인기·리뷰·사진으로 유명도를 매긴 뒤 거리와 저울질합니다
+ * (유명도 1점 ≈ 1km). 관광지는 차로 가는 코스도 허용해서 도보 반경 제약 없이 직선거리로 봅니다.
+ * 근방에 관광지가 없으면 null — 없는 관광지를 지어내지 않습니다(코스를 만들지 않음).
+ */
+function pickFamousAttraction(
+  pool: RoutablePlace[],
+  used: Set<string | number>,
+  center: { lat: number; lng: number }
+): RoutablePlace | null {
+  let best: RoutablePlace | null = null;
+  let bestCost = Infinity;
+  for (const p of pool) {
+    if (used.has(p.id) || classifyStopRole(p) !== "attraction") continue;
+    const d = haversineKm(center.lat, center.lng, Number(p.lat), Number(p.lng));
+    if (d > ATTRACTION_MAX_KM) continue;
+    const quality = Math.max(0, (estimateStopFriendliness(p) - 70) / 10) * 0.5;
+    const cost = d - fameScore(p) * FAME_KM_PER_POINT - quality;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = p;
+    }
+  }
+  return best;
+}
 
-  const nearbyOnes = candidates.filter(
-    (p) => haversineKm(center.lat, center.lng, Number(p.lat), Number(p.lng)) <= ATTRACTION_LOCAL_FALLBACK_KM
-  );
-  return bestOf(nearbyOnes);
+/**
+ * "관광 중심" 필수 정거장 ② — 관광지와 함께 들르기 좋은(HOT_MAX_WALK_KM) 후기 핫플 하나.
+ * hotScore가 HOT_MIN_SCORE 이상인 곳 중 가장 핫한 곳을 고르고(highlight "hot"), 그런 곳이
+ * 없으면(리뷰 데이터가 아직 적은 지역) 친화도·인기도가 가장 좋은 곳을 대신 넣되 "pick"으로
+ * 표시해서 핫플인 척하지 않습니다(요청사항: 대체 장소 + 표시).
+ */
+function pickHotStop(
+  pool: RoutablePlace[],
+  used: Set<string | number>,
+  anchor: { lat: number; lng: number },
+  comfortHopKm: number
+): { place: RoutablePlace; highlight: "hot" | "pick" } | null {
+  const nearby = pool.filter((p) => {
+    if (used.has(p.id) || CRITICAL_ROLES.includes(classifyStopRole(p))) return false;
+    return estimateWalkKm(haversineKm(anchor.lat, anchor.lng, Number(p.lat), Number(p.lng))) <= HOT_MAX_WALK_KM;
+  });
+  if (nearby.length === 0) return null;
+
+  const hot = nearby
+    .map((p) => ({ p, score: hotScore(p) }))
+    .filter((x) => x.score >= HOT_MIN_SCORE)
+    .sort((a, b) => b.score - a.score)[0];
+  if (hot) return { place: hot.p, highlight: "hot" };
+
+  // 대체 추천은 머물다 가기 좋은 카페·산책지를 우선하고, 없을 때만 다른 곳(반려용품점 등)을 봅니다.
+  const hangouts = nearby.filter((p) => ["cafe", "walk"].includes(classifyStopRole(p)));
+  let best: RoutablePlace | null = null;
+  let bestCost = Infinity;
+  for (const p of hangouts.length > 0 ? hangouts : nearby) {
+    const cost = hopCost(anchor.lat, anchor.lng, p, comfortHopKm) - stopUtilityKm(p, classifyStopRole(p));
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = p;
+    }
+  }
+  return best ? { place: best, highlight: "pick" } : null;
 }
 
 // ── 코스 최적화 파라미터 ──────────────────────────────────────────────
@@ -287,14 +444,13 @@ function pickAttractionStop(
 // 상위 후보 몇 개씩을 뽑아 가능한 조합과 방문 순서를 전부 평가합니다. 역할 4개 × 후보
 // 6개면 조합 1,296개 × 순서 최대 24가지 ≈ 3만 번 계산이라 브라우저에서도 수 ms 수준입니다.
 const CANDIDATES_PER_SLOT = 6;
-/** 정거장 품질(친화도·인기도) 1단위가 도보 거리 몇 km와 맞먹는지 — 클수록 멀어도 좋은 곳을 고름 */
-const UTILITY_KM_PER_POINT = 0.05;
+/** 정거장 품질(친화도·인기도) 1단위가 도보 거리 몇 km와 맞먹는지 — 클수록 멀어도 좋은 곳을 고름.
+ *  친화도 90점이면 70점짜리보다 0.6km 더 걸어도 되는 정도(예전 0.05는 1km라 먼 곳이 자주 뽑힘). */
+const UTILITY_KM_PER_POINT = 0.03;
 /** 운영시간을 알 수 없는 장소의 불이익(km 환산) — 제외하진 않고 확인된 곳을 조금 더 선호 */
 const UNKNOWN_HOURS_PENALTY_KM = 0.3;
-/** 한 정거장 후보로 인정하는 최대 추정 도보 거리(km). 이보다 먼 곳은 역할이 맞아도 코스에
- *  넣지 않습니다 — "카페 역할을 채우려고 20km 떨어진 카페를 넣는" 식의 걸을 수 없는 코스를
- *  막습니다(차라리 정거장 수를 줄이는 편이 낫다고 판단). */
-const MAX_STOP_WALK_KM = 5;
+/** 편하게 걷는 거리(comfortHopKm)를 넘긴 구간의 추가 비용 배수 */
+const OVER_COMFORT_MULTIPLIER = 2;
 
 function stopUtilityKm(place: RoutablePlace, role: StopRole): number {
   const friendliness = estimateStopFriendliness(place);
@@ -303,10 +459,14 @@ function stopUtilityKm(place: RoutablePlace, role: StopRole): number {
   return (friendliness - 70) * UTILITY_KM_PER_POINT * qualityWeight + popularityDistanceDiscountKm(place);
 }
 
-function hopCost(fromLat: number, fromLng: number, place: RoutablePlace): number {
+/**
+ * 한 구간의 이동 비용(km 환산). 반려견과 걷는 코스라 짧을수록 좋습니다.
+ * ⚠ 예전엔 "구간마다 2km에 가까울수록 좋다"(|거리−2|)는 식이라 바로 옆 카페보다 2km 떨어진
+ * 카페를 고르고, 정거장 4곳이면 총 8km를 넘는 지그재그 코스가 나왔습니다.
+ */
+function hopCost(fromLat: number, fromLng: number, place: RoutablePlace, comfortHopKm: number): number {
   const walkKm = estimateWalkKm(haversineKm(fromLat, fromLng, Number(place.lat), Number(place.lng)));
-  // TARGET_HOP_KM에 가까울수록 좋고, MAX_HOP_KM을 넘으면 급격히 불리하게(기존 pickBest와 같은 형태)
-  return walkKm > MAX_HOP_KM ? MAX_HOP_KM + walkKm : Math.abs(walkKm - TARGET_HOP_KM);
+  return walkKm + Math.max(0, walkKm - comfortHopKm) * OVER_COMFORT_MULTIPLIER;
 }
 
 function permutations<T>(items: T[]): T[][] {
@@ -334,35 +494,66 @@ interface Slot {
  *    평가해서 (도보 구간 비용 − 정거장 품질)이 가장 작은 코스를 고름. 도착 예정 시각에
  *    문을 닫는 곳이 들어간 코스는 제외(운영시간 = 시간 창 제약)
  * 4) 남은 자리는 기존처럼 그리디로 채움
+ *
+ * 테마별 기본 반경(THEME_TUNING)에서 정거장이 MIN_GOOD_STOPS보다 적게 나오면 넓힌 반경으로
+ * 한 번 더 만들어 보고, 정거장이 더 많은 쪽을 돌려줍니다.
  */
+export interface BuildRouteOptions {
+  /** 이 id들은 후보에서 제외합니다 — "다른 코스 보기"로 이전에 나온 정거장을 뺄 때 씁니다. */
+  excludeIds?: Iterable<string | number>;
+  /** 코스 출발 시각(운영시간 판정 기준). 기본값은 지금 — 테스트에서 고정할 때 씁니다. */
+  startAt?: Date;
+  /** 코스에 동물병원 1곳을 넣을지(코스 패널 토글). 기본 false */
+  includeVet?: boolean;
+  /** 코스에 동물약국 1곳을 넣을지(코스 패널 토글). 기본 false */
+  includePharmacy?: boolean;
+}
+
 export function buildRoute(
   candidates: RoutablePlace[],
   center: { lat: number; lng: number },
   theme: RouteTheme,
   maxStops = 4,
-  options?: {
-    /** "관광 중심" 테마에서 지역 내 관광지를 판정할 읍/면/동 이름(reverseGeocodeDong 결과). */
-    localAreaName?: string | null;
-    /** 이 id들은 후보에서 제외합니다 — "다른 코스 보기"로 이전에 나온 정거장을 뺄 때 씁니다. */
-    excludeIds?: Iterable<string | number>;
-    /** 코스 출발 시각(운영시간 판정 기준). 기본값은 지금 — 테스트에서 고정할 때 씁니다. */
-    startAt?: Date;
-  }
+  options?: BuildRouteOptions
 ): RouteResult | null {
+  const tuning = THEME_TUNING[theme];
+  const base = buildRouteWithin(candidates, center, theme, maxStops, options, tuning.radiusKm);
+  const goodEnough = Math.min(MIN_GOOD_STOPS, maxStops);
+  if ((base && base.stops.length >= goodEnough) || tuning.expandedRadiusKm <= tuning.radiusKm) return base;
+  const expanded = buildRouteWithin(candidates, center, theme, maxStops, options, tuning.expandedRadiusKm);
+  if (!base) return expanded;
+  return expanded && expanded.stops.length > base.stops.length ? expanded : base;
+}
+
+function buildRouteWithin(
+  candidates: RoutablePlace[],
+  center: { lat: number; lng: number },
+  theme: RouteTheme,
+  maxStops: number,
+  options: BuildRouteOptions | undefined,
+  radiusKm: number
+): RouteResult | null {
+  const { comfortHopKm } = THEME_TUNING[theme];
   const startAt = options?.startAt ?? new Date();
   const statusAt = (place: RoutablePlace, minutesFromStart: number): OpenStatus =>
     getOpenStatus(place.hours, place.closed_days, new Date(startAt.getTime() + minutesFromStart * 60_000));
 
-  let pool = candidates.filter((p) => {
-    const lat = Number(p.lat);
-    const lng = Number(p.lng);
-    return !isNaN(lat) && !isNaN(lng);
-  });
+  // 토글로 끈 의료시설은 후보에서 아예 뺍니다.
+  const excludedRoles = new Set<StopRole>([
+    ...(options?.includeVet ? [] : (["vet"] as StopRole[])),
+    ...(options?.includePharmacy ? [] : (["pharmacy"] as StopRole[])),
+  ]);
 
-  if (theme === "indoor") {
-    const indoorPool = pool.filter(isIndoorFriendly);
-    if (indoorPool.length >= 2) pool = indoorPool;
-  }
+  let pool = dedupeSamePlace(
+    candidates.filter((p) => {
+      const lat = Number(p.lat);
+      const lng = Number(p.lng);
+      return !isNaN(lat) && !isNaN(lng) && !excludedRoles.has(classifyStopRole(p)) && !isCourseExcluded(p);
+    })
+  );
+
+  // 실내 추천은 실내 후보만 씁니다(예전엔 실내 후보가 2곳 미만이면 공원까지 섞인 전체로 돌아갔음).
+  if (theme === "indoor") pool = pool.filter(isIndoorCandidate);
 
   // 출발 시점과 3시간 뒤 모두 "확실히 닫힘"인 곳은 코스 시간 안에 방문할 수 없으므로 미리 뺍니다.
   pool = pool.filter((p) => !(statusAt(p, 0) === "closed" && statusAt(p, 180) === "closed"));
@@ -372,26 +563,41 @@ export function buildRoute(
   const used = new Set<string | number>(options?.excludeIds ?? []);
   const available = (p: RoutablePlace) => !used.has(p.id);
 
-  // ── 관광 중심: 관광지를 먼저 확정(요청사항 — 반드시 포함). 관광지까지는 차로 이동하는
-  // 코스도 허용해서 도보 구간 비용 계산에서 빠지고, 이후 정거장은 관광지를 기준으로 채웁니다.
+  // ── 관광 중심: 필수 정거장 두 곳을 먼저 확정합니다(요청사항 — 반드시 포함).
+  // ① 유명 관광지: 첫 정거장. 관광지까지는 차로 이동하는 코스도 허용해서 도보 구간 비용
+  //    계산에서 빠지고, 이후 정거장은 관광지를 기준으로 채웁니다. 근방에 없으면 코스 없음.
+  // ② 후기 핫플(없으면 대체 추천): 관광지 주변에서 골라 방문 순서만 최적화 대상에 넣습니다.
   let fixedFirst: RoutablePlace | null = null;
+  let requiredStop: { place: RoutablePlace; highlight: "hot" | "pick" } | null = null;
   if (theme === "attraction") {
-    fixedFirst = pickAttractionStop(pool, used, center, options?.localAreaName);
-    if (fixedFirst) used.add(fixedFirst.id);
+    fixedFirst = pickFamousAttraction(pool, used, center);
+    if (!fixedFirst) return null;
+    used.add(fixedFirst.id);
+    const attractionPoint = { lat: Number(fixedFirst.lat), lng: Number(fixedFirst.lng) };
+    requiredStop = pickHotStop(pool, used, attractionPoint, comfortHopKm);
+    if (!requiredStop) return null;
+    used.add(requiredStop.place.id);
   }
   const anchor = fixedFirst ? { lat: Number(fixedFirst.lat), lng: Number(fixedFirst.lng) } : center;
   const anchorDwell = fixedFirst ? DWELL_MINUTES[classifyStopRole(fixedFirst)] : 0;
 
   const withinWalk = (from: { lat: number; lng: number }, p: RoutablePlace) =>
-    estimateWalkKm(haversineKm(from.lat, from.lng, Number(p.lat), Number(p.lng))) <= MAX_STOP_WALK_KM;
+    estimateWalkKm(haversineKm(from.lat, from.lng, Number(p.lat), Number(p.lng))) <= radiusKm;
   const nonCriticalPool = pool.filter(
     (p) => available(p) && !CRITICAL_ROLES.includes(classifyStopRole(p)) && withinWalk(anchor, p)
   );
 
   // ── 슬롯 구성 ──
+  // 필수 정거장(후기 핫플)과 켜진 의료시설 슬롯을 먼저 확보하고, 남은 자리를 테마 역할 순서로
+  // 채웁니다(후보가 없는 의료시설 슬롯은 아래 루프에서 건너뜁니다).
   const slotBudget = maxStops - (fixedFirst ? 1 : 0);
-  const slots: Slot[] = [];
-  for (const role of THEME_ROLE_SEQUENCE[theme]) {
+  const medicalRoles = CRITICAL_ROLES.filter((role) => !excludedRoles.has(role));
+  const reservedSlots = medicalRoles.length + (requiredStop ? 1 : 0);
+  const themeRoles = THEME_ROLE_SEQUENCE[theme].slice(0, Math.max(0, slotBudget - reservedSlots));
+  const slots: Slot[] = requiredStop
+    ? [{ role: classifyStopRole(requiredStop.place), candidates: [requiredStop.place] }]
+    : [];
+  for (const role of [...themeRoles, ...medicalRoles]) {
     if (slots.length >= slotBudget) break;
     const isCritical = CRITICAL_ROLES.includes(role);
     const roleCandidates = pool.filter((p) => available(p) && classifyStopRole(p) === role && withinWalk(anchor, p));
@@ -409,10 +615,12 @@ export function buildRoute(
   // 슬롯별 상위 후보 추리기: 기준점에서의 도보 구간 적합도 − 품질이 좋은 순.
   // "any" 슬롯은 병원·약국을 제외한 전체에서 고릅니다.
   const shortlist = (slot: Slot): RoutablePlace[] => {
+    // 필수 정거장 슬롯은 후보가 그 한 곳뿐이라 그대로 둡니다.
+    if (requiredStop && slot.candidates.length === 1 && slot.candidates[0].id === requiredStop.place.id) return slot.candidates;
     const source = slot.role === "any" ? nonCriticalPool : slot.candidates;
     const role = (p: RoutablePlace) => (slot.role === "any" ? classifyStopRole(p) : slot.role);
     return source
-      .map((p) => ({ p, cost: hopCost(anchor.lat, anchor.lng, p) - stopUtilityKm(p, role(p)) }))
+      .map((p) => ({ p, cost: hopCost(anchor.lat, anchor.lng, p, comfortHopKm) - stopUtilityKm(p, role(p)) }))
       .sort((a, b) => a.cost - b.cost)
       .slice(0, CANDIDATES_PER_SLOT)
       .map((x) => x.p);
@@ -444,7 +652,7 @@ export function buildRoute(
           feasible = false;
           break;
         }
-        cost += hopCost(cursor.lat, cursor.lng, place) - stopUtilityKm(place, role);
+        cost += hopCost(cursor.lat, cursor.lng, place, comfortHopKm) - stopUtilityKm(place, role);
         if (status === "unknown") cost += UNKNOWN_HOURS_PENALTY_KM;
         minutes += DWELL_MINUTES[role];
         cursor = { lat: Number(place.lat), lng: Number(place.lng) };
@@ -477,22 +685,37 @@ export function buildRoute(
   };
   walkCombos(0, [], new Set());
 
+  const highlightOf = (place: RoutablePlace): StopHighlight | undefined => {
+    if (fixedFirst && place.id === fixedFirst.id) return "famous";
+    if (requiredStop && place.id === requiredStop.place.id) return requiredStop.highlight;
+    return undefined;
+  };
+
   const stops: RouteStop[] = [];
   const pushStop = (picked: RoutablePlace, includeCategoryTag: boolean) => {
     const role = classifyStopRole(picked);
+    const highlight = highlightOf(picked);
     used.add(picked.id);
     stops.push({
       place: picked,
       role,
       tags: [ROLE_LABEL[role], ...(includeCategoryTag && picked.category && picked.category !== ROLE_LABEL[role] ? [picked.category] : [])],
-      bullets: buildStopBullets(picked, role),
+      bullets: [...highlightBullets(picked, highlight), ...buildStopBullets(picked, role)].slice(0, 3),
       friendliness: estimateStopFriendliness(picked),
       distanceToNextKm: null,
+      ...(highlight ? { highlight } : {}),
     });
   };
 
   if (fixedFirst) pushStop(fixedFirst, true);
   for (const p of bestPlan) pushStop(p, true);
+  // 필수 정거장이 시간 제약 등으로 조합에서 빠졌으면 관광지 바로 다음에 넣습니다(반드시 포함).
+  if (requiredStop && !stops.some((s) => s.place.id === requiredStop!.place.id)) {
+    if (stops.length >= maxStops) stops.pop();
+    pushStop(requiredStop.place, true);
+    const added = stops.pop()!;
+    stops.splice(fixedFirst ? 1 : 0, 0, added);
+  }
 
   // 정거장이 부족하면(후보가 겹치거나 시간 제약으로 빠진 경우) 남은 풀에서 그리디로 채웁니다.
   // ⚠ 동물병원/동물약국은 위에서 이미 최대 1개씩만 뽑았으므로 여기서는 후보에서 제외합니다.
@@ -504,7 +727,7 @@ export function buildRoute(
     let bestScore = Infinity;
     for (const p of nonCriticalPool) {
       if (used.has(p.id) || !withinWalk(cursor, p)) continue;
-      const score = hopCost(cursor.lat, cursor.lng, p) - stopUtilityKm(p, classifyStopRole(p));
+      const score = hopCost(cursor.lat, cursor.lng, p, comfortHopKm) - stopUtilityKm(p, classifyStopRole(p));
       if (score < bestScore) {
         bestScore = score;
         best = p;

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import CommunityPostClient from "./CommunityPostClient";
+import { siteUrl } from "@/lib/siteUrl";
 
-const siteUrl = "https://main.d2ywd3m1zdoku3.amplifyapp.com";
 const DEFAULT_IMAGE = "/icons/header_logo_final.png";
 
 export async function generateMetadata({

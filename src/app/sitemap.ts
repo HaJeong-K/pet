@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { supabase } from "@/lib/supabase";
-
-const siteUrl = "https://main.d2ywd3m1zdoku3.amplifyapp.com";
+import { siteUrl } from "@/lib/siteUrl";
 
 // ⚠ 공공데이터 출처 장소(문화시설 21,000여 건 등)는 여기 포함하지 않습니다 — sitemap
 // 생성 한 번을 위해 전국 데이터를 전량 fetch하면 그 자체가 무거운 작업이고, 검색엔진

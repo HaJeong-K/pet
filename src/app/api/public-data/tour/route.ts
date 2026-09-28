@@ -151,46 +151,85 @@ function extractIntroFields(contentTypeId: string | undefined, intro: any) {
 // GET 핸들러를 HTTP로 다시 호출하지 않고 함수로 직접 재사용할 수 있도록 분리했습니다
 // — 서버리스 함수가 자기 자신을 fetch로 호출하는 건 URL 구성(절대경로/헤더)이
 // 번거롭고 왕복이 하나 더 늘어나 느려지기만 합니다.
-export async function getTourPlaces(areaCode = "", numOfRows = "100"): Promise<any[]> {
+// 목록 API 한 번에 받을 건수(data.go.kr 최대 1000) — 전국 약 9,700건이라 10번이면 전부 받습니다.
+const LIST_PAGE_SIZE = 1000;
+// 예기치 않게 totalCount가 커져도 호출이 폭주하지 않게 두는 상한
+const LIST_MAX_PAGES = 20;
+
+// 공공데이터포털 Open API는 서비스마다 성공 코드 표기가 달라서("0", "00", "0000" 등)
+// "0"/"00"만 성공으로 인정하던 이전 코드가 KorPetTourService2의 정상 성공 코드인
+// "0000"(resultMsg: "OK")까지 오류로 오판해 매번 빈 배열을 반환하는 버그가 있었습니다.
+const SUCCESS_CODES = new Set(["0", "00", "0000"]);
+
+/** 목록 한 페이지 조회. 실패하면 null */
+async function fetchListPage(
+  apiKey: string,
+  areaCode: string,
+  pageNo: number,
+  numOfRows: number
+): Promise<{ items: any[]; totalCount: number } | null> {
+  const qs = new URLSearchParams();
+  qs.set("numOfRows", String(numOfRows));
+  qs.set("pageNo", String(pageNo));
+  qs.set("MobileOS", "ETC");
+  qs.set("MobileApp", "GachiGagae");
+  qs.set("_type", "json");
+  qs.set("arrange", "C");
+  if (areaCode) qs.set("areaCode", areaCode);
+
+  // serviceKey는 이미 퍼센트 인코딩된 값일 수 있으므로 URLSearchParams가 아니라
+  // 쿼리스트링에 직접 이어붙입니다(이중 인코딩 방지).
+  const listUrl = `${BASE_URL}/areaBasedList2?${qs.toString()}&serviceKey=${encodeServiceKey(apiKey)}`;
+
+  const res = await fetch(listUrl, { next: { revalidate: 3600 } });
+  const rawText = await res.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    console.error("TourAPI 응답이 JSON이 아님:", rawText.slice(0, 300));
+    return null;
+  }
+
+  const resultCode = data?.response?.header?.resultCode;
+  if (!res.ok || (resultCode && !SUCCESS_CODES.has(resultCode))) {
+    console.error("TourAPI 응답 오류:", res.status, resultCode, data?.response?.header?.resultMsg);
+    return null;
+  }
+
+  const items = data?.response?.body?.items?.item ?? [];
+  return {
+    items: Array.isArray(items) ? items : items ? [items] : [],
+    totalCount: Number(data?.response?.body?.totalCount) || 0,
+  };
+}
+
+/**
+ * @param maxItems 받을 최대 건수. 생략하면 전국 전체를 페이지를 넘겨 가며 모두 받습니다.
+ * ⚠ 예전엔 pageNo=1·numOfRows=100으로 첫 페이지만 받아서 전국 약 9,700곳 중 100곳(서울 3곳,
+ *   부산 5곳)만 지도·AI 코스에 쓰였습니다 — 관광 중심 코스에서 관광공사 선정지가 거의 안 나온 원인.
+ */
+export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<any[]> {
   const apiKey = process.env.TOUR_API_KEY;
   if (!apiKey) return [];
 
   try {
-    const qs = new URLSearchParams();
-    qs.set("numOfRows", numOfRows);
-    qs.set("pageNo", "1");
-    qs.set("MobileOS", "ETC");
-    qs.set("MobileApp", "GachiGagae");
-    qs.set("_type", "json");
-    qs.set("arrange", "C");
-    if (areaCode) qs.set("areaCode", areaCode);
+    const pageSize = maxItems ? Math.min(maxItems, LIST_PAGE_SIZE) : LIST_PAGE_SIZE;
+    const first = await fetchListPage(apiKey, areaCode, 1, pageSize);
+    if (!first) return [];
 
-    // serviceKey는 이미 퍼센트 인코딩된 값일 수 있으므로 URLSearchParams가 아니라
-    // 쿼리스트링에 직접 이어붙입니다(이중 인코딩 방지).
-    const listUrl = `${BASE_URL}/areaBasedList2?${qs.toString()}&serviceKey=${encodeServiceKey(apiKey)}`;
-
-    const res = await fetch(listUrl, { next: { revalidate: 3600 } });
-    const rawText = await res.text();
-    let data: any = null;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      console.error("TourAPI 응답이 JSON이 아님:", rawText.slice(0, 300));
-      return [];
+    let list = first.items;
+    const wanted = maxItems ? Math.min(maxItems, first.totalCount) : first.totalCount;
+    const pages = Math.min(LIST_MAX_PAGES, Math.ceil(wanted / pageSize));
+    if (pages > 1) {
+      // 나머지 페이지는 동시에 받습니다(실패한 페이지는 건너뜀 — 일부라도 보여주는 편이 낫다).
+      const rest = await Promise.all(
+        Array.from({ length: pages - 1 }, (_, i) => fetchListPage(apiKey, areaCode, i + 2, pageSize))
+      );
+      for (const page of rest) if (page) list = list.concat(page.items);
     }
+    if (maxItems) list = list.slice(0, maxItems);
 
-    // 공공데이터포털 Open API는 서비스마다 성공 코드 표기가 달라서("0", "00", "0000" 등)
-    // "0"/"00"만 성공으로 인정하던 이전 코드가 KorPetTourService2의 정상 성공 코드인
-    // "0000"(resultMsg: "OK")까지 오류로 오판해 매번 빈 배열을 반환하는 버그가 있었습니다.
-    const resultCode = data?.response?.header?.resultCode;
-    const SUCCESS_CODES = new Set(["0", "00", "0000"]);
-    if (!res.ok || (resultCode && !SUCCESS_CODES.has(resultCode))) {
-      console.error("TourAPI 응답 오류:", res.status, resultCode, data?.response?.header?.resultMsg);
-      return [];
-    }
-
-    const items = data?.response?.body?.items?.item ?? [];
-    const list = Array.isArray(items) ? items : items ? [items] : [];
     const targets = list.filter((item: any) => item?.mapx && item?.mapy && item?.contentid);
 
     // ── 상세 정보 보강: 앞쪽 DETAIL_FETCH_LIMIT개만 상세 호출 (쿼터 보호), 나머지는 목록
@@ -234,7 +273,9 @@ export async function getTourPlaces(areaCode = "", numOfRows = "100"): Promise<a
         lat: item.mapy,
         lng: item.mapx,
         category: CONTENT_TYPE_LABEL[item.contenttypeid] || "반려동반 관광지",
-        image_url: item.firstimage || null,
+        // 관광공사는 이미지를 http 주소로 주는데, next/image는 https만 허용해서(next.config.ts)
+        // 그대로 쓰면 화면 전체가 오류로 멈춥니다. 같은 서버가 https도 지원하므로 바꿔서 씁니다.
+        image_url: item.firstimage ? String(item.firstimage).replace(/^http:\/\//, "https://") : null,
         phone: detail?.tel || item.tel || null,
         website: detail?.homepage || null,
         hours: introFields.hours,
@@ -257,7 +298,8 @@ export async function getTourPlaces(areaCode = "", numOfRows = "100"): Promise<a
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const areaCode = searchParams.get("areaCode") || "";
-  const numOfRows = searchParams.get("numOfRows") || "100";
+  // 이 라우트를 직접 부를 때는 기존처럼 기본 100건만 돌려줍니다(전체는 publicDataAggregate가 씀).
+  const numOfRows = Number(searchParams.get("numOfRows")) || 100;
   const items = await getTourPlaces(areaCode, numOfRows);
   return NextResponse.json(items);
 }

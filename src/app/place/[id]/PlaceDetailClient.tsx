@@ -15,10 +15,11 @@ import {
 } from "@/lib/affinityScore";
 import { hasInfo, getPetZoneLabel } from "@/lib/placeConstants";
 import { isPlacePremiumNow } from "@/lib/premium";
+import { openKakaoWalkFromHere, openNaverWalk, type DirectionPoint } from "@/lib/directions";
 import { useParams, useRouter } from "next/navigation";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
-  Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink,
+  Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink, Navigation,
   ImageOff, ChefHat, LandPlot, Dog, Shield,
   ChevronLeft, ChevronRight, Phone,
   Car,         // 주차
@@ -186,6 +187,7 @@ export default function PlaceDetail({
   const [sort, setSort]             = useState<"latest" | "like">("latest");
 
   const [bookmarked, setBookmarked]       = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
 
   const [voteReaction, setVoteReaction]   = useState<VoteReaction>(null);
@@ -893,6 +895,20 @@ export default function PlaceDetail({
   // 노출합니다. 값이 없으면 다른 필드들과 동일하게 "—"로 표기합니다.
   const generalTreatableAnimals = place.treatable_animals?.trim() || "—";
 
+  // ── 길찾기 목적지(좌표가 없는 장소는 길찾기 버튼 대신 안내 문구)
+  const placeLat = parseFloat(String(place.lat));
+  const placeLng = parseFloat(String(place.lng));
+  const placeDirectionPoint: DirectionPoint | null =
+    !isNaN(placeLat) && !isNaN(placeLng) ? { lat: placeLat, lng: placeLng, name: place.name } : null;
+
+  const handleNaverDirections = (destination: DirectionPoint) => {
+    if (openNaverWalk(destination) === "unsupported") {
+      if (window.confirm("네이버지도 길찾기는 네이버지도 앱이 설치된 휴대폰에서만 열 수 있어요.\n대신 카카오맵으로 길찾기를 열까요?")) {
+        openKakaoWalkFromHere(destination);
+      }
+    }
+  };
+
   return (
     <>
       <style>{FONT_STYLE}</style>
@@ -1229,15 +1245,39 @@ export default function PlaceDetail({
             <ThumbsUp size={14} color={voteReaction==="like"?"#3b82f6":"#666"} fill={voteReaction==="like"?"#3b82f6":"none"} />
             <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="like"?"#3b82f6":"#555" }}>추천 {likesCount}</span>
           </button>
-          <a href={`https://map.naver.com/v5/search/${encodeURIComponent(place.name)}`} target="_blank" rel="noreferrer" className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:"1px solid #e2e4e8", background:"linear-gradient(145deg,#fafbfc,#f2f3f5)", textDecoration:"none", color:"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-            <ExternalLink size={14} color="#555" />
-            <span style={{ fontSize:"12px", fontWeight:600 }}>네이버 지도로 보기</span>
-          </a>
+          <button onClick={() => setShowDirections((v) => !v)} aria-expanded={showDirections} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${showDirections?"#7c3aed":"#e2e4e8"}`, background:showDirections?"#f5f0ff":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", color:showDirections?"#6d28d9":"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+            <Navigation size={14} color={showDirections?"#6d28d9":"#555"} />
+            <span style={{ fontSize:"12px", fontWeight:600 }}>길찾기</span>
+          </button>
           <button onClick={() => handleVote("dislike")} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${voteReaction==="dislike"?"#ef4444":"#e2e4e8"}`, background:voteReaction==="dislike"?"#fff1f1":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
             <ThumbsDown size={14} color={voteReaction==="dislike"?"#ef4444":"#666"} fill={voteReaction==="dislike"?"#ef4444":"none"} />
             <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="dislike"?"#ef4444":"#555" }}>비추천 {dislikesCount}</span>
           </button>
         </div>
+
+        {/* 길찾기 선택 — 좌표 기준이라 이름이 같은 다른 가게로 잘못 연결되지 않습니다 */}
+        {showDirections && (
+          <div style={{ marginTop:"7px", padding:"10px", borderRadius:"10px", border:"1px solid #ece4fc", background:"#faf7ff" }}>
+            {placeDirectionPoint ? (
+              <div style={{ display:"flex", gap:"7px" }}>
+                <button onClick={() => openKakaoWalkFromHere(placeDirectionPoint)} className="ggk-body" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 0", borderRadius:"10px", border:"none", background:"linear-gradient(135deg,#7c3aed,#5b21b6)", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  <Navigation size={12} />카카오맵
+                </button>
+                <button onClick={() => handleNaverDirections(placeDirectionPoint)} className="ggk-body" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 0", borderRadius:"10px", border:"1px solid #03C75A", background:"white", color:"#03A24A", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  <Navigation size={12} />네이버지도
+                </button>
+              </div>
+            ) : (
+              <div style={{ fontSize:"11px", color:"#999" }}>이 장소는 좌표 정보가 없어 길찾기를 열 수 없어요.</div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"7px", gap:"8px" }}>
+              <span style={{ fontSize:"10px", color:"#999", lineHeight:1.4 }}>현재 위치에서 도보 길찾기로 열려요. 네이버지도는 앱 설치가 필요해요.</span>
+              <a href={`https://map.naver.com/v5/search/${encodeURIComponent(place.name)}`} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", gap:"3px", fontSize:"10px", color:"#777", whiteSpace:"nowrap", textDecoration:"none" }}>
+                <ExternalLink size={10} />네이버 지도에서 보기
+              </a>
+            </div>
+          </div>
+        )}
 
         {/* 댓글 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"18px", marginBottom:"8px" }}>

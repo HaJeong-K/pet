@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl = "https://main.d2ywd3m1zdoku3.amplifyapp.com";
+import { siteUrl } from "@/lib/siteUrl";
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import PlaceDetailClient from "./PlaceDetailClient";
+import { siteUrl } from "@/lib/siteUrl";
 
-const siteUrl = "https://main.d2ywd3m1zdoku3.amplifyapp.com";
 const DEFAULT_IMAGE = "/icons/header_logo_final.png";
 
 // ⚠ SEO/공유 미리보기: 공공데이터 출처 장소(합성 id, places 테이블에 실제 행 없음)는

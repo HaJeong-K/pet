@@ -6,6 +6,7 @@ import AnalyticsTracker from "@/components/AnalyticsTracker";
 import ErrorReporter from "@/components/ErrorReporter";
 import { AuthProvider } from "@/lib/AuthContext";
 import Script from "next/script";
+import { siteUrl } from "@/lib/siteUrl";
 
 // ⚠ 최적화: 여기서 Geist/Geist Mono(next/font/google)를 불러오고 있었는데, 실제로는
 // <body>에 그 클래스/CSS 변수를 한 번도 적용하지 않아서(className 미부착) 화면에
@@ -13,7 +14,6 @@ import Script from "next/script";
 // Noto Sans KR(.ggk-body, 대부분의 본문)만 씁니다. 안 쓰는 웹폰트 2종을 통째로
 // 제거해서 폰트 다운로드/파싱 비용을 없앴습니다.
 
-const siteUrl = "https://main.d2ywd3m1zdoku3.amplifyapp.com";
 const siteTitle = "같이가개";
 const siteDescription = "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.";
 

@@ -28,6 +28,7 @@ export const getUserKey = (): string => {
 // course_regenerate : "다른 코스 보기" 클릭 — 코스 불만족의 간접 지표
 // course_stop_click : 코스 정거장 클릭
 // course_start      : 카카오맵/네이버 길찾기로 코스 출발 — 코스 수락 지표
+// course_stop_directions : 코스의 특정 정거장 하나로 길찾기(meta.pos, meta.app)
 // 모든 추천 이벤트는 variant(A/B 그룹)와 meta.algo(알고리즘 버전)를 함께 남겨서
 // /admin/analytics의 "추천 성과" 섹션에서 그룹별로 비교합니다.
 export type AnalyticsEventType =
@@ -39,7 +40,8 @@ export type AnalyticsEventType =
   | "course_impression"
   | "course_regenerate"
   | "course_stop_click"
-  | "course_start";
+  | "course_start"
+  | "course_stop_directions";
 
 export function trackEvent(
   type: AnalyticsEventType,

@@ -17,8 +17,10 @@ import { isPlacePremiumNow } from "@/lib/premium";
 import { RECOMMEND_WEIGHTS, RECOMMEND_V2_WEIGHTS, CARD_BADGE } from "@/lib/scoringConfig";
 import {
   buildRoute, applyWalkingLegs, formatEstimatedTime, ROUTE_THEME_LABEL,
-  type RouteTheme, type RouteResult, type RoutablePlace,
+  type RouteTheme, type RouteResult, type RoutablePlace, type StopHighlight,
 } from "@/lib/routeRecommend";
+import { openKakaoWalk, openNaverWalk, type DirectionPoint } from "@/lib/directions";
+import { watchBestPosition } from "@/lib/preciseLocation";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
@@ -31,6 +33,7 @@ import {
   Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
+  Stethoscope, Pill, MapPinned,
 } from "lucide-react";
 // ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
 // 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
@@ -76,11 +79,60 @@ const ROUTE_THEME_ICON: Record<RouteTheme, typeof Footprints> = {
   indoor: Store,
 };
 
-// 산책 중심/실내 추천은 "동네를 벗어나지 않는" 코스를 원한다는 요구사항이라, 이 두
-// 테마만 후보를 현재 읍/면/동 안으로 좁힙니다. 관광 중심은 지역 내 관광지를 우선하되
-// 차로 이동 가능한 거리(외곽지역 한정 반경 5km)까지도 허용해야 해서 하드 필터링 대신
-// routeRecommend.ts의 pickAttractionStop에서 별도로 지역 우선순위를 처리합니다.
-const DONG_RESTRICTED_THEMES: RouteTheme[] = ["walk", "indoor"];
+// 관광 중심 코스의 필수 정거장 배지 — 왜 이 정거장이 들어갔는지 보여줍니다.
+// "pick"은 근처에 후기 핫플이 아직 없어 대신 넣은 곳이라 핫플처럼 보이지 않게 구분합니다.
+const ROUTE_HIGHLIGHT_BADGE: Record<StopHighlight, { label: string; title: string; color: string }> = {
+  famous: { label: "유명 관광지", title: "근방의 대표 관광지(관광공사 선정지 우선)", color: "#2563eb" },
+  hot: { label: "후기 HOT", title: "최근 후기·반응이 많은 곳", color: "#FF7A5C" },
+  pick: { label: "추천", title: "근처에 후기가 많은 곳이 아직 없어 친화도·인기도가 높은 곳을 추천했어요", color: "#8b5cf6" },
+};
+
+// 지도 검색어 — 같은 페이지 세션 안에서만 유지(새로고침하면 초기화). 아래 KakaoMap 참고.
+let lastSearchQuery = "";
+
+// ── 저장된 내 위치의 부가정보(정확도·저장 시각·출처) ──
+// ⚠ 예전엔 좌표만 기한 없이 저장해서, PC처럼 인터넷(IP) 기반으로 수 km 틀린 위치가 한 번 저장되면
+// 그 뒤로 계속 "현재 위치"로 쓰였습니다(새 측정값이 오차 3km를 넘으면 무시하는 규칙까지 겹쳐서).
+const LOCATION_META_KEY = "user_loc_meta";
+/** 저장된 GPS 위치를 "지금 위치"로 믿는 시간 — 지나면 새 측정값으로 무조건 교체 */
+const CACHED_LOCATION_FRESH_MS = 30 * 60 * 1000;
+/** 지도에서 직접 지정한 위치를 유지하는 시간 */
+const MANUAL_LOCATION_VALID_MS = 24 * 60 * 60 * 1000;
+/** 직접 지정한 위치를 이길 만큼 정확한 GPS 측정값(오차 m) */
+const MANUAL_OVERRIDE_ACCURACY_M = 100;
+/** 이 오차(m)를 넘으면 "위치가 정확하지 않을 수 있어요" 안내를 띄웁니다 */
+const UNCERTAIN_LOCATION_M = 1000;
+
+type LocationSource = "gps" | "cache" | "manual";
+interface LocationMeta {
+  accuracy: number | null;
+  at: number;
+  source: "gps" | "manual";
+}
+
+const readLocationMeta = (): LocationMeta | null => {
+  try {
+    const meta = JSON.parse(localStorage.getItem(LOCATION_META_KEY) || "null");
+    return meta && typeof meta.at === "number" ? meta : null;
+  } catch {
+    return null;
+  }
+};
+
+const formatAccuracy = (m: number) => (m >= 1000 ? `약 ${Math.round(m / 100) / 10}km` : `약 ${Math.round(m)}m`);
+
+// AI 코스 "동물병원/동물약국 포함" 토글 저장 키(브라우저별 선호 — 다음 방문에도 유지)
+const ROUTE_MEDICAL_STORAGE_KEY = "ggk_route_medical";
+
+const readRouteMedicalPref = (): { vet: boolean; pharmacy: boolean } => {
+  if (typeof window === "undefined") return { vet: false, pharmacy: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(ROUTE_MEDICAL_STORAGE_KEY) || "{}");
+    return { vet: saved.vet === true, pharmacy: saved.pharmacy === true };
+  } catch {
+    return { vet: false, pharmacy: false };
+  }
+};
 
 const getPlaceLabel = (place: any) =>
   CATEGORY_EMOJI[place?.category]
@@ -174,28 +226,6 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   return "";
 };
 
-// ── AI 맞춤 추천 경로: "산책 중심/비 오는 날/실내 추천" 코스는 읍/면/동을 벗어나지
-// 않게 해달라는 요구사항 때문에 필요한, 좌표 → 읍/면/동(region_3depth_name) 조회입니다.
-// coord2regioncode는 위 reverseGeocode(시군구, 2depth)와 같은 엔드포인트를 쓰지만
-// 3depth(읍/면/동)까지 내려가야 해서 별도 함수로 뒀습니다.
-// 행정동(H)과 법정동(B)을 둘 다 돌려줍니다. 장소 주소는 출처마다 둘 중 하나로 적혀 있어서
-// (예: 서울시청 좌표 = 행정동 "명동" / 법정동 "태평로1가", 공원 표준데이터 주소는 법정동)
-// 한쪽만으로 거르면 같은 동네 장소가 빠집니다.
-const reverseGeocodeDong = async (lat: number, lng: number): Promise<{ admin: string; legal: string }> => {
-  try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
-      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-    );
-    const data = await res.json();
-    const admin = data.documents?.find((d: any) => d.region_type === "H")?.region_3depth_name || "";
-    const legal = data.documents?.find((d: any) => d.region_type === "B")?.region_3depth_name || "";
-    return { admin: admin || legal, legal };
-  } catch {
-    return { admin: "", legal: "" };
-  }
-};
-
 export default function KakaoMap() {
   const router = useRouter();
 
@@ -227,6 +257,9 @@ export default function KakaoMap() {
   const [showParks, setShowParks] = useState(true);
   // ── 현위치 오버레이
   const locationOverlayRef = useRef<any>(null);
+  // "내 위치로" 버튼의 위치 보정 측정 중단 함수 — 다시 누르거나 화면을 떠나면 이전 측정을 멈춥니다.
+  const stopMyLocationWatchRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopMyLocationWatchRef.current?.(), []);
 
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [userRegion, setUserRegion] = useState<string>("");
@@ -239,6 +272,17 @@ export default function KakaoMap() {
   // 첫 방문자에게만 "위치 확인 중" 오버레이를 보여주기 위한 상태입니다.
   const pendingLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(true);
+  // 현재 위치의 오차(m)·출처 — 오차 원과 "위치가 정확하지 않을 수 있어요" 안내에 씁니다.
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [locationSource, setLocationSource] = useState<LocationSource | null>(null);
+  // 처음 위치 측정이 끝났는지(성공·실패 무관) — 저장된 위치를 그대로 쓰게 됐는지 판단할 때 씁니다.
+  const [gpsSettled, setGpsSettled] = useState(false);
+  const [locationNoticeDismissed, setLocationNoticeDismissed] = useState(false);
+  // "지도에서 내 위치 지정" 모드 — 지도 가운데 핀을 옮겨 내 위치를 직접 찍습니다.
+  const [pickingLocation, setPickingLocation] = useState(false);
+  // 직접 지정한 위치(유효 시간 안이면 부정확한 GPS 값으로 덮어쓰지 않음). 콜백 안에서 최신 값을 봐야 해서 ref.
+  const manualLocationRef = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const accuracyCircleRef = useRef<any>(null);
   // 아래 "지역 범위로 공공데이터 재요청" 효과가 이미 어느 좌표로 재요청했는지 기록해서,
   // GPS 좌표가 미세하게(수백m 이내) 흔들릴 때마다 매번 네트워크를 다시 타지 않도록 합니다.
   const regionalFetchKeyRef = useRef<string | null>(null);
@@ -250,16 +294,22 @@ export default function KakaoMap() {
   const [mapBounds, setMapBounds] = useState<{ swLat: number; swLng: number; neLat: number; neLng: number } | null>(null);
 
   // ── 검색: 입력값 / 디바운스값 분리 (새로고침해도 마지막 검색어 유지)
-  // ⚠️ 서버 렌더링 시점엔 localStorage가 없으므로 항상 빈 문자열로 시작해야
-  //   서버/클라이언트 첫 렌더가 일치합니다 (hydration mismatch 방지).
-  //   저장된 검색어는 아래 useEffect에서 마운트 이후에 반영합니다.
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // 검색어는 모듈 메모리(lastSearchQuery)에만 기억합니다 — 커뮤니티 등 다른 탭에 갔다 돌아오면
+  // 그대로 유지되고, 새로고침하면 비워져서 현재 위치 기준 지도로 돌아옵니다(요청사항).
+  // ⚠ 예전엔 localStorage에 저장해서 새로고침해도 이전 검색 지역이 계속 기준이 됐습니다.
+  // (KakaoMapLoader가 ssr:false로 불러오므로 첫 렌더부터 이 값을 써도 하이드레이션 불일치가 없습니다.)
+  const [searchQuery, setSearchQuery] = useState(lastSearchQuery);
+  const [debouncedSearch, setDebouncedSearch] = useState(lastSearchQuery);
 
-  // 마운트 이후(클라이언트에서만)에 저장된 검색어 복원
   useEffect(() => {
-    const saved = localStorage.getItem("ggk_search_query");
-    if (saved) setSearchQuery(saved);
+    lastSearchQuery = searchQuery;
+  }, [searchQuery]);
+
+  // 예전 버전이 저장해 둔 검색어가 남아 있으면 지웁니다.
+  useEffect(() => {
+    try {
+      localStorage.removeItem("ggk_search_query");
+    } catch {}
   }, []);
 
   // 300ms 디바운스
@@ -325,6 +375,10 @@ export default function KakaoMap() {
   const [routeTheme, setRouteTheme] = useState<RouteTheme>("walk");
   const routePolylineRef = useRef<any>(null);
   const routeMarkerOverlaysRef = useRef<any[]>([]);
+  // 마지막으로 화면을 맞춘(setBounds) 코스 — 같은 코스를 다시 그릴 땐 화면을 다시 맞추지 않습니다.
+  const routeFittedSignatureRef = useRef<string>("");
+  // 지도가 애니메이션 줌(setLevel animate) 중인지 — zoom_start ~ idle 구간
+  const mapZoomingRef = useRef(false);
 
   // ── 찜/좋아요 인기도 집계 — 장소별 {bookmarks, likes}. 추천 장소 정렬과 AI 코스
   // 정거장 선정 둘 다 이 맵을 참고합니다(recommend.ts의 popularityBonus).
@@ -349,12 +403,15 @@ export default function KakaoMap() {
   // 관여하지 않고 카드에 보조 정보로만 표시합니다.
   const [recentViewCounts, setRecentViewCounts] = useState<Map<string, number>>(new Map());
 
-  // ── AI 코스 "산책 중심/실내 추천/관광 중심" 테마 전용: 현재 중심 좌표가 속한 읍/면/동
-  // 이름. 산책·실내는 후보를 이 동 안으로만 좁히고(DONG_RESTRICTED_THEMES), 관광 중심은
-  // 하드 필터링 없이 "지역 내 관광지 우선순위" 판정에만 씁니다.
-  const [routeDongName, setRouteDongName] = useState<string | null>(null);
-  // 같은 좌표의 법정동 이름 — 주소가 법정동으로 적힌 장소(공원 등)도 "같은 동"으로 인정하기 위함
-  const [routeLegalDongName, setRouteLegalDongName] = useState<string | null>(null);
+  // ── AI 코스에 동물병원/동물약국을 넣을지(패널 토글). 켜면 각각 1곳씩 코스 자리를 차지합니다.
+  // 토글은 패널(처음엔 닫혀 있음) 안에만 보여서 저장값으로 초기화해도 하이드레이션 불일치가 없습니다.
+  const [routeIncludeVet, setRouteIncludeVet] = useState(() => readRouteMedicalPref().vet);
+  const [routeIncludePharmacy, setRouteIncludePharmacy] = useState(() => readRouteMedicalPref().pharmacy);
+  useEffect(() => {
+    try {
+      localStorage.setItem(ROUTE_MEDICAL_STORAGE_KEY, JSON.stringify({ vet: routeIncludeVet, pharmacy: routeIncludePharmacy }));
+    } catch {}
+  }, [routeIncludeVet, routeIncludePharmacy]);
 
   // ── "다른 코스 보기": 클릭 시 직전 코스에 나온 정거장들을 제외하고 재계산합니다.
   // 테마를 바꾸거나 패널을 새로 열면 초기화됩니다.
@@ -537,9 +594,8 @@ export default function KakaoMap() {
     let cancelled = false;
 
     const init = async () => {
-      // AWS(DynamoDB+Lambda) 전국 데이터는 scripts/migrate-aws-to-supabase.mjs로
-      // Supabase `places` 테이블에 이관 완료되어, 더 이상 fetchAwsPlaces()를 따로
-      // 호출하지 않고 Supabase 조회 한 번으로 통합해서 가져옵니다.
+      // 전국 장소 데이터는 Supabase `places` 테이블 조회 한 번으로 가져옵니다
+      // (옛 AWS DynamoDB 데이터는 2026-08-03에 이 테이블로 이관 완료).
       // ⚠ fetchAllRows를 씁니다 — 그냥 select()만 하면 Supabase가 한 번에 최대 1000행만
       // 돌려줘서, places가 1000건을 넘어가는 순간부터 나머지가 조용히 지도에서 빠집니다.
       const [{ data: { session } }, placesData] = await Promise.all([
@@ -655,16 +711,41 @@ export default function KakaoMap() {
   // 없애되, 곧바로 실제 GPS를 다시 조회해서 위치가 바뀌었으면(예: 여행) 자동으로 덮어씁니다.
   // recommendedPlaces/nearbyPlaces/친화도 점수는 모두 userLocation을 구독하고 있어서
   // 이 값만 갱신되면 화면 전체가 자동으로 "현재 있는 지역" 기준으로 다시 계산됩니다.
+  // 위치 저장(좌표 + 지역명 + 정확도·시각·출처). 지역명 조회 API는 저장할 때 한 번만 부릅니다.
+  const saveLocation = async (loc: { lat: number; lng: number }, meta: LocationMeta) => {
+    const region = await reverseGeocode(loc.lat, loc.lng);
+    setUserRegion(region);
+    try {
+      localStorage.setItem("user_lat", String(loc.lat));
+      localStorage.setItem("user_lng", String(loc.lng));
+      localStorage.setItem("user_region", region);
+      localStorage.setItem(LOCATION_META_KEY, JSON.stringify(meta));
+    } catch {}
+  };
+
+  /** 직접 지정한 위치가 아직 유효한지 */
+  const manualLocationActive = () =>
+    !!manualLocationRef.current && Date.now() - manualLocationRef.current.at < MANUAL_LOCATION_VALID_MS;
+
   useEffect(() => {
     const savedLat    = localStorage.getItem("user_lat");
     const savedLng    = localStorage.getItem("user_lng");
     const savedRegion = localStorage.getItem("user_region");
+    const savedMeta   = readLocationMeta();
 
     if (savedLat && savedLng && savedRegion) {
       const lat = parseFloat(savedLat);
       const lng = parseFloat(savedLng);
       setUserLocation({ lat, lng });
       setUserRegion(savedRegion);
+      // 정확도 정보가 없는 예전 저장값은 오차를 모르는 것으로 둡니다(측정이 끝나도 못 바꾸면 안내 표시).
+      setLocationAccuracy(savedMeta?.accuracy ?? null);
+      if (savedMeta?.source === "manual" && Date.now() - savedMeta.at < MANUAL_LOCATION_VALID_MS) {
+        manualLocationRef.current = { lat, lng, at: savedMeta.at };
+        setLocationSource("manual");
+      } else {
+        setLocationSource("cache");
+      }
       // ⚠ 이 효과는 mapReady를 기다리지 않고 마운트되자마자 실행됩니다(카카오 SDK
       // 로딩과 병렬로) — 그래서 이 시점엔 아직 지도 객체가 없을 수 있습니다.
       // pendingLocationRef에 담아두면 initializeMap()이 지도를 만드는 순간 바로
@@ -687,43 +768,65 @@ export default function KakaoMap() {
 
     // 캐시 유무와 무관하게 항상 최신 GPS 위치를 다시 조회해 갱신(여행지 이동 반영).
     // 권한 거부/조회 실패 시엔 위에서 세팅한 캐시 값이 그대로 유지됩니다.
-    if (!navigator.geolocation) { setLocating(false); return; }
-    const hadCachedLocation = Boolean(savedLat && savedLng);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        // ⚠ "위치가 가끔 엉뚱한 곳으로 잡히는" 문제의 실제 원인 중 하나 — 데스크톱·실내
-        // 등 GPS 신호가 약한 환경에서는 브라우저가 Wi-Fi/IP 기반의 부정확한 좌표를
-        // (때로는 accuracy가 수km~수십km인 채로) 그대로 콜백에 넘겨줄 때가 있습니다.
-        // 이미 신뢰할 만한 캐시 위치가 있는데 이번 조회의 정확도가 너무 나쁘면(반경
-        // 3km 초과), 그 부정확한 값으로 덮어쓰지 않고 기존 캐시 위치를 그대로 둡니다.
-        // 캐시가 아예 없는 첫 방문이면 부정확하더라도 없는 것보단 나으므로 그대로 씁니다.
-        const ACCURACY_THRESHOLD_M = 3000;
-        if (hadCachedLocation && accuracy > ACCURACY_THRESHOLD_M) {
+    // ⚠ 예전엔 getCurrentPosition을 한 번만(그것도 5분 전 위치 재사용 허용으로) 불러서,
+    // 휴대폰이 GPS를 잡기 전에 주는 대략적인 위치(와이파이·기지국, 오차 수십~수백 m)가 그대로
+    // 쓰여 매번 위치가 조금씩 어긋났습니다. 이제 최대 12초 동안 측정값을 계속 받아 더 정확한
+    // 값이 올 때마다 갈아끼웁니다(lib/preciseLocation.ts).
+    // 저장된 GPS 위치가 최근(30분 이내)이고 오차도 알 때만 "믿을 만한 저장 위치"로 봅니다.
+    const trustedCache =
+      savedLat && savedLng && savedMeta?.source === "gps" && savedMeta.accuracy != null &&
+      Date.now() - savedMeta.at < CACHED_LOCATION_FRESH_MS
+        ? savedMeta.accuracy
+        : null;
+    let applied: { lat: number; lng: number } | null = null;
+    let appliedAccuracy = Infinity;
+    const stopWatching = watchBestPosition(
+      async (fix, final) => {
+        // 직접 지정한 위치는 그보다 확실히 정확한 GPS 값이 아니면 덮어쓰지 않습니다(PC 등 GPS가 없는 환경).
+        const keepManual = manualLocationActive() && fix.accuracy > MANUAL_OVERRIDE_ACCURACY_M;
+        // 최근에 저장한 정확한 위치보다 훨씬 나쁜(IP 기반, 오차 3km 초과) 값으로는 덮어쓰지 않습니다.
+        // ⚠ 예전엔 저장 위치가 오래됐거나 원래 부정확해도 이 규칙으로 계속 지켜져서 틀린 위치가 고착됐습니다.
+        const keepCache = !applied && trustedCache != null && fix.accuracy > 3000 && fix.accuracy > trustedCache;
+        if (keepManual || keepCache) {
           setLocating(false);
+          if (final) setGpsSettled(true);
           return;
         }
-        setUserLocation({ lat: latitude, lng: longitude });
-        setSearchCenter(null); // 실제 위치가 갱신되면 이전 검색 기준 중심은 초기화
-        pendingLocationRef.current = { lat: latitude, lng: longitude };
-        if (mapRef.current) {
-          mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-          mapRef.current.setLevel(3, { animate: true });
-          mapRef.current.relayout();
+        const map = mapRef.current;
+        const isFirst = applied === null;
+        // 보정값이 이전 값과 거의 같으면(15m 이내) 화면 전체를 다시 계산할 필요가 없습니다.
+        const movedM = applied ? getDistance(applied.lat, applied.lng, fix.lat, fix.lng) * 1000 : Infinity;
+        if (movedM > 15) {
+          // 사용자가 그사이 지도를 옮기지 않았을 때만(지도 중심이 직전 위치 그대로일 때만) 따라갑니다.
+          const center = map?.getCenter?.();
+          const mapStillOnMe =
+            isFirst || !center || !applied || getDistance(center.getLat(), center.getLng(), applied.lat, applied.lng) * 1000 < 30;
+          applied = { lat: fix.lat, lng: fix.lng };
+          setUserLocation(applied);
+          pendingLocationRef.current = applied;
+          if (isFirst) setSearchCenter(null); // 실제 위치를 처음 받으면 이전 검색 기준 중심은 초기화
+          if (map && mapStillOnMe) {
+            map.setCenter(new window.kakao.maps.LatLng(fix.lat, fix.lng));
+            if (isFirst) {
+              map.setLevel(3, { animate: true });
+              map.relayout();
+            }
+          }
         }
+        appliedAccuracy = fix.accuracy;
+        setLocationAccuracy(fix.accuracy);
+        setLocationSource("gps");
         setLocating(false);
-        const region = await reverseGeocode(latitude, longitude);
-        setUserRegion(region);
-        localStorage.setItem("user_lat", String(latitude));
-        localStorage.setItem("user_lng", String(longitude));
-        localStorage.setItem("user_region", region);
+        // 지역명 조회·저장은 측정이 끝났을 때 한 번만(보정될 때마다 API를 부르지 않게)
+        if (final) {
+          setGpsSettled(true);
+          if (applied) saveLocation(applied, { accuracy: appliedAccuracy, at: Date.now(), source: "gps" });
+        }
       },
-      () => { setLocating(false); /* 조회 실패/거부 — 캐시(있다면)를 그대로 유지 */ },
-      // ⚠ 기본(enableHighAccuracy: false)이면 데스크톱/일부 기기에서 IP·와이파이 기반의
-      // 부정확한 위치(가끔 "엉뚱한 곳")를 줄 수 있어 정확도를 우선합니다. maximumAge로
-      // 5분 이내 캐시된 OS 위치는 재사용해 첫 확인 속도도 함께 개선합니다.
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 }
+      () => { setLocating(false); setGpsSettled(true); /* 조회 실패/거부 — 캐시(있다면)를 그대로 유지 */ }
     );
+    return stopWatching;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ⚠ 최적화(공공데이터 지역 재요청): 위치를 전혀 모르는 첫 방문(캐시 없음) 순간에는
@@ -790,7 +893,25 @@ export default function KakaoMap() {
 
     overlay.setMap(mapRef.current);
     locationOverlayRef.current = overlay;
-  }, [userLocation, mapReady]);
+
+    // 오차 범위 원 — 파란 점이 "이 범위 어딘가"라는 걸 보여줍니다. 너무 크면(IP 기반, 수 km)
+    // 지도 전체를 덮기만 해서 그리지 않고 상단 안내로 대신 알립니다.
+    accuracyCircleRef.current?.setMap(null);
+    accuracyCircleRef.current = null;
+    if (locationSource !== "manual" && locationAccuracy != null && locationAccuracy >= 30 && locationAccuracy <= 3000) {
+      const circle = new window.kakao.maps.Circle({
+        center: position,
+        radius: locationAccuracy,
+        strokeWeight: 1,
+        strokeColor: "#2563eb",
+        strokeOpacity: 0.35,
+        fillColor: "#2563eb",
+        fillOpacity: 0.08,
+      });
+      circle.setMap(mapRef.current);
+      accuracyCircleRef.current = circle;
+    }
+  }, [userLocation, mapReady, locationAccuracy, locationSource]);
 
   const hasOpenedRef = useRef(false);
   useEffect(() => {
@@ -1056,10 +1177,8 @@ export default function KakaoMap() {
     if (!debouncedSearch.trim()) {
       // 이미 null이면 다시 set하지 않음 (불필요한 렌더링 방지)
       setSearchCenter((prev) => (prev === null ? prev : null));
-      localStorage.removeItem("ggk_search_query");
       return;
     }
-    localStorage.setItem("ggk_search_query", debouncedSearch.trim()); // 새로고침 유지용 저장
     if (!mapRef.current || !mapReady) return;
 
     if (nameSearchResults.length > 0) {
@@ -1327,31 +1446,11 @@ export default function KakaoMap() {
     openPlaceDetail(place);
   };
 
-  // ── 산책 중심/실내 추천(하드 필터) + 관광 중심(지역 내 우선순위 판정용)일 때 중심
-  // 좌표가 속한 읍/면/동을 조회합니다. useMemo는 동기 함수라 fetch를 못 하므로, 별도
-  // effect로 미리 구해서 state에 담아두고 currentRoute useMemo는 이 값을 참고만 합니다.
-  useEffect(() => {
-    if (!showRoutePanel || !(DONG_RESTRICTED_THEMES.includes(routeTheme) || routeTheme === "attraction")) return;
-    // AI 코스는 항상 "현재 내 위치"를 출발지로 삼습니다 — searchCenter(검색/지도 이동으로
-    // 바뀐 중심)가 있어도 코스 추천 목적에서는 우선순위를 낮춥니다(위치 권한이 없어
-    // userLocation을 못 구했을 때만 searchCenter로 대체).
-    const center = userLocation || searchCenter;
-    if (!center) return;
-    let cancelled = false;
-    reverseGeocodeDong(center.lat, center.lng).then(({ admin, legal }) => {
-      if (cancelled) return;
-      setRouteDongName(admin || null);
-      setRouteLegalDongName(legal || null);
-    });
-    return () => { cancelled = true; };
-  }, [showRoutePanel, routeTheme, searchCenter, userLocation]);
-
   // ── AI 맞춤 추천 경로: 현재 위치(또는 검색 중심) 주변 후보를 테마에 맞는 역할
   // 순서(산책/카페/관광/동물병원/동물약국)로 엮어 하나의 코스로 만듭니다. 반경 15km
   // 이내에서 후보를 찾고(아직 지역별로 등록된 장소 수가 적어 너무 좁으면 코스 자체가
   // 안 만들어질 때가 많습니다), 그래도 부족하면 30km까지 한 번 더 넓혀서 재시도합니다.
-  // 산책 중심/비 오는 날/실내 추천은 여기서 한 번 더 "같은 읍/면/동" 후보로만 좁힙니다
-  // (routeDongName — 위 effect가 미리 조회해둔 값).
+  // 같은 동네 판단(테마별 도보 반경)과 관광 중심 필수 정거장은 buildRoute(routeRecommend.ts)가 합니다.
   const routeBuild = useMemo<{ route: RouteResult | null; exhausted: boolean }>(() => {
     if (!showRoutePanel) return { route: null, exhausted: false };
     // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
@@ -1402,48 +1501,35 @@ export default function KakaoMap() {
       ];
     }
 
-    // 산책 중심/비 오는 날/실내 추천: 같은 읍/면/동 주소를 가진 곳으로만 좁힙니다.
-    // routeDongName은 위 effect가 비동기로 조회해오는 값이라, 패널을 막 열었거나 테마를
-    // 막 바꾼 순간에는 아직 null일 수 있습니다 — 그 짧은 순간엔 반경 기준 결과를 그대로
-    // 보여주다가, 동 이름이 도착하면 자동으로 좁혀서 다시 그립니다(로딩 때문에 패널이
-    // 잠깐 비어 보이는 것보다 낫다고 판단했습니다). 좁힌 결과가 2곳 미만이면
-    // buildRoute가 null을 반환하고, 패널은 "장소가 충분하지 않습니다" 안내를 보여줍니다.
-    if (DONG_RESTRICTED_THEMES.includes(routeTheme) && routeDongName) {
-      const dongNames = [routeDongName, routeLegalDongName].filter(Boolean) as string[];
-      nearby = nearby.filter(
-        (place) => typeof place.address === "string" && dongNames.some((dong) => place.address!.includes(dong))
-      );
-
-      // 산책 중심인데 동 이름으로 거른 결과에 공원이 하나도 없으면, 행정동 하나가 여러
-      // 법정동에 걸쳐 있어 주소 표기만 달랐을 가능성이 큽니다 — 출발지 1km 이내 공원은
-      // 같은 동네로 보고 후보에 다시 넣어서 "산책 코스에 공원이 없는" 상황을 막습니다.
-      const hasPark = nearby.some((place) => String(place.id).startsWith("park-"));
-      if (routeTheme === "walk" && !hasPark) {
-        const WALK_PARK_FALLBACK_KM = 1;
-        const closeParks = parksAsRoutable.filter(
-          (park) => getDistance(center.lat, center.lng, Number(park.lat), Number(park.lng)) <= WALK_PARK_FALLBACK_KM
-        );
-        nearby = [...nearby, ...closeParks];
-      }
-    }
+    // ⚠ 산책·실내 코스는 예전에 여기서 "출발지와 같은 읍/면/동 주소"로만 후보를 좁혔는데,
+    // 도로명주소엔 동 이름이 없어 주변 장소 대부분이 빠졌습니다. 이제 buildRoute가 테마별
+    // 도보 반경(routeRecommend.ts THEME_TUNING)으로 같은 동네를 판단합니다.
 
     // 인기도(찜/좋아요)를 후보에 얹어서 buildRoute가 정거장 선정·친화도 점수 계산에
     // 반영할 수 있게 합니다.
     // 친화도(affinityOf)도 같이 얹어서 정거장 친화도가 상세페이지 점수와 같게 나오게 합니다.
+    // 리뷰 수·만족도·최근 반응·최근 조회수는 관광 중심의 "후기 핫플"·"유명 관광지" 판정에 씁니다.
     // 내가 싫어요한 장소는 코스 후보에서 뺍니다.
     const nearbyWithPopularity = nearby
       .filter((place) => !preferenceProfile.disliked.has(String(place.id)))
       .map((place) => {
-        const popularity = popularityMap.get(String(place.id));
+        const key = String(place.id);
+        const popularity = popularityMap.get(key);
+        const signals = placeSignals.get(key);
         return {
           ...place,
           bookmarkCount: popularity?.bookmarks ?? 0,
           likeCount: popularity?.likes ?? 0,
           affinityScore: placeSignals.size > 0 ? affinityOf(place) : null,
+          reviewCount: signals?.rc ?? 0,
+          reviewScore: signals?.rs ?? null,
+          recentReactions: signals ? signals.bd + signals.ld : 0,
+          recentViews: recentViewCounts.get(key) ?? 0,
         };
       });
 
-    const buildOptions = { localAreaName: routeDongName, excludeIds: routeExcludedIds };
+    const medicalOptions = { includeVet: routeIncludeVet, includePharmacy: routeIncludePharmacy };
+    const buildOptions = { excludeIds: routeExcludedIds, ...medicalOptions };
     // "다른 코스 보기"로 제외 목록이 쌓였는데 그걸로는 더 이상 코스를 못 만들면(대안
     // 소진), 처음 추천으로 자연스럽게 되돌아갑니다 — 빈 화면보다 낫다는 판단입니다.
     // exhausted=true면 패널에 "다른 조합이 없어요"를 안내해서, 버튼을 눌렀는데 같은 코스가
@@ -1451,12 +1537,12 @@ export default function KakaoMap() {
     const alternative = buildRoute(nearbyWithPopularity, center, routeTheme, 4, buildOptions);
     if (alternative || routeExcludedIds.size === 0) return { route: alternative, exhausted: false };
     return {
-      route: buildRoute(nearbyWithPopularity, center, routeTheme, 4, { localAreaName: routeDongName }),
+      route: buildRoute(nearbyWithPopularity, center, routeTheme, 4, medicalOptions),
       exhausted: true,
     };
   }, [
-    showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeDongName, routeLegalDongName, routeExcludedIds,
-    preferenceProfile, placeSignals, affinityOf,
+    showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeExcludedIds,
+    preferenceProfile, placeSignals, affinityOf, routeIncludeVet, routeIncludePharmacy, recentViewCounts,
   ]);
   const currentRoute = routeBuild.route;
   const routeAlternativesExhausted = routeBuild.exhausted;
@@ -1555,7 +1641,7 @@ const courseMeta = (route: RouteResult) => ({
   // 테마를 바꾸거나 패널을 새로 열면 "다른 코스 보기" 제외 목록을 초기화합니다.
   useEffect(() => {
     setRouteExcludedIds(new Set());
-  }, [routeTheme, showRoutePanel]);
+  }, [routeTheme, showRoutePanel, routeIncludeVet, routeIncludePharmacy]);
 
   // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
@@ -1958,23 +2044,36 @@ const courseMeta = (route: RouteResult) => ({
     routeMarkerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
     routeMarkerOverlaysRef.current = [];
 
-    if (!showRoutePanel || !currentRoute || currentRoute.stops.length < 2) return;
+    if (!showRoutePanel || !currentRoute || currentRoute.stops.length < 2) {
+      routeFittedSignatureRef.current = "";
+      return;
+    }
+
+    // ⚠ 좌표가 NaN/undefined인 LatLng가 Polyline·LatLngBounds에 섞이면 카카오 SDK 내부
+    // 투영 계산에서 "Cannot read properties of undefined (reading 'x')"가 날 수 있어서,
+    // 유효한 좌표만 씁니다.
+    const isValidCoord = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng);
 
     // 점선은 정거장1이 아니라 출발지(내 위치 — 파란 점 오버레이가 표시된 지점)부터
     // 시작해야 실제로 "여기서 출발해서 이 순서로 걷는다"는 코스가 보입니다.
     const path = [
-      new window.kakao.maps.LatLng(currentRoute.origin.lat, currentRoute.origin.lng),
-      ...currentRoute.stops.map((stop) => {
-        const lat = parseFloat(String(stop.place.lat));
-        const lng = parseFloat(String(stop.place.lng));
-        return new window.kakao.maps.LatLng(lat, lng);
-      }),
-    ];
+      { lat: Number(currentRoute.origin.lat), lng: Number(currentRoute.origin.lng) },
+      ...currentRoute.stops.map((stop) => ({
+        lat: parseFloat(String(stop.place.lat)),
+        lng: parseFloat(String(stop.place.lng)),
+      })),
+    ]
+      .filter((p) => isValidCoord(p.lat, p.lng))
+      .map((p) => new window.kakao.maps.LatLng(p.lat, p.lng));
+    if (path.length < 2) return;
 
     // 실제 도보 경로(TMAP)가 있으면 그 길을 따라 실선으로, 없으면 정거장끼리 잇는 점선(추정)으로 그립니다.
-    const hasWalkPath = !!walkPath && walkPath.length >= 2;
+    const walkLatLngs = (walkPath ?? [])
+      .filter(([lat, lng]) => isValidCoord(lat, lng))
+      .map(([lat, lng]) => new window.kakao.maps.LatLng(lat, lng));
+    const hasWalkPath = walkLatLngs.length >= 2;
     const polyline = new window.kakao.maps.Polyline({
-      path: hasWalkPath ? walkPath!.map(([lat, lng]) => new window.kakao.maps.LatLng(lat, lng)) : path,
+      path: hasWalkPath ? walkLatLngs : path,
       strokeWeight: hasWalkPath ? 5 : 4,
       strokeColor: "#7c3aed",
       strokeOpacity: 0.85,
@@ -2009,18 +2108,58 @@ const courseMeta = (route: RouteResult) => ({
       routeMarkerOverlaysRef.current.push(overlay);
     });
 
-    // 코스 전체가 한 화면에 들어오도록 범위를 맞춥니다.
-    const bounds = new window.kakao.maps.LatLngBounds();
-    path.forEach((p: any) => bounds.extend(p));
-    map.setBounds(bounds, 80, 80, 80, 80);
+    // 코스 전체가 한 화면에 들어오도록 범위를 맞춥니다 — 코스가 실제로 바뀌었을 때만.
+    // (도보 경로 도착·장소 목록 갱신 등으로 같은 코스를 다시 그릴 때마다 맞추면, 사용자가
+    // 검색/드래그로 옮긴 화면이 계속 코스 쪽으로 끌려갑니다.)
+    // ⚠ 주소 검색은 setCenter + setLevel(animate)로 지도를 옮기는데, 그 애니메이션이 도는
+    // 도중에 setBounds가 끼어들면 카카오 SDK가 "reading 'x'" 에러를 프레임마다 반복해서
+    // 던지는 것으로 보입니다(AI 코스 패널을 연 채 주소 검색 시 재현). 줌 애니메이션 중이면
+    // 끝난 뒤(idle)로 미룹니다.
+    let pendingIdleListener: (() => void) | null = null;
+    if (routeSignature && routeFittedSignatureRef.current !== routeSignature) {
+      routeFittedSignatureRef.current = routeSignature;
+      const bounds = new window.kakao.maps.LatLngBounds();
+      path.forEach((p: any) => bounds.extend(p));
+      const fitBounds = () => map.setBounds(bounds, 80, 80, 80, 80);
+      if (mapZoomingRef.current) {
+        pendingIdleListener = () => {
+          window.kakao.maps.event.removeListener(map, "idle", pendingIdleListener!);
+          pendingIdleListener = null;
+          fitBounds();
+        };
+        window.kakao.maps.event.addListener(map, "idle", pendingIdleListener);
+      } else {
+        fitBounds();
+      }
+    }
 
     return () => {
+      if (pendingIdleListener) {
+        window.kakao.maps.event.removeListener(map, "idle", pendingIdleListener);
+        // 맞추기 전에 정리됐으면 다음 렌더에서 다시 맞출 수 있게 표시를 되돌립니다.
+        routeFittedSignatureRef.current = "";
+      }
       routePolylineRef.current?.setMap(null);
       routePolylineRef.current = null;
       routeMarkerOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
       routeMarkerOverlaysRef.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showRoutePanel, currentRoute, mapReady, walkPath]);
+
+  // 지도 줌 애니메이션 진행 여부 추적(위 코스 effect가 setBounds를 미룰지 판단하는 데 씀)
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
+    const onZoomStart = () => { mapZoomingRef.current = true; };
+    const onIdle = () => { mapZoomingRef.current = false; };
+    window.kakao.maps.event.addListener(map, "zoom_start", onZoomStart);
+    window.kakao.maps.event.addListener(map, "idle", onIdle);
+    return () => {
+      window.kakao.maps.event.removeListener(map, "zoom_start", onZoomStart);
+      window.kakao.maps.event.removeListener(map, "idle", onIdle);
+    };
+  }, [mapReady]);
 
   const moveToMyLocation = () => {
     if (!navigator.geolocation) {
@@ -2028,28 +2167,58 @@ const courseMeta = (route: RouteResult) => ({
       return;
     }
     if (!mapRef.current) return;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        mapRef.current.setCenter(new window.kakao.maps.LatLng(latitude, longitude));
-        mapRef.current.setLevel(3, { animate: true });
-        setUserLocation({ lat: latitude, lng: longitude });
-        setSearchCenter(null); // 내 위치로 이동하면 검색 기준은 초기화
-        setSearchQuery("");
-        const region = await reverseGeocode(latitude, longitude);
-        setUserRegion(region);
-        localStorage.setItem("user_lat", String(latitude));
-        localStorage.setItem("user_lng", String(longitude));
-        localStorage.setItem("user_region", region);
+    stopMyLocationWatchRef.current?.();
+    let first = true;
+    // 자동 위치 확인과 같은 방식으로, 첫 값으로 바로 이동한 뒤 더 정확한 값이 오면 보정합니다.
+    stopMyLocationWatchRef.current = watchBestPosition(
+      async (fix, final) => {
+        // 직접 지정한 위치가 있으면, 그보다 확실히 정확한 GPS 값이 아닌 한 그 위치로 이동만 합니다.
+        const manual = manualLocationActive() && fix.accuracy > MANUAL_OVERRIDE_ACCURACY_M ? manualLocationRef.current : null;
+        const target = manual ?? { lat: fix.lat, lng: fix.lng };
+        mapRef.current?.setCenter(new window.kakao.maps.LatLng(target.lat, target.lng));
+        if (first) {
+          first = false;
+          mapRef.current?.setLevel(3, { animate: true });
+          setSearchCenter(null); // 내 위치로 이동하면 검색 기준은 초기화
+          setSearchQuery("");
+        }
+        if (manual) return;
+        manualLocationRef.current = null;
+        setUserLocation({ lat: fix.lat, lng: fix.lng });
+        setLocationAccuracy(fix.accuracy);
+        setLocationSource("gps");
+        setLocationNoticeDismissed(false);
+        if (final) saveLocation({ lat: fix.lat, lng: fix.lng }, { accuracy: fix.accuracy, at: Date.now(), source: "gps" });
       },
       () => { alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요."); },
-      // ⚠ 예전엔 옵션 없이(기본값 enableHighAccuracy:false) 호출해서, 자동 위치 확인
-      // 효과(위쪽)와 정확도 기준이 서로 달랐습니다 — 같은 사용자가 자동 감지 때는
-      // 정확한 위치를, 이 버튼을 눌렀을 땐 부정확한 Wi-Fi/IP 기반 위치를 받는 식으로
-      // 결과가 들쭉날쭉했던 원인 중 하나입니다. 자동 감지와 동일한 기준으로 맞췄고,
-      // 사용자가 지금 직접 누른 액션이라 maximumAge:0으로 캐시 없이 매번 새로 조회합니다.
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      { maxWaitMs: 8000 }
     );
+  };
+
+  // ── 지도에서 내 위치 직접 지정 ──
+  // PC처럼 GPS가 없는 환경은 인터넷(IP) 기반으로 수 km씩 틀린 위치가 잡힐 수 있어서, 지도 가운데
+  // 핀을 내 위치에 맞추고 확정하면 그 좌표를 24시간 동안 "현재 위치"로 씁니다.
+  const startPickingLocation = () => {
+    stopMyLocationWatchRef.current?.();
+    if (mapRef.current && userLocation) {
+      mapRef.current.setCenter(new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng));
+    }
+    setPickingLocation(true);
+  };
+
+  const confirmPickedLocation = () => {
+    const center = mapRef.current?.getCenter?.();
+    if (!center) return;
+    const loc = { lat: center.getLat(), lng: center.getLng() };
+    const at = Date.now();
+    manualLocationRef.current = { ...loc, at };
+    setUserLocation(loc);
+    setLocationAccuracy(0);
+    setLocationSource("manual");
+    setSearchCenter(null);
+    setSearchQuery("");
+    setPickingLocation(false);
+    saveLocation(loc, { accuracy: 0, at, source: "manual" });
   };
 
   const handleKakaoShare = () => {
@@ -2089,77 +2258,65 @@ const courseMeta = (route: RouteResult) => ({
     setShowShareModal(false);
   };
 
-  // ── "이 코스로 길찾기" ──
-  // ⚠ 예전에 쓰던 map.kakao.com/link/route/이름,위도,경도/... 형식은 카카오가 공식
-  // 문서화한 URL이 아니어서 실제로 "존재하지 않는 URL"로 떴습니다. 카카오가 공식
-  // 지원하는 다중 경유지 길찾기는 URL Scheme 방식(출발지 sp·경유지 vp/vp2~vp5(최대
-  // 5개)·도착지 ep를 좌표로 지정, by=foot으로 도보 지정)이라 이걸로 교체했습니다.
-  // (참고: https://apis.map.kakao.com/ios_v2/docs/getting-started/urlscheme/)
-  // 네이버 지도도 같은 방식(nmap://route/walk, 경유지 v1~v5)의 공식 URL Scheme을
-  // 제공해서 함께 지원합니다 — 다만 네이버 쪽은 네이버지도 앱이 기기에 설치돼 있어야만
-  // 열립니다(네이버 공식 문서에 명시된 제약이라, 앱이 없는 PC/미설치 환경을 위한 순수
-  // 웹 대체 경로는 네이버가 별도로 제공하지 않습니다).
-  const buildRouteWaypoints = (route: RouteResult) => {
-    const origin = {
-      lat: userLocation?.lat ?? route.origin.lat,
-      lng: userLocation?.lng ?? route.origin.lng,
-      name: "현재 위치",
-    };
-    const stopPoints = route.stops
-      .map((stop) => {
-        const lat = parseFloat(String(stop.place.lat));
-        const lng = parseFloat(String(stop.place.lng));
-        if (isNaN(lat) || isNaN(lng)) return null;
-        return { lat, lng, name: stop.place.name };
-      })
-      .filter((p): p is { lat: number; lng: number; name: string } => p !== null);
-    return [origin, ...stopPoints];
+  // ── 길찾기(카카오맵·네이버지도) ──
+  // URL 형식·플랫폼별 분기는 src/lib/directions.ts 참고. 카카오는 공식 웹 URL이라 PC·모바일
+  // 어디서나 열리고, 네이버는 앱 전용이라 PC에서는 카카오맵으로 대신 열지 안내합니다.
+  // 출발지 이름은 패널의 "출발:" 표기와 같게 맞춥니다 — 위치 권한이 없어 검색 중심에서
+  // 코스를 만든 경우 "현재 위치"라고 부르면 사용자가 엉뚱한 곳에서 출발하는 줄 압니다.
+  const routeOriginLabel = userLocation ? "현재 위치" : (searchQuery.trim() || "지도 중심");
+
+  const toDirectionPoint = (place: { lat?: unknown; lng?: unknown; name: string }): DirectionPoint | null => {
+    const lat = parseFloat(String(place.lat));
+    const lng = parseFloat(String(place.lng));
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return { lat, lng, name: place.name };
   };
 
-  const handleRouteDirectionsKakao = (route: RouteResult) => {
-    const points = buildRouteWaypoints(route);
-    if (points.length < 2) return;
+  const openWalkDirections = (app: "kakao" | "naver", origin: DirectionPoint, targets: DirectionPoint[]) => {
+    if (targets.length === 0) return;
+    if (app === "kakao") {
+      openKakaoWalk([origin, ...targets]);
+      return;
+    }
+    const destination = targets[targets.length - 1];
+    if (openNaverWalk(destination, targets.slice(0, -1)) === "unsupported") {
+      if (window.confirm("네이버지도 길찾기는 네이버지도 앱이 설치된 휴대폰에서만 열 수 있어요.\n대신 카카오맵으로 길찾기를 열까요?")) {
+        openKakaoWalk([origin, ...targets]);
+      }
+    }
+  };
+
+  const routeOriginPoint = (route: RouteResult): DirectionPoint => ({
+    lat: route.origin.lat,
+    lng: route.origin.lng,
+    name: routeOriginLabel,
+  });
+
+  /** 코스 전체(출발 → 정거장 순서대로)로 길찾기 */
+  const handleRouteDirections = (route: RouteResult, app: "kakao" | "naver") => {
+    const targets = route.stops.map((s) => toDirectionPoint(s.place)).filter((p): p is DirectionPoint => p !== null);
+    if (targets.length === 0) return;
     trackEvent("course_start", {
       authUserId: session?.user?.id ?? null,
       variant: activeRecVariant,
-      meta: { ...courseMeta(route), app: "kakao" },
+      meta: { ...courseMeta(route), app },
     });
-    const sp = points[0];
-    const ep = points[points.length - 1];
-    const viaPoints = points.slice(1, -1).slice(0, 5); // 카카오 경유지 상한: 5개(vp, vp2~vp5)
-    const params = new URLSearchParams();
-    params.set("sp", `${sp.lat},${sp.lng}`);
-    viaPoints.forEach((p, idx) => params.set(idx === 0 ? "vp" : `vp${idx + 1}`, `${p.lat},${p.lng}`));
-    params.set("ep", `${ep.lat},${ep.lng}`);
-    params.set("by", "foot");
-    window.open(`https://m.map.kakao.com/scheme/route?${params.toString()}`, "_blank", "noopener,noreferrer");
+    openWalkDirections(app, routeOriginPoint(route), targets);
   };
 
-  const handleRouteDirectionsNaver = (route: RouteResult) => {
-    const points = buildRouteWaypoints(route);
-    if (points.length < 2) return;
-    trackEvent("course_start", {
+  /** 코스의 정거장 하나로 바로 길찾기 — 순서대로 다 돌지 않고 원하는 곳만 찾아갈 때 */
+  const handleStopDirections = (route: RouteResult, stopIdx: number, app: "kakao" | "naver") => {
+    const stop = route.stops[stopIdx];
+    const target = stop && toDirectionPoint(stop.place);
+    if (!target) return;
+    trackEvent("course_stop_directions", {
       authUserId: session?.user?.id ?? null,
+      placeId: String(stop.place.id),
+      placeName: stop.place.name,
       variant: activeRecVariant,
-      meta: { ...courseMeta(route), app: "naver" },
+      meta: { theme: routeTheme, pos: stopIdx + 1, app },
     });
-    const sp = points[0];
-    const ep = points[points.length - 1];
-    const viaPoints = points.slice(1, -1).slice(0, 5); // 네이버 경유지 상한: 5개(v1~v5)
-    const params = new URLSearchParams();
-    params.set("slat", String(sp.lat));
-    params.set("slng", String(sp.lng));
-    params.set("sname", sp.name);
-    params.set("dlat", String(ep.lat));
-    params.set("dlng", String(ep.lng));
-    params.set("dname", ep.name);
-    viaPoints.forEach((p, idx) => {
-      params.set(`v${idx + 1}lat`, String(p.lat));
-      params.set(`v${idx + 1}lng`, String(p.lng));
-      params.set(`v${idx + 1}name`, p.name);
-    });
-    params.set("appname", window.location.origin);
-    window.open(`nmap://route/walk?${params.toString()}`, "_blank", "noopener,noreferrer");
+    openWalkDirections(app, routeOriginPoint(route), [target]);
   };
 
   // ── 사장님 등록 버튼 클릭 ──
@@ -2237,6 +2394,89 @@ const courseMeta = (route: RouteResult) => ({
           </div>
         )}
 
+        {/* 위치가 부정확할 때 안내 — PC(인터넷 기반 위치)나 오래된 저장 위치처럼 오차가 큰 경우 */}
+        {!!userLocation && !pickingLocation && !locationNoticeDismissed && locationSource !== "manual" &&
+          ((locationAccuracy != null && locationAccuracy > UNCERTAIN_LOCATION_M) ||
+            (locationSource === "cache" && gpsSettled && locationAccuracy == null)) && (
+          <div
+            role="status"
+            style={{
+              position: "absolute", top: isNarrowScreen ? "150px" : "100px", left: "50%", transform: "translateX(-50%)",
+              zIndex: 6, display: "flex", alignItems: "center", gap: 8, maxWidth: "calc(100vw - 28px)",
+              background: "rgba(255,255,255,0.97)", border: "1px solid #fde68a", borderRadius: 14,
+              padding: "8px 8px 8px 12px", boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+              fontFamily: "'Noto Sans KR', sans-serif",
+            }}
+          >
+            <MapPin size={14} color="#d97706" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, color: "#444", fontWeight: 600, lineHeight: 1.4 }}>
+              {locationAccuracy != null
+                ? `현재 위치의 오차가 ${formatAccuracy(locationAccuracy)}예요. 실제 위치와 다를 수 있어요.`
+                : "현재 위치를 새로 확인하지 못해 예전에 저장된 위치를 보여주고 있어요."}
+            </span>
+            <button
+              onClick={startPickingLocation}
+              className="ggk-body"
+              style={{
+                flexShrink: 0, padding: "5px 9px", borderRadius: 9, border: "none", cursor: "pointer",
+                background: "#2563eb", color: "white", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+              }}
+            >
+              지도에서 내 위치 지정
+            </button>
+            <button
+              onClick={() => setLocationNoticeDismissed(true)}
+              aria-label="안내 닫기"
+              style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", padding: 2, color: "#999", display: "flex" }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* 지도에서 내 위치 지정 모드 — 가운데 고정 핀 + 확정 버튼 */}
+        {pickingLocation && (
+          <>
+            <div
+              aria-hidden
+              style={{
+                position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -100%)",
+                zIndex: 6, pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center",
+              }}
+            >
+              <MapPin size={38} color="#2563eb" fill="#dbeafe" strokeWidth={2.2} />
+            </div>
+            <div
+              style={{
+                position: "absolute", left: "50%", transform: "translateX(-50%)",
+                bottom: isNarrowScreen ? "150px" : "95px", zIndex: 7,
+                width: "min(380px, calc(100vw - 28px))", background: "white", borderRadius: 16,
+                padding: "12px 14px", boxShadow: "0 8px 28px rgba(0,0,0,0.16)",
+                fontFamily: "'Noto Sans KR', sans-serif",
+              }}
+            >
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: "#222" }}>지도를 움직여 핀을 내 위치에 맞춰주세요</div>
+              <div style={{ fontSize: 10.5, color: "#888", marginTop: 3 }}>정한 위치는 24시간 동안 추천·AI 코스의 기준이 돼요.</div>
+              <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
+                <button
+                  onClick={() => setPickingLocation(false)}
+                  className="ggk-body"
+                  style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #e2e4e8", background: "white", color: "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={confirmPickedLocation}
+                  className="ggk-body"
+                  style={{ flex: 2, padding: "9px 0", borderRadius: 10, border: "none", background: "#2563eb", color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  여기가 내 위치예요
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
         {/* 공유·내 위치 버튼 — 넓은 화면에서는 탭바가 가운데 450px 폭으로만 떠 있어서
             오른쪽에 여유가 많아, 내 위치 버튼을 탭바와 세로 중앙이 맞도록 내렸습니다
             (탭바 bottom 20px + 높이 58px → 중심 49px = 버튼 bottom 29px). 공유 버튼은
@@ -2265,6 +2505,35 @@ const courseMeta = (route: RouteResult) => ({
           }}
         >
           <Share size={17} color="#444" />
+        </button>
+
+        {/* 내 위치 직접 지정 버튼 — 브라우저가 알려주는 위치가 틀렸을 때(PC의 와이파이·IP 추정 등).
+            브라우저는 틀린 위치에도 오차를 작게(예: 143m) 알려주는 경우가 있어 앱이 스스로 알아챌 수
+            없으므로, 오차 안내와 별개로 항상 쓸 수 있게 둡니다. */}
+        <button
+          onClick={startPickingLocation}
+          title="내 위치가 틀렸나요? 지도에서 직접 지정"
+          aria-label="지도에서 내 위치 직접 지정"
+          style={{
+            position: "absolute",
+            bottom: isNarrowScreen ? "192px" : "137px",
+            right: "20px",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            border: "none",
+            background: locationSource === "manual" ? "#eff6ff" : "white",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.16)",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 5,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.24)")}
+          onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.16)")}
+        >
+          <MapPinned size={18} color={locationSource === "manual" ? "#2563eb" : "#444"} />
         </button>
 
         {/* 내 위치 버튼 */}
@@ -3466,7 +3735,7 @@ const courseMeta = (route: RouteResult) => ({
                   AI 맞춤 추천 경로
                 </div>
                 <div style={{ fontSize: "10px", color: "#5b21b6", marginTop: "3px", fontWeight: 500 }}>
-                  {searchQuery.trim() ? `${searchQuery.trim()} 기준 추천 코스` : "현재 위치 기준 추천 코스"}
+                  {`${routeOriginLabel} 기준 추천 코스`}
                 </div>
               </div>
               <div
@@ -3543,6 +3812,34 @@ const courseMeta = (route: RouteResult) => ({
               })}
             </div>
 
+            {/* 코스에 동물병원·약국 포함 여부 — 켜면 각각 1곳씩 정거장 자리를 차지합니다 */}
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "7px" }}>
+              <span style={{ fontSize: "10px", color: "#6d28d9", fontWeight: 700, marginRight: "1px" }}>코스에 포함</span>
+              {([
+                { key: "vet", label: "동물병원", Icon: Stethoscope, on: routeIncludeVet, toggle: () => setRouteIncludeVet((v) => !v) },
+                { key: "pharmacy", label: "동물약국", Icon: Pill, on: routeIncludePharmacy, toggle: () => setRouteIncludePharmacy((v) => !v) },
+              ] as const).map(({ key, label, Icon, on, toggle }) => (
+                <button
+                  key={key}
+                  role="switch"
+                  aria-checked={on}
+                  onClick={toggle}
+                  className="ggk-body"
+                  style={{
+                    display: "flex", alignItems: "center", gap: "3px",
+                    padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
+                    border: on ? "1px solid #5b21b6" : "1px dashed rgba(91,33,182,0.4)",
+                    background: on ? "#ede4ff" : "rgba(255,255,255,0.5)",
+                    color: on ? "#5b21b6" : "#9ca3af",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Icon size={10} />
+                  {label} {on ? "ON" : "OFF"}
+                </button>
+              ))}
+            </div>
+
             {displayRoute && (
               <button
                 onClick={() => {
@@ -3599,15 +3896,17 @@ const courseMeta = (route: RouteResult) => ({
           >
             {!displayRoute && (
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
-                {(userLocation || searchCenter)
-                  ? "이 근처에서 코스를 만들 만큼 장소가 충분하지 않습니다"
-                  : "위치 정보를 확인하는 중입니다"}
+                {!(userLocation || searchCenter)
+                  ? "위치 정보를 확인하는 중입니다"
+                  : routeTheme === "attraction"
+                    ? "근처 5km 안에 반려동물과 갈 수 있는 관광지가 없어 관광 코스를 만들 수 없어요"
+                    : "이 근처에서 코스를 만들 만큼 장소가 충분하지 않습니다"}
               </div>
             )}
             {displayRoute && (
               <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#7c3aed", fontSize: "10.5px", fontWeight: 700 }}>
                 <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#2563eb", border: "2px solid white", boxShadow: "0 0 0 1px rgba(37,99,235,0.4)", flexShrink: 0 }} />
-                출발: 현재 위치
+                출발: {routeOriginLabel}
                 <span style={{ color: "#bbb", fontWeight: 500 }}>
                   · 첫 정거장까지 도보 약{" "}
                   {displayRoute.distanceFromOriginKm < 1
@@ -3702,6 +4001,17 @@ const courseMeta = (route: RouteResult) => ({
                           <Crown size={7} color="#5C4106" />
                         </span>
                       )}
+                      {stop.highlight && (
+                        <span
+                          title={ROUTE_HIGHLIGHT_BADGE[stop.highlight].title}
+                          style={{
+                            flexShrink: 0, padding: "1px 6px", borderRadius: 999, fontSize: "9px", fontWeight: 800,
+                            color: "white", background: ROUTE_HIGHLIGHT_BADGE[stop.highlight].color,
+                          }}
+                        >
+                          {ROUTE_HIGHLIGHT_BADGE[stop.highlight].label}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: "9.5px", color: "#8b5cf6", fontWeight: 700, marginTop: "2px" }}>
                       {stop.tags.join(" · ")}
@@ -3713,6 +4023,28 @@ const courseMeta = (route: RouteResult) => ({
                         <div key={bi} style={{ fontSize: "10px", color: "#666", display: "flex", alignItems: "center", gap: "3px" }}>
                           <span style={{ color: "#8b5cf6", fontWeight: 800 }}>✓</span>{b}
                         </div>
+                      ))}
+                    </div>
+                    {/* 이 정거장만 바로 찾아가기 — 카드 클릭(미리보기)과 분리되도록 전파를 막습니다 */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "6px" }}>
+                      <span style={{ fontSize: "9.5px", color: "#999", fontWeight: 600, marginRight: "1px" }}>여기로 길찾기</span>
+                      {(["kakao", "naver"] as const).map((app) => (
+                        <button
+                          key={app}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStopDirections(displayRoute, idx, app);
+                          }}
+                          className="ggk-body"
+                          aria-label={`${stop.place.name} ${app === "kakao" ? "카카오맵" : "네이버지도"} 길찾기`}
+                          style={{
+                            padding: "2px 7px", borderRadius: "999px", fontSize: "9.5px", fontWeight: 700, cursor: "pointer",
+                            border: app === "kakao" ? "1px solid rgba(124,58,237,0.35)" : "1px solid rgba(3,199,90,0.45)",
+                            background: "white", color: app === "kakao" ? "#6d28d9" : "#03A24A",
+                          }}
+                        >
+                          {app === "kakao" ? "카카오맵" : "네이버"}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -3736,7 +4068,7 @@ const courseMeta = (route: RouteResult) => ({
             <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
               <div style={{ display: "flex", gap: "6px" }}>
                 <button
-                  onClick={() => handleRouteDirectionsKakao(displayRoute)}
+                  onClick={() => handleRouteDirections(displayRoute, "kakao")}
                   className="ggk-body"
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: "12px", border: "none",
@@ -3749,7 +4081,7 @@ const courseMeta = (route: RouteResult) => ({
                   <Navigation size={12} />카카오맵
                 </button>
                 <button
-                  onClick={() => handleRouteDirectionsNaver(displayRoute)}
+                  onClick={() => handleRouteDirections(displayRoute, "naver")}
                   className="ggk-body"
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: "12px", border: "1px solid #03C75A",
@@ -3763,7 +4095,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div style={{ fontSize: "9px", color: "#bbb", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
                 ※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
-                <br />※ 네이버지도는 앱이 설치되어 있어야 열립니다(모바일 전용).
+                <br />※ 네이버지도는 휴대폰에 네이버지도 앱이 설치되어 있어야 열려요.
               </div>
             </div>
           )}
