@@ -90,11 +90,13 @@ const ROUTE_THEME_ICON: Record<RouteTheme, typeof Footprints> = {
 };
 
 // 관광 중심 코스의 필수 정거장 배지 — 왜 이 정거장이 들어갔는지 보여줍니다.
-// "pick"은 근처에 후기 핫플이 아직 없어 대신 넣은 곳이라 핫플처럼 보이지 않게 구분합니다.
+// "pick"은 근처에 요즘 인기인 곳이 아직 없어 대신 넣은 곳이라 인기 장소처럼 보이지 않게 구분합니다.
 const ROUTE_HIGHLIGHT_BADGE: Record<StopHighlight, { label: string; title: string; color: string }> = {
   famous: { label: "유명 관광지", title: "근방의 대표 관광지(관광공사 선정지 우선)", color: "#2563eb" },
-  hot: { label: "후기 HOT", title: "최근 후기·반응이 많은 곳", color: "#FF7A5C" },
-  pick: { label: "추천", title: "근처에 후기가 많은 곳이 아직 없어 친화도·인기도가 높은 곳을 추천했어요", color: "#8b5cf6" },
+  // ⚠ 예전 이름 "후기 HOT"은 후기가 0개인 곳에도 붙었습니다 — 판정이 후기 수뿐 아니라 최근 찜·좋아요,
+  // 조회 수까지 합친 점수라서요(2026-09-30 사용자 지적). 기준은 그대로 두고 이름을 실제 의미에 맞게 바꿨습니다.
+  hot: { label: "요즘 인기", title: "최근 후기·찜·조회가 많은 곳", color: "#FF7A5C" },
+  pick: { label: "추천", title: "근처에 요즘 인기인 곳이 아직 없어 친화도가 높은 곳을 추천했어요", color: "#8b5cf6" },
 };
 
 // 지도 검색어 — 같은 페이지 세션 안에서만 유지(새로고침하면 초기화). 아래 KakaoMap 참고.
