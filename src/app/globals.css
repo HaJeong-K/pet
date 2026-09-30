@@ -53,3 +53,28 @@ button:active {
   translate: 0 0;
   scale: 0.98;
 }
+
+/* 스크롤바 — 사이트 톤에 묻히도록 얇고 옅게(마우스를 올릴 때만 조금 진해짐).
+   표준 속성(scrollbar-width/color)을 지원하는 브라우저는 이것을, 그 외(구형 크롬·사파리)는
+   ::-webkit-scrollbar 스타일을 씁니다. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+*:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.26) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.26);
+}

@@ -35,7 +35,7 @@ import {
   Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
-  Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu,
+  Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown,
 } from "lucide-react";
 // ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
 // 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
@@ -430,6 +430,8 @@ export default function KakaoMap() {
   const [routeIncludePharmacy, setRouteIncludePharmacy] = useState(() => readRouteMedicalPref().pharmacy);
   // AI 코스를 보는 동안 코스와 무관한 장소·공원 마커도 함께 볼지(기본 끔 — 코스 장소만 표시)
   const [showNearbyInCourse, setShowNearbyInCourse] = useState(false);
+  // AI 코스 패널의 옵션(병원·약국 포함, 주변 장소 표시)은 평소엔 접어 두어 정거장 목록 자리를 넓힙니다.
+  const [showRouteOptions, setShowRouteOptions] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem(ROUTE_MEDICAL_STORAGE_KEY, JSON.stringify({ vet: routeIncludeVet, pharmacy: routeIncludePharmacy }));
@@ -4228,7 +4230,8 @@ const courseMeta = (route: RouteResult) => ({
           <div
             style={{
               background: "linear-gradient(135deg, #EDE7FE 0%, #C9B6FB 100%)",
-              padding: "16px 18px 14px",
+              // 정거장 목록이 보이는 자리를 넓히려고 위쪽 영역을 촘촘하게 둡니다.
+              padding: "12px 14px 10px",
               flexShrink: 0,
               borderBottom: "1px solid rgba(124,58,237,0.2)",
             }}
@@ -4261,33 +4264,43 @@ const courseMeta = (route: RouteResult) => ({
             </div>
 
             {displayRoute && (
-              <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+              // 친화도·거리·시간을 박스 3개 대신 한 줄로(세로 공간 절약)
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px", fontSize: "11px", color: "#3b0764", fontWeight: 700 }}>
                 {[
                   { icon: <PawPrint size={11} />, label: "친화도", value: `${displayRoute.avgFriendliness}점` },
                   { icon: <Navigation size={11} />, label: "총 거리", value: `${displayRoute.totalDistanceKm}km` },
                   { icon: <Footprints size={11} />, label: "예상 시간", value: formatEstimatedTime(displayRoute.estimatedMinutes) },
                 ].map((stat, i) => (
-                  <div
-                    key={i}
+                  <span key={i} title={stat.label} style={{ display: "inline-flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" }}>
+                    <span style={{ color: "#6d28d9", display: "inline-flex" }}>{stat.icon}</span>
+                    {stat.value}
+                  </span>
+                ))}
+              {(() => {
+                const activeCount = [routeIncludeVet, routeIncludePharmacy, showNearbyInCourse].filter(Boolean).length;
+                return (
+                  <button
+                    onClick={() => setShowRouteOptions((v) => !v)}
+                    aria-expanded={showRouteOptions}
+                    title="코스에 동물병원·약국 포함, 주변 장소 표시"
+                    className="ggk-body"
                     style={{
-                      flex: 1,
-                      background: "rgba(255,255,255,0.6)",
-                      borderRadius: "10px",
-                      padding: "6px 4px",
-                      textAlign: "center",
+                      flexShrink: 0, marginLeft: "auto", padding: "3px 8px", borderRadius: "999px",
+                      border: "1px solid rgba(91,33,182,0.35)", fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
+                      whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "3px",
+                      background: showRouteOptions ? "#ede4ff" : "rgba(255,255,255,0.7)", color: "#5b21b6",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "3px", color: "#5b21b6" }}>
-                      {stat.icon}
-                      <span style={{ fontSize: "9px", fontWeight: 700 }}>{stat.label}</span>
-                    </div>
-                    <div style={{ fontSize: "12px", fontWeight: 800, color: "#3b0764", marginTop: "2px" }}>{stat.value}</div>
-                  </div>
-                ))}
+                    <SlidersHorizontal size={10} />
+                    옵션{activeCount > 0 ? ` ${activeCount}` : ""}
+                    <ChevronDown size={10} style={{ transform: showRouteOptions ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+                  </button>
+                );
+              })()}
               </div>
             )}
 
-            <div style={{ display: "flex", gap: "5px", marginTop: "10px", overflowX: "auto", paddingBottom: "2px" }}>
+            <div style={{ display: "flex", gap: "5px", marginTop: "8px", overflowX: "auto", paddingBottom: "2px", scrollbarWidth: "none" }}>
               {(Object.keys(ROUTE_THEME_LABEL) as RouteTheme[]).map((theme) => {
                 const ThemeIcon = ROUTE_THEME_ICON[theme];
                 return (
@@ -4318,6 +4331,8 @@ const courseMeta = (route: RouteResult) => ({
                 );
               })}
             </div>
+
+            {showRouteOptions && (<>
 
             {/* 코스에 동물병원·약국 포함 여부 — 켜면 각각 1곳씩 정거장 자리를 차지합니다 */}
             <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "7px" }}>
@@ -4368,10 +4383,12 @@ const courseMeta = (route: RouteResult) => ({
                 주변 장소 보기 {showNearbyInCourse ? "ON" : "OFF"}
               </button>
             </div>
+            </>)}
 
             {displayRoute && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
+              <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
               <button
+                title={pinnedStopIds.size > 0 ? "고정한 곳 빼고 다른 코스 보기" : "이 조합 말고 다른 코스 보기"}
                 onClick={() => {
                   // 지금 보이는 코스의 정거장들을 제외 목록에 더해서 다른 조합이
                   // 나오도록 만듭니다. 대안이 바닥나면 useMemo 쪽에서 자동으로
@@ -4391,7 +4408,7 @@ const courseMeta = (route: RouteResult) => ({
                 }}
                 className="ggk-body"
                 style={{
-                  width: "100%",
+                  flex: 1,
                   padding: "7px 0",
                   borderRadius: "10px",
                   border: "1px dashed rgba(91,33,182,0.4)",
@@ -4406,21 +4423,21 @@ const courseMeta = (route: RouteResult) => ({
                   gap: "5px",
                 }}
               >
-                <RefreshCw size={11} />{pinnedStopIds.size > 0 ? "고정한 곳 빼고 다른 코스 보기" : "이 조합 말고 다른 코스 보기"}
+                <RefreshCw size={11} />{pinnedStopIds.size > 0 ? "고정 빼고 다른 코스" : "다른 코스 보기"}
               </button>
               {/* 지도를 옮기거나 확대해 코스가 화면에서 벗어났을 때, 전체 경로가 한 화면에 보이게 다시 맞춥니다 */}
               <button
                 onClick={() => fitCourseRef.current()}
-                title="지도를 움직였다면 눌러서 추천 경로 전체를 다시 한 화면에 보여줘요"
+                title="지도에서 전체 경로 확인하기 — 지도를 움직였다면 눌러서 추천 경로 전체를 다시 한 화면에 보여줘요"
                 className="ggk-body"
                 style={{
-                  width: "100%", padding: "7px 0", borderRadius: "10px",
+                  flex: 1, padding: "7px 0", borderRadius: "10px",
                   border: "1px solid rgba(91,33,182,0.3)", background: "white", color: "#5b21b6",
                   fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
                 }}
               >
-                <Maximize2 size={11} />지도에서 전체 경로 확인하기
+                <Maximize2 size={11} />전체 경로 보기
               </button>
               </div>
             )}
