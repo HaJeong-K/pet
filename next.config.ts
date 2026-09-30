@@ -11,7 +11,15 @@ const nextConfig: NextConfig = {
     // 공공데이터 원본 URL 등 출처가 다양해서 도메인을 하나로 특정할 수 없습니다.
     // https 출처만 허용해 next/image의 자동 포맷 변환(WebP/AVIF)·반응형 크기·지연
     // 로딩 이점은 그대로 가져가되, http(평문) 출처는 막습니다.
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
+    // 예외: 카카오 로그인 프로필 사진(k.kakaocdn.net)·관광공사 이미지는 원본 주소가 http로
+    // 오는 경우가 있어 이 두 서버만 http도 허용합니다(이미 DB에 저장된 주소 대응). 이미지는
+    // Next 서버가 받아서 우리 https 주소로 내려주므로 브라우저에 평문 요청이 생기지 않습니다.
+    // 새로 저장하는 주소는 src/lib/imageUrl.ts의 toHttps로 https로 바꿔 저장합니다.
+    remotePatterns: [
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**.kakaocdn.net" },
+      { protocol: "http", hostname: "tong.visitkorea.or.kr" },
+    ],
   },
 };
 

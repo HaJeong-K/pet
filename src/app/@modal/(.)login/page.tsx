@@ -98,7 +98,9 @@ function LoginPageContent() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        // 끝에 "/"를 붙여야 Supabase 허용 목록 패턴(예: http://host:3000/**)과 맞습니다 — 안 맞으면
+        // Supabase가 기본 주소(Site URL, localhost)로 돌려보내 휴대폰에서 "연결 거부"가 났습니다.
+        redirectTo: `${window.location.origin}/`,
         queryParams: {
           prompt: "select_account", // ← 매번 계정 선택창 표시
         },
@@ -121,7 +123,9 @@ function LoginPageContent() {
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
-        redirectTo: window.location.origin,
+        // 끝에 "/"를 붙여야 Supabase 허용 목록 패턴(예: http://host:3000/**)과 맞습니다 — 안 맞으면
+        // Supabase가 기본 주소(Site URL, localhost)로 돌려보내 휴대폰에서 "연결 거부"가 났습니다.
+        redirectTo: `${window.location.origin}/`,
 
         queryParams: {
           prompt: "select_account",

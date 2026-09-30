@@ -22,12 +22,18 @@ export default function TabBar() {
       }
     };
     checkLogin();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // ⚠ 이 콜백 안에서 supabase 호출을 await하면 안 됩니다. 콜백은 인증 잠금을 쥔 채 실행돼서,
+    // 토큰이 갱신되는 순간(로그인 약 1시간 뒤·탭 복귀 시) 교착에 빠지고 그 뒤 모든 supabase
+    // 호출이 영영 멈춥니다(마이페이지 흰 화면의 원인). 조회는 setTimeout으로 잠금이 풀린 뒤에 합니다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session);
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
-        setIsAdmin(!!profile?.is_admin);
+        const uid = session.user.id;
+        setTimeout(async () => {
+          const { data: profile } = await supabase
+            .from("users").select("is_admin").eq("auth_user_id", uid).single();
+          setIsAdmin(!!profile?.is_admin);
+        }, 0);
       } else {
         setIsAdmin(false);
       }
@@ -78,7 +84,7 @@ export default function TabBar() {
       <style>{`
         @keyframes tabPop {
           0%   { transform: scale(1); }
-          40%  { transform: scale(0.86); }
+          40%  { transform: scale(0.96); }
           100% { transform: scale(1); }
         }
         .tab-btn-ggk { transition: opacity 0.15s ease; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectPlatform, kakaoWalkUrl, naverWalkIntentUrl, naverWalkSchemeUrl } from "./directions";
+import { detectPlatform, kakaoWalkUrl, naverWalkIntentUrl, naverWalkSchemeUrl, naverWebWalkUrl } from "./directions";
 
 const A = { name: "내 위치", lat: 35.1798, lng: 129.075 };
 const B = { name: "온천공원", lat: 35.2072, lng: 129.0617 };
@@ -43,6 +43,30 @@ describe("naver walk urls", () => {
     expect(url.startsWith("intent://route/walk?")).toBe(true);
     expect(url).toContain("scheme=nmap");
     expect(url).toContain("package=com.nhn.android.nmap;end");
+  });
+});
+
+describe("naverWebWalkUrl (PC 네이버 지도 웹)", () => {
+  // 2026-09-30 크롬에서 실제로 동작을 확인한 링크와 똑같이 만들어야 합니다.
+  const cityHall = { name: "부산시청", lat: 35.179816, lng: 129.075022 };
+  const dongnae = { name: "동래역", lat: 35.205769, lng: 129.078398 };
+  const yeonsan = { name: "연산역", lat: 35.186135, lng: 129.081676 };
+  const enc = encodeURIComponent;
+
+  it("경유지가 없으면 확인된 링크 A와 같다", () => {
+    expect(naverWebWalkUrl(cityHall, dongnae)).toBe(
+      `https://map.naver.com/p/directions/14368565.7212,4188344.3488,${enc("부산시청")},,/14368941.5358,4191879.6074,${enc("동래역")},,/-/walk`
+    );
+  });
+
+  it("경유지가 있으면 확인된 링크 B와 같다", () => {
+    expect(naverWebWalkUrl(cityHall, dongnae, [yeonsan])).toBe(
+      `https://map.naver.com/p/directions/14368565.7212,4188344.3488,${enc("부산시청")},,/14368941.5358,4191879.6074,${enc("동래역")},,/14369306.4411,4189205.0046,${enc("연산역")},,/walk`
+    );
+  });
+
+  it("출발지를 모르면 출발지를 '-'로 비운다", () => {
+    expect(naverWebWalkUrl(null, dongnae).startsWith("https://map.naver.com/p/directions/-/14368941.5358,")).toBe(true);
   });
 });
 

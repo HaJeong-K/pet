@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchDetailHtml } from "@/lib/shelterNotices";
 
 // GET /api/shelter-notice-view?desertionNo=xxxx
-// 카드 클릭 시 새 탭으로 여는 주소입니다. animal.go.kr의 상세페이지는 세션 쿠키가
-// 없으면(=사용자의 첫 방문 브라우저) POST가 실패하므로, 세션을 가진 우리 서버가
-// 대신 요청해서 실제 공고 원문 HTML을 그대로 내려줍니다.
+// 예전엔 animal.go.kr 상세페이지 HTML을 서버에서 대신 받아 보여주는 프록시였는데, 그 사이트
+// 구조가 바뀌어 502 오류만 났습니다. 이제 공고 상세는 우리 사이트의 /shelter-notices/[desertionNo]
+// 화면에서 보여주므로, 예전 주소로 들어온 요청은 그쪽으로 보냅니다.
 export async function GET(req: NextRequest) {
-  const desertionNo = req.nextUrl.searchParams.get("desertionNo");
-  if (!desertionNo) {
-    return NextResponse.json({ error: "desertionNo required" }, { status: 400 });
-  }
-
-  const html = await fetchDetailHtml(desertionNo);
-  if (!html) {
-    return NextResponse.json({ error: "공고를 불러오지 못했습니다" }, { status: 502 });
-  }
-
-  return new NextResponse(html, {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
+  const desertionNo = req.nextUrl.searchParams.get("desertionNo") ?? "";
+  const target = /^\d{6,20}$/.test(desertionNo) ? `/shelter-notices/${desertionNo}` : "/shelter-notices";
+  return NextResponse.redirect(new URL(target, req.url), 308);
 }

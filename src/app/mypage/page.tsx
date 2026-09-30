@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { toHttps } from "@/lib/imageUrl";
+import { isPublicDataPlaceId, getRememberedPlace } from "@/lib/placeCache";
+import { fetchPublicDataPlaceById } from "@/lib/publicDataPlaces";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -36,6 +39,9 @@ const BOARD_LABEL: Record<string, string> = {
   gwangju: "광주",
   jeju: "제주",
 };
+// 이 시간 안에 로딩이 끝나지 않으면 흰 화면 대신 "다시 불러오기" 안내를 보여줍니다.
+const MYPAGE_STALL_MS = 8000;
+
 const getBoardLabel = (id: string) => BOARD_LABEL[id] || id;
 
 const PET_ZONE_LABEL: Record<string, string> = {
@@ -80,6 +86,8 @@ export default function MyPage() {
   const [myReviews, setMyReviews]       = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<"bookmarks"|"reviews">("bookmarks");
   const [loading, setLoading]           = useState(true);
+  // 로딩이 너무 오래 걸리면(네트워크 멈춤·인증 교착 등) 투명한 흰 화면으로 두지 않고 안내를 띄웁니다.
+  const [loadStalled, setLoadStalled]   = useState(false);
   const [myCommunityComments, setMyCommunityComments] = useState<any[]>([]); // 커뮤니티 댓글
   const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
@@ -99,6 +107,10 @@ export default function MyPage() {
   // ── 사장님 업장 정보 수정 — 마이페이지 설정에서 바로 수정(place/[id]의
   // OwnerPlaceEditPanel을 그대로 재사용, place 데이터만 여기서 조회)
   const [ownerPlace, setOwnerPlace] = useState<any>(null);
+  // 관리자 전용 "사장님 화면 미리보기" — 관리자는 연결된 업장이 없으므로 미리 볼 등록 장소를 직접 고릅니다.
+  const [previewPlace, setPreviewPlace] = useState<{ id: number; name: string } | null>(null);
+  const [previewQuery, setPreviewQuery] = useState("");
+  const [previewResults, setPreviewResults] = useState<{ id: number; name: string; address: string | null }[]>([]);
   const [ownerPlaceLoading, setOwnerPlaceLoading] = useState(false);
 
   const [bookmarkPage, setBookmarkPage] = useState(1);
@@ -130,6 +142,25 @@ export default function MyPage() {
   // 아래 opacity:loading?0:1 스타일 때문에 로딩이 끝나지 않으면 페이지 전체가 투명한
   // 채로 남아 "하얀 화면"처럼 보였던 원인이 바로 이것입니다. try/finally로 감싸서
   // 오류가 나도 항상 로딩 상태를 끝내고(일부 데이터가 비어 있더라도) 화면이 뜨게 합니다.
+  const loadPlacesByIds = async (rawIds: any[]): Promise<Map<string, any>> => {
+    const ids = [...new Set(rawIds.filter((id) => id != null).map(String))];
+    const map = new Map<string, any>();
+    const registered = ids.filter((id) => !isPublicDataPlaceId(id));
+    const publicIds = ids.filter((id) => isPublicDataPlaceId(id));
+    const [registeredRes, publicList] = await Promise.all([
+      registered.length
+        ? supabase.from("places").select("id, name, address, image_url, pet_zone, category").in("id", registered)
+        : Promise.resolve({ data: [] as any[] }),
+      Promise.all(publicIds.map((id) =>
+        (getRememberedPlace(id) ? Promise.resolve(getRememberedPlace(id)) : fetchPublicDataPlaceById(Number(id))).catch(() => null),
+      )),
+    ]);
+    for (const p of [...((registeredRes as any).data || []), ...publicList]) {
+      if (p?.id != null) map.set(String(p.id), { ...p, image_url: toHttps(p.image_url ?? null) });
+    }
+    return map;
+  };
+
   const loadData = async (sess: any) => {
     setBookmarks([]);
     setMyReviews([]);
@@ -148,15 +179,20 @@ export default function MyPage() {
         supabase.from("reactions")
           .select("place_id")
           .eq("user_key", uid)
-          .eq("type", "bookmark"),
+          .eq("type", "bookmark")
+          .order("created_at", { ascending: false }),
+        // ⚠ reviews.place_id에는 places 외래키가 없습니다(공공데이터 장소 id도 담기 때문).
+        // 그래서 places(...) 조인을 쓰면 PostgREST가 "relationship 없음" 오류를 내고, 예전엔
+        // 이 오류가 조용히 무시돼 작성한 댓글이 항상 0개로 보였습니다. 장소 정보는 아래에서
+        // place_id로 따로 모아 붙입니다.
         supabase.from("reviews")
-          .select("id, content, created_at, likes, place_id, places(name, address, image_url, category)")
+          .select("id, content, created_at, likes, place_id")
           .eq("auth_user_id", uid)
           .eq("deleted", false)
           .eq("is_admin_deleted", false)
           .order("created_at", { ascending: false }),
         supabase.from("review_replies")
-          .select("id, content, created_at, likes, review_id, reviews!inner(place_id, places(name, address, image_url, category))")
+          .select("id, content, created_at, likes, review_id, reviews!inner(place_id)")
           .eq("auth_user_id", uid)
           .eq("deleted", false)
           .eq("is_admin_deleted", false)
@@ -169,26 +205,36 @@ export default function MyPage() {
           .order("created_at", { ascending: false }),
       ]);
       setUserProfile(profile);
-      setMyReviews(reviews || []);
-      setMyReviewReplies(reviewReplies || []);
       setMyCommunityComments(communityComments || []);
 
-      const ids = (bookmarkReactions || []).map((x: any) => x.place_id);
-      if (ids.length > 0) {
-        const { data: places } = await supabase
-          .from("places")
-          .select("id, name, address, image_url, pet_zone") // ✅ * 대신 필요한 것만
-          .in("id", ids);
-        setBookmarks(places || []);
-      } else {
-        setBookmarks([]);
-      }
+      // 찜·댓글이 가리키는 장소 정보를 한 번에 모읍니다. 등록 장소는 places 테이블에서,
+      // 공공데이터 장소(id 10억 이상 — 관광공사·공원 등)는 places에 없으므로 공공데이터 API에서
+      // 가져옵니다. 예전엔 places 테이블만 조회해서 공공데이터 장소를 찜하면 마이페이지에
+      // 0개로 보였습니다.
+      const bookmarkIds = (bookmarkReactions || []).map((x: any) => x.place_id);
+      const placeMap = await loadPlacesByIds([
+        ...bookmarkIds,
+        ...(reviews || []).map((r: any) => r.place_id),
+        ...(reviewReplies || []).map((r: any) => r.reviews?.place_id),
+      ]);
+      setBookmarks(bookmarkIds.map((id: any) => placeMap.get(String(id))).filter(Boolean));
+      setMyReviews((reviews || []).map((r: any) => ({ ...r, places: placeMap.get(String(r.place_id)) ?? null })));
+      setMyReviewReplies((reviewReplies || []).map((r: any) => ({
+        ...r,
+        reviews: { ...r.reviews, places: placeMap.get(String(r.reviews?.place_id)) ?? null },
+      })));
     } catch (e) {
       console.error("[mypage] loadData failed:", e);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!loading) { setLoadStalled(false); return; }
+    const t = setTimeout(() => setLoadStalled(true), MYPAGE_STALL_MS);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -261,15 +307,32 @@ export default function MyPage() {
     window.location.href = "/";
   };
 
+  const isVerifiedOwner = userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null;
+  // 관리자가 사장님 화면을 미리 보는 중인지(본인이 사장님이면 본인 업장이 우선)
+  const isOwnerPreview = !isVerifiedOwner && !!userProfile?.is_admin;
+  const ownerPlaceId: number | null = isVerifiedOwner ? userProfile.owner_place_id : (isOwnerPreview ? previewPlace?.id ?? null : null);
+
+  useEffect(() => {
+    if (!isOwnerPreview) return;
+    const q = previewQuery.trim();
+    const t = setTimeout(async () => {
+      let req = supabase.from("places").select("id, name, address").order("created_at", { ascending: false }).limit(8);
+      if (q) req = req.ilike("name", `%${q}%`);
+      const { data } = await req;
+      setPreviewResults((data as any[]) || []);
+    }, q ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [previewQuery, isOwnerPreview]);
+
   // ── 사장님 프리미엄 등록: 현재 상태(is_premium/만료일) + 가장 최근 신청 내역 조회
-  const openPremiumPane = async () => {
+  const openPremiumPane = async (placeId: number | null = ownerPlaceId) => {
     setSettingView("premium");
     setPremiumMsg(null);
-    if (!userProfile?.owner_place_id) return;
+    if (placeId == null) return;
     setPremiumLoading(true);
     const [{ data: placeRow }, { data: reqRow }] = await Promise.all([
-      supabase.from("places").select("is_premium, premium_expires_at").eq("id", userProfile.owner_place_id).maybeSingle(),
-      supabase.from("premium_requests").select("*").eq("place_id", userProfile.owner_place_id).order("requested_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("places").select("is_premium, premium_expires_at").eq("id", placeId).maybeSingle(),
+      supabase.from("premium_requests").select("*").eq("place_id", placeId).order("requested_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     setPremiumPlace(placeRow || null);
     setPremiumRequest(reqRow || null);
@@ -278,18 +341,49 @@ export default function MyPage() {
 
   // ── 사장님 업장 정보 수정: 본인 업장(owner_place_id) 전체 필드 조회 후
   // OwnerPlaceEditPanel(place/[id]/page.tsx와 동일 컴포넌트)에 그대로 넘깁니다.
-  const openOwnerPlacePane = async () => {
+  const openOwnerPlacePane = async (placeId: number | null = ownerPlaceId) => {
     setSettingView("owner-place");
-    if (!userProfile?.owner_place_id) return;
+    setOwnerPlace(null);
+    if (placeId == null) return;
     setOwnerPlaceLoading(true);
     const { data } = await supabase
       .from("places")
       .select("id, name, hours, phone, closed_days, pet_zone, parking, entry_fee, website, memo")
-      .eq("id", userProfile.owner_place_id)
+      .eq("id", placeId)
       .maybeSingle();
     setOwnerPlace(data || null);
     setOwnerPlaceLoading(false);
   };
+
+  // 관리자 미리보기용 업장 선택기 — 등록 장소를 이름으로 검색해 고릅니다.
+  // (컴포넌트로 만들면 렌더마다 새 타입이 돼 입력창 포커스가 풀리므로 렌더 함수로 둡니다.)
+  const renderOwnerPreviewPicker = (onPick: (p: { id: number; name: string }) => void) => (
+    <div style={{ marginBottom:14, padding:"10px 12px", background:"#f8fafc", border:"1px solid #e8eaed", borderRadius:11 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:"#555", marginBottom:6 }}>
+        관리자 미리보기 · 미리 볼 업장{previewPlace ? <>: <span style={{ color:"#5C7A4A" }}>{previewPlace.name}</span></> : " 선택"}
+      </div>
+      <input
+        value={previewQuery}
+        onChange={(e) => setPreviewQuery(e.target.value)}
+        placeholder="등록된 장소 이름으로 검색"
+        style={{ ...inp, marginBottom:6 }}
+      />
+      <div style={{ maxHeight:150, overflowY:"auto", display:"flex", flexDirection:"column", gap:3 }}>
+        {previewResults.length === 0 ? (
+          <div style={{ fontSize:11, color:"#aaa", padding:"4px 2px" }}>검색 결과가 없어요</div>
+        ) : previewResults.map((p) => (
+          <button key={p.id} onClick={() => { setPreviewPlace({ id: p.id, name: p.name }); onPick(p); }} style={{
+            textAlign:"left", padding:"7px 9px", borderRadius:8, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
+            border: previewPlace?.id === p.id ? "1.5px solid #5C7A4A" : "1px solid #eef0f2",
+            background: previewPlace?.id === p.id ? "#f0f7ec" : "white",
+          }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#222" }}>{p.name}</div>
+            {p.address && <div style={{ fontSize:10.5, color:"#999" }}>{p.address}</div>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const handlePremiumApply = async () => {
     setPremiumSubmitting(true);
@@ -388,10 +482,26 @@ export default function MyPage() {
       {/* ── 전체 래퍼: grid로 [여백칼럼(1fr)] [본문(최대 1200px)] [여백칼럼(1fr)] 3단 구성 ──
           좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
           레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
+      {loading && loadStalled && (
+        <div role="alert" style={{
+          position: "fixed", inset: 0, zIndex: 50, background: "#F7F3E8", opacity: 1,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+          fontFamily: "'Noto Sans KR', sans-serif", textAlign: "center", padding: 24,
+        }}>
+          <div style={{ fontSize: 36 }}>🐾</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#222" }}>마이페이지를 불러오는 데 시간이 걸리고 있어요</div>
+          <div style={{ fontSize: 13, color: "#888" }}>네트워크 상태를 확인하고 다시 불러와 주세요.</div>
+          <button onClick={() => window.location.reload()} style={{
+            marginTop: 4, padding: "10px 20px", borderRadius: 10, border: "none",
+            background: "#5C7A4A", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}>다시 불러오기</button>
+        </div>
+      )}
       <div className="ggk-body" style={{
         display: "grid",
         gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
-        columnGap: "16px",
+        // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
+        columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
         minHeight: "100vh",
         background: "#F7F3E8",
         opacity: loading ? 0 : 1,
@@ -402,6 +512,9 @@ export default function MyPage() {
 
         {/* ── 중앙 콘텐츠 */}
         <div style={{
+            // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
+            // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
+            gridColumn: "2",
           minWidth: 0,
           width: "100%",
           height: "100vh",
@@ -1017,31 +1130,31 @@ export default function MyPage() {
                   {/* 인증된 사장님만 보이는 진입점 — 마이페이지 설정 안에서 바로 수정합니다
                       (place/[id]/page.tsx의 OwnerPlaceEditPanel을 그대로 재사용하되,
                       더 이상 상세페이지로 이동시키지 않고 이 설정 패널 안에서 엽니다). */}
-                  {userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null && (
+                  {(isVerifiedOwner || isOwnerPreview) && (
                     <button
                       className="setting-row"
-                      onClick={openOwnerPlacePane}
+                      onClick={() => openOwnerPlacePane()}
                       style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f0f7ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
                     >
                       <div style={{ width:32, height:32, borderRadius:9, background:"#dcecd3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                         <Store size={15} color="#5C7A4A" />
                       </div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>가게 정보 수정하기</div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>가게 정보 수정하기{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#5C7A4A" }}>관리자 미리보기</span>}</div>
                       <ChevronRight size={14} color="#bbb" />
                     </button>
                   )}
 
                   {/* 프리미엄 등록 — 인증된 사장님만 진입 가능. 신청/현재 상태를 별도 패널에서 보여줍니다. */}
-                  {userProfile?.owner_status === "verified" && userProfile?.owner_place_id != null && (
+                  {(isVerifiedOwner || isOwnerPreview) && (
                     <button
                       className="setting-row"
-                      onClick={openPremiumPane}
+                      onClick={() => openPremiumPane()}
                       style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#fff8ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
                     >
                       <div style={{ width:32, height:32, borderRadius:9, background:"#ffe9c2", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                         <Crown size={15} color="#B8860B" />
                       </div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>프리미엄 등록</div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>프리미엄 등록{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#B8860B" }}>관리자 미리보기</span>}</div>
                       <ChevronRight size={14} color="#bbb" />
                     </button>
                   )}
@@ -1167,7 +1280,8 @@ export default function MyPage() {
                   </button>
                 </div>
 
-                {premiumLoading ? (
+                {isOwnerPreview && renderOwnerPreviewPicker((p) => openPremiumPane(p.id))}
+                {isOwnerPreview && ownerPlaceId == null ? null : premiumLoading ? (
                   <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
                 ) : (
                   <>
@@ -1226,9 +1340,12 @@ export default function MyPage() {
                             {premiumMsg.ok && <Check size={12}/>}{premiumMsg.text}
                           </div>
                         )}
-                        <button onClick={handlePremiumApply} disabled={premiumSubmitting} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: premiumSubmitting ? "#d1d5db" : "linear-gradient(145deg,#D4A24C,#B8860B)", color:"white", fontWeight:700, fontSize:13, cursor: premiumSubmitting ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                        <button onClick={handlePremiumApply} disabled={premiumSubmitting || isOwnerPreview} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: premiumSubmitting || isOwnerPreview ? "#d1d5db" : "linear-gradient(145deg,#D4A24C,#B8860B)", color:"white", fontWeight:700, fontSize:13, cursor: premiumSubmitting || isOwnerPreview ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                           {premiumSubmitting ? "신청 중..." : "프리미엄 신청하기"}
                         </button>
+                        {isOwnerPreview && (
+                          <div style={{ fontSize:11, color:"#999", textAlign:"center", marginTop:8 }}>관리자 미리보기에서는 실제로 신청되지 않아요.</div>
+                        )}
                       </>
                     )}
                   </>
@@ -1248,7 +1365,8 @@ export default function MyPage() {
                   </button>
                 </div>
 
-                {ownerPlaceLoading ? (
+                {isOwnerPreview && renderOwnerPreviewPicker((p) => openOwnerPlacePane(p.id))}
+                {isOwnerPreview && ownerPlaceId == null ? null : ownerPlaceLoading ? (
                   <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
                 ) : ownerPlace ? (
                   <OwnerPlaceEditPanel

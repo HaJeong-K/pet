@@ -26,18 +26,20 @@ export async function PATCH(req: NextRequest) {
 
     const { data: profile } = await supabaseAdmin
       .from("users")
-      .select("owner_status, owner_place_id")
+      .select("owner_status, owner_place_id, is_admin")
       .eq("auth_user_id", user.id)
       .single();
 
-    if (profile?.owner_status !== "verified" || !profile?.owner_place_id) {
+    // 관리자는 마이페이지 설정의 "사장님 화면 미리보기"에서 어떤 등록 장소든 수정할 수 있습니다.
+    const isAdmin = !!profile?.is_admin;
+    if (!isAdmin && (profile?.owner_status !== "verified" || !profile?.owner_place_id)) {
       return NextResponse.json({ error: "인증된 사장님 계정이 아니거나 연결된 업장이 없습니다" }, { status: 403 });
     }
 
     const body = await req.json();
     const { placeId, fields } = body as { placeId: number; fields: Record<string, unknown> };
 
-    if (Number(placeId) !== Number(profile.owner_place_id)) {
+    if (!isAdmin && Number(placeId) !== Number(profile?.owner_place_id)) {
       return NextResponse.json({ error: "본인 업장만 수정할 수 있습니다" }, { status: 403 });
     }
 

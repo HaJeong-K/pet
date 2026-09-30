@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { PawPrint } from "lucide-react";
 
 export type ShelterNoticeLite = {
@@ -13,10 +14,8 @@ export type ShelterNoticeLite = {
   daysLeft: number;
 };
 
-// 클릭하면 국가동물보호정보시스템의 실제 공고 상세페이지가 새 탭으로 열립니다.
-// 그 사이트는 세션 쿠키가 있어야 상세페이지 POST가 통과되는데, 사용자의 브라우저는
-// animal.go.kr 세션이 없으므로 우리 서버(세션 보유)가 대신 요청해서 원문 HTML을
-// 그대로 내려주는 프록시 라우트(/api/shelter-notice-view)를 거칩니다.
+// 클릭하면 우리 사이트의 공고 상세 화면(/shelter-notices/[desertionNo])으로 이동합니다.
+// 그 화면에서 보호소 전화·위치·공고 원문으로 바로 입양·임시보호 문의를 할 수 있습니다.
 export default function ShelterNoticeCard({
   notice,
   phrase,
@@ -47,12 +46,10 @@ export default function ShelterNoticeCard({
 
   return (
     <div style={cardStyle}>
-      <a
-        href={`/api/shelter-notice-view?desertionNo=${notice.desertionNo}`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <Link
+        href={`/shelter-notices/${notice.desertionNo}`}
         style={linkStyle}
-        title={`${notice.noticeNumber} 자세히 보기 (animal.go.kr)`}
+        title={`${notice.noticeNumber} 자세히 보기 · 입양/임보 문의`}
       >
         {/* 상단 타이틀 바 — 이미지 출력 영역을 살짝 줄이고 그 자리에 문구를 표시합니다 */}
         <div
@@ -166,7 +163,7 @@ export default function ShelterNoticeCard({
             </span>
           </div>
         </div>
-      </a>
+      </Link>
     </div>
   );
 }

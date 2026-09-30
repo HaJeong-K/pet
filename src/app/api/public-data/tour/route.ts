@@ -42,6 +42,9 @@ const CONTENT_TYPE_LABEL: Record<string, string> = {
 // 있어서(승인 전 기본 1000회/일), 항목 하나당 상세 호출이 2번씩 추가로 나가는 걸 고려해
 // 과도하게 쿼터를 소모하지 않도록 제한합니다. 더 넓히고 싶으면 이 값만 올리면 됩니다.
 const DETAIL_FETCH_LIMIT = 50;
+// 공공데이터포털이 응답하지 않을 때 무한정 기다리지 않도록 호출마다 두는 시간 제한
+// (예전엔 제한이 없어 외부 API가 멈추면 장소 상세가 "로딩중..."에서 멈췄습니다).
+const TOUR_FETCH_TIMEOUT_MS = 8000;
 const DETAIL_CONCURRENCY = 5;
 
 function encodeServiceKey(key: string): string {
@@ -83,7 +86,7 @@ async function fetchDetailItem(
 
   const url = `${BASE_URL}/${path}?${qs.toString()}&serviceKey=${encodeServiceKey(apiKey)}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const res = await fetch(url, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(TOUR_FETCH_TIMEOUT_MS) });
     const text = await res.text();
     const data = JSON.parse(text);
     const item = data?.response?.body?.items?.item;
@@ -181,8 +184,16 @@ async function fetchListPage(
   // 쿼리스트링에 직접 이어붙입니다(이중 인코딩 방지).
   const listUrl = `${BASE_URL}/areaBasedList2?${qs.toString()}&serviceKey=${encodeServiceKey(apiKey)}`;
 
-  const res = await fetch(listUrl, { next: { revalidate: 3600 } });
-  const rawText = await res.text();
+  let res: Response;
+  let rawText: string;
+  try {
+    res = await fetch(listUrl, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(TOUR_FETCH_TIMEOUT_MS) });
+    rawText = await res.text();
+  } catch (e) {
+    // 시간 초과·네트워크 오류 — 이 페이지만 건너뜁니다(나머지 페이지는 그대로 씁니다).
+    console.error(`TourAPI 목록 ${pageNo}페이지 조회 실패:`, e instanceof Error ? e.message : e);
+    return null;
+  }
   let data: any = null;
   try {
     data = JSON.parse(rawText);

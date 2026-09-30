@@ -34,17 +34,22 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 버튼 공통 누름 효과 — 일반적인 사이트 수준으로 "살짝" 눌리는 정도만 줍니다.
+   예전엔 94%로 줄고(!important) 흐려지는 데다 호버 때 1px 떠올랐다가 눌려서 깊게 꺼지는
+   느낌이 났고, transform을 통째로 덮어써서 위치 맞춤에 transform을 쓰는 버튼
+   (가운데 정렬 화살표 등)은 누르는 순간 제자리에서 튀었습니다.
+   개별 속성(translate/scale)은 기존 transform과 합쳐지기만 해서 위치를 건드리지 않고,
+   !important를 빼서 버튼마다 지정한 transition도 그대로 살립니다. */
 button {
-  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease !important;
+  transition: translate 0.15s ease, scale 0.1s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
-  transform: translateY(-1px);
+  translate: 0 -1px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 button:active {
-  transform: scale(0.94) !important;
-  opacity: 0.85 !important;
-  transition: transform 0.08s ease, opacity 0.08s ease !important;
+  translate: 0 0;
+  scale: 0.98;
 }

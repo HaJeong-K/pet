@@ -4,6 +4,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { toHttps } from "@/lib/imageUrl";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/routeRecommend";
 import { openKakaoWalk, openNaverWalk, type DirectionPoint } from "@/lib/directions";
 import { watchBestPosition } from "@/lib/preciseLocation";
+import { rememberPlaces } from "@/lib/placeCache";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
@@ -33,7 +35,7 @@ import {
   Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
-  Stethoscope, Pill, MapPinned,
+  Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu,
 } from "lucide-react";
 // ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
 // 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
@@ -46,6 +48,14 @@ const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 // 펼치지 않고 하나씩만(토글) 보여줍니다 — 세 패널을 동시에 다 펼치기엔 가로 폭이
 // 부족해서 그대로 두면 서로 겹치거나 화면 밖으로 밀려납니다.
 const NARROW_BREAKPOINT = "(max-width: 720px)";
+
+// 휴대폰 바텀시트: 떠 있는 하단 탭바(아래 20px + 높이 약 62px)를 피하는 여백과, 가장 낮게
+// 내렸을 때 보이는 내용 높이(손잡이 + 제목 한 줄)
+type SheetSnap = "peek" | "half" | "full";
+const SHEET_TAB_SPACE_PX = 92;
+const SHEET_PEEK_CONTENT_PX = 64;
+// 휴대폰 필터 칩 — 손가락으로 누르기 편한 크기(높이 약 32px)
+const MOBILE_CHIP_STYLE: React.CSSProperties = { padding: "7px 12px", fontSize: "12.5px", flexShrink: 0 };
 
 declare global {
   interface Window {
@@ -118,6 +128,11 @@ const readLocationMeta = (): LocationMeta | null => {
     return null;
   }
 };
+
+// 지도 오버레이(CustomOverlay)는 HTML 문자열로 그려서, 사용자가 제보한 장소 이름 등을 그대로 넣으면
+// 이름에 섞인 태그·스크립트가 실행될 수 있습니다. 오버레이에 넣는 텍스트는 항상 이걸로 감쌉니다.
+const escapeHtml = (text: unknown) =>
+  String(text ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 const formatAccuracy = (m: number) => (m >= 1000 ? `약 ${Math.round(m / 100) / 10}km` : `약 ${Math.round(m)}m`);
 
@@ -334,9 +349,11 @@ export default function KakaoMap() {
       .from("users").select("*").eq("auth_user_id", user.id).maybeSingle();
     if (existingUser) {
       const avatarUrl =
-        user.user_metadata?.avatar_url ||
-        user.user_metadata?.picture ||
-        user.user_metadata?.profile_image || null;
+        toHttps(
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          user.user_metadata?.profile_image || null,
+        );
       await supabase.from("users").update({ avatar_url: avatarUrl }).eq("auth_user_id", user.id);
       return;
     }
@@ -348,9 +365,11 @@ export default function KakaoMap() {
       user.identities?.[0]?.identity_data?.name ||
       user.email?.split("@")[0] || "사용자";
     const avatarUrl =
-      user.user_metadata?.avatar_url ||
-      user.user_metadata?.picture ||
-      user.user_metadata?.profile_image || null;
+      toHttps(
+        user.user_metadata?.avatar_url ||
+        user.user_metadata?.picture ||
+        user.user_metadata?.profile_image || null,
+      );
     const { error } = await supabase.from("users").upsert([
       { auth_user_id: user.id, email: user.email || "", nickname, avatar_url: avatarUrl },
     ], { onConflict: "auth_user_id" });
@@ -360,6 +379,8 @@ export default function KakaoMap() {
   const selectPlaceRef = useRef<(id: number) => void>(() => {});
   const selectParkRef = useRef<(id: number) => void>(() => {});
   const [places, setPlaces] = useState<any[]>([]);
+  // 지도가 받은 장소 데이터를 상세 팝업과 나눠 씁니다 — 팝업이 서버 응답을 기다리지 않고 바로 뜹니다.
+  useEffect(() => { rememberPlaces(places); }, [places]);
   // ⚠ 공원은 "장소"가 아니라 추천 점수 + 별도 마커 레이어에 쓰는 보조 데이터라 places
   // state와 분리해뒀습니다 — 리뷰/신고/상세페이지 같은 장소 엔티티 구조가 없어서, places에
   // 섞으면 마커 클릭 시 상세 모달이 깨집니다. 대신 자체 마커 레이어 + 가벼운 정보 카드로
@@ -407,6 +428,8 @@ export default function KakaoMap() {
   // 토글은 패널(처음엔 닫혀 있음) 안에만 보여서 저장값으로 초기화해도 하이드레이션 불일치가 없습니다.
   const [routeIncludeVet, setRouteIncludeVet] = useState(() => readRouteMedicalPref().vet);
   const [routeIncludePharmacy, setRouteIncludePharmacy] = useState(() => readRouteMedicalPref().pharmacy);
+  // AI 코스를 보는 동안 코스와 무관한 장소·공원 마커도 함께 볼지(기본 끔 — 코스 장소만 표시)
+  const [showNearbyInCourse, setShowNearbyInCourse] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem(ROUTE_MEDICAL_STORAGE_KEY, JSON.stringify({ vet: routeIncludeVet, pharmacy: routeIncludePharmacy }));
@@ -416,6 +439,19 @@ export default function KakaoMap() {
   // ── "다른 코스 보기": 클릭 시 직전 코스에 나온 정거장들을 제외하고 재계산합니다.
   // 테마를 바꾸거나 패널을 새로 열면 초기화됩니다.
   const [routeExcludedIds, setRouteExcludedIds] = useState<Set<string | number>>(new Set());
+  // 사용자가 핀으로 고정한 정거장 — "다른 코스 보기"를 눌러도 코스에 계속 남습니다.
+  const [pinnedStopIds, setPinnedStopIds] = useState<Set<string | number>>(new Set());
+  // 코스 계산에 실제로 쓰는 고정 목록 — "다른 코스 보기"를 누를 때만 갱신합니다.
+  // (핀을 누를 때마다 바로 반영하면 고정 슬롯이 생기면서 나머지 정거장까지 재배치돼, 핀만
+  //  눌렀는데 코스가 바뀌어 버렸습니다.)
+  const [appliedPinnedIds, setAppliedPinnedIds] = useState<Set<string | number>>(new Set());
+  const togglePinnedStop = (id: string | number) =>
+    setPinnedStopIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   // ── 반응형: 리스트/신규 장소/추천 장소 패널이 화면 폭에 맞게 겹치지 않도록.
   // 좁은 화면(모바일 세로, 분할화면 등)에서는 리스트 패널을 기본으로 숨기고 토글로만
@@ -423,7 +459,10 @@ export default function KakaoMap() {
   // 넓은 화면에서는 예전처럼 리스트 패널이 항상 보입니다.
   const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
-  const showListPanel = !isNarrowScreen || showListPanelMobile;
+  // 휴대폰에서는 목록이 바텀시트로 항상 깔려 있고(지도 앱 공통 패턴), 신규·추천·AI 코스를
+  // 열면 그 시트가 목록 자리를 대신합니다. (showListPanelMobile은 예전 "목록" 버튼용 — 지금은 안 씀)
+  const showListPanel = !isNarrowScreen || (!showRecentPanel && !showRecommendPanel && !showRoutePanel);
+  void showListPanelMobile;
 
   // ── 액션 버튼 첫 방문 안내 투어 ──
   // 신규 장소/추천 장소/AI 코스/사장님 등록/제보하기 버튼을 텍스트 없이 아이콘만
@@ -437,13 +476,36 @@ export default function KakaoMap() {
   const routeBtnRef = useRef<HTMLButtonElement>(null);
   const ownerBtnRef = useRef<HTMLButtonElement>(null);
   const jeboBtnRef = useRef<HTMLButtonElement>(null);
-  const ACTION_TOUR_STEPS = [
-    { ref: recentBtnRef, text: "새로 등록된 장소를 모아 보여줘요." },
-    { ref: recommendBtnRef, text: "취향에 맞는 장소를 AI가 추천해드려요." },
-    { ref: routeBtnRef, text: "AI가 산책하기 좋은 코스를 짜드려요." },
-    { ref: ownerBtnRef, text: "사장님이시라면 여기서 업장을 등록하세요." },
-    { ref: jeboBtnRef, text: "새로운 장소나 정보를 제보할 수 있어요." },
-  ];
+  const mobileMenuBtnRef = useRef<HTMLButtonElement>(null);
+  // 휴대폰에서는 아이콘 5개 대신 메뉴 버튼 하나만 있어서, 안내도 그 버튼 하나만 짚습니다.
+  const ACTION_TOUR_STEPS = isNarrowScreen
+    ? [{ ref: mobileMenuBtnRef, text: "신규 장소·추천·AI 코스·사장님 등록·제보하기는 이 메뉴에 모여 있어요." }]
+    : [
+        { ref: recentBtnRef, text: "새로 등록된 장소를 모아 보여줘요." },
+        { ref: recommendBtnRef, text: "취향에 맞는 장소를 AI가 추천해드려요." },
+        { ref: routeBtnRef, text: "AI가 산책하기 좋은 코스를 짜드려요." },
+        { ref: ownerBtnRef, text: "사장님이시라면 여기서 업장을 등록하세요." },
+        { ref: jeboBtnRef, text: "새로운 장소나 정보를 제보할 수 있어요." },
+      ];
+  // 휴대폰 전용 기능 메뉴(아래에서 올라오는 시트)
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  // 기능 메뉴 시트를 손가락으로 아래로 끌어 닫기(지도 앱·OS 공통 동작)
+  const [menuDragY, setMenuDragY] = useState(0);
+  const menuDragRef = useRef<{ startY: number } | null>(null);
+  const onMenuPointerDown = (e: React.PointerEvent) => {
+    menuDragRef.current = { startY: e.clientY };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onMenuPointerMove = (e: React.PointerEvent) => {
+    if (!menuDragRef.current) return;
+    setMenuDragY(Math.max(0, e.clientY - menuDragRef.current.startY));
+  };
+  const onMenuPointerUp = () => {
+    if (!menuDragRef.current) return;
+    menuDragRef.current = null;
+    if (menuDragY > 70) setShowMobileMenu(false);
+    setMenuDragY(0);
+  };
   const [tourStep, setTourStep] = useState<number | null>(null);
   const [tourRect, setTourRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
@@ -456,6 +518,7 @@ export default function KakaoMap() {
   useEffect(() => {
     if (tourStep === null) { setTourRect(null); return; }
     const step = ACTION_TOUR_STEPS[tourStep];
+    if (!step) { setTourStep(null); return; }
     const measure = () => {
       const el = step.ref.current;
       if (!el) return;
@@ -466,7 +529,7 @@ export default function KakaoMap() {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tourStep]);
+  }, [tourStep, isNarrowScreen]);
 
   const endActionTour = () => {
     if (typeof window !== "undefined") localStorage.setItem(ACTION_TOUR_STORAGE_KEY, "1");
@@ -511,6 +574,129 @@ export default function KakaoMap() {
   // 있는데, 그 오차가 리스트/넓게보기 버튼 위치를 예전과 다르게 보이게 했습니다.
   const panelTop = isNarrowScreen ? `${headerHeight + 12}px` : "122px";
 
+  // ── 휴대폰 바텀시트 ──
+  // 네이버·카카오·구글 지도처럼 목록/신규/추천/AI 코스 패널을 화면 아래에서 올라오는 시트로
+  // 보여줍니다. 손잡이를 끌어 3단계(낮게: 제목만 · 반: 목록 · 전체)로 조절하고, 지도를 움직이면
+  // 자동으로 낮게 내려가 지도를 가리지 않습니다. 시트는 화면 맨 아래까지 깔리고, 떠 있는
+  // 하단 탭바 높이만큼 안쪽 여백을 둬서 내용이 탭바에 가리지 않게 합니다.
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
+  const [sheetDragPx, setSheetDragPx] = useState<number | null>(null);
+  const [viewportH, setViewportH] = useState(800);
+  useEffect(() => {
+    const update = () => setViewportH(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  const sheetSnapPx: Record<SheetSnap, number> = {
+    peek: SHEET_TAB_SPACE_PX + SHEET_PEEK_CONTENT_PX,
+    half: Math.max(SHEET_TAB_SPACE_PX + 180, Math.round(viewportH * 0.5)),
+    full: Math.max(SHEET_TAB_SPACE_PX + 200, viewportH - headerHeight - 18),
+  };
+  const sheetPx = sheetDragPx ?? sheetSnapPx[sheetSnap];
+  // 시트 위에 떠야 하는 것들(내 위치·공유 버튼, 장소 카드 등)의 기준 높이
+  const mobileBottomInset = sheetPx;
+
+  // 패널을 열면 반쯤, 장소 카드·위치 지정처럼 지도를 봐야 할 때는 낮게 내립니다.
+  useEffect(() => {
+    if (!isNarrowScreen) return;
+    if (showRecentPanel || showRecommendPanel || showRoutePanel) setSheetSnap("half");
+    else setSheetSnap("peek");
+  }, [isNarrowScreen, showRecentPanel, showRecommendPanel, showRoutePanel]);
+  useEffect(() => {
+    if (isNarrowScreen && (selectedPlace || selectedPark || pickingLocation)) setSheetSnap("peek");
+  }, [isNarrowScreen, selectedPlace, selectedPark, pickingLocation]);
+
+  const sheetDragRef = useRef<{ startY: number; startPx: number; moved: boolean } | null>(null);
+  // 목록 대신 떠 있는 패널(신규·추천·AI 코스)은 아래로 끝까지 끌어내리면 닫힙니다.
+  const sheetClosable = showRecentPanel || showRecommendPanel || showRoutePanel;
+  const SHEET_CLOSE_DRAG_PX = 60;
+  const closeSheetPanel = () => {
+    setShowRecentPanel(false);
+    setShowRecommendPanel(false);
+    setShowRoutePanel(false);
+  };
+  const onSheetPointerDown = (e: React.PointerEvent) => {
+    sheetDragRef.current = { startY: e.clientY, startPx: sheetPx, moved: false };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const onSheetPointerMove = (e: React.PointerEvent) => {
+    const d = sheetDragRef.current;
+    if (!d) return;
+    const dy = d.startY - e.clientY;
+    if (Math.abs(dy) > 4) d.moved = true;
+    if (!d.moved) return;
+    const minPx = sheetClosable ? SHEET_TAB_SPACE_PX : sheetSnapPx.peek;
+    setSheetDragPx(Math.min(sheetSnapPx.full, Math.max(minPx, d.startPx + dy)));
+  };
+  const onSheetPointerUp = (e: React.PointerEvent) => {
+    const d = sheetDragRef.current;
+    sheetDragRef.current = null;
+    if (!d) return;
+    if (!d.moved) {
+      // 손잡이를 톡 누르면: 낮게 → 반 → 전체 → 반
+      setSheetSnap((cur) => (cur === "peek" ? "half" : cur === "half" ? "full" : "half"));
+      return;
+    }
+    const cur = d.startPx + (d.startY - e.clientY);
+    if (sheetClosable && cur < sheetSnapPx.peek - SHEET_CLOSE_DRAG_PX) {
+      setSheetDragPx(null);
+      closeSheetPanel();
+      return;
+    }
+    // 가장 가까운 단계로 붙이되, 빠르게 튕긴 방향도 반영(20px 이상 움직였으면 그쪽으로 한 단계)
+    const order: SheetSnap[] = ["peek", "half", "full"];
+    let best: SheetSnap = order.reduce((a, b) => (Math.abs(sheetSnapPx[b] - cur) < Math.abs(sheetSnapPx[a] - cur) ? b : a));
+    const startSnap = order.reduce((a, b) => (Math.abs(sheetSnapPx[b] - d.startPx) < Math.abs(sheetSnapPx[a] - d.startPx) ? b : a));
+    if (best === startSnap && Math.abs(cur - d.startPx) > 20) {
+      const i = order.indexOf(startSnap) + (cur > d.startPx ? 1 : -1);
+      best = order[Math.min(2, Math.max(0, i))];
+    }
+    setSheetSnap(best);
+    setSheetDragPx(null);
+  };
+
+  // 휴대폰에서 패널 바깥 틀을 바텀시트로 바꾸는 스타일(PC 스타일 뒤에 덮어씀)
+  const mobileSheetStyle = (zIndex: number): React.CSSProperties => ({
+    position: "fixed",
+    top: "auto",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: `${sheetPx}px`,
+    maxHeight: "none",
+    borderRadius: "20px 20px 0 0",
+    border: "none",
+    boxShadow: "0 -6px 24px rgba(0,0,0,0.12)",
+    zIndex,
+    display: "block",
+    overflowX: "hidden",
+    overflowY: sheetSnap === "peek" && sheetDragPx == null ? "hidden" : "auto",
+    overscrollBehavior: "contain",
+    paddingBottom: `calc(${SHEET_TAB_SPACE_PX}px + env(safe-area-inset-bottom))`,
+    boxSizing: "border-box",
+    transition: sheetDragPx == null ? "height 0.25s ease" : "none",
+  });
+  const renderSheetHandle = () => (
+    <div
+      onPointerDown={onSheetPointerDown}
+      onPointerMove={onSheetPointerMove}
+      onPointerUp={onSheetPointerUp}
+      onPointerCancel={() => { sheetDragRef.current = null; setSheetDragPx(null); }}
+      role="button"
+      aria-label={sheetSnap === "full" ? "목록 줄이기" : "목록 더 보기"}
+      title={sheetClosable ? "끌어서 크기 조절 · 끝까지 내리면 닫혀요" : "끌어서 크기 조절"}
+      style={{
+        position: "sticky", top: 0, zIndex: 3, height: 22, background: "white",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        touchAction: "none", cursor: "grab",
+      }}
+    >
+      <div style={{ width: 40, height: 5, borderRadius: 3, background: "#d9dce1" }} />
+    </div>
+  );
+
   // ⚠ 마커를 누르면(이름표 pill이든 클러스터 해제 후 개별 마커든 전부 이 함수를
   // 거칩니다) 하단 카드만 뜨고 지도는 그대로였는데, 마커가 화면 가장자리에 걸쳐
   // 있으면 카드에 가려 잘 안 보였습니다. 리스트 항목 클릭 때처럼 지도도 그 위치로
@@ -524,6 +710,9 @@ export default function KakaoMap() {
   const openPlacePopup = (place: any) => {
     setSelectedPark(null);
     setSelectedPlace(place);
+    // 미리보기 카드가 뜨는 순간 상세 팝업 화면을 미리 받아둡니다 — "자세히 보기"를 누르면
+    // 화면 전환을 기다리지 않고 바로 열립니다.
+    if (place?.id != null) router.prefetch(`/place/${place.id}`);
   };
   const openParkPopup = (park: ParkPlace) => {
     setSelectedPlace(null);
@@ -693,10 +882,14 @@ export default function KakaoMap() {
     // state가 갱신되지 않는 경우가 있었습니다. 그 결과 실제로는 로그인된 상태인데도
     // "사장님 등록" 버튼이 session을 null로 보고 비회원 가입 폼(이메일/비밀번호 입력)으로
     // 잘못 보내는 문제가 있었습니다. 이제 세션이 바뀔 때마다 실제로 반영합니다.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // ⚠ 이 콜백 안에서 supabase 호출을 await하면 안 됩니다. 콜백은 인증 잠금을 쥔 채 실행돼서,
+    // 토큰이 갱신되는 순간(로그인 약 1시간 뒤·탭 복귀 시) 교착에 빠지고 그 뒤 모든 supabase
+    // 호출이 영영 멈춥니다(마이페이지 흰 화면의 원인). 조회는 setTimeout으로 잠금이 풀린 뒤에 합니다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (cancelled) return;
       setSession(newSession);
-      if (newSession?.user) await createUserProfile(newSession.user);
+      const user = newSession?.user;
+      if (user) setTimeout(() => { if (!cancelled) createUserProfile(user); }, 0);
     });
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
@@ -1528,7 +1721,7 @@ export default function KakaoMap() {
         };
       });
 
-    const medicalOptions = { includeVet: routeIncludeVet, includePharmacy: routeIncludePharmacy };
+    const medicalOptions = { includeVet: routeIncludeVet, includePharmacy: routeIncludePharmacy, pinnedIds: appliedPinnedIds };
     const buildOptions = { excludeIds: routeExcludedIds, ...medicalOptions };
     // "다른 코스 보기"로 제외 목록이 쌓였는데 그걸로는 더 이상 코스를 못 만들면(대안
     // 소진), 처음 추천으로 자연스럽게 되돌아갑니다 — 빈 화면보다 낫다는 판단입니다.
@@ -1542,10 +1735,17 @@ export default function KakaoMap() {
     };
   }, [
     showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeExcludedIds,
-    preferenceProfile, placeSignals, affinityOf, routeIncludeVet, routeIncludePharmacy, recentViewCounts,
+    preferenceProfile, placeSignals, affinityOf, routeIncludeVet, routeIncludePharmacy, recentViewCounts, appliedPinnedIds,
   ]);
   const currentRoute = routeBuild.route;
   const routeAlternativesExhausted = routeBuild.exhausted;
+  // ── 코스 집중 모드: AI 코스가 떠 있는 동안에는 코스에 속한 장소의 원래 가게 마커(이모지 +
+  // 가게명, 누르면 정보·후기 미리보기)만 남기고 나머지 장소·공원 마커는 숨깁니다. 코스가 길면
+  // (관광 중심 등) 넓게 축소되면서 주변 마커가 코스를 덮어 난잡해지던 문제를 막습니다.
+  // "주변 장소 보기" 토글을 켜면 원래처럼 모두 보여줍니다.
+  const hideMarkersForCourse = showRoutePanel && !!currentRoute && !showNearbyInCourse;
+  // 코스 정거장 id(공원은 "park-<id>") — 마커 effect들이 의존성으로 비교하기 쉽게 문자열로 둡니다.
+  const courseStopKey = currentRoute ? currentRoute.stops.map((s) => String(s.place.id)).join("|") : "";
 
   // ── 실제 도보 경로(TMAP) ──
   // 코스가 확정되면 출발지+정거장 좌표로 /api/route/walk를 한 번 불러 실제 걷는 길의 거리·
@@ -1642,6 +1842,12 @@ const courseMeta = (route: RouteResult) => ({
   useEffect(() => {
     setRouteExcludedIds(new Set());
   }, [routeTheme, showRoutePanel, routeIncludeVet, routeIncludePharmacy]);
+
+  // 핀 고정은 테마를 바꾸거나 패널을 닫으면 풀립니다(다른 테마에선 역할이 맞지 않을 수 있어서).
+  useEffect(() => {
+    setPinnedStopIds(new Set());
+    setAppliedPinnedIds(new Set());
+  }, [routeTheme, showRoutePanel]);
 
   // ── 지도 초기화 (SDK는 layout.tsx의 <Script>가 이미 불러오는 중 — 여기선 준비될 때까지 대기만 함)
   useEffect(() => {
@@ -1756,21 +1962,8 @@ const courseMeta = (route: RouteResult) => ({
       clusterMarkersRef.current = [];
     };
 
-    // ── 좁은 줌: 지금까지 쓰던 이름표 pill (CustomOverlay) + 뷰포트 필터링
-    const renderDetailMarkers = () => {
-      clearClusterMarkers();
-
-      const bounds = map.getBounds();
-      clearDetailMarkers();
-
-      filteredPlaces.forEach((place) => {
-        const lat = parseFloat(place.lat);
-        const lng = parseFloat(place.lng);
-        if (isNaN(lat) || isNaN(lng)) return;
-
-        const position = new window.kakao.maps.LatLng(lat, lng);
-        if (!bounds.contain(position)) return; // 화면 안에 없으면 생성 안 함
-
+    // 가게 이름표 pill(원래 지도 마커) 하나를 그립니다. 누르면 미리보기 카드(정보·후기)가 열립니다.
+    const addPlacePill = (place: any, position: any, zIndex = 3) => {
         const emoji = getPlaceEmoji(place) || "🐾";
         const overlay = new window.kakao.maps.CustomOverlay({
           position,
@@ -1791,15 +1984,48 @@ const courseMeta = (route: RouteResult) => ({
                 border:1px solid rgba(0,0,0,0.06);
               "
             >
-              ${emoji} ${place.name}
+              ${emoji} ${escapeHtml(place.name)}
             </div>
           `,
           yAnchor: 1,
-          zIndex: 3,
+          zIndex,
         });
 
         overlay.setMap(map);
         markerMapRef.current.set(place.id, overlay);
+    };
+
+    // 코스 집중 모드: 코스에 속한 장소의 원래 마커만 줌 레벨과 무관하게 그립니다(클러스터로
+    // 뭉치지 않게). 카테고리 필터와도 무관하게 코스 장소는 항상 보여야 해서 places 전체에서 찾습니다.
+    if (hideMarkersForCourse) {
+      clearDetailMarkers();
+      clearClusterMarkers();
+      const courseIds = new Set(courseStopKey.split("|"));
+      places.forEach((place) => {
+        if (!courseIds.has(String(place.id))) return;
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+        addPlacePill(place, new window.kakao.maps.LatLng(lat, lng), 16);
+      });
+      return () => clearDetailMarkers();
+    }
+
+    // ── 좁은 줌: 지금까지 쓰던 이름표 pill (CustomOverlay) + 뷰포트 필터링
+    const renderDetailMarkers = () => {
+      clearClusterMarkers();
+
+      const bounds = map.getBounds();
+      clearDetailMarkers();
+
+      filteredPlaces.forEach((place) => {
+        const lat = parseFloat(place.lat);
+        const lng = parseFloat(place.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const position = new window.kakao.maps.LatLng(lat, lng);
+        if (!bounds.contain(position)) return; // 화면 안에 없으면 생성 안 함
+        addPlacePill(place, position);
       });
     };
 
@@ -1884,7 +2110,7 @@ const courseMeta = (route: RouteResult) => ({
       clearDetailMarkers();
       clearClusterMarkers();
     };
-  }, [filteredPlaces, mapReady]);
+  }, [filteredPlaces, mapReady, hideMarkersForCourse, courseStopKey, places]);
 
   // ── 공원 마커 (places와 완전히 별도 레이어) ──
   // ⚠ 공원은 "장소"가 아니라 리뷰/신고/상세페이지 구조가 없어서, 클릭해도 상세 모달을
@@ -1904,6 +2130,53 @@ const courseMeta = (route: RouteResult) => ({
       parkClustererRef.current?.setMap(null); // 마커 0건 버그 수정 — renderClusterMarkers 쪽과 동일한 이유
       parkClusterMarkersRef.current = [];
     };
+
+    // 공원 이름표 pill(원래 지도 마커) — 누르면 공원 정보 카드가 열립니다.
+    const addParkPill = (park: any, position: any, zIndex = 2) => {
+        const overlay = new window.kakao.maps.CustomOverlay({
+          position,
+          content: `
+            <div
+              onclick="window.selectPark(${park.id})"
+              style="
+                background:#eef6ec;
+                border-radius:999px;
+                padding:4px 9px;
+                font-size:10px;
+                font-weight:600;
+                font-family:'Noto Sans KR',sans-serif;
+                box-shadow:0 2px 6px rgba(0,0,0,0.12);
+                cursor:pointer;
+                white-space:nowrap;
+                user-select:none;
+                border:1px solid rgba(58,116,56,0.25);
+                color:#2b5e29;
+              "
+            >
+              🌳 ${escapeHtml(park.name)}
+            </div>
+          `,
+          yAnchor: 1,
+          zIndex,
+        });
+        overlay.setMap(map);
+        parkMarkerMapRef.current.set(park.id, overlay);
+    };
+
+    // 코스 집중 모드: 코스에 들어간 공원만 원래 마커로 보여줍니다(공원 토글이 꺼져 있어도).
+    if (hideMarkersForCourse) {
+      clearParkDetailMarkers();
+      clearParkClusterMarkers();
+      const courseIds = new Set(courseStopKey.split("|"));
+      parks.forEach((park) => {
+        if (!courseIds.has(`park-${park.id}`)) return;
+        const lat = parseFloat(park.lat);
+        const lng = parseFloat(park.lng);
+        if (isNaN(lat) || isNaN(lng)) return;
+        addParkPill(park, new window.kakao.maps.LatLng(lat, lng), 16);
+      });
+      return () => clearParkDetailMarkers();
+    }
 
     if (!showParks || parks.length === 0) {
       clearParkDetailMarkers();
@@ -1943,35 +2216,7 @@ const courseMeta = (route: RouteResult) => ({
         if (isNaN(lat) || isNaN(lng)) return;
         const position = new window.kakao.maps.LatLng(lat, lng);
         if (!bounds.contain(position)) return;
-
-        const overlay = new window.kakao.maps.CustomOverlay({
-          position,
-          content: `
-            <div
-              onclick="window.selectPark(${park.id})"
-              style="
-                background:#eef6ec;
-                border-radius:999px;
-                padding:4px 9px;
-                font-size:10px;
-                font-weight:600;
-                font-family:'Noto Sans KR',sans-serif;
-                box-shadow:0 2px 6px rgba(0,0,0,0.12);
-                cursor:pointer;
-                white-space:nowrap;
-                user-select:none;
-                border:1px solid rgba(58,116,56,0.25);
-                color:#2b5e29;
-              "
-            >
-              🌳 ${park.name}
-            </div>
-          `,
-          yAnchor: 1,
-          zIndex: 2,
-        });
-        overlay.setMap(map);
-        parkMarkerMapRef.current.set(park.id, overlay);
+        addParkPill(park, position);
       });
     };
 
@@ -2030,7 +2275,52 @@ const courseMeta = (route: RouteResult) => ({
       clearParkDetailMarkers();
       clearParkClusterMarkers();
     };
-  }, [parks, mapReady, showParks]);
+  }, [parks, mapReady, showParks, hideMarkersForCourse, courseStopKey]);
+
+  // ── 코스 전체가 보이도록 지도 맞추기 ──
+  // 코스가 패널 뒤에 숨지 않게, 패널이 가리는 쪽만큼 여백을 더 줘서 줌을 조절합니다.
+  // (예전엔 사방 80px라 오른쪽 코스 패널(320px) 뒤에 1·2번 정거장이 가려졌습니다.)
+  // 좁은 화면은 패널이 화면 대부분을 덮어 옆으로 비킬 공간이 없어서 위·아래 여백만 챙깁니다.
+  // 매 렌더마다 최신 패널 배치를 읽도록 ref에 담아, 코스가 바뀔 때·창 크기가 바뀔 때·
+  // "코스 전체 보기" 버튼을 누를 때 모두 같은 계산을 씁니다.
+  const courseBoundsRef = useRef<any>(null);
+  const fitCourseRef = useRef<() => void>(() => {});
+  fitCourseRef.current = () => {
+    const map = mapRef.current;
+    const bounds = courseBoundsRef.current;
+    if (!map || !bounds) return;
+    const EDGE = 14 + 36; // 패널 가장자리 여백 + 번호 마커·이름표가 걸치지 않을 여유
+    let padLeft = 80;
+    let padRight = 80;
+    if (!isNarrowScreen) {
+      const routePanelPad = 320 + EDGE;
+      const listPanelPad = showListPanel ? 222 + EDGE : 80;
+      if (otherPanelsSide === "right") { padRight = routePanelPad; padLeft = listPanelPad; }
+      else { padLeft = routePanelPad; padRight = listPanelPad; }
+    }
+    const padTop = isNarrowScreen ? headerHeight + 30 : 140;
+    const padBottom = isNarrowScreen ? sheetPx + 30 : 130; // 휴대폰: 바텀시트 높이 / PC: 하단 탭바 + 마지막 정거장 이름표
+    map.setBounds(bounds, padTop, padRight, padBottom, padLeft);
+  };
+
+  // 창 크기가 바뀌거나(패널 배치가 달라짐) 목록 패널이 열리고 닫히면 코스를 다시 맞춥니다.
+  useEffect(() => {
+    if (!showRoutePanel) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fitCourseRef.current(), 250);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [showRoutePanel]);
+  useEffect(() => {
+    if (showRoutePanel) fitCourseRef.current();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNarrowScreen, showListPanel, otherPanelsSide, sheetSnap]);
 
   // ── AI 맞춤 추천 경로: 정거장을 잇는 점선 폴리라인 + 번호 배지를 지도 위에 그립니다.
   // 패널이 닫히거나 코스가 바뀌면(테마 변경 등) 이전에 그린 것들을 지우고 다시 그립니다.
@@ -2046,6 +2336,7 @@ const courseMeta = (route: RouteResult) => ({
 
     if (!showRoutePanel || !currentRoute || currentRoute.stops.length < 2) {
       routeFittedSignatureRef.current = "";
+      courseBoundsRef.current = null;
       return;
     }
 
@@ -2086,22 +2377,27 @@ const courseMeta = (route: RouteResult) => ({
       const lat = parseFloat(String(stop.place.lat));
       const lng = parseFloat(String(stop.place.lng));
       if (isNaN(lat) || isNaN(lng)) return;
+      // 방문 순서 번호 — 가게 정보는 위쪽의 원래 가게 마커(이름표)가 보여주므로, 번호는 그 바로
+      // 아래(장소 좌표 기준 아래쪽)에 붙여 겹치지 않게 합니다. 고정(핀)한 정거장은 📌를 붙입니다.
+      const pinned = pinnedStopIds.has(stop.place.id);
+      const pinMark = pinned ? '<span style="position:absolute; top:-8px; right:-9px; font-size:11px;">📌</span>' : "";
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lat, lng),
         content: `
           <div
             onclick="window.selectPlace(${typeof stop.place.id === "number" ? stop.place.id : `'${stop.place.id}'`})"
             style="
-              width:26px; height:26px; border-radius:50%;
+              position:relative; margin-top:3px;
+              width:24px; height:24px; border-radius:50%;
               background:linear-gradient(135deg,#a78bfa,#7c3aed);
               color:white; display:flex; align-items:center; justify-content:center;
               font-size:12px; font-weight:800; font-family:'Noto Sans KR',sans-serif;
               box-shadow:0 2px 8px rgba(124,58,237,0.45); border:2px solid white;
               cursor:pointer; user-select:none;
             "
-          >${idx + 1}</div>
+          >${idx + 1}${pinMark}</div>
         `,
-        yAnchor: 0.5,
+        yAnchor: 0,
         zIndex: 15,
       });
       overlay.setMap(map);
@@ -2115,12 +2411,14 @@ const courseMeta = (route: RouteResult) => ({
     // 도중에 setBounds가 끼어들면 카카오 SDK가 "reading 'x'" 에러를 프레임마다 반복해서
     // 던지는 것으로 보입니다(AI 코스 패널을 연 채 주소 검색 시 재현). 줌 애니메이션 중이면
     // 끝난 뒤(idle)로 미룹니다.
+    const bounds = new window.kakao.maps.LatLngBounds();
+    path.forEach((p: any) => bounds.extend(p));
+    courseBoundsRef.current = bounds;
+
     let pendingIdleListener: (() => void) | null = null;
     if (routeSignature && routeFittedSignatureRef.current !== routeSignature) {
       routeFittedSignatureRef.current = routeSignature;
-      const bounds = new window.kakao.maps.LatLngBounds();
-      path.forEach((p: any) => bounds.extend(p));
-      const fitBounds = () => map.setBounds(bounds, 80, 80, 80, 80);
+      const fitBounds = () => fitCourseRef.current();
       if (mapZoomingRef.current) {
         pendingIdleListener = () => {
           window.kakao.maps.event.removeListener(map, "idle", pendingIdleListener!);
@@ -2145,7 +2443,7 @@ const courseMeta = (route: RouteResult) => ({
       routeMarkerOverlaysRef.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showRoutePanel, currentRoute, mapReady, walkPath]);
+  }, [showRoutePanel, currentRoute, mapReady, walkPath, pinnedStopIds]);
 
   // 지도 줌 애니메이션 진행 여부 추적(위 코스 effect가 setBounds를 미룰지 판단하는 데 씀)
   useEffect(() => {
@@ -2160,6 +2458,15 @@ const courseMeta = (route: RouteResult) => ({
       window.kakao.maps.event.removeListener(map, "idle", onIdle);
     };
   }, [mapReady]);
+
+  // 휴대폰: 지도를 끌어 움직이면 반쯤 올라와 있던 시트를 낮게 내려 지도를 비켜줍니다(지도 앱 공통 동작).
+  useEffect(() => {
+    if (!isNarrowScreen || !mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
+    const onDragStart = () => setSheetSnap((cur) => (cur === "half" ? "peek" : cur));
+    window.kakao.maps.event.addListener(map, "dragstart", onDragStart);
+    return () => window.kakao.maps.event.removeListener(map, "dragstart", onDragStart);
+  }, [isNarrowScreen, mapReady]);
 
   const moveToMyLocation = () => {
     if (!navigator.geolocation) {
@@ -2190,7 +2497,15 @@ const courseMeta = (route: RouteResult) => ({
         setLocationNoticeDismissed(false);
         if (final) saveLocation({ lat: fix.lat, lng: fix.lng }, { accuracy: fix.accuracy, at: Date.now(), source: "gps" });
       },
-      () => { alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요."); },
+      () => {
+        // 보안 연결(https)이 아니면 브라우저가 권한 팝업 없이 바로 거절합니다 — 이때 "권한을
+        // 확인하라"고 하면 사용자가 찾을 수 없는 팝업을 찾게 되므로 원인을 그대로 알려줍니다.
+        if (!window.isSecureContext) {
+          alert("지금은 보안 연결(https)이 아닌 주소로 접속 중이라 브라우저가 위치를 알려주지 않아요.\n지도에서 내 위치를 직접 지정해 주세요.");
+          return;
+        }
+        alert("위치 정보를 가져올 수 없습니다.\n브라우저 위치 권한을 확인해주세요.");
+      },
       { maxWaitMs: 8000 }
     );
   };
@@ -2278,12 +2593,8 @@ const courseMeta = (route: RouteResult) => ({
       openKakaoWalk([origin, ...targets]);
       return;
     }
-    const destination = targets[targets.length - 1];
-    if (openNaverWalk(destination, targets.slice(0, -1)) === "unsupported") {
-      if (window.confirm("네이버지도 길찾기는 네이버지도 앱이 설치된 휴대폰에서만 열 수 있어요.\n대신 카카오맵으로 길찾기를 열까요?")) {
-        openKakaoWalk([origin, ...targets]);
-      }
-    }
+    // 휴대폰은 네이버지도 앱(출발지 = 기기 현재 위치), PC는 네이버 지도 웹(출발지 = 코스 출발지)
+    openNaverWalk(targets[targets.length - 1], targets.slice(0, -1), origin);
   };
 
   const routeOriginPoint = (route: RouteResult): DirectionPoint => ({
@@ -2353,7 +2664,7 @@ const courseMeta = (route: RouteResult) => ({
         * { box-sizing: border-box; }
         @keyframes tabPop {
           0% { transform: scale(1); }
-          50% { transform: scale(0.88); }
+          50% { transform: scale(0.96); }
           100% { transform: scale(1); }
         }
         .tab-item:active { animation: tabPop 0.18s ease; }
@@ -2370,7 +2681,9 @@ const courseMeta = (route: RouteResult) => ({
       `}</style>
 
       {/* ── 지도 영역 */}
-      <div style={{ position: "fixed", inset: 0, width: "100%", height: "100vh", zIndex: 0 }}>
+      {/* ⚠ height: 100vh를 주면 휴대폰에서 주소창 높이만큼 화면보다 길어져, 지도 아래쪽에 붙은
+          내 위치·공유 버튼이 바텀시트 뒤로 숨었습니다. inset:0만으로 실제 보이는 화면에 맞춥니다. */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
         <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 
         {/* 위치 확인 중 오버레이 — 캐시된 위치가 없는 첫 방문자만 잠깐 뜹니다.
@@ -2401,7 +2714,7 @@ const courseMeta = (route: RouteResult) => ({
           <div
             role="status"
             style={{
-              position: "absolute", top: isNarrowScreen ? "150px" : "100px", left: "50%", transform: "translateX(-50%)",
+              position: "absolute", top: isNarrowScreen ? `${headerHeight + 22}px` : "100px", left: "50%", transform: "translateX(-50%)",
               zIndex: 6, display: "flex", alignItems: "center", gap: 8, maxWidth: "calc(100vw - 28px)",
               background: "rgba(255,255,255,0.97)", border: "1px solid #fde68a", borderRadius: 14,
               padding: "8px 8px 8px 12px", boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
@@ -2449,7 +2762,7 @@ const courseMeta = (route: RouteResult) => ({
             <div
               style={{
                 position: "absolute", left: "50%", transform: "translateX(-50%)",
-                bottom: isNarrowScreen ? "150px" : "95px", zIndex: 7,
+                bottom: isNarrowScreen ? `${mobileBottomInset + 12}px` : "95px", zIndex: 7,
                 width: "min(380px, calc(100vw - 28px))", background: "white", borderRadius: 16,
                 padding: "12px 14px", boxShadow: "0 8px 28px rgba(0,0,0,0.16)",
                 fontFamily: "'Noto Sans KR', sans-serif",
@@ -2489,7 +2802,7 @@ const courseMeta = (route: RouteResult) => ({
           title="공유하기"
           style={{
             position: "absolute",
-            bottom: isNarrowScreen ? "138px" : "83px",
+            bottom: isNarrowScreen ? `${mobileBottomInset + 66}px` : "83px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -2516,7 +2829,7 @@ const courseMeta = (route: RouteResult) => ({
           aria-label="지도에서 내 위치 직접 지정"
           style={{
             position: "absolute",
-            bottom: isNarrowScreen ? "192px" : "137px",
+            bottom: isNarrowScreen ? `${mobileBottomInset + 120}px` : "137px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -2542,7 +2855,7 @@ const courseMeta = (route: RouteResult) => ({
           title="내 위치로 이동"
           style={{
             position: "absolute",
-            bottom: isNarrowScreen ? "84px" : "29px",
+            bottom: isNarrowScreen ? `${mobileBottomInset + 12}px` : "29px",
             right: "20px",
             width: "40px",
             height: "40px",
@@ -2569,10 +2882,11 @@ const courseMeta = (route: RouteResult) => ({
             className="ggk-body"
             style={{
               position: "absolute",
-              left: "50%",
-              bottom: "100px",
+              // 휴대폰: 오른쪽 버튼 줄(내 위치·공유, 폭 약 60px)과 겹치지 않게 카드 중심을 왼쪽으로 옮깁니다.
+              left: isNarrowScreen ? "calc(50% - 30px)" : "50%",
+              bottom: isNarrowScreen ? `${mobileBottomInset + 12}px` : "100px",
               transform: "translateX(-50%)",
-              width: isNarrowScreen ? "clamp(220px, 70vw, 290px)" : "290px",
+              width: isNarrowScreen ? "calc(100vw - 92px)" : "290px",
               background: "#ffffff",
               borderRadius: "18px",
               boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
@@ -2643,10 +2957,11 @@ const courseMeta = (route: RouteResult) => ({
             className="ggk-body"
             style={{
               position: "absolute",
-              left: "50%",
-              bottom: "100px",
+              // 휴대폰: 오른쪽 버튼 줄(내 위치·공유, 폭 약 60px)과 겹치지 않게 카드 중심을 왼쪽으로 옮깁니다.
+              left: isNarrowScreen ? "calc(50% - 30px)" : "50%",
+              bottom: isNarrowScreen ? `${mobileBottomInset + 12}px` : "100px",
               transform: "translateX(-50%)",
-              width: isNarrowScreen ? "clamp(220px, 70vw, 290px)" : "290px",
+              width: isNarrowScreen ? "calc(100vw - 92px)" : "290px",
               background: "#ffffff",
               borderRadius: "18px",
               boxShadow: "0 6px 24px rgba(0,0,0,0.16)",
@@ -2727,8 +3042,98 @@ const courseMeta = (route: RouteResult) => ({
             justifyContent: "space-between",
             rowGap: "8px",
             columnGap: "12px",
+            ...(isNarrowScreen ? { top: "8px", left: "8px", right: "8px", padding: "8px 10px", borderRadius: "16px" } : {}),
           }}
         >
+          {isNarrowScreen ? (
+            // 휴대폰: 지도 앱 공통 배치 — [로고 · 검색창 · 메뉴] 한 줄 + 필터 칩 한 줄(가로로 밀어서 보기).
+            // 검색창 글자는 16px(그보다 작으면 아이폰이 입력할 때 화면을 확대해 버림).
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Image
+                  src="/icons/header_logo_final.png"
+                  alt="같이가개"
+                  width={141}
+                  height={60}
+                  priority
+                  style={{ height: "30px", width: "auto", display: "block", objectFit: "contain", flexShrink: 0 }}
+                />
+                <div style={{
+                  flex: 1, minWidth: 0, height: 38, display: "flex", alignItems: "center", gap: 6,
+                  background: "#f5f6f8", borderRadius: 999, padding: "0 12px", border: "1px solid #e8eaed", boxSizing: "border-box",
+                }}>
+                  <Search size={15} color="#999" style={{ flexShrink: 0 }} />
+                  <input
+                    placeholder="가게명 또는 주소 검색"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    enterKeyHint="search"
+                    style={{
+                      flex: 1, border: "none", outline: "none", fontSize: "16px", background: "transparent",
+                      fontFamily: "'Noto Sans KR', sans-serif", color: "#111", minWidth: 0,
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      aria-label="검색어 지우기"
+                      style={{ border: "none", background: "transparent", cursor: "pointer", padding: 4, display: "flex", flexShrink: 0 }}
+                    >
+                      <X size={15} color="#999" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  ref={mobileMenuBtnRef}
+                  onClick={() => setShowMobileMenu(true)}
+                  aria-label="메뉴 열기"
+                  aria-haspopup="dialog"
+                  style={{
+                    width: 38, height: 38, flexShrink: 0, borderRadius: 12,
+                    border: "1px solid rgba(91,33,182,0.25)",
+                    background: showMobileMenu ? "#5b21b6" : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
+                    color: showMobileMenu ? "white" : "#4c1d95",
+                    display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                  }}
+                >
+                  <Menu size={18} />
+                </button>
+              </div>
+              <div
+                className="ggk-chip-row"
+                style={{
+                  display: "flex", gap: 6, overflowX: "auto", overflowY: "hidden",
+                  margin: "0 -10px", padding: "0 10px 2px", scrollbarWidth: "none",
+                  WebkitOverflowScrolling: "touch",
+                }}
+              >
+                {([
+                  ["all", "전체"], ["indoor", "🏠 실내 가능"], ["terrace", "🌿 야외 가능"], ["both", "🏡 실내외 모두"],
+                  ["vet", "🏥 동물병원"], ["pharmacy", "💊 동물약국"],
+                ] as const).map(([key, label]) => (
+                  <button key={key} onClick={() => setSelectedPetZone(key)} style={{ ...getButtonStyle(key), ...MOBILE_CHIP_STYLE }}>
+                    {label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowParks((v) => !v)}
+                  aria-pressed={showParks}
+                  style={{
+                    ...MOBILE_CHIP_STYLE,
+                    borderRadius: "999px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+                    border: showParks ? "none" : "1px solid #d8dcd6",
+                    background: showParks ? "#3a7438" : "white",
+                    color: showParks ? "white" : "#666",
+                    fontFamily: "'Noto Sans KR', sans-serif",
+                  }}
+                >
+                  🌳 공원
+                </button>
+              </div>
+              <style>{`.ggk-chip-row::-webkit-scrollbar { display: none; }`}</style>
+            </div>
+          ) : (
+          <>
           {/* 좌측: 로고 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
             <Image
@@ -2855,6 +3260,33 @@ const courseMeta = (route: RouteResult) => ({
               </button>
             )}
 
+            {isNarrowScreen ? (
+              <button
+                ref={mobileMenuBtnRef}
+                onClick={() => setShowMobileMenu(true)}
+                aria-label="메뉴 열기"
+                aria-haspopup="dialog"
+                className="ggk-body"
+                style={{
+                  padding: "5px 12px",
+                  fontSize: "11px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(91,33,182,0.3)",
+                  background: showMobileMenu ? "#5b21b6" : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
+                  color: showMobileMenu ? "white" : "#4c1d95",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Menu size={12} />
+                메뉴
+              </button>
+            ) : (
+            <>
             <button
               ref={recentBtnRef}
               title="신규 장소"
@@ -2966,8 +3398,75 @@ const courseMeta = (route: RouteResult) => ({
             >
               <Pencil size={15} />
             </button>
+            </>
+            )}
           </div>
+          </>
+          )}
         </div>
+      )}
+
+      {/* ── 휴대폰 기능 메뉴: 작은 아이콘 대신 이름·설명이 붙은 큰 버튼으로 모아 보여줍니다. ── */}
+      {isNarrowScreen && showMobileMenu && (
+        <>
+          <div onClick={() => setShowMobileMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 1500, background: "rgba(0,0,0,0.35)" }} />
+          <div
+            role="dialog"
+            aria-label="기능 메뉴"
+            className="ggk-body"
+            style={{
+              position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 1501,
+              background: "white", borderRadius: "20px 20px 0 0",
+              padding: "10px 16px calc(16px + env(safe-area-inset-bottom))",
+              boxShadow: "0 -8px 30px rgba(0,0,0,0.15)",
+              fontFamily: "'Noto Sans KR', sans-serif",
+              transform: `translateY(${menuDragY}px)`,
+              transition: menuDragRef.current ? "none" : "transform 0.2s ease",
+            }}
+          >
+            {/* 손잡이: 아래로 끌어내리면 메뉴가 닫혀요 */}
+            <div
+              onPointerDown={onMenuPointerDown}
+              onPointerMove={onMenuPointerMove}
+              onPointerUp={onMenuPointerUp}
+              onPointerCancel={() => { menuDragRef.current = null; setMenuDragY(0); }}
+              aria-label="아래로 끌어서 메뉴 닫기"
+              style={{ margin: "-10px -16px 4px", padding: "10px 0 12px", touchAction: "none", cursor: "grab" }}
+            >
+              <div style={{ width: 40, height: 5, borderRadius: 3, background: "#d9dce1", margin: "0 auto" }} />
+            </div>
+            {([
+              { key: "recent", label: "신규 장소", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#7A5300", bg: "#FCEDB0",
+                run: () => { setShowRecentPanel(true); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
+              { key: "recommend", label: "추천 장소", desc: "취향에 맞는 장소를 AI가 추천해요", Icon: Bot, color: "#3F5230", bg: "#DCE7CD",
+                run: () => { setShowRecommendPanel(true); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
+              { key: "route", label: "AI 코스", desc: "반려견과 걷기 좋은 코스를 짜드려요", Icon: RouteIcon, color: "#5b21b6", bg: "#EDE7FE",
+                run: () => { setShowRoutePanel(true); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); } },
+              { key: "owner", label: "사장님 등록", desc: "우리 가게를 직접 등록하고 관리해요", Icon: Store, color: "#7A5300", bg: "#FFF3D6",
+                run: () => { handleOwnerRegisterClick(); } },
+              { key: "jebo", label: "제보하기", desc: "새로운 장소나 바뀐 정보를 알려주세요", Icon: Pencil, color: "#444", bg: "#f1f2f4",
+                run: () => { router.push("/jebo"); } },
+            ] as const).map(({ key, label, desc, Icon, color, bg, run }) => (
+              <button
+                key={key}
+                onClick={() => { setShowMobileMenu(false); run(); }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 12,
+                  padding: "11px 6px", border: "none", background: "none", cursor: "pointer", textAlign: "left",
+                  borderBottom: key === "jebo" ? "none" : "1px solid #f2f3f5",
+                }}
+              >
+                <span style={{ width: 38, height: 38, borderRadius: 11, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icon size={18} />
+                </span>
+                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#222" }}>{label}</span>
+                  <span style={{ fontSize: 11.5, color: "#888" }}>{desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {/* ── 액션 버튼 첫 방문 안내 투어: position:fixed라 트리 안 위치는 상관없습니다. ── */}
@@ -3056,8 +3555,10 @@ const courseMeta = (route: RouteResult) => ({
           boxShadow: "0 10px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.05)",
           display: "flex",
           flexDirection: "column",
-        }}
+          ...(isNarrowScreen ? mobileSheetStyle(20) : {}),
+}}
       >
+        {isNarrowScreen && renderSheetHandle()}
         <div
           style={{
             display: "flex",
@@ -3326,8 +3827,10 @@ const courseMeta = (route: RouteResult) => ({
             border: "1px solid rgba(0,0,0,0.06)",
             display: "flex",
             flexDirection: "column",
-          }}
+            ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
+}}
         >
+        {isNarrowScreen && renderSheetHandle()}
           <div
             style={{
               background: "linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%)",
@@ -3498,8 +4001,10 @@ const courseMeta = (route: RouteResult) => ({
             border: "1px solid rgba(0,0,0,0.06)",
             display: "flex",
             flexDirection: "column",
-          }}
+            ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
+}}
         >
+        {isNarrowScreen && renderSheetHandle()}
           <div
             style={{
               background: "linear-gradient(135deg, #DCE7CD 0%, #A9C48A 100%)",
@@ -3716,8 +4221,10 @@ const courseMeta = (route: RouteResult) => ({
             border: "1px solid rgba(0,0,0,0.06)",
             display: "flex",
             flexDirection: "column",
-          }}
+            ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
+}}
         >
+        {isNarrowScreen && renderSheetHandle()}
           <div
             style={{
               background: "linear-gradient(135deg, #EDE7FE 0%, #C9B6FB 100%)",
@@ -3840,7 +4347,30 @@ const courseMeta = (route: RouteResult) => ({
               ))}
             </div>
 
+            {/* 코스 집중 모드 해제 — 켜면 코스와 무관한 장소·공원 마커도 지도에 함께 보여줍니다 */}
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "5px" }}>
+              <span style={{ fontSize: "10px", color: "#6d28d9", fontWeight: 700, marginRight: "1px" }}>지도 표시</span>
+              <button
+                role="switch"
+                aria-checked={showNearbyInCourse}
+                onClick={() => setShowNearbyInCourse((v) => !v)}
+                className="ggk-body"
+                style={{
+                  display: "flex", alignItems: "center", gap: "3px",
+                  padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
+                  border: showNearbyInCourse ? "1px solid #5b21b6" : "1px dashed rgba(91,33,182,0.4)",
+                  background: showNearbyInCourse ? "#ede4ff" : "rgba(255,255,255,0.5)",
+                  color: showNearbyInCourse ? "#5b21b6" : "#9ca3af",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <MapPin size={10} />
+                주변 장소 보기 {showNearbyInCourse ? "ON" : "OFF"}
+              </button>
+            </div>
+
             {displayRoute && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "8px" }}>
               <button
                 onClick={() => {
                   // 지금 보이는 코스의 정거장들을 제외 목록에 더해서 다른 조합이
@@ -3851,16 +4381,17 @@ const courseMeta = (route: RouteResult) => ({
                     variant: activeRecVariant,
                     meta: courseMeta(displayRoute),
                   });
+                  setAppliedPinnedIds(new Set(pinnedStopIds));
                   setRouteExcludedIds((prev) => {
                     const next = new Set(prev);
-                    displayRoute.stops.forEach((s) => next.add(s.place.id));
+                    // 핀으로 고정한 정거장은 빼지 않고 나머지만 바꿉니다.
+                    displayRoute.stops.forEach((s) => { if (!pinnedStopIds.has(s.place.id)) next.add(s.place.id); });
                     return next;
                   });
                 }}
                 className="ggk-body"
                 style={{
                   width: "100%",
-                  marginTop: "8px",
                   padding: "7px 0",
                   borderRadius: "10px",
                   border: "1px dashed rgba(91,33,182,0.4)",
@@ -3875,8 +4406,28 @@ const courseMeta = (route: RouteResult) => ({
                   gap: "5px",
                 }}
               >
-                <RefreshCw size={11} />이 조합 말고 다른 코스 보기
+                <RefreshCw size={11} />{pinnedStopIds.size > 0 ? "고정한 곳 빼고 다른 코스 보기" : "이 조합 말고 다른 코스 보기"}
               </button>
+              {/* 지도를 옮기거나 확대해 코스가 화면에서 벗어났을 때, 전체 경로가 한 화면에 보이게 다시 맞춥니다 */}
+              <button
+                onClick={() => fitCourseRef.current()}
+                title="지도를 움직였다면 눌러서 추천 경로 전체를 다시 한 화면에 보여줘요"
+                className="ggk-body"
+                style={{
+                  width: "100%", padding: "7px 0", borderRadius: "10px",
+                  border: "1px solid rgba(91,33,182,0.3)", background: "white", color: "#5b21b6",
+                  fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                }}
+              >
+                <Maximize2 size={11} />지도에서 전체 경로 확인하기
+              </button>
+              </div>
+            )}
+            {displayRoute && pinnedStopIds.size > 0 && (
+              <div style={{ marginTop: "6px", fontSize: "10px", color: "#6d28d9", textAlign: "center" }}>
+                📌 고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 유지돼요
+              </div>
             )}
             {displayRoute && routeAlternativesExhausted && (
               <div style={{ marginTop: "6px", fontSize: "10px", color: "#6d28d9", textAlign: "center" }}>
@@ -4012,6 +4563,30 @@ const courseMeta = (route: RouteResult) => ({
                           {ROUTE_HIGHLIGHT_BADGE[stop.highlight].label}
                         </span>
                       )}
+                      {/* 핀 고정 — 켜두면 "다른 코스 보기"를 눌러도 이 장소는 코스에 남습니다.
+                          카드 클릭(미리보기)과 겹치지 않게 전파를 막습니다. */}
+                      {(() => {
+                        const pinned = pinnedStopIds.has(stop.place.id);
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePinnedStop(stop.place.id);
+                            }}
+                            aria-pressed={pinned}
+                            aria-label={pinned ? `${stop.place.name} 고정 해제` : `${stop.place.name} 코스에 고정`}
+                            title={pinned ? "고정 해제" : "이 장소를 코스에 고정 (다른 코스를 봐도 유지)"}
+                            style={{
+                              marginLeft: "auto", flexShrink: 0, width: 24, height: 24, borderRadius: "50%",
+                              border: pinned ? "1px solid #7c3aed" : "1px solid rgba(0,0,0,0.1)",
+                              background: pinned ? "#7c3aed" : "white",
+                              display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                            }}
+                          >
+                            <Pin size={12} color={pinned ? "white" : "#9ca3af"} fill={pinned ? "white" : "none"} />
+                          </button>
+                        );
+                      })()}
                     </div>
                     <div style={{ fontSize: "9.5px", color: "#8b5cf6", fontWeight: 700, marginTop: "2px" }}>
                       {stop.tags.join(" · ")}
@@ -4095,7 +4670,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div style={{ fontSize: "9px", color: "#bbb", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
                 ※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
-                <br />※ 네이버지도는 휴대폰에 네이버지도 앱이 설치되어 있어야 열려요.
+                <br />※ 네이버지도를 누를 시 PC에서는 네이버 지도 웹으로, 휴대폰에서는 네이버지도 앱으로 열려요.
               </div>
             </div>
           )}

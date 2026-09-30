@@ -12,6 +12,7 @@ import {
 import PlaceDetail from "@/app/place/[id]/PlaceDetailClient";
 import { supabase } from "@/lib/supabase";
 import { fetchPublicDataPlaceById, invalidatePublicDataPlacesCache } from "@/lib/publicDataPlaces";
+import { randomId } from "@/lib/randomId";
 
 /* ── 장소 신고 사유 목록 ─────────────────────────────── */
 const PLACE_REPORT_CATEGORIES = [
@@ -30,7 +31,7 @@ const PLACE_REPORT_CATEGORIES = [
 const getUserKey = () => {
   if (typeof window === "undefined") return "";
   let key = localStorage.getItem("user_key");
-  if (!key) { key = crypto.randomUUID(); localStorage.setItem("user_key", key); }
+  if (!key) { key = randomId(); localStorage.setItem("user_key", key); }
   return key;
 };
 
@@ -67,7 +68,7 @@ export default function ModalPage() {
       // 하는 것과 동일하게 공공데이터 쪽에서 한 번 더 찾습니다(단건 조회 — 전국
       // 데이터 전체를 받지 않습니다) — 이게 없으면 신고 시 장소명이 빈 값(관리자
       // 화면엔 "—")으로 저장됩니다.
-      const found = await fetchPublicDataPlaceById(Number(placeId));
+      const found = await fetchPublicDataPlaceById(Number(placeId)).catch(() => null);
       if (cancelled) return;
       if (found) {
         setPlaceName(found.name || "");
@@ -155,7 +156,8 @@ export default function ModalPage() {
       await navigator.clipboard.writeText(shareUrl);
       alert("링크가 복사되었습니다.");
     } catch {
-      alert("링크 복사에 실패했습니다.");
+      // 클립보드 API는 보안 연결(https)에서만 동작 — 안 되면 직접 복사할 수 있게 보여줍니다.
+      window.prompt("아래 링크를 길게 눌러 복사해 주세요", shareUrl);
     }
     setShowShareModal(false);
   };

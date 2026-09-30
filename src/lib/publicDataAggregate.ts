@@ -64,10 +64,35 @@ function dedupeAcrossSources(...sources: any[][]): any[] {
 let cachedRaw: any[] | null = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 5 * 60_000;
+// 지금 만들고 있는 병합 목록 — 동시에 온 요청들이 같은 작업 하나를 함께 기다립니다.
+let inFlight: Promise<any[]> | null = null;
+// 출처별 마지막 성공 결과 — 한 출처(특히 외부 관광공사 API)가 이번에 실패해도 그 장소들이
+// 목록에서 통째로 사라지지 않게(열려 있던 상세페이지가 "찾을 수 없음"이 되지 않게) 씁니다.
+let lastGood: { tour: any[]; food: any[]; culture: any[] } = { tour: [], food: [], culture: [] };
 
+/**
+ * 공공데이터 3종 병합 목록.
+ * ⚠ 예전엔 5분 캐시가 만료되면 그 순간 요청이 관광공사 API(목록 10페이지 + 상세)까지 전부
+ * 기다렸고, 외부 API가 느리면 장소 상세가 "로딩중..."에서 멈춰 있었습니다. 이제는 만료돼도
+ * 기존 목록으로 바로 응답하고 새 목록은 뒤에서 만듭니다(stale-while-revalidate).
+ * 처음(캐시가 아예 없을 때)만 만들어질 때까지 기다립니다.
+ */
 export async function getMergedPublicDataPlaces(): Promise<any[]> {
-  if (cachedRaw && Date.now() - cachedAt < CACHE_TTL_MS) return cachedRaw;
+  const fresh = cachedRaw && Date.now() - cachedAt < CACHE_TTL_MS;
+  if (fresh) return cachedRaw!;
+  if (!inFlight) {
+    inFlight = buildMergedPublicDataPlaces().finally(() => {
+      inFlight = null;
+    });
+  }
+  if (cachedRaw) {
+    inFlight.catch(() => {}); // 뒤에서 갱신 — 실패해도 기존 목록을 계속 씁니다
+    return cachedRaw;
+  }
+  return inFlight;
+}
 
+async function buildMergedPublicDataPlaces(): Promise<any[]> {
   const [tourResult, foodResult, cultureResult, hiddenResult] = await Promise.allSettled([
     getTourPlaces(),
     fetchFoodsafetyPlaces(),
@@ -75,9 +100,14 @@ export async function getMergedPublicDataPlaces(): Promise<any[]> {
     supabase.from("hidden_public_places").select("place_id"),
   ]);
 
-  const tourItems = tourResult.status === "fulfilled" ? tourResult.value : [];
-  const foodItems = foodResult.status === "fulfilled" ? foodResult.value : [];
-  const cultureItems = cultureResult.status === "fulfilled" ? cultureResult.value : [];
+  const pick = (result: PromiseSettledResult<any[]>, key: keyof typeof lastGood) => {
+    const items = result.status === "fulfilled" ? result.value : [];
+    if (items.length > 0) lastGood[key] = items;
+    return lastGood[key];
+  };
+  const tourItems = pick(tourResult, "tour");
+  const foodItems = pick(foodResult, "food");
+  const cultureItems = pick(cultureResult, "culture");
 
   const raw = dedupeAcrossSources(foodItems, cultureItems, tourItems);
 

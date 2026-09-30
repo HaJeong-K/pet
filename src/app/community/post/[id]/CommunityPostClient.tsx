@@ -59,6 +59,8 @@ const sortBtn = (active: boolean) => ({
 });
 
 import { supabase } from "@/lib/supabase";
+import { toHttps } from "@/lib/imageUrl";
+import { randomId } from "@/lib/randomId";
 
 interface Post {
   id: string;
@@ -201,7 +203,7 @@ export default function CommunityDetailPage() {
   const getUserKey = () => {
     if (session?.user?.id) return session.user.id;
     let k = localStorage.getItem("user_key");
-    if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+    if (!k) { k = randomId(); localStorage.setItem("user_key", k); }
     return k;
   };
 
@@ -256,7 +258,7 @@ export default function CommunityDetailPage() {
     // 내가 좋아요한 댓글 목록 로드
     const userKey = session?.user?.id || (() => {
       let k = localStorage.getItem("user_key");
-      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      if (!k) { k = randomId(); localStorage.setItem("user_key", k); }
       return k;
     })();
     const { data: myLikes } = await supabase
@@ -297,7 +299,7 @@ export default function CommunityDetailPage() {
             user.user_metadata?.full_name ||
             user.email?.split("@")[0] ||
             "사용자",
-          avatar_url: user.user_metadata?.avatar_url || null,
+          avatar_url: toHttps(user.user_metadata?.avatar_url || null),
           content: comment.trim(),
         },
       ]);
@@ -329,7 +331,7 @@ export default function CommunityDetailPage() {
             user.user_metadata?.full_name ||
             user.email?.split("@")[0] ||
             "사용자",
-          avatar_url: user.user_metadata?.avatar_url || null,
+          avatar_url: toHttps(user.user_metadata?.avatar_url || null),
           content: value.trim(),
         },
       ]);
@@ -382,7 +384,7 @@ export default function CommunityDetailPage() {
     if (!postReportCategory || !postReportReason.trim()) return;
     const userKey = session?.user?.id || (() => {
       let k = localStorage.getItem("user_key");
-      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      if (!k) { k = randomId(); localStorage.setItem("user_key", k); }
       return k;
     })();
     const { error: reportError, data: reportData, status, statusText } = await supabase
@@ -500,7 +502,7 @@ export default function CommunityDetailPage() {
     if (!commentReportCategory || !commentReportReason.trim()) return;
     const userKey = session?.user?.id || (() => {
       let k = localStorage.getItem("user_key");
-      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      if (!k) { k = randomId(); localStorage.setItem("user_key", k); }
       return k;
     })();
 
@@ -530,7 +532,7 @@ export default function CommunityDetailPage() {
   const likeComment = async (commentId: string) => {
     const userKey = session?.user?.id || (() => {
       let k = localStorage.getItem("user_key");
-      if (!k) { k = crypto.randomUUID(); localStorage.setItem("user_key", k); }
+      if (!k) { k = randomId(); localStorage.setItem("user_key", k); }
       return k;
     })();
     const comment = comments.find(c => c.id === commentId);
@@ -778,7 +780,8 @@ export default function CommunityDetailPage() {
           background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
-          columnGap: "16px",
+          // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
+          columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
         }}
       >
         <AdRailLeft />
@@ -786,6 +789,9 @@ export default function CommunityDetailPage() {
         {/* 680px 컬럼 */}
         <div
           style={{
+            // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
+            // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
+            gridColumn: "2",
             width: "100%",
             maxWidth: "680px",
             height: "100%",

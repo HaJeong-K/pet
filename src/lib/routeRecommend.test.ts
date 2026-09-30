@@ -240,6 +240,35 @@ describe("buildRoute", () => {
     });
   });
 
+  describe("핀으로 고정한 장소", () => {
+    const pool: RoutablePlace[] = [
+      { id: 300, name: "공원A", lat: CENTER.lat + 0.002, lng: CENTER.lng, category: "공원" },
+      { id: 301, name: "카페A", lat: CENTER.lat, lng: CENTER.lng + 0.002, category: "카페" },
+      { id: 302, name: "공원B", lat: CENTER.lat - 0.002, lng: CENTER.lng, category: "공원" },
+      { id: 303, name: "카페B", lat: CENTER.lat, lng: CENTER.lng - 0.002, category: "카페" },
+      { id: 304, name: "공원C", lat: CENTER.lat + 0.003, lng: CENTER.lng + 0.001, category: "공원" },
+      { id: 305, name: "카페C", lat: CENTER.lat - 0.003, lng: CENTER.lng + 0.001, category: "카페" },
+    ];
+
+    it("'다른 코스 보기'로 제외돼도 고정한 장소는 유지하고 표시한다", () => {
+      const first = buildRoute(pool, CENTER, "walk", 4)!;
+      const keep = first.stops[1].place.id;
+      const others = first.stops.map((s) => s.place.id);
+      const next = buildRoute(pool, CENTER, "walk", 4, { excludeIds: others, pinnedIds: [keep] })!;
+      const ids = next.stops.map((s) => s.place.id);
+      expect(ids).toContain(keep);
+      expect(next.stops.find((s) => s.place.id === keep)?.pinned).toBe(true);
+      // 고정하지 않은 이전 정거장은 빠진다
+      for (const id of others) if (id !== keep) expect(ids).not.toContain(id);
+    });
+
+    it("반경 밖의 장소도 고정하면 코스에 넣는다", () => {
+      const far = { id: 399, name: "먼 카페", lat: CENTER.lat + 0.05, lng: CENTER.lng, category: "카페" };
+      const route = buildRoute([...pool, far], CENTER, "walk", 4, { pinnedIds: [399] })!;
+      expect(route.stops.map((s) => s.place.id)).toContain(399);
+    });
+  });
+
   it("모든 정거장의 친화도는 0~100 사이다", () => {
     const route = buildRoute(candidates, CENTER, "attraction", 4);
     for (const stop of route?.stops ?? []) {

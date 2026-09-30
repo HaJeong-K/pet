@@ -12,12 +12,15 @@
 //    항상 출발지를 함께 넘깁니다.
 //
 // ── 네이버지도 ──
-// 공식 URL Scheme(nmap://route/walk, https://guide.ncloud-docs.com/docs/maps-url-scheme)은
-// 앱이 설치된 휴대폰에서만 열리고, 네이버가 PC용 웹 길찾기 URL은 공개하지 않습니다.
+// 휴대폰: 공식 URL Scheme(nmap://route/walk, https://guide.ncloud-docs.com/docs/maps-url-scheme).
 // 문서 권장대로 Android는 intent:// URL(앱이 없으면 Play 스토어로 자동 이동), iOS는
 // 스킴 호출 후 타이머로 앱이 안 열렸는지 확인해 App Store 설치를 안내합니다.
 // 출발지(slat/slng)는 넘기지 않습니다 — 생략하면 네이버 앱이 기기의 현재 위치를 출발지로
 // 쓰는데, 이게 우리가 캐시해둔 위치보다 항상 정확합니다.
+// PC: 네이버는 웹 길찾기 URL을 공식 문서로 공개하지 않아서, 네이버 지도 웹이 실제로 쓰는
+//   map.naver.com/p/directions/{출발}/{도착}/{경유지|-}/walk  (좌표는 EPSG:3857 미터 좌표)
+// 형식을 씁니다. 2026-09-30 크롬에서 출발·도착·경유지 1곳까지 정상 동작을 확인했습니다.
+// ⚠ 비공식 형식이라 네이버가 바꾸면 동작하지 않을 수 있습니다.
 
 export type DirectionPoint = { lat: number; lng: number; name: string };
 export type Platform = "android" | "ios" | "desktop";
@@ -85,6 +88,30 @@ export function naverWalkIntentUrl(destination: DirectionPoint, via: DirectionPo
   );
 }
 
+/** 위경도(WGS84) → 네이버 지도 웹이 쓰는 EPSG:3857 미터 좌표 */
+export function toNaverWebXY(lat: number, lng: number): { x: string; y: string } {
+  const R = 20037508.34;
+  const x = (lng * R) / 180;
+  const y = ((Math.log(Math.tan(((90 + lat) * Math.PI) / 360)) / (Math.PI / 180)) * R) / 180;
+  return { x: x.toFixed(4), y: y.toFixed(4) };
+}
+
+/** 네이버 웹 경로의 한 지점: "x,y,이름,," (이름의 쉼표·슬래시는 구분자와 겹쳐서 제거) */
+function naverWebPoint(p: DirectionPoint): string {
+  const { x, y } = toNaverWebXY(p.lat, p.lng);
+  return `${x},${y},${encodeURIComponent(kakaoName(p.name))},,`;
+}
+
+/**
+ * PC용 네이버 지도 웹 도보 길찾기 URL. 경유지가 없으면 "-", 여러 곳이면 ":"로 잇습니다.
+ * @param origin 출발지. null이면 "-"(네이버가 출발지를 비워 둠 — 사용자가 직접 입력)
+ */
+export function naverWebWalkUrl(origin: DirectionPoint | null, destination: DirectionPoint, via: DirectionPoint[] = []): string {
+  const start = origin ? naverWebPoint(origin) : "-";
+  const waypoints = via.length > 0 ? via.slice(0, NAVER_MAX_VIA).map(naverWebPoint).join(":") : "-";
+  return `https://map.naver.com/p/directions/${start}/${naverWebPoint(destination)}/${waypoints}/walk`;
+}
+
 /**
  * 외부 URL을 새 탭에서만 엽니다 — 현재 탭(우리 사이트)은 절대 이동시키지 않습니다.
  * ⚠ window.open(url, "_blank", "noopener")는 명세상 새 탭을 열고도 null을 돌려줘서, 예전
@@ -118,9 +145,14 @@ export function kakaoToUrl(destination: DirectionPoint): string {
  * 위치 조회(비동기)가 끝난 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서, 클릭 직후
  * 빈 탭을 먼저 열어두고 위치가 정해지면 그 탭의 주소만 바꿉니다(현재 탭은 그대로).
  */
-export function openKakaoWalkFromHere(destination: DirectionPoint): void {
+/**
+ * 현재 위치를 구한 뒤 그 위치로 만든 URL을 새 탭에 엽니다(위치를 못 구하면 null로 호출).
+ * 위치 조회(비동기)가 끝난 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서, 클릭 직후
+ * 빈 탭을 먼저 열어두고 위치가 정해지면 그 탭의 주소만 바꿉니다(현재 탭은 그대로).
+ */
+function openFromHere(buildUrl: (here: DirectionPoint | null) => string): void {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
-    openInNewTab(kakaoToUrl(destination));
+    openInNewTab(buildUrl(null));
     return;
   }
   // features 인자 없이 열어야 탭 핸들을 돌려받습니다. opener는 바로 끊어 새 탭이 우리 페이지에 접근 못 하게 합니다.
@@ -131,25 +163,35 @@ export function openKakaoWalkFromHere(destination: DirectionPoint): void {
     else openInNewTab(url);
   };
   navigator.geolocation.getCurrentPosition(
-    (pos) => openUrl(kakaoWalkUrl([{ lat: pos.coords.latitude, lng: pos.coords.longitude, name: "현재 위치" }, destination])),
-    () => openUrl(kakaoToUrl(destination)),
+    (pos) => openUrl(buildUrl({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: "현재 위치" })),
+    () => openUrl(buildUrl(null)),
     // 출발지가 어긋나면 길찾기 전체가 틀어지므로 정확도를 우선하되, 1분 이내 위치는 재사용해 빨리 엽니다.
     { enableHighAccuracy: true, timeout: 5000, maximumAge: 60 * 1000 }
   );
 }
 
+/** 현재 위치를 출발지로 카카오맵 도보 길찾기를 엽니다. 위치를 못 구하면 목적지만 지정해 엽니다. */
+export function openKakaoWalkFromHere(destination: DirectionPoint): void {
+  openFromHere((here) => (here ? kakaoWalkUrl([here, destination]) : kakaoToUrl(destination)));
+}
+
 /**
- * 네이버지도 앱으로 도보 길찾기를 엽니다.
- * @returns "unsupported" — PC처럼 네이버 앱을 열 수 없는 환경(호출부에서 대안 안내)
+ * 네이버지도로 도보 길찾기를 엽니다. 휴대폰은 네이버지도 앱, PC는 네이버 지도 웹(새 탭).
+ * @param origin PC에서 쓸 출발지(코스 출발지 등). 없으면 현재 위치를 구해 쓰고, 그것도 안 되면
+ *               출발지를 비워 둔 채 엽니다. 휴대폰 앱은 항상 기기의 현재 위치를 출발지로 씁니다.
  */
-export function openNaverWalk(destination: DirectionPoint, via: DirectionPoint[] = []): "opened" | "unsupported" {
+export function openNaverWalk(destination: DirectionPoint, via: DirectionPoint[] = [], origin?: DirectionPoint): void {
   const platform = currentPlatform();
-  if (platform === "desktop") return "unsupported";
+  if (platform === "desktop") {
+    if (origin) openInNewTab(naverWebWalkUrl(origin, destination, via));
+    else openFromHere((here) => naverWebWalkUrl(here, destination, via));
+    return;
+  }
 
   const appname = window.location.origin;
   if (platform === "android") {
     window.location.href = naverWalkIntentUrl(destination, via, appname);
-    return "opened";
+    return;
   }
 
   // iOS: 앱이 열리면 페이지가 백그라운드로 가므로, 일정 시간 뒤에도 화면이 그대로면
@@ -168,5 +210,4 @@ export function openNaverWalk(destination: DirectionPoint, via: DirectionPoint[]
       }
     }
   }, APP_OPEN_CHECK_MS);
-  return "opened";
 }

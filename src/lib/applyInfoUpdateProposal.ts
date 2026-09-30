@@ -84,7 +84,7 @@ export async function applyInfoUpdateProposal(
 
   // 2) 실제 행이 없는 공공데이터 출처 장소 — 원본 정보를 찾아 제안 내용과 합쳐
   //    새 행으로 승격시킵니다. (단건 조회 — 전국 데이터 전체를 받지 않습니다.)
-  const original = await fetchPublicDataPlaceById(Number(proposal.place_id));
+  const original = await fetchPublicDataPlaceById(Number(proposal.place_id)).catch(() => null);
   if (!original) {
     return { ok: false, reason: "place_not_found" };
   }

@@ -188,6 +188,22 @@ function toArray<T>(v: T | T[] | undefined | null): T[] {
   return Array.isArray(v) ? v : [v];
 }
 
+// 품종 이름 — v2 API는 kindCd에 숫자 코드("000114")를 주고 이름은 kindNm에 따로 줍니다
+// (예전엔 kindCd를 그대로 써서 카드에 "000114"처럼 코드가 보였습니다). 옛 형식
+// "[개] 믹스견"도 대괄호 축종 표기를 떼서 받아줍니다.
+function openApiBreed(it: any): string {
+  const name = String(it.kindNm ?? "").trim();
+  if (name) return name;
+  const legacy = String(it.kindCd ?? "").trim();
+  return /^\d+$/.test(legacy) ? String(it.upKindNm ?? "").trim() : legacy.replace(/^\[[^\]]*\]\s*/, "").trim();
+}
+
+// 보호동물 사진 서버(openapi.animal.go.kr)는 http 주소로 내려주지만 https도 지원합니다.
+// http 그대로 쓰면 https 사이트에서 혼합 콘텐츠로 막히므로 바꿔 씁니다.
+function toHttpsUrl(url: string): string {
+  return url.startsWith("http://") ? "https://" + url.slice("http://".length) : url;
+}
+
 function parseOpenApiItems(items: any[]): ShelterNotice[] {
   const notices: ShelterNotice[] = [];
   for (const it of items) {
@@ -199,9 +215,8 @@ function parseOpenApiItems(items: any[]): ShelterNotice[] {
     const region = parts[0] || "";
     const subRegion = parts[1] || "";
 
-    // "[개] 믹스견" 형태에서 대괄호 축종 표기를 뗍니다.
-    const breed = String(it.kindCd ?? "").replace(/^\[[^\]]*\]\s*/, "").trim();
-    const imageUrl = String(it.popfile1 ?? it.popfile ?? "").trim();
+    const breed = openApiBreed(it);
+    const imageUrl = toHttpsUrl(String(it.popfile1 ?? it.popfile ?? "").trim());
 
     const noticeEdt = String(it.noticeEdt ?? "").trim(); // "20260813"
     const noticeSdt = String(it.noticeSdt ?? it.happenDt ?? "").trim();
@@ -273,8 +288,10 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
 
   // data.go.kr 화면에 보이는 "End Point"가 그 자체로 호출 가능한 완전한 주소인 경우도 있고,
   // 그 뒤에 개별 오퍼레이션명을 하나 더 붙여야 하는 경우도 있어(문서화가 서비스마다 다름),
-  // 둘 다 순서대로 시도해서 성공하는 쪽을 씁니다.
-  const candidates = [OPEN_API_BASE, `${OPEN_API_BASE}/abandonmentPublic_v2`];
+  // 둘 다 순서대로 시도해서 성공하는 쪽을 씁니다. 2026-09 실측 기준 오퍼레이션명을 붙인
+  // 주소만 동작하고(End Point 단독 주소는 매번 "NO_OPENAPI_SERVICE_ERROR" 400), 예전엔 실패하는
+  // 주소를 먼저 불러서 요청마다 헛호출 + 에러 로그가 남았습니다. 동작하는 주소를 먼저 씁니다.
+  const candidates = [`${OPEN_API_BASE}/abandonmentPublic_v2`, OPEN_API_BASE];
 
   let lastAttemptDebug: OpenApiDebug = { attempted: false, ok: false };
 
@@ -388,36 +405,85 @@ async function fetchNoticePageUncached(sidoCode: string | null, pageSize: number
   return notices;
 }
 
-// 상세 공고 원문(HTML)을 그대로 가져옵니다 — 사용자의 브라우저는 animal.go.kr 세션이
-// 없어서 직접 POST 폼을 제출하면 실패하므로, 세션이 있는 서버에서 대신 요청한 뒤
-// 결과 HTML을 그대로 응답으로 내려줍니다(우리 도메인의 API 라우트가 프록시 역할).
-export async function fetchDetailHtml(desertionNo: string): Promise<string | null> {
-  const cookie = await getSessionCookie();
-  const res = await fetch(DETAIL_URL, {
-    method: "POST",
-    headers: {
-      ...COMMON_HEADERS,
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Referer": `${LIST_URL}?menuNo=${MENU_NO}`,
-      ...(cookie ? { Cookie: cookie } : {}),
-    },
-    body: new URLSearchParams({ menuNo: MENU_NO, desertionNo }).toString(),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    console.error("[shelterNotices] detail fetch failed", res.status, desertionNo);
-    return null;
-  }
-  let html = await res.text();
+// 국가동물보호정보시스템의 공고 원문 주소 — GET으로 바로 열립니다(세션 불필요).
+export function officialNoticeUrl(desertionNo: string): string {
+  return `${DETAIL_URL}?menuNo=${MENU_NO}&desertionNo=${encodeURIComponent(desertionNo)}`;
+}
 
-  // 페이지 안의 상대경로(css/js/이미지)가 우리 도메인이 아니라 animal.go.kr을
-  // 기준으로 풀리도록 <base> 태그를 주입합니다.
-  if (html.includes("<head>")) {
-    html = html.replace("<head>", `<head><base href="${BASE}/">`);
-  } else {
-    html = `<base href="${BASE}/">` + html;
+export type ShelterNoticeDetail = ShelterNotice & {
+  kind: string;          // 축종(개/고양이/기타)
+  sex: string;           // 수컷/암컷/미상
+  neuter: string;        // 중성화 여부
+  age: string;
+  weight: string;
+  color: string;
+  specialMark: string;   // 특징
+  happenPlace: string;   // 발견 장소
+  processState: string;  // 보호중/종료(입양) 등
+  images: string[];
+  careName: string;      // 보호소 이름
+  careTel: string;       // 보호소 전화
+  careAddr: string;      // 보호소 주소
+  orgName: string;       // 관할 기관
+};
+
+const SEX_LABEL: Record<string, string> = { M: "수컷", F: "암컷", Q: "미상" };
+const NEUTER_LABEL: Record<string, string> = { Y: "했어요", N: "안 했어요", U: "알 수 없어요" };
+
+const detailCache = new Map<string, { data: ShelterNoticeDetail | null; expires: number }>();
+
+// 공고 하나를 Open API(desertion_no 조건)로 조회합니다. 공고 카드를 누르면 여는 우리 사이트의
+// 상세 화면(/shelter-notices/[desertionNo])에서 씁니다 — 예전엔 animal.go.kr 상세페이지 HTML을
+// 서버에서 대신 받아 보여줬는데, 그 사이트 구조가 바뀌며 502 오류만 나서 보호소 연락처 등
+// 입양·임보 문의에 필요한 정보를 직접 보여주는 방식으로 바꿨습니다.
+export async function fetchShelterNoticeDetail(desertionNo: string): Promise<ShelterNoticeDetail | null> {
+  if (!/^\d{6,20}$/.test(desertionNo)) return null;
+  const cached = detailCache.get(desertionNo);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
+  const serviceKey = process.env.ANIMAL_OPEN_API_KEY;
+  if (!serviceKey) return null;
+  const qs = `serviceKey=${encodeServiceKey(serviceKey)}&${new URLSearchParams({ desertion_no: desertionNo, pageNo: "1", numOfRows: "1", _type: "json" })}`;
+
+  for (const base of [`${OPEN_API_BASE}/abandonmentPublic_v2`, OPEN_API_BASE]) {
+    try {
+      const res = await fetch(`${base}?${qs}`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const json = await res.json().catch(() => null);
+      if (json?.response?.header?.resultCode !== "00") continue;
+      const it = toArray(json?.response?.body?.items?.item).find((x: any) => String(x.desertionNo) === desertionNo);
+      if (!it) { detailCache.set(desertionNo, { data: null, expires: Date.now() + 60_000 }); return null; }
+      const [base0] = parseOpenApiItems([it]);
+      const images = [it.popfile1, it.popfile2, it.popfile3]
+        .map((u: any) => toHttpsUrl(String(u ?? "").trim()))
+        .filter((u: string, i: number, arr: string[]) => u && arr.indexOf(u) === i);
+      const detail: ShelterNoticeDetail = {
+        ...(base0 ?? {
+          desertionNo, noticeNumber: String(it.noticeNo ?? ""), region: "", subRegion: "",
+          breed: openApiBreed(it), imageUrl: images[0] ?? "", intakeDate: "", deadline: "", daysLeft: -1,
+        }),
+        kind: String(it.upKindNm ?? "").trim(),
+        sex: SEX_LABEL[String(it.sexCd ?? "")] ?? "미상",
+        neuter: NEUTER_LABEL[String(it.neuterYn ?? "")] ?? "알 수 없어요",
+        age: String(it.age ?? "").trim(),
+        weight: String(it.weight ?? "").trim(),
+        color: String(it.colorCd ?? "").trim(),
+        specialMark: String(it.specialMark ?? "").trim(),
+        happenPlace: String(it.happenPlace ?? "").trim(),
+        processState: String(it.processState ?? "").trim(),
+        images,
+        careName: String(it.careNm ?? "").trim(),
+        careTel: String(it.careTel ?? "").trim(),
+        careAddr: String(it.careAddr ?? "").replace(/\s+/g, " ").trim(),
+        orgName: String(it.orgNm ?? "").trim(),
+      };
+      detailCache.set(desertionNo, { data: detail, expires: Date.now() + NOTICE_CACHE_TTL_MS });
+      return detail;
+    } catch (e) {
+      console.error("[shelterNotices] detail open API 예외:", desertionNo, e);
+    }
   }
-  return html;
+  return null;
 }
 
 // 진행 중(마감되지 않은) 공고만 남기고 마감임박순으로 정렬. daysLeft는 이제 실제

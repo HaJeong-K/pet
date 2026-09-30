@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { approveProposal } from "@/lib/approveProposal";
+import { randomId } from "@/lib/randomId";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, MessageCircle, Plus, X, AlertCircle,
@@ -55,7 +56,7 @@ const compressImage = (file: File): Promise<Blob> =>
 const getUserKey = () => {
   if (typeof window === "undefined") return "";
   let key = localStorage.getItem("user_key");
-  if (!key) { key = crypto.randomUUID(); localStorage.setItem("user_key", key); }
+  if (!key) { key = randomId(); localStorage.setItem("user_key", key); }
   return key;
 };
 

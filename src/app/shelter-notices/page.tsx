@@ -52,7 +52,8 @@ export default function ShelterNoticesPage() {
     <div
       className="ggk-body"
       style={{
-        display: "flex", flexDirection: "column", minHeight: "100vh",
+        // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
+        display: "flex", flexDirection: "column", height: "100dvh", overflowY: "auto",
         background: "#F7F3E8", alignItems: "center",
       }}
     >

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import SiteFooter from "@/components/SiteFooter";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
@@ -116,6 +117,9 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // 휴대폰 폭: 게시판 버튼 줄이 화면보다 길어져 글쓰기 버튼이 잘리므로, 줄은 촘촘하게 하고
+  // 글쓰기는 오른쪽 아래 떠 있는 버튼(모바일 커뮤니티 앱 공통 배치)으로 옮깁니다.
+  const isNarrow = useMediaQuery("(max-width: 720px)");
   const [session, setSession] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
@@ -273,13 +277,17 @@ export default function CommunityPage() {
           background: "#F7F3E8",
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
-          columnGap: "16px",
+          // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
+          columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
         }}
       >
         <AdRailLeft />
 
         <div
           style={{
+            // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
+            // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
+            gridColumn: "2",
             minWidth: 0,
             width: "100%",
 
@@ -318,10 +326,11 @@ export default function CommunityPage() {
             style={{
               background: "white",
               borderBottom: "1px solid #eee",
-              padding: "12px 28px",
+              padding: isNarrow ? "10px 14px" : "12px 28px",
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: isNarrow ? "6px" : "8px",
+              flexWrap: isNarrow ? "wrap" : "nowrap",
             }}
           >
             {[{ id: "all", label: "전체" }, { id: "free", label: "자유게시판" }].map((board) => (
@@ -336,7 +345,7 @@ export default function CommunityPage() {
                 style={{
                   border: activeBoard === board.id ? "none" : "1px solid rgba(0,0,0,0.08)",
                   borderRadius: "10px",
-                  padding: "8px 16px",
+                  padding: isNarrow ? "8px 12px" : "8px 16px",
                   background: activeBoard === board.id ? "#5C7A4A" : "#fff",
                   color: activeBoard === board.id ? "white" : "#555",
                   fontSize: "13px",
@@ -361,7 +370,7 @@ export default function CommunityPage() {
               style={{
                 border: "none",
                 borderRadius: "10px",
-                padding: "8px 16px",
+                padding: isNarrow ? "8px 12px" : "8px 16px",
                 background: activeBoard === "business" ? "linear-gradient(145deg, #d97706, #b45309)" : "#fef3c7",
                 color: activeBoard === "business" ? "white" : "#92400e",
                 fontSize: "13px",
@@ -382,7 +391,7 @@ export default function CommunityPage() {
                 className="ggk-body"
                 style={{
                   borderRadius: "10px",
-                  padding: "8px 16px",
+                  padding: isNarrow ? "8px 12px" : "8px 16px",
                   background: REGION_BOARDS.some((b) => b.id === activeBoard) ? "#5C7A4A" : "#fff",
                   color: REGION_BOARDS.some((b) => b.id === activeBoard) ? "white" : "#555",
                   border: REGION_BOARDS.some((b) => b.id === activeBoard) ? "none" : "1px solid rgba(0,0,0,0.08)",
@@ -454,11 +463,17 @@ export default function CommunityPage() {
                 }
                 router.push(`/community/write?board=${activeBoard}`);
               }}
+              aria-label="글쓰기"
               style={{
-                marginLeft: "auto",
+                ...(isNarrow
+                  ? {
+                      // 휴대폰: 하단 탭바 바로 위 오른쪽에 떠 있는 버튼
+                      position: "fixed", right: 16, bottom: "calc(96px + env(safe-area-inset-bottom))", zIndex: 997,
+                      height: 48, padding: "0 18px", fontSize: "14px",
+                      boxShadow: "0 6px 18px rgba(72,96,58,0.35)",
+                    }
+                  : { marginLeft: "auto", height: 34, padding: "0 12px", fontSize: "11px" }),
                 flexShrink: 0,
-                height: 34,
-                padding: "0 12px",
                 borderRadius: "999px",
                 border: "none",
                 background: "linear-gradient(145deg, #5C7A4A, #48603A)",
@@ -468,12 +483,11 @@ export default function CommunityPage() {
                 gap: "5px",
                 cursor: "pointer",
                 color: "white",
-                fontSize: "11px",
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
             >
-              <Pencil size={14} />
+              <Pencil size={isNarrow ? 16 : 14} />
               글쓰기
             </button>
           </div>

@@ -77,18 +77,21 @@ const SINGLE_CACHE_TTL_MS = 60_000;
  * 훨씬 빠르게 응답합니다. `places` 테이블에 실제 행이 없는(공공데이터 출처) 장소를
  * 상세페이지 등에서 id 하나로 조회할 때는 fetchPublicDataPlaces() 대신 이 함수를 쓰세요.
  */
+const SINGLE_FETCH_TIMEOUT_MS = 12_000;
+
+/**
+ * @returns 장소 데이터, 또는 서버에 그 장소가 없으면(404) null
+ * @throws 시간 초과·네트워크·서버 오류 — "장소 없음"과 구분해서 호출부가 "다시 시도"를
+ *         보여줄 수 있게 합니다(예전엔 둘 다 null이라 상세가 "로딩중..."에 멈춰 있었습니다).
+ */
 export async function fetchPublicDataPlaceById(id: number): Promise<any | null> {
   const cached = singleCache.get(id);
   if (cached && Date.now() - cached.at < SINGLE_CACHE_TTL_MS) return cached.data;
 
-  try {
-    const res = await fetch(`/api/public-data/place/${id}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    singleCache.set(id, { data, at: Date.now() });
-    return data;
-  } catch (e) {
-    console.error("공공데이터 장소 단건 조회 실패:", e);
-    return null;
-  }
+  const res = await fetch(`/api/public-data/place/${id}`, { signal: AbortSignal.timeout(SINGLE_FETCH_TIMEOUT_MS) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`공공데이터 장소 조회 실패 (${res.status})`);
+  const data = await res.json();
+  singleCache.set(id, { data, at: Date.now() });
+  return data;
 }

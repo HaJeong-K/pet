@@ -25,7 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setSession(session);
-      if (session?.user) loadProfile(session.user.id);
+      // 콜백 안에서 바로 supabase를 부르면 인증 잠금과 엉킬 수 있어 한 박자 뒤로 미룹니다.
+      if (session?.user) { const uid = session.user.id; setTimeout(() => loadProfile(uid), 0); }
       else { setProfile(null); setIsAdmin(false); }
     });
     return () => subscription.unsubscribe();

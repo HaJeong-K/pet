@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { toHttps } from "@/lib/imageUrl";
 
 // community/page.tsx의 BOARDS와 반드시 동일한 지역 목록을 유지해야 합니다.
 // (이전엔 전북·전남이 여기 빠져있어서, 조회 화면엔 있는데 글쓰기에서는 선택이
@@ -266,8 +267,7 @@ function CommunityWritePageContent() {
               "사용자",
 
             avatar_url:
-              user.user_metadata?.avatar_url ||
-              null,
+              toHttps(user.user_metadata?.avatar_url || null),
           },
         ])
         .select()

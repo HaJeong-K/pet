@@ -69,6 +69,8 @@ export interface RouteStop {
   distanceToNextKm: number | null;
   /** famous = 유명 관광지, hot = 후기가 핫한 곳, pick = 후기 데이터가 없어 대신 고른 추천 장소 */
   highlight?: StopHighlight;
+  /** 사용자가 핀으로 고정한 정거장("다른 코스 보기"를 눌러도 유지) */
+  pinned?: boolean;
 }
 
 export interface RouteResult {
@@ -482,6 +484,8 @@ function permutations<T>(items: T[]): T[][] {
 interface Slot {
   role: StopRole | "any";
   candidates: RoutablePlace[];
+  /** 반드시 들어갈 한 곳짜리 슬롯(후기 핫플·사용자 고정 장소) — 후보를 추리지 않고 그대로 씁니다. */
+  fixed?: boolean;
 }
 
 /**
@@ -507,6 +511,8 @@ export interface BuildRouteOptions {
   includeVet?: boolean;
   /** 코스에 동물약국 1곳을 넣을지(코스 패널 토글). 기본 false */
   includePharmacy?: boolean;
+  /** 사용자가 핀으로 고정한 장소 id — 반경·필터·excludeIds와 무관하게 항상 코스에 넣습니다. */
+  pinnedIds?: Iterable<string | number>;
 }
 
 export function buildRoute(
@@ -558,9 +564,17 @@ function buildRouteWithin(
   // 출발 시점과 3시간 뒤 모두 "확실히 닫힘"인 곳은 코스 시간 안에 방문할 수 없으므로 미리 뺍니다.
   pool = pool.filter((p) => !(statusAt(p, 0) === "closed" && statusAt(p, 180) === "closed"));
 
+  // 사용자가 고정한 장소: 반경·실내·운영시간 필터와 무관하게 후보에 넣습니다(사용자가 직접 고른 곳).
+  const pinnedIdSet = new Set<string | number>(options?.pinnedIds ?? []);
+  const pinnedPlaces = candidates
+    .filter((p) => pinnedIdSet.has(p.id) && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng)))
+    .slice(0, maxStops);
+  for (const p of pinnedPlaces) if (!pool.some((q) => q.id === p.id)) pool.push(p);
+
   if (pool.length < 2) return null;
 
-  const used = new Set<string | number>(options?.excludeIds ?? []);
+  // 고정한 장소는 "다른 코스 보기"의 제외 목록에 들어 있어도 빼지 않습니다.
+  const used = new Set<string | number>([...(options?.excludeIds ?? [])].filter((id) => !pinnedIdSet.has(id)));
   const available = (p: RoutablePlace) => !used.has(p.id);
 
   // ── 관광 중심: 필수 정거장 두 곳을 먼저 확정합니다(요청사항 — 반드시 포함).
@@ -578,6 +592,11 @@ function buildRouteWithin(
     if (!requiredStop) return null;
     used.add(requiredStop.place.id);
   }
+  // 고정 장소 중 아직 안 들어간 곳(관광지·후기 핫플로 이미 뽑힌 곳 제외)을 예약합니다.
+  const pinnedBudget = Math.max(0, maxStops - (fixedFirst ? 1 : 0) - (requiredStop ? 1 : 0));
+  const pinnedStops = pinnedPlaces.filter((p) => !used.has(p.id)).slice(0, pinnedBudget);
+  pinnedStops.forEach((p) => used.add(p.id));
+
   const anchor = fixedFirst ? { lat: Number(fixedFirst.lat), lng: Number(fixedFirst.lng) } : center;
   const anchorDwell = fixedFirst ? DWELL_MINUTES[classifyStopRole(fixedFirst)] : 0;
 
@@ -592,11 +611,12 @@ function buildRouteWithin(
   // 채웁니다(후보가 없는 의료시설 슬롯은 아래 루프에서 건너뜁니다).
   const slotBudget = maxStops - (fixedFirst ? 1 : 0);
   const medicalRoles = CRITICAL_ROLES.filter((role) => !excludedRoles.has(role));
-  const reservedSlots = medicalRoles.length + (requiredStop ? 1 : 0);
+  const reservedSlots = medicalRoles.length + (requiredStop ? 1 : 0) + pinnedStops.length;
   const themeRoles = THEME_ROLE_SEQUENCE[theme].slice(0, Math.max(0, slotBudget - reservedSlots));
-  const slots: Slot[] = requiredStop
-    ? [{ role: classifyStopRole(requiredStop.place), candidates: [requiredStop.place] }]
-    : [];
+  const slots: Slot[] = [
+    ...(requiredStop ? [{ role: classifyStopRole(requiredStop.place), candidates: [requiredStop.place], fixed: true }] : []),
+    ...pinnedStops.map((p) => ({ role: classifyStopRole(p), candidates: [p], fixed: true })),
+  ];
   for (const role of [...themeRoles, ...medicalRoles]) {
     if (slots.length >= slotBudget) break;
     const isCritical = CRITICAL_ROLES.includes(role);
@@ -615,8 +635,8 @@ function buildRouteWithin(
   // 슬롯별 상위 후보 추리기: 기준점에서의 도보 구간 적합도 − 품질이 좋은 순.
   // "any" 슬롯은 병원·약국을 제외한 전체에서 고릅니다.
   const shortlist = (slot: Slot): RoutablePlace[] => {
-    // 필수 정거장 슬롯은 후보가 그 한 곳뿐이라 그대로 둡니다.
-    if (requiredStop && slot.candidates.length === 1 && slot.candidates[0].id === requiredStop.place.id) return slot.candidates;
+    // 필수 정거장·고정 장소 슬롯은 후보가 그 한 곳뿐이라 그대로 둡니다.
+    if (slot.fixed) return slot.candidates;
     const source = slot.role === "any" ? nonCriticalPool : slot.candidates;
     const role = (p: RoutablePlace) => (slot.role === "any" ? classifyStopRole(p) : slot.role);
     return source
@@ -704,6 +724,7 @@ function buildRouteWithin(
       friendliness: estimateStopFriendliness(picked),
       distanceToNextKm: null,
       ...(highlight ? { highlight } : {}),
+      ...(pinnedIdSet.has(picked.id) ? { pinned: true } : {}),
     });
   };
 
@@ -715,6 +736,16 @@ function buildRouteWithin(
     pushStop(requiredStop.place, true);
     const added = stops.pop()!;
     stops.splice(fixedFirst ? 1 : 0, 0, added);
+  }
+  // 고정 장소도 시간 제약 등으로 빠졌으면 반드시 넣습니다(고정·필수가 아닌 마지막 정거장과 교체).
+  for (const p of pinnedStops) {
+    if (stops.some((s) => s.place.id === p.id)) continue;
+    if (stops.length >= maxStops) {
+      const replaceIdx = [...stops].reverse().findIndex((s) => !s.pinned && !s.highlight);
+      if (replaceIdx === -1) continue;
+      stops.splice(stops.length - 1 - replaceIdx, 1);
+    }
+    pushStop(p, true);
   }
 
   // 정거장이 부족하면(후보가 겹치거나 시간 제약으로 빠진 경우) 남은 풀에서 그리디로 채웁니다.

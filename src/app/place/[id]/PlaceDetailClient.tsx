@@ -3,7 +3,11 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { fetchPublicDataPlaceById } from "@/lib/publicDataPlaces";
+import { fetchPublicDataPlaceById, invalidatePublicDataPlacesCache } from "@/lib/publicDataPlaces";
+import { getRememberedPlace, isPublicDataPlaceId } from "@/lib/placeCache";
+
+// 장소 조회가 이보다 오래 걸리면 "다시 불러오기"를 보여줍니다(무한 "로딩중..." 방지).
+const PLACE_FETCH_TIMEOUT_MS = 12_000;
 import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import {
@@ -17,9 +21,10 @@ import { hasInfo, getPetZoneLabel } from "@/lib/placeConstants";
 import { isPlacePremiumNow } from "@/lib/premium";
 import { openKakaoWalkFromHere, openNaverWalk, type DirectionPoint } from "@/lib/directions";
 import { useParams, useRouter } from "next/navigation";
+import { randomId } from "@/lib/randomId";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
-  Shuffle, MapPin, Clock, PawPrint, Plus, ExternalLink, Navigation,
+  Shuffle, MapPin, Clock, PawPrint, Plus, Navigation,
   ImageOff, ChefHat, LandPlot, Dog, Shield,
   ChevronLeft, ChevronRight, Phone,
   Car,         // 주차
@@ -97,7 +102,7 @@ const generateRandomNickname = () => {
 const getUserKey = () => {
   if (typeof window === "undefined") return "";
   let key = localStorage.getItem("user_key");
-  if (!key) { key = crypto.randomUUID(); localStorage.setItem("user_key", key); }
+  if (!key) { key = randomId(); localStorage.setItem("user_key", key); }
   return key;
 };
 
@@ -172,9 +177,16 @@ export default function PlaceDetail({
   // 실시간 공공데이터(식품안전나라·한국관광공사·한국문화정보원) 출처 장소인지 여부.
   // 이런 장소는 Supabase `places` 테이블에 실제 행이 없는 클라이언트 합성 ID라
   // 리뷰 답글·갤러리 이미지 등 부가 기능은 건너뜁니다.
-  const [isPublicDataPlace, setIsPublicDataPlace] = useState(false);
+  const [isPublicDataPlace, setIsPublicDataPlace] = useState(() => isPublicDataPlaceId(placeId));
 
-  const [place, setPlace]             = useState<any>(null);
+  // 지도에서 누른 장소면 지도가 이미 들고 있던 데이터로 즉시 그립니다(체감상 바로 열림).
+  // 최신 정보는 아래 데이터 로딩 effect가 뒤에서 받아와 바꿔 끼웁니다.
+  const [place, setPlace]             = useState<any>(() => getRememberedPlace(placeId));
+  // 장소 불러오기 상태 — 예전엔 장소를 못 찾거나 오류가 나도 place가 null로 남아 "로딩중..."이
+  // 영원히 떠 있었습니다(모달의 새로고침을 눌러도 같은 결과라 안 되는 것처럼 보였음).
+  const [loadState, setLoadState]     = useState<"loading" | "notFound" | "error">("loading");
+  // "다시 불러오기"를 누를 때마다 올려서 데이터 로딩 effect를 다시 실행합니다.
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [reviews, setReviews]         = useState<any[]>([]);
   const [session, setSession]         = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -369,12 +381,18 @@ export default function PlaceDetail({
       }
     };
     loadSession();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, s) => {
+    // ⚠ 이 콜백 안에서 supabase 호출을 await하면 안 됩니다. 콜백은 인증 잠금을 쥔 채 실행돼서,
+    // 토큰이 갱신되는 순간(로그인 약 1시간 뒤·탭 복귀 시) 교착에 빠지고 그 뒤 모든 supabase
+    // 호출이 영영 멈춥니다(마이페이지 흰 화면의 원인). 조회는 setTimeout으로 잠금이 풀린 뒤에 합니다.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
       if (s?.user) {
-        const { data } = await supabase.from("users").select("*").eq("auth_user_id", s.user.id).single();
-        setUserProfile(data);
-        setIsAdmin(!!data?.is_admin); // ★
+        const uid = s.user.id;
+        setTimeout(async () => {
+          const { data } = await supabase.from("users").select("*").eq("auth_user_id", uid).single();
+          setUserProfile(data);
+          setIsAdmin(!!data?.is_admin); // ★
+        }, 0);
       } else {
         setUserProfile(null);
         setIsAdmin(false); // ★
@@ -425,80 +443,106 @@ export default function PlaceDetail({
   }, []);
 
   // ── 데이터 로딩
+  // ⚠ 체감 속도: 예전엔 ① DB 조회 → (없으면) ② 공공데이터 조회 → 리뷰 → 사진 → 답글 → 로그인 정보 →
+  // 반응 수를 전부 한 줄로 기다렸습니다. 이제는 (1) 지도에 있던 데이터로 먼저 그리고, (2) 공공데이터
+  // 장소(합성 id ≥ 10억)는 DB 조회를 건너뛰며, (3) 리뷰·사진·답글·반응을 동시에 요청합니다.
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       if (!placeId) return;
-      const { data: placeData } = await supabase
-        .from("places")
-        .select("*")
-        .eq("id", placeId)
-        .single();
+      const hadCached = !!getRememberedPlace(placeId);
+      if (!hadCached) setLoadState("loading");
 
-      let resolvedPlace = placeData;
-      let publicDataPlace = false;
-
-      // AWS(DynamoDB+Lambda) 전국 데이터는 Supabase `places` 테이블로 이관 완료되어
-      // 위 Supabase 조회 한 번으로 커버됩니다. 아래는 이관 대상이 아닌, 실시간
-      // 공공데이터(식품안전나라·한국관광공사·한국문화정보원) 출처 장소 폴백입니다.
-      //
-      // ⚠ 최적화: fetchPublicDataPlaces()(전국 데이터 전체)가 아니라
-      // fetchPublicDataPlaceById(단건 조회)를 씁니다 — 이 페이지에 필요한 건 이
-      // 장소 하나뿐인데 전국 데이터를 통째로 받아 놓고 그중 하나만 골라 쓰던
-      // 것이 "로딩중..."이 오래 떠 있던 주된 원인이었습니다.
-      if (!resolvedPlace) {
+      // ── 1단계: 장소 자체 — 여기서 실패하면 "장소 없음" 또는 "다시 불러오기"를 보여줍니다
+      //    (지도 데이터로 이미 그려둔 경우엔 그대로 둡니다).
+      const publicDataPlace = isPublicDataPlaceId(placeId);
+      let resolvedPlace: any = null;
+      try {
+        if (publicDataPlace) {
+          // 공공데이터 장소는 places 테이블에 행이 없는 합성 id라 DB 조회 없이 바로 찾습니다.
           resolvedPlace = await fetchPublicDataPlaceById(placeId);
-
-          if (resolvedPlace) {
-              publicDataPlace = true;
-              setIsPublicDataPlace(true);
-          }
+        } else {
+          const { data: placeData, error: placeError } = await supabase
+            .from("places")
+            .select("*")
+            .eq("id", placeId)
+            .abortSignal(AbortSignal.timeout(PLACE_FETCH_TIMEOUT_MS))
+            .maybeSingle();
+          if (placeError && !["22003", "22P02"].includes(placeError.code)) throw placeError;
+          resolvedPlace = placeData;
+        }
+      } catch (e) {
+        console.error("[place] 장소 불러오기 실패:", e);
+        if (!cancelled && !hadCached) setLoadState("error");
+        return;
       }
-
+      if (cancelled) return;
+      if (!resolvedPlace) {
+        if (!hadCached) setLoadState("notFound");
+        return;
+      }
+      setIsPublicDataPlace(publicDataPlace);
       setPlace(resolvedPlace);
 
-      await fetchReviews();
-
+      // ── 2단계: 리뷰·사진·답글·반응 — 서로 기다릴 필요가 없어 동시에 요청합니다.
+      // 실패해도 장소 정보는 그대로 보여줍니다.
       // 갤러리 이미지(place_images)는 공공데이터 출처 장소(합성 ID)라도 항상 불러옵니다 —
       // 문화원/식약처 CSV 장소는 원본에 이미지가 전혀 없어 관리자·업주가 직접 올린 대표
       // 사진이 유일한 이미지 소스인 경우가 많습니다. 답글(review_replies)만 실제 Supabase
       // 행이 필요한 리뷰(reviews)에 종속돼 있어 공공데이터 장소에는 아직 의미가 없습니다.
-      await fetchGalleryImages();
-      if (!publicDataPlace) {
-          await fetchReplies();
-      }
-      const userKey = getUserKey();
-      const currentSession = (await supabase.auth.getSession()).data.session;
-      const reactionsKey = currentSession?.user?.id ?? userKey;
-      if (currentSession?.user) {
-        const { data: dbUser } = await supabase.from("users").select("nickname").eq("auth_user_id", currentSession.user.id).maybeSingle();
-        if (dbUser?.nickname) { setMyNickname(dbUser.nickname); }
-        else {
-          const nickname = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.preferred_username || currentSession.user.user_metadata?.nickname || currentSession.user.user_metadata?.name || currentSession.user.email?.split("@")[0] || "사용자";
-          setMyNickname(nickname);
-          await supabase.from("users").upsert([{ auth_user_id: currentSession.user.id, email: currentSession.user.email || "", nickname }], { onConflict: "auth_user_id" });
-        }
-      } else {
-        const { data: existingUser } = await supabase.from("users").select("*").eq("user_key", userKey).maybeSingle();
-        if (!existingUser) { await createRandomNickname(); } else { setMyNickname(existingUser.nickname); }
-      }
-      const [{ count: fetchedLikes }, { count: fetchedDislikes }, { count: fetchedBookmarks }, { data: fetchedMyReactions }] = await Promise.all([
-        supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "like"),
-        supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "dislike"),
-        supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "bookmark"),
-        supabase.from("reactions").select("type").eq("place_id", placeId).eq("user_key", reactionsKey),
+      const loadUserAndReactions = async () => {
+        const userKey = getUserKey();
+        const currentSession = (await supabase.auth.getSession()).data.session;
+        const reactionsKey = currentSession?.user?.id ?? userKey;
+        const loadNickname = async () => {
+          if (currentSession?.user) {
+            const { data: dbUser } = await supabase.from("users").select("nickname").eq("auth_user_id", currentSession.user.id).maybeSingle();
+            if (dbUser?.nickname) { setMyNickname(dbUser.nickname); }
+            else {
+              const nickname = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.preferred_username || currentSession.user.user_metadata?.nickname || currentSession.user.user_metadata?.name || currentSession.user.email?.split("@")[0] || "사용자";
+              setMyNickname(nickname);
+              await supabase.from("users").upsert([{ auth_user_id: currentSession.user.id, email: currentSession.user.email || "", nickname }], { onConflict: "auth_user_id" });
+            }
+          } else {
+            const { data: existingUser } = await supabase.from("users").select("*").eq("user_key", userKey).maybeSingle();
+            if (!existingUser) { await createRandomNickname(); } else { setMyNickname(existingUser.nickname); }
+          }
+        };
+        const loadReactions = async () => {
+          const [{ count: fetchedLikes }, { count: fetchedDislikes }, { count: fetchedBookmarks }, { data: fetchedMyReactions }, { data: myLikes }] = await Promise.all([
+            supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "like"),
+            supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "dislike"),
+            supabase.from("reactions").select("*", { count: "exact", head: true }).eq("place_id", placeId).eq("type", "bookmark"),
+            supabase.from("reactions").select("type").eq("place_id", placeId).eq("user_key", reactionsKey),
+            supabase.from("review_likes").select("review_id").eq("user_key", userKey),
+          ]);
+          if (cancelled) return;
+          setLikesCount(fetchedLikes || 0);
+          setDislikesCount(fetchedDislikes || 0);
+          setBookmarkCount(fetchedBookmarks || 0);
+          const myBookmark = fetchedMyReactions?.find((r) => r.type === "bookmark");
+          const myVote = fetchedMyReactions?.find((r) => r.type === "like" || r.type === "dislike");
+          setBookmarked(!!myBookmark);
+          setVoteReaction((myVote?.type as VoteReaction) ?? null);
+          setLikedReviewIds(new Set((myLikes || []).map((l) => String(l.review_id))));
+        };
+        await Promise.all([loadNickname(), loadReactions()]);
+      };
+
+      const results = await Promise.allSettled([
+        fetchReviews(),
+        fetchGalleryImages(),
+        publicDataPlace ? Promise.resolve() : fetchReplies(),
+        loadUserAndReactions(),
       ]);
-      setLikesCount(fetchedLikes || 0);
-      setDislikesCount(fetchedDislikes || 0);
-      setBookmarkCount(fetchedBookmarks || 0);
-      const myBookmark = fetchedMyReactions?.find((r) => r.type === "bookmark");
-      const myVote = fetchedMyReactions?.find((r) => r.type === "like" || r.type === "dislike");
-      setBookmarked(!!myBookmark);
-      setVoteReaction((myVote?.type as VoteReaction) ?? null);
-      const { data: myLikes } = await supabase.from("review_likes").select("review_id").eq("user_key", userKey);
-      setLikedReviewIds(new Set((myLikes || []).map((l) => String(l.review_id))));
+      results.forEach((r) => {
+        if (r.status === "rejected") console.error("[place] 리뷰·반응 불러오기 실패:", r.reason);
+      });
     };
     fetchData();
-  }, [placeId]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId, loadAttempt]);
 
   // 관리자 통계 분석 탭의 "지역별 인기 장소 TOP10" 계산용 — 상세페이지 조회 이벤트
   useEffect(() => {
@@ -876,9 +920,38 @@ export default function PlaceDetail({
     });
   }, [place, reviews, likesCount, dislikesCount, bookmarkCount, isPublicDataPlace]);
 
-  if (!place) return (
-    <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}>로딩중...</div>
-  );
+  if (!place) {
+    if (loadState === "loading") return (
+      <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}>로딩중...</div>
+    );
+    const notFound = loadState === "notFound";
+    return (
+      <div className="ggk-body" style={{ padding: "48px 20px", textAlign: "center", color: "#555" }}>
+        <div style={{ fontSize: "28px", marginBottom: "10px" }}>{notFound ? "🔍" : "⚠️"}</div>
+        <div style={{ fontSize: "14px", fontWeight: 700, color: "#222" }}>
+          {notFound ? "장소 정보를 찾을 수 없어요" : "장소 정보를 불러오지 못했어요"}
+        </div>
+        <div style={{ fontSize: "12px", color: "#888", marginTop: "6px", lineHeight: 1.6 }}>
+          {notFound
+            ? "삭제되었거나 정보가 바뀐 장소일 수 있어요."
+            : "인터넷 연결이 잠시 불안정했을 수 있어요. 다시 시도해 주세요."}
+        </div>
+        <button
+          onClick={() => {
+            invalidatePublicDataPlacesCache();
+            setLoadAttempt((n) => n + 1);
+          }}
+          className="ggk-body"
+          style={{
+            marginTop: "16px", padding: "9px 18px", borderRadius: "10px", border: "none",
+            background: "#5C7A4A", color: "white", fontSize: "13px", fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          다시 불러오기
+        </button>
+      </div>
+    );
+  }
 
   // ── 동물병원 전용 파생 값
   // 세부 진료과목이 입력돼 있으면 그대로("심장내과" 등), 특정과 중심이 아니거나
@@ -901,13 +974,8 @@ export default function PlaceDetail({
   const placeDirectionPoint: DirectionPoint | null =
     !isNaN(placeLat) && !isNaN(placeLng) ? { lat: placeLat, lng: placeLng, name: place.name } : null;
 
-  const handleNaverDirections = (destination: DirectionPoint) => {
-    if (openNaverWalk(destination) === "unsupported") {
-      if (window.confirm("네이버지도 길찾기는 네이버지도 앱이 설치된 휴대폰에서만 열 수 있어요.\n대신 카카오맵으로 길찾기를 열까요?")) {
-        openKakaoWalkFromHere(destination);
-      }
-    }
-  };
+  // 휴대폰은 네이버지도 앱, PC는 현재 위치를 출발지로 네이버 지도 웹을 엽니다.
+  const handleNaverDirections = (destination: DirectionPoint) => openNaverWalk(destination);
 
   return (
     <>
@@ -1270,11 +1338,9 @@ export default function PlaceDetail({
             ) : (
               <div style={{ fontSize:"11px", color:"#999" }}>이 장소는 좌표 정보가 없어 길찾기를 열 수 없어요.</div>
             )}
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"7px", gap:"8px" }}>
-              <span style={{ fontSize:"10px", color:"#999", lineHeight:1.4 }}>현재 위치에서 도보 길찾기로 열려요. 네이버지도는 앱 설치가 필요해요.</span>
-              <a href={`https://map.naver.com/v5/search/${encodeURIComponent(place.name)}`} target="_blank" rel="noreferrer" style={{ display:"flex", alignItems:"center", gap:"3px", fontSize:"10px", color:"#777", whiteSpace:"nowrap", textDecoration:"none" }}>
-                <ExternalLink size={10} />네이버 지도에서 보기
-              </a>
+            <div style={{ marginTop:"7px", fontSize:"10px", color:"#999", lineHeight:1.4 }}>
+              · 카카오맵·네이버지도를 누를 시 현재 위치에서 도보 길찾기로 열려요.<br />
+              · 휴대폰에서 네이버지도를 누를 시 네이버지도 앱으로 연결돼요.
             </div>
           </div>
         )}
