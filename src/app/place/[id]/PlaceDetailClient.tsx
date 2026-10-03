@@ -19,10 +19,10 @@ import {
 } from "@/lib/affinityScore";
 import { hasInfo, getPetZoneLabel } from "@/lib/placeConstants";
 import { isPlacePremiumNow } from "@/lib/premium";
-import { openKakaoWalkFromHere, openNaverWalk, type DirectionPoint } from "@/lib/directions";
+import { openKakaoWalkFromHere, openNaverWalk, primeCurrentLocation, type DirectionPoint } from "@/lib/directions";
 import { useParams, useRouter } from "next/navigation";
 import { randomId } from "@/lib/randomId";
-import { requestCheckin, fetchCheckinSummary } from "@/lib/checkinClient";
+import { isParkPlaceId } from "@/lib/parkPlace";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   Shuffle, MapPin, Clock, PawPrint, Plus, Navigation,
@@ -37,7 +37,7 @@ import {
   X,           // 이미지 확대 모달 닫기
   Flag,        // 이미지 신고
   Crown,       // 프리미엄 배지
-  BadgeCheck,  // 방문 인증
+  Trees,       // 공원 구분
 } from "lucide-react";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
@@ -194,37 +194,8 @@ export default function PlaceDetail({
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin]         = useState(false); // ★ 관리자 상태 추가
   const isLoggedIn = !!session?.user;
-
-  // ── 방문 인증(체크인): 가게 근처에 있을 때만 서버가 기록 → 후기에 "방문 인증" 배지
-  const [checkinCount, setCheckinCount] = useState(0);
-  const [verifiedReviewIds, setVerifiedReviewIds] = useState<Set<number>>(new Set());
-  const [checkinBusy, setCheckinBusy] = useState(false);
-  const [checkinDone, setCheckinDone] = useState(false);
-  const [checkinMessage, setCheckinMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const loadCheckins = async () => {
-    const summary = await fetchCheckinSummary(placeId);
-    setCheckinCount(summary.count);
-    setVerifiedReviewIds(new Set(summary.verifiedReviewIds));
-  };
-  useEffect(() => {
-    if (!Number.isFinite(placeId)) return;
-    loadCheckins();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeId, reviews.length]);
-  const handleCheckin = async () => {
-    if (checkinBusy) return;
-    setCheckinBusy(true);
-    setCheckinMessage(null);
-    const result = await requestCheckin(placeId, "manual");
-    setCheckinBusy(false);
-    if (result.ok) {
-      setCheckinDone(true);
-      setCheckinMessage({ ok: true, text: result.already ? "오늘 이미 방문 인증을 했어요. 후기를 남겨 보세요!" : "방문 인증 완료! 후기를 남기면 '방문 인증' 배지가 붙어요." });
-      loadCheckins();
-    } else {
-      setCheckinMessage({ ok: false, text: result.error });
-    }
-  };
+  // 공원(장소 번호 90억 이상) — 가게용 항목(영업시간·주차 등) 대신 공원 정보(구분·면적·시설)를 보여줍니다.
+  const isPark = isParkPlaceId(placeId);
 
   const [myNickname, setMyNickname] = useState("");
   const [password, setPassword]     = useState("");
@@ -685,7 +656,7 @@ export default function PlaceDetail({
     if (!onAdminMenu) return;
     onAdminMenu({
       isAdmin,
-      canDelete: isAdmin,
+      canDelete: isAdmin && !isPark, // 공원은 공공데이터 원본이라 여기서 삭제·숨김하지 않습니다
       isPublicData: isPublicDataPlace,
       willActuallyDelete: !isPublicDataPlace || isCsvSourcedPublicData,
       deleting: deletingPlace,
@@ -1175,6 +1146,60 @@ export default function PlaceDetail({
         {/* 정보 그리드 */}
         <div style={{ marginTop:"12px", border:"1px solid #eee", borderRadius:"12px", overflow:"hidden" }}>
 
+          {isPark ? (<>
+            {/* 공원 전용 정보: 구분 / 면적, 관리기관 / 전화번호, 시설 */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+              <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <Trees size={10} />구분
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {place.park_category || "공원"}
+                </div>
+              </div>
+              <div style={{ padding:"10px 12px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <LandPlot size={10} />면적
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {place.park_area && !isNaN(Number(place.park_area)) ? `약 ${Number(place.park_area).toLocaleString()}㎡` : "—"}
+                </div>
+              </div>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
+              <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <Shield size={10} />관리기관
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {place.park_agency || "—"}
+                </div>
+              </div>
+              <div style={{ padding:"10px 12px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <Phone size={10} />전화번호
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
+                  {place.phone ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>{place.phone}</a> : "—"}
+                </div>
+              </div>
+            </div>
+            <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <MapPin size={10} />시설
+              </div>
+              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6 }}>
+                {place.park_facility_note
+                  ? String(place.park_facility_note).split(" · ").map((line: string, i: number) => <div key={i}>{line}</div>)
+                  : "—"}
+              </div>
+            </div>
+            <div className="ggk-body" style={{ padding:"10px 12px", fontSize:"11px", color:"#888", lineHeight:1.6 }}>
+              <PawPrint size={10} style={{ display:"inline", verticalAlign:"-1px", marginRight:"3px" }} />
+              공원에서는 목줄(2m 이내)과 배변 봉투를 꼭 챙겨 주세요. 다녀온 뒤 후기로 산책하기 좋았는지 알려 주세요!
+            </div>
+          </>) : (<>
+
           {/* 행1: 카테고리 / 동반 가능 범위 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
@@ -1333,6 +1358,7 @@ export default function PlaceDetail({
               {place.memo || " "}
             </div>
           </div>
+          </>)}
 
         </div>
 
@@ -1346,7 +1372,7 @@ export default function PlaceDetail({
             <ThumbsUp size={14} color={voteReaction==="like"?"#3b82f6":"#666"} fill={voteReaction==="like"?"#3b82f6":"none"} />
             <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="like"?"#3b82f6":"#555" }}>추천 {likesCount}</span>
           </button>
-          <button onClick={() => setShowDirections((v) => !v)} aria-expanded={showDirections} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${showDirections?"#7c3aed":"#e2e4e8"}`, background:showDirections?"#f5f0ff":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", color:showDirections?"#6d28d9":"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <button onClick={() => { if (!showDirections) primeCurrentLocation(); setShowDirections((v) => !v); }} aria-expanded={showDirections} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${showDirections?"#7c3aed":"#e2e4e8"}`, background:showDirections?"#f5f0ff":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", color:showDirections?"#6d28d9":"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
             <Navigation size={14} color={showDirections?"#6d28d9":"#555"} />
             <span style={{ fontSize:"12px", fontWeight:600 }}>길찾기</span>
           </button>
@@ -1356,19 +1382,6 @@ export default function PlaceDetail({
           </button>
         </div>
 
-        {/* 방문 인증 — 가게 근처(150m 안)에 있을 때만 서버가 인정합니다 */}
-        <button onClick={handleCheckin} disabled={checkinBusy} className="ggk-body" style={{ marginTop:"7px", width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${checkinDone?"#059669":"#e2e4e8"}`, background:checkinDone?"#ecfdf5":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:checkinBusy?"default":"pointer", color:checkinDone?"#047857":"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-          <BadgeCheck size={14} />
-          <span style={{ fontSize:"12px", fontWeight:600 }}>
-            {checkinBusy ? "위치 확인 중..." : checkinDone ? "방문 인증 완료" : "지금 여기 있어요 · 방문 인증"}
-            {checkinCount > 0 ? ` (${checkinCount})` : ""}
-          </span>
-        </button>
-        {checkinMessage && (
-          <div className="ggk-body" role="status" style={{ marginTop:"6px", fontSize:"11px", lineHeight:1.5, color:checkinMessage.ok?"#047857":"#b45309" }}>
-            {checkinMessage.text}
-          </div>
-        )}
 
         {/* 길찾기 선택 — 좌표 기준이라 이름이 같은 다른 가게로 잘못 연결되지 않습니다 */}
         {showDirections && (
@@ -1466,11 +1479,6 @@ export default function PlaceDetail({
                         {r.avatar_url ? <Image src={r.avatar_url} alt={r.nickname} fill sizes="24px" referrerPolicy="no-referrer" style={{ objectFit:"cover" }} /> : r.nickname?.charAt(0)}
                       </div>
                       <div className="ggk-body" style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{r.nickname}</div>
-                      {verifiedReviewIds.has(r.id) && (
-                        <span className="ggk-body" title="이 장소 근처에서 방문 인증을 한 사용자의 후기예요" style={{ display:"inline-flex", alignItems:"center", gap:"2px", padding:"1px 6px", borderRadius:"999px", background:"#ecfdf5", color:"#047857", fontSize:"9.5px", fontWeight:700, whiteSpace:"nowrap" }}>
-                          <BadgeCheck size={10} />방문 인증
-                        </span>
-                      )}
                       {isOwner(r) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                     </div>
                     <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>

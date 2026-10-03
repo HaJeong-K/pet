@@ -139,35 +139,56 @@ export function kakaoToUrl(destination: DirectionPoint): string {
   return `https://map.kakao.com/link/to/${encodeURIComponent(kakaoName(destination.name))},${destination.lat},${destination.lng}`;
 }
 
-/**
- * 현재 위치를 출발지로 카카오맵 도보 길찾기를 엽니다(장소 상세처럼 코스 출발지가 없는 곳용).
- * 위치를 못 구하면(권한 거부·시간 초과) 목적지만 지정한 길찾기로 대신 엽니다.
- * 위치 조회(비동기)가 끝난 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서, 클릭 직후
- * 빈 탭을 먼저 열어두고 위치가 정해지면 그 탭의 주소만 바꿉니다(현재 탭은 그대로).
- */
-/**
- * 현재 위치를 구한 뒤 그 위치로 만든 URL을 새 탭에 엽니다(위치를 못 구하면 null로 호출).
- * 위치 조회(비동기)가 끝난 뒤에 새 탭을 열면 브라우저가 팝업으로 막을 수 있어서, 클릭 직후
- * 빈 탭을 먼저 열어두고 위치가 정해지면 그 탭의 주소만 바꿉니다(현재 탭은 그대로).
- */
+// ── 현재 위치를 출발지로 쓰는 길찾기(장소 상세처럼 코스 출발지가 없는 곳) ──
+// ⚠ 예전엔 클릭 직후 빈 새 탭을 먼저 열고, 위치를 구한 뒤 그 탭의 주소를 바꿨습니다. 그런데 새 탭이
+//    열리는 순간 우리 페이지가 뒤로 가려지고, 크롬은 가려진 페이지의 위치 조회를 멈춥니다(시간 초과도
+//    안 남). 그래서 새 탭이 빈 화면으로 남아 "길찾기가 연결되지 않는" 것처럼 보였습니다.
+//    이제는 위치를 먼저 구하고(길찾기 메뉴를 펼칠 때 미리 구해 둠), 주소가 정해진 뒤에 새 탭을 엽니다.
+const HERE_MAX_AGE_MS = 2 * 60 * 1000;
+/** 클릭 후 위치를 기다리는 최대 시간 — 이보다 길면 브라우저가 새 탭을 팝업으로 막을 수 있습니다. */
+const HERE_WAIT_MS = 2500;
+let lastHere: { point: DirectionPoint; at: number } | null = null;
+
+function requestHere(timeoutMs: number): Promise<DirectionPoint | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) { resolve(null); return; }
+    let done = false;
+    const finish = (point: DirectionPoint | null) => { if (!done) { done = true; resolve(point); } };
+    // 브라우저의 timeout 옵션은 페이지가 가려지면 동작하지 않을 수 있어서 직접 시간을 잽니다.
+    window.setTimeout(() => finish(null), timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const point = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: "현재 위치" };
+        lastHere = { point, at: Date.now() };
+        finish(point);
+      },
+      () => finish(null),
+      // 출발지가 어긋나면 길찾기 전체가 틀어지므로 정확도를 우선하되, 1분 이내 위치는 재사용해 빨리 엽니다.
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60 * 1000 }
+    );
+  });
+}
+
+/** 길찾기 버튼을 누르기 전에 현재 위치를 미리 구해 둡니다(길찾기 메뉴를 펼칠 때 호출). */
+export function primeCurrentLocation(): void {
+  if (lastHere && Date.now() - lastHere.at < HERE_MAX_AGE_MS) return;
+  void requestHere(10000);
+}
+
+/** 사용자 클릭에 이어 새 탭을 엽니다. 브라우저가 막으면(클릭 후 시간이 지난 경우) 현재 탭에서 엽니다. */
+function openAfterWait(url: string): void {
+  const tab = window.open(url, "_blank");
+  if (tab) tab.opener = null; // 새 탭이 우리 페이지를 조작하지 못하게
+  else window.location.href = url;
+}
+
+/** 현재 위치로 만든 URL을 새 탭에 엽니다(위치를 못 구하면 null로 호출). */
 function openFromHere(buildUrl: (here: DirectionPoint | null) => string): void {
-  if (typeof navigator === "undefined" || !navigator.geolocation) {
-    openInNewTab(buildUrl(null));
+  if (lastHere && Date.now() - lastHere.at < HERE_MAX_AGE_MS) {
+    openInNewTab(buildUrl(lastHere.point));
     return;
   }
-  // features 인자 없이 열어야 탭 핸들을 돌려받습니다. opener는 바로 끊어 새 탭이 우리 페이지에 접근 못 하게 합니다.
-  const tab = window.open("about:blank", "_blank");
-  if (tab) tab.opener = null;
-  const openUrl = (url: string) => {
-    if (tab && !tab.closed) tab.location.href = url;
-    else openInNewTab(url);
-  };
-  navigator.geolocation.getCurrentPosition(
-    (pos) => openUrl(buildUrl({ lat: pos.coords.latitude, lng: pos.coords.longitude, name: "현재 위치" })),
-    () => openUrl(buildUrl(null)),
-    // 출발지가 어긋나면 길찾기 전체가 틀어지므로 정확도를 우선하되, 1분 이내 위치는 재사용해 빨리 엽니다.
-    { enableHighAccuracy: true, timeout: 5000, maximumAge: 60 * 1000 }
-  );
+  requestHere(HERE_WAIT_MS).then((here) => openAfterWait(buildUrl(here)));
 }
 
 /** 현재 위치를 출발지로 카카오맵 도보 길찾기를 엽니다. 위치를 못 구하면 목적지만 지정해 엽니다. */

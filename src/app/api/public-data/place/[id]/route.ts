@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
+import { isParkPlaceId } from "@/lib/parkPlace";
+import { getParkAsPlace } from "@/lib/server/parkAsPlace";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const placeId = Number(id);
   if (!Number.isFinite(placeId)) {
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
+  }
+
+  // 공원(장소 번호 90억 이상)은 parks 표에서 찾습니다.
+  if (isParkPlaceId(placeId)) {
+    const park = await getParkAsPlace(placeId);
+    return park ? NextResponse.json(park) : NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
   const merged = await getMergedPublicDataPlaces();
