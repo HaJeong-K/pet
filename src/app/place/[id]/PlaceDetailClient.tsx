@@ -776,7 +776,7 @@ export default function PlaceDetail({
     if (!review || !editContent.trim()) return;
     if (!session && editPassword !== review.password) { alert("비밀번호가 일치하지 않습니다."); return; }
     const { error } = await supabase.from("reviews").update({ content: editContent, is_edited: true }).eq("id", reviewId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, content: editContent, is_edited: true } : r));
     setEditingId(null);
   };
@@ -786,7 +786,7 @@ export default function PlaceDetail({
     if (!reply) return;
     if (!isLoggedIn && reply.password && reply.password !== editReplyPassword) { alert("비밀번호가 일치하지 않습니다."); return; }
     const { error } = await supabase.from("review_replies").update({ content: editReplyContent, is_edited: true }).eq("id", replyId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, content: editReplyContent, is_edited: true } : r));
     setEditingReplyId(null); setEditReplyContent(""); setEditReplyPassword("");
   };

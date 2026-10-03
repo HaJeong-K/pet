@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import OwnerBizInfoFields, { useOwnerBizInfo, requestOwnerAutoVerify } from "@/components/OwnerBizInfoFields";
+import { isCompleteBizInfo } from "@/lib/ownerBizInfo";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff, Search, Check, MapPin, Upload } from "lucide-react";
@@ -32,8 +34,6 @@ const normalizeSido = (s: string) => SIDO_NORMALIZE[s] || s;
 const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPassword = (password: string) => /^(?=.*[a-z]).{6,}$/.test(password);
 
-// 텍스트 비교용 정규화 — 공백/일부 기호 제거 후 소문자로
-const normText = (s: string) => (s || "").replace(/\s+/g, "").replace(/[()（）·,]/g, "").toLowerCase();
 
 // ── 다음(Daum) 우편번호 서비스 동적 로드 ──
 function loadDaumPostcode(): Promise<any> {
@@ -53,29 +53,6 @@ function loadDaumPostcode(): Promise<any> {
   });
 }
 
-// ── Tesseract.js 동적 로드 + OCR (사업자등록증 자동대조용) ──
-function loadTesseract(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Tesseract) { resolve((window as any).Tesseract); return; }
-    const existing = document.getElementById("tesseract-script");
-    if (existing) {
-      existing.addEventListener("load", () => resolve((window as any).Tesseract));
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = "tesseract-script";
-    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-    script.onload = () => resolve((window as any).Tesseract);
-    script.onerror = () => reject(new Error("OCR 스크립트 로드 실패"));
-    document.head.appendChild(script);
-  });
-}
-
-async function runOcr(file: File): Promise<string> {
-  const Tesseract = await loadTesseract();
-  const { data } = await Tesseract.recognize(file, "kor+eng");
-  return data?.text || "";
-}
 
 // ── 사장님(업주) 회원가입 ──
 // 일반 회원가입과 달리: (1) 지역+가게명으로 닉네임이 [지역명]가게명_사장님 형태로 자동
@@ -107,6 +84,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
   const [phone, setPhone] = useState("");
 
   const [certFile, setCertFile] = useState<File | null>(null);
+  // 사업자 정보(사업자번호·대표자명·개업일자) — 사업자등록증 OCR로 자동 채움, 인증 판정은 서버(국세청 진위확인)
+  const biz = useOwnerBizInfo();
   const [certPreviewUrl, setCertPreviewUrl] = useState<string | null>(null);
 
   const [placeQuery, setPlaceQuery] = useState("");
@@ -187,9 +166,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
     setCertFile(file);
     if (certPreviewUrl) URL.revokeObjectURL(certPreviewUrl);
     setCertPreviewUrl(file ? URL.createObjectURL(file) : null);
-    // 실제로 파일을 고른 시점에만 OCR 스크립트를 미리 받아둡니다(제출 시 runOcr가
-    // 다시 loadTesseract를 부르지만, 이미 로드돼 있으면 즉시 반환되므로 중복 비용 없음).
-    if (file) loadTesseract().catch((e2) => console.error("OCR 스크립트 로드 실패:", e2));
+    biz.readCertificate(file);
   };
 
   const isSubmitDisabled =
@@ -202,6 +179,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
     !businessName.trim() ||
     !phone.trim() ||
     !certFile ||
+    !isCompleteBizInfo(biz.info) ||
+    biz.ocrStatus === "reading" ||
     !agreedAll ||
     submitting;
 
@@ -235,13 +214,11 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       const fileName = `${data.user.id}/cert-${Date.now()}.${ext}`;
 
       setSubmitPhase("verifying");
-      const [uploadResult, ocrText] = await Promise.all([
-        supabase.storage.from("owner-docs").upload(fileName, certFile, {
+      const uploadResult = await supabase.storage.from("owner-docs").upload(fileName, certFile, {
           contentType: certFile.type || "image/jpeg",
           upsert: false,
-        }),
-        runOcr(certFile).catch((e) => { console.error("사업자등록증 OCR 실패:", e); return ""; }),
-      ]);
+        });
+      const ocrText = biz.ocrText;
 
       if (uploadResult.error) {
         console.error("사업자등록증 업로드 실패:", uploadResult.error);
@@ -252,10 +229,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       const { data: urlData } = supabase.storage.from("owner-docs").getPublicUrl(fileName);
       const certUrl = urlData.publicUrl;
 
-      const ocrNorm = normText(ocrText);
-      const nameMatch = Boolean(businessName.trim()) && ocrNorm.includes(normText(businessName.trim()));
-      const sigunguMatch = Boolean(sigungu) && ocrNorm.includes(normText(sigungu));
-      const autoVerified = nameMatch && sigunguMatch;
+      // ⚠ 인증 판정은 서버(국세청 진위확인)가 합니다 — 브라우저는 항상 "승인 대기"로만 저장합니다.
 
       const { error: insertError } = await supabase.from("users").insert([
         {
@@ -263,7 +237,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
           email,
           nickname: nicknamePreview,
           nickname_locked: true,
-          owner_status: autoVerified ? "verified" : "pending",
+          owner_status: "pending",
           owner_business_name: businessName.trim(),
           owner_region: sido,
           owner_sigungu: sigungu,
@@ -271,7 +245,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
           owner_phone: phone.trim(),
           owner_place_id: selectedPlace?.id ?? null,
           owner_cert_url: certUrl,
-          owner_auto_verified: autoVerified,
+          owner_auto_verified: false,
           owner_ocr_text: ocrText ? ocrText.slice(0, 2000) : null,
           agreed_terms_at: new Date().toISOString(),
         },
@@ -285,14 +259,13 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       await new Promise((r) => setTimeout(r, 600));
       await supabase.auth.signInWithPassword({ email, password });
 
-      if (autoVerified) {
+      const verify = await requestOwnerAutoVerify(biz.info);
+      if (verify.outcome === "verified") {
         alert(
           "사업자등록증 확인이 완료되어 사장님 계정이 즉시 활성화되었습니다.\n인증 배지와 본인 업장 수정 권한을 바로 사용하실 수 있습니다."
         );
       } else {
-        alert(
-          "사장님 가입 신청이 접수되었습니다.\n사업자등록증 자동 대조에 실패하여 관리자 확인 후 승인됩니다."
-        );
+        alert(`사장님 가입 신청이 접수되었습니다.\n${verify.message}`);
       }
       window.location.href = redirect;
     } finally {
@@ -413,8 +386,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
 
       <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333", marginBottom: 6 }}>사업자등록증 업로드 (필수)</div>
       <p style={{ fontSize: 11.5, color: "#666", marginBottom: 10, lineHeight: 1.5 }}>
-        업로드한 사업자등록증의 상호명·주소가 입력하신 정보와 자동으로 대조됩니다.
-        일치하면 즉시 가입 승인, 일치하지 않으면 관리자 확인 후 승인됩니다.
+        사업자등록증 사진을 올리면 사업자 정보가 자동으로 채워지고, 국세청 등록 정보와
+        일치하면 바로 인증돼요. 확인이 안 되면 관리자 확인 후 승인돼요.
       </p>
       <label
         style={{
@@ -436,6 +409,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
           style={{ width: "100%", maxHeight: 200, objectFit: "contain", border: "1px solid #eee", borderRadius: 10, marginBottom: 14, background: "#fafafa" }}
         />
       )}
+      <OwnerBizInfoFields info={biz.info} onChange={biz.setInfo} ocrStatus={biz.ocrStatus} />
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { notifyAdmin } from "@/lib/server/notify";
 
 // 인증된 사장님이 본인 업장의 "프리미엄 등록"을 신청할 때 쓰는 라우트입니다.
 // update-place/route.ts와 동일한 이유로 service role을 씁니다: 클라이언트(anon key)로
@@ -61,6 +62,11 @@ export async function POST(req: NextRequest) {
     ]);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    await notifyAdmin({
+      title: "💎 프리미엄 신청 — 입금 확인 필요",
+      lines: [`업장 번호 ${profile.owner_place_id}`, `${months}개월`],
+      path: "/admin/premium",
+    });
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[/api/owner/apply-premium] failed:", e);

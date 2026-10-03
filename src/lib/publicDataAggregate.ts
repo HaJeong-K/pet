@@ -9,6 +9,8 @@
 //
 // ⚠ 서버 전용(Node 런타임) 코드입니다 — 브라우저에서 import하면 안 됩니다.
 
+import { gzipSync, gunzipSync } from "node:zlib";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { fetchCulturePlaces } from "@/lib/culturePlaces";
 import { fetchFoodsafetyPlaces } from "@/lib/foodsafetyPlaces";
@@ -59,29 +61,129 @@ function dedupeAcrossSources(...sources: any[][]): any[] {
   return out;
 }
 
-// 서버 프로세스 메모리에 두는 전국 원본(필터링 전) 캐시 — 여러 요청이 같은 인스턴스에
-// 몰려도 Supabase/관광공사 API를 매번 다시 때리지 않도록 합니다.
+// ── 캐시 구조 ──
+// ⚠ 예전엔 병합 목록을 서버 메모리에만 두었습니다. Vercel 같은 서버리스 환경은 접속이 몰리면
+// 서버 인스턴스가 여러 개 새로 뜨고, 한동안 안 쓰면 꺼집니다 — 새로 뜰 때마다 관광공사(목록
+// 10여 페이지)·식약처·문화정보원 API를 처음부터 다시 불러서 3초 넘게 걸리고, 공공데이터포털
+// 하루 호출 한도도 금방 소진될 수 있었습니다.
+// 이제는 3단계로 둡니다.
+//   1) 스냅샷: 하루 한 번(크론, /api/cron/sync-public-data) 공공 API에서 전체 목록을 만들어
+//      Supabase Storage에 압축 파일 하나로 저장합니다(전국 약 3만 곳 ≈ 17MB, 압축 ≈ 2MB —
+//      Vercel 데이터 캐시의 항목당 2MB 제한을 넘어서 Storage를 씁니다).
+//   2) 서버 메모리의 원본(base): 인스턴스가 새로 뜨면 공공 API 대신 스냅샷 파일 하나만 받습니다.
+//   3) 화면용 목록(visible): 관리자가 숨긴 장소(hidden_public_places)를 5분마다 다시 빼서 씁니다
+//      — 숨김 처리가 스냅샷 갱신을 기다리지 않고 바로 반영되도록 스냅샷에는 숨김을 굽지 않습니다.
+// 스냅샷이 없거나(첫 배포) 너무 오래됐으면(크론 실패 등) 예전처럼 공공 API에서 직접 만들고
+// 그 결과를 스냅샷으로 저장합니다.
+
+const SNAPSHOT_BUCKET = "public-data-cache";
+const SNAPSHOT_PATH = "merged-v1.json.gz";
+/** 이보다 오래된 스냅샷은 버리고 공공 API에서 새로 만듭니다(크론이 하루 이틀 실패해도 버팀). */
+const SNAPSHOT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+/** 서버 메모리의 원본을 이 주기로 스냅샷에서 다시 받습니다(크론 갱신분 반영). */
+const BASE_TTL_MS = 60 * 60 * 1000;
+/** 숨김 장소를 이 주기로 다시 반영합니다. */
+const VISIBLE_TTL_MS = 5 * 60_000;
+
+let base: any[] | null = null;
+let baseAt = 0;
 let cachedRaw: any[] | null = null;
 let cachedAt = 0;
-const CACHE_TTL_MS = 5 * 60_000;
-// 지금 만들고 있는 병합 목록 — 동시에 온 요청들이 같은 작업 하나를 함께 기다립니다.
+// 지금 만들고 있는 목록 — 동시에 온 요청들이 같은 작업 하나를 함께 기다립니다.
 let inFlight: Promise<any[]> | null = null;
 // 출처별 마지막 성공 결과 — 한 출처(특히 외부 관광공사 API)가 이번에 실패해도 그 장소들이
 // 목록에서 통째로 사라지지 않게(열려 있던 상세페이지가 "찾을 수 없음"이 되지 않게) 씁니다.
 let lastGood: { tour: any[]; food: any[]; culture: any[] } = { tour: [], food: [], culture: [] };
 
+// 스냅샷 읽기/쓰기는 Storage 권한이 필요해서 서버 전용 service role 클라이언트를 씁니다.
+let adminClient: SupabaseClient | null = null;
+function admin(): SupabaseClient | null {
+  if (adminClient) return adminClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  adminClient = createClient(url, key, { auth: { persistSession: false } });
+  return adminClient;
+}
+
+async function loadSnapshot(): Promise<{ builtAt: number; places: any[] } | null> {
+  const client = admin();
+  if (!client) return null;
+  try {
+    const { data, error } = await client.storage.from(SNAPSHOT_BUCKET).download(SNAPSHOT_PATH);
+    if (error || !data) return null;
+    const json = JSON.parse(gunzipSync(Buffer.from(await data.arrayBuffer())).toString("utf8"));
+    if (!Array.isArray(json?.places) || typeof json?.builtAt !== "number") return null;
+    return json;
+  } catch (e) {
+    console.error("[publicDataAggregate] 스냅샷 읽기 실패:", e);
+    return null;
+  }
+}
+
+async function saveSnapshot(places: any[]): Promise<boolean> {
+  const client = admin();
+  if (!client || places.length === 0) return false;
+  try {
+    // 버킷이 없으면 만듭니다(비공개 — 서버만 읽음). 이미 있으면 오류가 나지만 무시합니다.
+    await client.storage.createBucket(SNAPSHOT_BUCKET, { public: false }).catch(() => {});
+    const body = gzipSync(Buffer.from(JSON.stringify({ builtAt: Date.now(), places }), "utf8"));
+    const { error } = await client.storage
+      .from(SNAPSHOT_BUCKET)
+      .upload(SNAPSHOT_PATH, body, { upsert: true, contentType: "application/gzip" });
+    if (error) {
+      console.error("[publicDataAggregate] 스냅샷 저장 실패:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("[publicDataAggregate] 스냅샷 저장 실패:", e);
+    return false;
+  }
+}
+
+async function applyHidden(list: any[]): Promise<any[]> {
+  const { data, error } = await supabase.from("hidden_public_places").select("place_id");
+  if (error || !data || data.length === 0) return list;
+  const hiddenIds = new Set(data.map((r: any) => Number(r.place_id)));
+  return list.filter((p) => !hiddenIds.has(p.id));
+}
+
+async function refresh(): Promise<any[]> {
+  if (!base || Date.now() - baseAt >= BASE_TTL_MS) {
+    const snap = await loadSnapshot();
+    if (snap && snap.places.length > 0 && Date.now() - snap.builtAt < SNAPSHOT_MAX_AGE_MS) {
+      base = snap.places;
+      baseAt = Date.now();
+    } else {
+      const built = await buildFromSources();
+      if (built.length > 0) {
+        base = built;
+        baseAt = Date.now();
+        await saveSnapshot(built);
+      } else if (snap && snap.places.length > 0) {
+        // 공공 API가 전부 실패하면 오래된 스냅샷이라도 씁니다(빈 지도보다 낫습니다).
+        base = snap.places;
+        baseAt = Date.now();
+      }
+    }
+  }
+  const visible = await applyHidden(base ?? []);
+  cachedRaw = visible;
+  cachedAt = Date.now();
+  return visible;
+}
+
 /**
  * 공공데이터 3종 병합 목록.
- * ⚠ 예전엔 5분 캐시가 만료되면 그 순간 요청이 관광공사 API(목록 10페이지 + 상세)까지 전부
- * 기다렸고, 외부 API가 느리면 장소 상세가 "로딩중..."에서 멈춰 있었습니다. 이제는 만료돼도
- * 기존 목록으로 바로 응답하고 새 목록은 뒤에서 만듭니다(stale-while-revalidate).
+ * 만료돼도 기존 목록으로 바로 응답하고 새 목록은 뒤에서 만듭니다(stale-while-revalidate).
  * 처음(캐시가 아예 없을 때)만 만들어질 때까지 기다립니다.
  */
 export async function getMergedPublicDataPlaces(): Promise<any[]> {
-  const fresh = cachedRaw && Date.now() - cachedAt < CACHE_TTL_MS;
+  const fresh = cachedRaw && Date.now() - cachedAt < VISIBLE_TTL_MS;
   if (fresh) return cachedRaw!;
   if (!inFlight) {
-    inFlight = buildMergedPublicDataPlaces().finally(() => {
+    inFlight = refresh().finally(() => {
       inFlight = null;
     });
   }
@@ -92,12 +194,25 @@ export async function getMergedPublicDataPlaces(): Promise<any[]> {
   return inFlight;
 }
 
-async function buildMergedPublicDataPlaces(): Promise<any[]> {
-  const [tourResult, foodResult, cultureResult, hiddenResult] = await Promise.allSettled([
+/**
+ * 크론 전용: 공공 API에서 전체 목록을 새로 만들어 스냅샷으로 저장합니다.
+ * 결과(건수·저장 성공 여부)를 돌려줘서 크론 로그에서 확인할 수 있게 합니다.
+ */
+export async function rebuildPublicDataSnapshot(): Promise<{ count: number; saved: boolean }> {
+  const built = await buildFromSources();
+  if (built.length === 0) return { count: 0, saved: false };
+  const saved = await saveSnapshot(built);
+  base = built;
+  baseAt = Date.now();
+  cachedRaw = null; // 다음 요청에서 숨김 장소를 다시 반영
+  return { count: built.length, saved };
+}
+
+async function buildFromSources(): Promise<any[]> {
+  const [tourResult, foodResult, cultureResult] = await Promise.allSettled([
     getTourPlaces(),
     fetchFoodsafetyPlaces(),
     fetchCulturePlaces(),
-    supabase.from("hidden_public_places").select("place_id"),
   ]);
 
   const pick = (result: PromiseSettledResult<any[]>, key: keyof typeof lastGood) => {
@@ -135,12 +250,5 @@ async function buildMergedPublicDataPlaces(): Promise<any[]> {
       source: "public-data" as const,
     }));
 
-  const hiddenIds = new Set(
-    hiddenResult.status === "fulfilled" ? (hiddenResult.value.data || []).map((r: any) => Number(r.place_id)) : []
-  );
-  const visible = hiddenIds.size > 0 ? mapped.filter((p) => !hiddenIds.has(p.id)) : mapped;
-
-  cachedRaw = visible;
-  cachedAt = Date.now();
-  return visible;
+  return mapped;
 }

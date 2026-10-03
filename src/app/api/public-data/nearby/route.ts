@@ -18,6 +18,8 @@ export const runtime = "nodejs";
 // /api/public-data/place/[id](장소 상세페이지 단건 조회)도 같은 병합 결과가
 // 필요해서, 같은 모듈 메모리 캐시를 공유하도록 공용화했습니다.
 
+const MAX_RADIUS_KM = 50;
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   // ⚠ searchParams.get()은 파라미터가 없으면 null을 반환하는데, Number(null)은
@@ -26,7 +28,9 @@ export async function GET(req: NextRequest) {
   // 있었습니다. 파라미터가 실제로 있는지부터 먼저 확인합니다.
   const latParam = searchParams.get("lat");
   const lngParam = searchParams.get("lng");
-  const radiusKm = Number(searchParams.get("radiusKm")) || 40;
+  // 반경 상한 — 예전엔 radiusKm=1000처럼 넣으면 전국 3만 곳(약 17MB)이 통째로 내려가, 반복 호출만으로
+  // 서버 전송량·비용을 크게 늘릴 수 있었습니다. 앱은 40km를 쓰므로 50km까지만 허용합니다.
+  const radiusKm = Math.min(MAX_RADIUS_KM, Math.max(0.1, Number(searchParams.get("radiusKm")) || 40));
 
   const merged = await getMergedPublicDataPlaces();
 

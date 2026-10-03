@@ -19,9 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 // detailCommon2(개요·홈페이지·전화)와 detailIntro2(영업시간·휴무일·주차·요금)를 추가로
 // 호출합니다. detailIntro2는 컨텐츠 타입(관광지/음식점/숙박 등)마다 필드명이 다른데
 // (TourAPI4.0 공통 규칙), 실제 응답을 직접 호출해 확인할 방법이 없어 잘 알려진 필드명
-// 기준으로 매핑했습니다. 혹시 특정 필드가 계속 비어 보이면, 아래 loggedSample 로그가
-// 서버 콘솔(`npm run dev` 터미널)에 실제 응답을 한 번 찍어주니 그걸 보고 필드명을
-// 바로잡으면 됩니다.
+// 기준으로 매핑했습니다(실제 응답으로 확인 완료 — 매번 찍던 샘플 로그는 운영 로그를 어지럽혀 제거).
 // ─────────────────────────────────────────────────────────────
 
 const BASE_URL = "https://apis.data.go.kr/B551011/KorPetTourService2";
@@ -247,7 +245,6 @@ export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<a
     // 정보(제목/주소/좌표/카테고리)만으로 표시합니다.
     const detailTargets = targets.slice(0, DETAIL_FETCH_LIMIT);
     const detailMap = new Map<string, { overview: string | null; homepage: string | null; tel: string | null; intro: any }>();
-    let loggedSample = false;
 
     for (let i = 0; i < detailTargets.length; i += DETAIL_CONCURRENCY) {
       const batch = detailTargets.slice(i, i + DETAIL_CONCURRENCY);
@@ -257,11 +254,6 @@ export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<a
             fetchDetailItem(apiKey, "detailCommon2", item.contentid),
             fetchDetailItem(apiKey, "detailIntro2", item.contentid, item.contenttypeid),
           ]);
-          if (!loggedSample && intro) {
-            // 필드명이 실제 응답과 다르면 여기 로그를 보고 extractIntroFields()를 고치면 됩니다.
-            console.log("[TourAPI] detailIntro2 샘플 응답(contenttypeid=" + item.contenttypeid + "):", JSON.stringify(intro));
-            loggedSample = true;
-          }
           detailMap.set(item.contentid, {
             overview: common?.overview ? stripHtml(common.overview) : null,
             homepage: extractHomepageUrl(common?.homepage),

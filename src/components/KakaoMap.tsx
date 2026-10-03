@@ -173,19 +173,10 @@ const tryKakaoAddressSearch = async (
   query: string
 ): Promise<{ lat: number; lng: number } | null> => {
   try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=1`,
-      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-    );
-    const data = await res.json();
-    const doc = data.documents?.[0];
-    if (!doc) return null;
-
-    const lat = parseFloat(doc.y);
-    const lng = parseFloat(doc.x);
-    if (isNaN(lat) || isNaN(lng)) return null;
-
-    return { lat, lng };
+    // 카카오 REST 키는 서버에만 있어서 우리 서버(/api/kakao/local)를 거칩니다.
+    const res = await fetch(`/api/kakao/local?type=address&query=${encodeURIComponent(query)}`);
+    if (!res.ok) return null;
+    return (await res.json()).result ?? null;
   } catch {
     return null;
   }
@@ -232,13 +223,8 @@ const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => 
 
 const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
-      { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-    );
-    const data = await res.json();
-    const region = data.documents?.[0];
-    if (region) return region.region_2depth_name || "";
+    const res = await fetch(`/api/kakao/local?type=region&lat=${lat}&lng=${lng}`);
+    if (res.ok) return (await res.json()).result?.sigungu || "";
   } catch {}
   return "";
 };

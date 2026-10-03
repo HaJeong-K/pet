@@ -40,12 +40,10 @@ export function useUserRegion() {
       async (pos) => {
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await fetch(
-            `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${longitude}&y=${latitude}`,
-            { headers: { Authorization: `KakaoAK ${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}` } }
-          );
+          // 카카오 REST 키는 서버에만 있어서 우리 서버(/api/kakao/local)를 거칩니다.
+          const res = await fetch(`/api/kakao/local?type=region&lat=${latitude}&lng=${longitude}`);
           const data = await res.json();
-          const rawName: string | undefined = data.documents?.[0]?.region_1depth_name;
+          const rawName: string | undefined = data.result?.sido || undefined;
           // 카카오는 "부산광역시" 등 정식 전체 명칭을 내려주므로, SIDO_CODE_MAP이 쓰는
           // 짧은 이름("부산")으로 정규화해서 저장합니다 — 안 하면 지역 필터가 항상 미스매치됩니다.
           const name = rawName ? normalizeSidoName(rawName) : undefined;

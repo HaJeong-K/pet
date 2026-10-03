@@ -240,6 +240,11 @@ function parseOpenApiItems(items: any[]): ShelterNotice[] {
 // 붙이면 +가 공백으로 깨지는 등 인증 실패가 나고, 반대로 이미 인코딩된 Encoding 키를
 // URLSearchParams에 넣으면 %가 %25로 이중 인코딩되어 역시 인증 실패가 납니다. 어떤 걸
 // 붙여넣었는지 자동 판별해서 항상 딱 한 번만 인코딩되도록 처리합니다.
+// 로그에 요청 주소를 남길 때 인증키를 가립니다(호스팅 로그에 키가 그대로 남지 않게).
+function redactKey(url: string): string {
+  return url.replace(/serviceKey=[^&]+/i, "serviceKey=***");
+}
+
 function encodeServiceKey(key: string): string {
   const looksAlreadyEncoded = /%[0-9A-Fa-f]{2}/.test(key);
   return looksAlreadyEncoded ? key : encodeURIComponent(key);
@@ -302,7 +307,7 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
       const text = await res.text();
       if (!res.ok) {
         lastAttemptDebug = { attempted: true, ok: false, status: res.status, rawSnippet: text.slice(0, 300) };
-        console.error("[shelterNotices] open API fetch failed", url, res.status, text.slice(0, 300));
+        console.error("[shelterNotices] open API fetch failed", redactKey(url), res.status, text.slice(0, 300));
         continue;
       }
       let json: any;
@@ -310,13 +315,13 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
         json = JSON.parse(text);
       } catch {
         lastAttemptDebug = { attempted: true, ok: false, status: res.status, rawSnippet: text.slice(0, 300), error: "응답이 JSON이 아님" };
-        console.error("[shelterNotices] open API가 JSON이 아닌 응답을 줬습니다:", url, text.slice(0, 300));
+        console.error("[shelterNotices] open API가 JSON이 아닌 응답을 줬습니다:", redactKey(url), text.slice(0, 300));
         continue;
       }
       const header = json?.response?.header;
       if (header && header.resultCode !== "00") {
         lastAttemptDebug = { attempted: true, ok: false, status: res.status, resultCode: header.resultCode, resultMsg: header.resultMsg };
-        console.error("[shelterNotices] open API 오류:", url, header.resultCode, header.resultMsg);
+        console.error("[shelterNotices] open API 오류:", redactKey(url), header.resultCode, header.resultMsg);
         continue;
       }
       const items = toArray(json?.response?.body?.items?.item);
@@ -329,7 +334,7 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
       return notices;
     } catch (e) {
       lastAttemptDebug = { attempted: true, ok: false, error: String(e) };
-      console.error("[shelterNotices] open API 호출 예외:", url, e);
+      console.error("[shelterNotices] open API 호출 예외:", redactKey(url), e);
     }
   }
 

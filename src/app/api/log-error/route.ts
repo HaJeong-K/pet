@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp, createRateLimiter } from "@/lib/server/rateLimit";
 
 // client_errors insert 전용 — analytics_events(track/route.ts)와 동일하게 RLS를
 // 신경 쓸 필요 없이 service role로 씁니다. 로그 적재 실패가 실사용자 화면에 영향을
@@ -9,7 +10,12 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// 누구나 부를 수 있는 주소라, 반복 호출로 DB에 로그를 대량으로 쌓는 것을 막습니다(IP당 1분 30회).
+// 한 화면에서 오류가 연달아 나도 30회면 원인 파악에는 충분합니다.
+const allow = createRateLimiter({ windowMs: 60_000, max: 30 });
+
 export async function POST(req: NextRequest) {
+  if (!allow(clientIp(req))) return NextResponse.json({ ok: false }, { status: 429 });
   try {
     const body = await req.json();
     const { message, stack, source, path, userAgent, authUserId } = body || {};

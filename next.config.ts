@@ -7,6 +7,9 @@ const withBundleAnalyzer = withBundleAnalyzerInit({
 
 const nextConfig: NextConfig = {
   images: {
+    // 최적화한 이미지를 30일 동안 재사용합니다(기본은 원본 서버가 정한 기간, 보통 짧음). Vercel은 이미지
+    // 변환 횟수로 과금해서, 공공데이터 사진처럼 거의 안 바뀌는 이미지를 매번 다시 변환하지 않게 합니다.
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     // 장소 이미지가 사용자 업로드(Supabase Storage), 관광공사/식약처/문화정보원
     // 공공데이터 원본 URL 등 출처가 다양해서 도메인을 하나로 특정할 수 없습니다.
     // https 출처만 허용해 next/image의 자동 포맷 변환(WebP/AVIF)·반응형 크기·지연

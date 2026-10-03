@@ -256,7 +256,8 @@ export default function MyPage() {
     await supabase.auth.signOut({ scope: "global" });
     localStorage.removeItem("provider");
     if (provider === "kakao") {
-      window.location.href = `https://kauth.kakao.com/oauth/logout?client_id=${process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY}&logout_redirect_uri=${window.location.origin}`;
+      // 카카오 계정 로그아웃 — REST 키가 필요해서 서버 주소를 거쳐 카카오로 넘어갑니다.
+      window.location.href = "/api/auth/kakao-logout";
     } else { window.location.href = "/"; }
   };
 
@@ -300,8 +301,18 @@ export default function MyPage() {
       const { error: signInErr } = await supabase.auth.signInWithPassword({ email: session.user.email, password: withdrawPw });
       if (signInErr) { setWithdrawMsg({ok:false,text:"비밀번호가 올바르지 않습니다."}); return; }
     }
-    await supabase.from("users").delete().eq("auth_user_id", session.user.id);
-    await supabase.auth.admin?.deleteUser?.(session.user.id);
+    // 탈퇴는 서버가 처리합니다 — 로그인 계정 삭제는 서버 관리자 권한이 필요해서, 예전처럼 브라우저에서
+    // 부르면 프로필만 지워지고 계정은 남았습니다(src/lib/server/deleteAccount.ts).
+    const { data: { session: fresh } } = await supabase.auth.getSession();
+    const res = await fetch("/api/account/delete", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${fresh?.access_token ?? session.access_token}` },
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setWithdrawMsg({ ok: false, text: j.error || "탈퇴 처리 중 오류가 났어요. 잠시 후 다시 시도해 주세요." });
+      return;
+    }
     await supabase.auth.signOut();
     alert("회원 탈퇴가 완료되었습니다.");
     window.location.href = "/";

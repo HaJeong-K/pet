@@ -304,7 +304,7 @@ export default function CommunityDetailPage() {
         },
       ]);
 
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComment("");
     await bumpCommentCount(1);
     fetchComments();
@@ -336,7 +336,7 @@ export default function CommunityDetailPage() {
         },
       ]);
 
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setReplyMap((prev) => ({ ...prev, [parentId]: "" }));
     setReplyTarget(null);
     await bumpCommentCount(1);
@@ -421,7 +421,7 @@ export default function CommunityDetailPage() {
       .from("community_comments")
       .update({ content: editCommentContent, is_edited: true })
       .eq("id", commentId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComments(prev => prev.map(c => c.id === commentId ? { ...c, content: editCommentContent, is_edited: true } : c));
     setEditingCommentId(null);
   };
@@ -431,7 +431,7 @@ export default function CommunityDetailPage() {
     const { error } = await supabase.from("community_comments").update({
       deleted: true,
     }).eq("id", commentId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
 
     // 답글이 있으면 "삭제된 댓글" 상태 유지, 없으면 목록에서 완전 제거
     const hasReplies = comments.some(
@@ -453,7 +453,7 @@ export default function CommunityDetailPage() {
       .from("community_comments")
       .update({ content: editReplyContent2, is_edited: true })
       .eq("id", replyId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComments(prev => prev.map(c => c.id === replyId ? { ...c, content: editReplyContent2, is_edited: true } : c));
     setEditingReplyId2(null);
   };
@@ -463,7 +463,7 @@ export default function CommunityDetailPage() {
     const { error } = await supabase.from("community_comments").update({
       deleted: true,
     }).eq("id", replyId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
 
     // 답글은 그냥 목록에서 완전 제거
     setComments(prev => prev.filter(c => c.id !== replyId));
@@ -478,7 +478,7 @@ export default function CommunityDetailPage() {
       is_admin_deleted: true,
       deleted: true,
     }).eq("id", commentId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComments(prev => prev.map(c => c.id === commentId ? { ...c, is_admin_deleted: true, deleted: true } : c));
     setOpenedCommentMenuId(null);
     await bumpCommentCount(-1);
@@ -491,7 +491,7 @@ export default function CommunityDetailPage() {
       is_admin_deleted: true,
       deleted: true,
     }).eq("id", replyId);
-    if (error) { console.error(error); return; }
+    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComments(prev => prev.map(c => c.id === replyId ? { ...c, is_admin_deleted: true, deleted: true } : c));
     setOpenedReplyMenuId2(null);
     await bumpCommentCount(-1);

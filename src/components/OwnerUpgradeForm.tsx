@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import OwnerBizInfoFields, { useOwnerBizInfo, requestOwnerAutoVerify } from "@/components/OwnerBizInfoFields";
+import { isCompleteBizInfo } from "@/lib/ownerBizInfo";
 import { supabase } from "@/lib/supabase";
 import { Search, Check, MapPin, Upload } from "lucide-react";
 import { PrivacyModal } from "@/components/SiteFooter";
@@ -33,7 +35,6 @@ const SIDO_NORMALIZE: Record<string, string> = {
   "제주": "제주", "제주도": "제주", "제주특별자치도": "제주",
 };
 const normalizeSido = (s: string) => SIDO_NORMALIZE[s] || s;
-const normText = (s: string) => (s || "").replace(/\s+/g, "").replace(/[()（）·,]/g, "").toLowerCase();
 
 function loadDaumPostcode(): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -52,28 +53,6 @@ function loadDaumPostcode(): Promise<any> {
   });
 }
 
-function loadTesseract(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Tesseract) { resolve((window as any).Tesseract); return; }
-    const existing = document.getElementById("tesseract-script");
-    if (existing) {
-      existing.addEventListener("load", () => resolve((window as any).Tesseract));
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = "tesseract-script";
-    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-    script.onload = () => resolve((window as any).Tesseract);
-    script.onerror = () => reject(new Error("OCR 스크립트 로드 실패"));
-    document.head.appendChild(script);
-  });
-}
-
-async function runOcr(file: File): Promise<string> {
-  const Tesseract = await loadTesseract();
-  const { data } = await Tesseract.recognize(file, "kor+eng");
-  return data?.text || "";
-}
 
 export default function OwnerUpgradeForm({
   userId,
@@ -90,6 +69,8 @@ export default function OwnerUpgradeForm({
   const [phone, setPhone] = useState("");
 
   const [certFile, setCertFile] = useState<File | null>(null);
+  // 사업자 정보(사업자번호·대표자명·개업일자) — 사업자등록증 OCR로 자동 채움, 인증 판정은 서버(국세청 진위확인)
+  const biz = useOwnerBizInfo();
   const [certPreviewUrl, setCertPreviewUrl] = useState<string | null>(null);
 
   const [placeQuery, setPlaceQuery] = useState("");
@@ -145,7 +126,7 @@ export default function OwnerUpgradeForm({
     setCertFile(file);
     if (certPreviewUrl) URL.revokeObjectURL(certPreviewUrl);
     setCertPreviewUrl(file ? URL.createObjectURL(file) : null);
-    if (file) loadTesseract().catch((e2) => console.error("OCR 스크립트 로드 실패:", e2));
+    biz.readCertificate(file);
   };
 
   const isSubmitDisabled =
@@ -154,6 +135,8 @@ export default function OwnerUpgradeForm({
     !businessName.trim() ||
     !phone.trim() ||
     !certFile ||
+    !isCompleteBizInfo(biz.info) ||
+    biz.ocrStatus === "reading" ||
     !agreedPrivacy ||
     submitting;
 
@@ -175,13 +158,11 @@ export default function OwnerUpgradeForm({
       const fileName = `${userId}/cert-${Date.now()}.${ext}`;
 
       setSubmitPhase("verifying");
-      const [uploadResult, ocrText] = await Promise.all([
-        supabase.storage.from("owner-docs").upload(fileName, certFile, {
+      const uploadResult = await supabase.storage.from("owner-docs").upload(fileName, certFile, {
           contentType: certFile.type || "image/jpeg",
           upsert: false,
-        }),
-        runOcr(certFile).catch((e) => { console.error("사업자등록증 OCR 실패:", e); return ""; }),
-      ]);
+        });
+      const ocrText = biz.ocrText;
 
       if (uploadResult.error) {
         console.error("사업자등록증 업로드 실패:", uploadResult.error);
@@ -192,15 +173,12 @@ export default function OwnerUpgradeForm({
       const { data: urlData } = supabase.storage.from("owner-docs").getPublicUrl(fileName);
       const certUrl = urlData.publicUrl;
 
-      const ocrNorm = normText(ocrText);
-      const nameMatch = Boolean(businessName.trim()) && ocrNorm.includes(normText(businessName.trim()));
-      const sigunguMatch = Boolean(sigungu) && ocrNorm.includes(normText(sigungu));
-      const autoVerified = nameMatch && sigunguMatch;
+      // ⚠ 인증 판정은 서버(국세청 진위확인)가 합니다 — 브라우저는 항상 "승인 대기"로만 저장합니다.
 
       const { error: updateError } = await supabase.from("users").update({
         nickname: nicknamePreview,
         nickname_locked: true,
-        owner_status: autoVerified ? "verified" : "pending",
+        owner_status: "pending",
         owner_business_name: businessName.trim(),
         owner_region: sido,
         owner_sigungu: sigungu,
@@ -208,7 +186,7 @@ export default function OwnerUpgradeForm({
         owner_phone: phone.trim(),
         owner_place_id: selectedPlace?.id ?? null,
         owner_cert_url: certUrl,
-        owner_auto_verified: autoVerified,
+        owner_auto_verified: false,
         owner_ocr_text: ocrText ? ocrText.slice(0, 2000) : null,
       }).eq("auth_user_id", userId);
 
@@ -220,16 +198,15 @@ export default function OwnerUpgradeForm({
 
       await supabase.auth.updateUser({ data: { full_name: nicknamePreview, nickname: nicknamePreview } });
 
-      if (autoVerified) {
+      const verify = await requestOwnerAutoVerify(biz.info);
+      if (verify.outcome === "verified") {
         alert(
           "사업자등록증 확인이 완료되어 사장님 계정이 즉시 활성화되었습니다.\n인증 배지와 본인 업장 수정 권한을 바로 사용하실 수 있습니다."
         );
       } else {
-        alert(
-          "사장님 전환 신청이 접수되었습니다.\n사업자등록증 자동 대조에 실패하여 관리자 확인 후 승인됩니다."
-        );
+        alert(`사장님 전환 신청이 접수되었습니다.\n${verify.message}`);
       }
-      onDone({ verified: autoVerified });
+      onDone({ verified: verify.outcome === "verified" });
     } finally {
       setSubmitting(false);
       setSubmitPhase("idle");
@@ -313,6 +290,7 @@ export default function OwnerUpgradeForm({
           style={{ width: "100%", maxHeight: 200, objectFit: "contain", border: "1px solid #eee", borderRadius: 10, marginBottom: 14, background: "#fafafa" }}
         />
       )}
+      <OwnerBizInfoFields info={biz.info} onChange={biz.setInfo} ocrStatus={biz.ocrStatus} />
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 

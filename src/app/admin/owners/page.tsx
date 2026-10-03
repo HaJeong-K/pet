@@ -18,22 +18,37 @@ type OwnerRow = {
   owner_place_id: number | null;
   owner_cert_url: string | null;
   owner_ocr_text: string | null;
+  owner_biz_no: string | null;
+  owner_auto_verified: boolean | null;
   created_at: string;
 };
 
 export default function AdminOwners() {
   const [rows, setRows] = useState<OwnerRow[]>([]);
   const [loading, setLoading] = useState(false);
+  // 사업자등록증은 비공개 저장소라, 서버가 만들어 준 10분짜리 임시 주소로 보여줍니다.
+  const [certUrls, setCertUrls] = useState<Record<string, string>>({});
 
   const fetchOwners = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("users")
-      .select("auth_user_id, email, nickname, owner_status, owner_business_name, owner_region, owner_sigungu, owner_address_detail, owner_phone, owner_place_id, owner_cert_url, owner_ocr_text, created_at")
+      .select("auth_user_id, email, nickname, owner_status, owner_business_name, owner_region, owner_sigungu, owner_address_detail, owner_phone, owner_place_id, owner_cert_url, owner_ocr_text, owner_biz_no, owner_auto_verified, created_at")
       .eq("owner_status", "pending")
       .order("created_at", { ascending: true });
     setRows(data || []);
     setLoading(false);
+    const ids = (data || []).filter((r) => r.owner_cert_url).map((r) => r.auth_user_id);
+    if (ids.length > 0) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/admin/owners/cert-urls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ userIds: ids }),
+      });
+      if (res.ok) setCertUrls((await res.json()).urls || {});
+    }
   };
 
   // ⚠ 관리자 인증은 이제 src/app/admin/layout.tsx가 한 번만 확인하고, 통과한
@@ -80,11 +95,11 @@ export default function AdminOwners() {
               background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)",
               padding: "16px 18px", display: "flex", alignItems: "flex-start", gap: 16,
             }}>
-              {r.owner_cert_url && (
+              {certUrls[r.auth_user_id] && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <a href={r.owner_cert_url} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                <a href={certUrls[r.auth_user_id]} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
                   <img
-                    src={r.owner_cert_url}
+                    src={certUrls[r.auth_user_id]}
                     alt="사업자등록증"
                     style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 10, border: "1px solid #eee", background: "#fafafa" }}
                   />
@@ -97,7 +112,12 @@ export default function AdminOwners() {
                   <span style={{ fontSize: 11, color: "#888" }}>{r.nickname}</span>
                   {r.owner_cert_url && (
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: "#c2410c", background: "#fff3e6", border: "1px solid #ffd9ad", borderRadius: 6, padding: "2px 6px" }}>
-                      자동검증 불일치 · 수동확인 필요
+                      국세청 자동확인 안 됨 · 수동확인 필요
+                    </span>
+                  )}
+                  {r.owner_biz_no && (
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: "#444", background: "#f1f2f4", borderRadius: 6, padding: "2px 6px" }}>
+                      사업자번호 {r.owner_biz_no.replace(/^(d{3})(d{2})(d{5})$/, "$1-$2-$3")}
                     </span>
                   )}
                 </div>
