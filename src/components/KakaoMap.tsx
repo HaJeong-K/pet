@@ -49,6 +49,11 @@ const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 // 부족해서 그대로 두면 서로 겹치거나 화면 밖으로 밀려납니다.
 const NARROW_BREAKPOINT = "(max-width: 720px)";
 
+// 보고 있는 지역 데이터 추가 로드 기준: 지도 가운데가 내 위치에서 이만큼 멀어지면 그 지역 데이터를 받고,
+// 마지막으로 받은 지점에서 이만큼 더 움직이면 다시 받습니다(각 요청은 반경 40km를 받아 옵니다).
+const VIEW_REGION_HOME_KM = 25;
+const VIEW_REGION_REFETCH_KM = 20;
+
 // 휴대폰 바텀시트: 떠 있는 하단 탭바(아래 20px + 높이 약 62px)를 피하는 여백과, 가장 낮게
 // 내렸을 때 보이는 내용 높이(손잡이 + 제목 한 줄)
 type SheetSnap = "peek" | "half" | "full";
@@ -169,6 +174,17 @@ const REGION_SUFFIXES = [
   "구",
 ];
 
+// 지도를 특정 위치·확대 수준으로 옮깁니다 — 확대(레벨 변경)를 먼저 한 번에 끝낸 뒤 가운데를 맞춥니다.
+// ⚠ 예전엔 곳곳에서 "setCenter → setLevel(animate)" 순서로 옮겼는데, 넓게 축소해 둔 상태처럼 레벨 차이가
+// 클 때는 확대 애니메이션 도중에 다른 이동(더 정확한 위치값, 장소 선택 panTo 등)이 겹치면서 목표 지점이
+// 화면 가운데에서 벗어나고 이전 축척의 지도 조각이 겹쳐 보였습니다(내 위치 버튼·묶음 마커·검색 공통).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const jumpMapTo = (map: any, latLng: any, level: number) => {
+  if (!map) return;
+  map.setLevel(level);
+  map.setCenter(latLng);
+};
+
 const tryKakaoAddressSearch = async (
   query: string
 ): Promise<{ lat: number; lng: number } | null> => {
@@ -198,10 +214,9 @@ const searchRegionAndMoveMap = async (
   for (const candidate of candidates) {
     const result = await tryKakaoAddressSearch(candidate);
     if (result) {
-      mapInstance.setCenter(new window.kakao.maps.LatLng(result.lat, result.lng));
       // "OO구 OO동"처럼 세부 단위면 좁게, 시/도 단위면 넓게
       const isDetailed = /\s/.test(trimmed) || /(동|읍|면)$/.test(trimmed);
-      mapInstance.setLevel(isDetailed ? 5 : 8, { animate: true });
+      jumpMapTo(mapInstance, new window.kakao.maps.LatLng(result.lat, result.lng), isDetailed ? 5 : 8);
       return result;
     }
   }
@@ -289,6 +304,11 @@ export default function KakaoMap() {
   // 아래 "지역 범위로 공공데이터 재요청" 효과가 이미 어느 좌표로 재요청했는지 기록해서,
   // GPS 좌표가 미세하게(수백m 이내) 흔들릴 때마다 매번 네트워크를 다시 타지 않도록 합니다.
   const regionalFetchKeyRef = useRef<string | null>(null);
+  // 내 위치에서 멀리 떨어진 곳을 볼 때(지역 검색·지도 이동) 그 지역 데이터를 추가로 불러온 기준 좌표
+  const viewRegionFetchRef = useRef<{ lat: number; lng: number } | null>(null);
+  // 내 주변(홈) 데이터의 id — 보고 있는 지역 데이터를 바꿔 끼울 때 홈 데이터는 지우지 않기 위해 기억합니다.
+  const homePublicIdsRef = useRef<Set<any>>(new Set());
+  const homeParkIdsRef = useRef<Set<any>>(new Set());
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
@@ -863,6 +883,9 @@ export default function KakaoMap() {
       // 같은 장소가 두 번 들어가 React key 중복 경고(place-<id> 중복)가 났습니다. 그
       // 효과와 동일하게 기존 공공데이터부터 걷어내고 넣어서, 어느 쪽이 나중에 끝나도
       // 항상 "교체"가 되도록(추가가 아니라) 맞춥니다.
+      // 이 데이터도 "내 주변(홈)" 데이터로 기억합니다 — 먼 지역을 보다가 돌아와도 지워지지 않게.
+      homePublicIdsRef.current = new Set(publicDataPlaces.map((p: any) => p.id));
+      homeParkIdsRef.current = new Set(parkPlaces.map((p: any) => p.id));
       setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...publicDataPlaces]);
       setParks(parkPlaces);
     };
@@ -941,8 +964,7 @@ export default function KakaoMap() {
         // 가로로는 실제 10km~20km 이상 보이는 "너무 넓은 지도"가 돼버렸습니다.
         // "내 위치로" 버튼(moveToMyLocation)과 똑같이 고정 레벨 3(골목이 보이는
         // 수준)을 써서 화면 비율과 무관하게 항상 같은 확대 정도로 보여줍니다.
-        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
-        mapRef.current.setLevel(3, { animate: true });
+        jumpMapTo(mapRef.current, new window.kakao.maps.LatLng(lat, lng), 3);
         mapRef.current.relayout();
       }
       // 캐시가 있으면 "위치 확인 중" 오버레이 없이 바로 그 위치로 보여줍니다.
@@ -989,10 +1011,11 @@ export default function KakaoMap() {
           pendingLocationRef.current = applied;
           if (isFirst) setSearchCenter(null); // 실제 위치를 처음 받으면 이전 검색 기준 중심은 초기화
           if (map && mapStillOnMe) {
-            map.setCenter(new window.kakao.maps.LatLng(fix.lat, fix.lng));
             if (isFirst) {
-              map.setLevel(3, { animate: true });
+              jumpMapTo(map, new window.kakao.maps.LatLng(fix.lat, fix.lng), 3);
               map.relayout();
+            } else {
+              map.setCenter(new window.kakao.maps.LatLng(fix.lat, fix.lng));
             }
           }
         }
@@ -1033,11 +1056,50 @@ export default function KakaoMap() {
         fetchParks({ lat: userLocation.lat, lng: userLocation.lng }),
       ]);
       if (cancelled) return;
+      homePublicIdsRef.current = new Set(regionalPublicData.map((p: any) => p.id));
+      homeParkIdsRef.current = new Set(regionalParks.map((p: any) => p.id));
+      viewRegionFetchRef.current = null;
       setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...regionalPublicData]);
       setParks(regionalParks);
     })();
     return () => { cancelled = true; };
   }, [userLocation]);
+
+  // ── 보고 있는 지역의 장소 추가 로드 ──
+  // ⚠ 공공데이터·공원은 "내 위치 반경 40km"만 받아 둡니다(전국 3만 곳을 다 받으면 느려서). 그런데
+  // 지역 검색으로 다른 도시에 가거나 지도를 끌어 먼 곳을 보면 그 지역 데이터가 없어, 지도가 텅 비고
+  // "검색 결과가 없습니다"가 떴습니다. 지도 가운데가 내 위치에서 멀어지면(홈 반경 밖) 그 지역 데이터를
+  // 추가로 받아 합칩니다. 내 주변(홈) 데이터는 AI 코스·추천이 쓰므로 그대로 둡니다.
+  useEffect(() => {
+    if (!mapBounds) return;
+    const center = { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 };
+    const farFromHome = !userLocation || getDistance(userLocation.lat, userLocation.lng, center.lat, center.lng) > VIEW_REGION_HOME_KM;
+    if (!farFromHome) return;
+    const last = viewRegionFetchRef.current;
+    if (last && getDistance(last.lat, last.lng, center.lat, center.lng) < VIEW_REGION_REFETCH_KM) return;
+
+    let cancelled = false;
+    // 지도를 끄는 동안 연달아 요청하지 않도록 잠깐 기다렸다가 받습니다.
+    const timer = setTimeout(async () => {
+      viewRegionFetchRef.current = center;
+      const [viewPublicData, viewParks] = await Promise.all([
+        fetchPublicDataPlaces({ lat: center.lat, lng: center.lng }),
+        fetchParks({ lat: center.lat, lng: center.lng }),
+      ]);
+      if (cancelled) return;
+      const homeIds = homePublicIdsRef.current;
+      const homeParkIds = homeParkIdsRef.current;
+      setPlaces((prev) => [
+        ...prev.filter((p) => p.source !== "public-data" || homeIds.has(p.id)),
+        ...viewPublicData.filter((p: any) => !homeIds.has(p.id)),
+      ]);
+      setParks((prev) => [
+        ...prev.filter((p: any) => homeParkIds.has(p.id)),
+        ...viewParks.filter((p: any) => !homeParkIds.has(p.id)),
+      ]);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [mapBounds, userLocation]);
 
   // ── 현위치 파란 점 오버레이
   useEffect(() => {
@@ -1356,21 +1418,32 @@ export default function KakaoMap() {
   // 1순위: 가게명이 일부라도 일치하는 곳이 있으면 그중 가장 가까운 곳을 지도
   //        중심으로 이동시킵니다(실제 위치 기준 거리순 정렬 결과의 맨 앞).
   // 2순위: 이름 매칭이 없으면 기존처럼 지역명(주소) 검색을 시도합니다.
+  // ⚠ 같은 검색어로는 지도를 한 번만 옮깁니다. 이 효과는 nameSearchResults(장소 목록·내 위치가 바뀔 때마다
+  // 새 배열)에도 반응해서, 예전엔 검색 후 "내 위치로" 버튼을 누르면 — 검색어가 지워지기 전 0.3초 사이에
+  // 위치가 바뀌며 — 옛 검색어로 한 번 더 실행돼 지도가 검색했던 곳으로 되돌아갔습니다. 보고 있는 지역의
+  // 장소를 추가로 불러올 때도 같은 이유로 지도가 다시 끌려갔습니다.
+  // 키에 "이름 일치 결과가 있는지"를 넣어, 데이터가 늦게 도착해 결과가 생긴 경우에는 다시 옮깁니다.
+  const lastSearchMoveKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!debouncedSearch.trim()) {
+      lastSearchMoveKeyRef.current = null;
       // 이미 null이면 다시 set하지 않음 (불필요한 렌더링 방지)
       setSearchCenter((prev) => (prev === null ? prev : null));
       return;
     }
     if (!mapRef.current || !mapReady) return;
+    // 검색창이 이미 비워졌으면(내 위치 버튼 등) 지연 중인 옛 검색어로는 움직이지 않습니다.
+    if (!searchQuery.trim()) return;
+    const moveKey = `${debouncedSearch.trim()}|${nameSearchResults.length > 0 ? "name" : "region"}`;
+    if (lastSearchMoveKeyRef.current === moveKey) return;
+    lastSearchMoveKeyRef.current = moveKey;
 
     if (nameSearchResults.length > 0) {
       const nearest = nameSearchResults[0];
       const lat = parseFloat(nearest.lat);
       const lng = parseFloat(nearest.lng);
       if (!isNaN(lat) && !isNaN(lng)) {
-        mapRef.current.setCenter(new window.kakao.maps.LatLng(lat, lng));
-        mapRef.current.setLevel(5, { animate: true });
+        jumpMapTo(mapRef.current, new window.kakao.maps.LatLng(lat, lng), 5);
         setSearchCenter({ lat, lng });
       }
       return;
@@ -1380,6 +1453,7 @@ export default function KakaoMap() {
       const center = await searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
       if (center) setSearchCenter(center);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch, mapReady, nameSearchResults]);
 
   // ── AI 추천 장소: 거리 + 현재 선택된 필터 일치도 + 편의시설 + 신규 등록 여부를 종합한
@@ -1932,8 +2006,7 @@ const courseMeta = (route: RouteResult) => ({
       // 클러스터러를 새로 만들 때 한 번만 붙입니다 — 매 렌더마다 다시 붙이면 리스너가
       // 계속 중복 등록됩니다.
       window.kakao.maps.event.addListener(clustererRef.current, "clusterclick", (cluster: any) => {
-        map.setCenter(cluster.getCenter());
-        map.setLevel(3, { animate: true });
+        jumpMapTo(map, cluster.getCenter(), 3);
       });
     }
 
@@ -2060,7 +2133,7 @@ const courseMeta = (route: RouteResult) => ({
             // 마커로 뜨는 경우가 있습니다(예: 외곽의 병원 하나만). 이런 낱개 마커도
             // 클러스터를 눌렀을 때와 동일하게 초기 레벨(3)로 돌아가도록 맞춥니다 —
             // selectPlaceRef.current는 panTo로 중심만 옮기고 확대는 하지 않아서 따로 붙입니다.
-            map.setLevel(3, { animate: true });
+            map.setLevel(3);
             selectPlaceRef.current(place.id);
           });
           return marker;
@@ -2190,8 +2263,7 @@ const courseMeta = (route: RouteResult) => ({
         ],
       });
       window.kakao.maps.event.addListener(parkClustererRef.current, "clusterclick", (cluster: any) => {
-        map.setCenter(cluster.getCenter());
-        map.setLevel(3, { animate: true });
+        jumpMapTo(map, cluster.getCenter(), 3);
       });
     }
 
@@ -2239,7 +2311,7 @@ const courseMeta = (route: RouteResult) => ({
           window.kakao.maps.event.addListener(marker, "click", () => {
             // ⚠ places 클러스터러 쪽과 동일한 이유 — 낱개 공원 마커도 클러스터 클릭과
             // 동일하게 초기 레벨(3)로 돌아가도록 맞춥니다.
-            map.setLevel(3, { animate: true });
+            map.setLevel(3);
             window.selectPark(park.id);
           });
           return marker;
@@ -2472,12 +2544,19 @@ const courseMeta = (route: RouteResult) => ({
         // 직접 지정한 위치가 있으면, 그보다 확실히 정확한 GPS 값이 아닌 한 그 위치로 이동만 합니다.
         const manual = manualLocationActive() && fix.accuracy > MANUAL_OVERRIDE_ACCURACY_M ? manualLocationRef.current : null;
         const target = manual ?? { lat: fix.lat, lng: fix.lng };
-        mapRef.current?.setCenter(new window.kakao.maps.LatLng(target.lat, target.lng));
+        const targetLatLng = new window.kakao.maps.LatLng(target.lat, target.lng);
         if (first) {
           first = false;
-          mapRef.current?.setLevel(3, { animate: true });
+          // ⚠ 확대(레벨 변경)를 먼저 한 번에 끝내고 나서 가운데로 옮깁니다. 예전엔 "가운데 이동 →
+          // 애니메이션 확대" 순서였는데, 넓게 축소해 둔 상태(레벨 차이가 큼)에서 누르면 확대 애니메이션
+          // 도중에 더 정확한 위치값이 들어와 또 이동시키면서, 내 위치가 화면 가운데에서 벗어나고
+          // 이전 축척의 지도 조각이 겹쳐 보였습니다.
+          jumpMapTo(mapRef.current, targetLatLng, 3);
           setSearchCenter(null); // 내 위치로 이동하면 검색 기준은 초기화
           setSearchQuery("");
+        } else {
+          // 뒤이어 들어오는 더 정확한 위치값은 확대 없이 가운데만 다시 맞춥니다.
+          mapRef.current?.setCenter(targetLatLng);
         }
         if (manual) return;
         manualLocationRef.current = null;

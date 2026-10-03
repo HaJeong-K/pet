@@ -1,4 +1,4 @@
 // 주소를 직접 열거나 새로고침했을 때(다른 화면 위에 뜨는 팝업이 적용되지 않을 때) 보여주는 정식 페이지.
-// 팝업(src/app/@modal/(.)jebo)과 같은 제보 화면을 그대로 씁니다.
+// 팝업(src/app/@modal/(.)signup)과 같은 회원가입 화면을 그대로 씁니다.
 // 예전엔 이 주소에 팝업 버전만 있어서, 직접 열면 404(또는 빈 화면)가 떴습니다.
-export { default } from "@/app/@modal/(.)jebo/page";
+export { default } from "@/app/@modal/(.)signup/page";

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { randomId } from "@/lib/randomId";
+import { closeModal } from "@/lib/closeModal";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, MessageCircle, Plus, X, AlertCircle,
@@ -237,7 +238,7 @@ export default function JeboModal() {
         const verdict = verifyRes.ok ? await verifyRes.json() : null;
         if (verdict?.approved) {
           alert("사진 확인 결과 바로 등록 가능한 제보로 판단되어, 검토 없이 지도에 바로 등록되었습니다!\n제보해주셔서 감사합니다.");
-          router.back();
+          closeModal(router);
           return;
         }
       } catch (e) {
@@ -245,7 +246,7 @@ export default function JeboModal() {
       }
 
       alert("제보가 성공적으로 접수되었습니다!\n검토 후 지도에 등록하겠습니다. 감사합니다.");
-      router.back();
+      closeModal(router);
     } catch (err) {
       console.error("제보 처리 오류:", err);
       alert("처리 중 오류가 발생했습니다.");
@@ -281,7 +282,7 @@ export default function JeboModal() {
 
       {/* ── 배경 오버레이 ── */}
       <div
-        onClick={() => router.back()}
+        onClick={() => closeModal(router)}
         style={{
           position: "fixed", inset: 0,
           background: "rgba(0,0,0,0.52)",
@@ -333,7 +334,7 @@ export default function JeboModal() {
               </div>
             </div>
             <button
-              onClick={() => router.back()}
+              onClick={() => closeModal(router)}
               style={{
                 width: 32, height: 32, borderRadius: "50%",
                 border: "none", background: "rgba(0,0,0,0.1)",

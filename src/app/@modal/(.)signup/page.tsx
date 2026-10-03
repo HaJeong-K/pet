@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Check } from "lucide-react";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
+import { closeModal } from "@/lib/closeModal";
 
 function SignupPageContent() {
   const router = useRouter();
@@ -218,7 +219,7 @@ function SignupPageContent() {
       >
         {/* 닫기 버튼 */}
         <button
-          onClick={() => router.back()}
+          onClick={() => closeModal(router)}
           style={{
             position: "absolute",
             top: "18px",

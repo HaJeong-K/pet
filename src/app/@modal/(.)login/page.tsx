@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
+import { closeModal } from "@/lib/closeModal";
 
 // ─── Google G 로고 SVG (공식 색상 고정, 변경 불가) ────────────────────────
 const GoogleGLogo = () => (
@@ -170,7 +171,7 @@ function LoginPageContent() {
         >
           {/* 닫기 버튼 */}
           <button
-            onClick={() => router.back()}
+            onClick={() => closeModal(router)}
             style={{
               position: "absolute",
               top: "18px",

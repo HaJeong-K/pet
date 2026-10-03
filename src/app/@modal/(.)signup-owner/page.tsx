@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import OwnerSignupForm from "@/components/OwnerSignupForm";
+import { closeModal } from "@/lib/closeModal";
 
 function Content() {
   const router = useRouter();
@@ -23,7 +24,7 @@ function Content() {
         borderRadius: 24, padding: 28, boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
       }}>
         <button
-          onClick={() => router.back()}
+          onClick={() => closeModal(router)}
           style={{
             position: "absolute", top: 18, right: 18, width: 36, height: 36, borderRadius: "50%",
             border: "none", background: "#f3f4f6", cursor: "pointer", fontSize: 16, fontWeight: 700, zIndex: 1,
