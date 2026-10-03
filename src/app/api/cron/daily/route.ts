@@ -4,6 +4,7 @@ import { rebuildPublicDataSnapshot } from "@/lib/publicDataAggregate";
 import { syncParks } from "@/lib/server/parksSync";
 import { runClosureCheck } from "@/lib/server/closureCheck";
 import { runDataQualityCheck } from "@/lib/server/dataQuality";
+import { runShelterPush } from "@/lib/server/shelterPush";
 import { rejectUnauthorizedCron } from "@/lib/server/cronAuth";
 import { notifyAdmin } from "@/lib/server/notify";
 
@@ -13,13 +14,14 @@ import { notifyAdmin } from "@/lib/server/notify";
 //   2) 공원 데이터 동기화(전국도시공원정보표준데이터) — 매주 일요일(자주 안 바뀌는 데이터)
 //   2-1) 폐업 자동 점검(국세청 영업 상태 조회, 인증된 사장님 업장) — 매주 월요일
 //   2-2) 장소 데이터 품질 점검(좌표·중복·깨진 사진·정보 부족) — 매주 화요일, 문제가 있으면 알림
+//   2-3) 유기동물 공고 지역 알림 — 매일(구독자가 있는 지역의 새 공고를 브라우저 알림으로 발송)
 //   3) 오래된 오류 기록 정리 — 매일(90일 지난 것 삭제, DB 용량 관리)
 //   4) 아침 요약 알림 — 처리 대기 중인 사장님 신청·제보·신고·프리미엄 신청, 최근 24시간 오류 수
 //   + 위 작업 중 하나라도 실패하면 관리자에게 바로 알림(새벽 자동 작업 실패를 아무도 모르는 일 방지)
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(public-data | parks | closure | quality | cleanup | digest).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(public-data | parks | closure | quality | shelter-push | cleanup | digest).
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -120,6 +122,7 @@ export async function GET(req: NextRequest) {
         })
       : { ok: true, ms: 0, skipped: "화요일에만 실행" };
   }
+  if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
   if (want("cleanup")) results.cleanup = await runJob(() => cleanupOldErrors());
   if (want("digest")) results.digest = await runJob(() => sendMorningDigest());
 

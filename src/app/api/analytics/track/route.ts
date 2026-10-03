@@ -19,6 +19,9 @@ const ALLOWED_EVENT_TYPES = new Set([
   "course_stop_click",
   "course_start",
   "course_stop_directions",
+  "walk_start",
+  "walk_arrive",
+  "walk_finish",
 ]);
 
 // 익명 공개 엔드포인트라 meta에 임의의 큰 JSON을 넣어 테이블을 부풀리지 못하도록 크기를 제한합니다.

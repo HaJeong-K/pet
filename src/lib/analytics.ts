@@ -41,7 +41,10 @@ export type AnalyticsEventType =
   | "course_regenerate"
   | "course_stop_click"
   | "course_start"
-  | "course_stop_directions";
+  | "course_stop_directions"
+  | "walk_start"    // 산책 모드 시작(meta.stops)
+  | "walk_arrive"   // 산책 중 정거장 도착(meta.pos)
+  | "walk_finish";  // 산책 종료(meta.visited, meta.walkedM, meta.minutes)
 
 export function trackEvent(
   type: AnalyticsEventType,

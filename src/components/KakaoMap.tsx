@@ -26,6 +26,7 @@ import { rememberPlaces } from "@/lib/placeCache";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
+import type { WalkStop } from "@/components/WalkModePanel";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -42,6 +43,7 @@ import {
 // 코드를 첫 로드 때 그대로 받게 됩니다. next/dynamic으로 실제 열릴 때만
 // 별도 청크를 내려받도록 분리합니다.
 const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
+const WalkModePanel = dynamic(() => import("@/components/WalkModePanel"), { ssr: false });
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
 // 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
@@ -440,6 +442,8 @@ export default function KakaoMap() {
   const [showNearbyInCourse, setShowNearbyInCourse] = useState(false);
   // AI 코스 패널의 옵션(병원·약국 포함, 주변 장소 표시)은 평소엔 접어 두어 정거장 목록 자리를 넓힙니다.
   const [showRouteOptions, setShowRouteOptions] = useState(false);
+  // 산책 모드: 시작한 순간의 코스 정거장을 고정해 둡니다(걷는 도중 추천이 다시 계산돼도 코스가 바뀌지 않게).
+  const [walkStops, setWalkStops] = useState<WalkStop[] | null>(null);
   useEffect(() => {
     try {
       localStorage.setItem(ROUTE_MEDICAL_STORAGE_KEY, JSON.stringify({ vet: routeIncludeVet, pharmacy: routeIncludePharmacy }));
@@ -2690,6 +2694,23 @@ const courseMeta = (route: RouteResult) => ({
     openWalkDirections(app, routeOriginPoint(route), targets);
   };
 
+  /** 산책 모드 시작 — 코스를 걸으면서 따라가는 진행 카드를 띄웁니다. */
+  const handleStartWalk = (route: RouteResult) => {
+    const stops: WalkStop[] = [];
+    route.stops.forEach((s) => {
+      const point = toDirectionPoint(s.place);
+      if (point) stops.push({ id: s.place.id, name: s.place.name, lat: point.lat, lng: point.lng });
+    });
+    if (stops.length === 0) return;
+    trackEvent("walk_start", {
+      authUserId: session?.user?.id ?? null,
+      variant: activeRecVariant,
+      meta: { ...courseMeta(route), stops: stops.length },
+    });
+    setWalkStops(stops);
+    if (isNarrowScreen) setSheetSnap("peek"); // 휴대폰: 지도가 보이도록 하단 시트를 내립니다.
+  };
+
   /** 코스의 정거장 하나로 바로 길찾기 — 순서대로 다 돌지 않고 원하는 곳만 찾아갈 때 */
   const handleStopDirections = (route: RouteResult, stopIdx: number, app: "kakao" | "naver") => {
     const stop = route.stops[stopIdx];
@@ -4731,16 +4752,29 @@ const courseMeta = (route: RouteResult) => ({
 
           {displayRoute && (
             <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
+              <button
+                onClick={() => handleStartWalk(displayRoute)}
+                disabled={!!walkStops}
+                className="ggk-body"
+                style={{
+                  width: "100%", padding: "11px 0", marginBottom: "6px", borderRadius: "12px", border: "none",
+                  background: walkStops ? "#ddd6fe" : "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "white",
+                  fontWeight: 700, fontSize: "12.5px", cursor: walkStops ? "default" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                  boxShadow: walkStops ? "none" : "0 3px 10px rgba(124,58,237,0.3)",
+                }}
+              >
+                <Footprints size={13} />{walkStops ? "산책 중이에요" : "산책 시작 — 걸으면서 따라가기"}
+              </button>
               <div style={{ display: "flex", gap: "6px" }}>
                 <button
                   onClick={() => handleRouteDirections(displayRoute, "kakao")}
                   className="ggk-body"
                   style={{
-                    flex: 1, padding: "11px 0", borderRadius: "12px", border: "none",
-                    background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "white",
+                    flex: 1, padding: "10px 0", borderRadius: "12px", border: "1px solid rgba(124,58,237,0.45)",
+                    background: "white", color: "#6d28d9",
                     fontWeight: 700, fontSize: "12px", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-                    boxShadow: "0 3px 10px rgba(124,58,237,0.3)",
                   }}
                 >
                   <Navigation size={12} />카카오맵
@@ -4749,7 +4783,7 @@ const courseMeta = (route: RouteResult) => ({
                   onClick={() => handleRouteDirections(displayRoute, "naver")}
                   className="ggk-body"
                   style={{
-                    flex: 1, padding: "11px 0", borderRadius: "12px", border: "1px solid #03C75A",
+                    flex: 1, padding: "10px 0", borderRadius: "12px", border: "1px solid #03C75A",
                     background: "white", color: "#03C75A",
                     fontWeight: 700, fontSize: "12px", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
@@ -4759,12 +4793,27 @@ const courseMeta = (route: RouteResult) => ({
                 </button>
               </div>
               <div style={{ fontSize: "9px", color: "#bbb", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
-                ※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
+                ※ 산책 시작을 누르면 정거장에 도착할 때마다 자동으로 방문 인증돼요.
+                <br />※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
                 <br />※ 네이버지도를 누를 시 PC에서는 네이버 지도 웹으로, 휴대폰에서는 네이버지도 앱으로 열려요.
               </div>
             </div>
           )}
         </div>
+      )}
+
+      {walkStops && (
+        <WalkModePanel
+          stops={walkStops}
+          map={mapRef.current}
+          isMobile={isNarrowScreen}
+          authUserId={session?.user?.id ?? null}
+          onOpenStop={(stop) => {
+            const place = places.find((p: any) => String(p.id) === String(stop.id));
+            openPlaceDetail(place ?? { id: stop.id, name: stop.name, lat: stop.lat, lng: stop.lng });
+          }}
+          onClose={() => setWalkStops(null)}
+        />
       )}
 
       {/* ── 공유 모달 */}

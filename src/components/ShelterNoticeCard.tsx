@@ -62,6 +62,9 @@ export default function ShelterNoticeCard({
             fontWeight: 800,
             padding: "7px 10px",
             lineHeight: 1.25,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           {phrase}
@@ -133,7 +136,8 @@ export default function ShelterNoticeCard({
                   flexShrink: 0,
                 }}
               >
-                {notice.region}
+                {/* 시·군·구가 있으면 그걸 먼저(예: "경주"), 없으면 시·도(예: "경북") */}
+                {notice.subRegion || notice.region}
               </span>
               <span
                 style={{

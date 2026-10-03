@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const region = searchParams.get("region");
   const full = searchParams.get("full") === "1";
   const limit = full
-    ? Math.min(Number(searchParams.get("limit")) || 60, 100)
+    ? Math.min(Number(searchParams.get("limit")) || 60, 300)
     : Math.min(Number(searchParams.get("limit")) || 2, 6);
   const offset = Math.max(0, Math.min(Number(searchParams.get("offset")) || 0, 20));
 

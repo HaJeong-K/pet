@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, PawPrint } from "lucide-react";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "@/components/ShelterNoticeCard";
 import { useUserRegion } from "@/lib/useUserRegion";
+import ShelterAlertToggle from "@/components/ShelterAlertToggle";
+import { useAdoptPhrases } from "@/lib/adoptPhrases";
 
 // ── 전국 보호소 공고 전체보기 ──
 // 예전에는 이 버튼이 animal.go.kr의 검색결과 페이지로 직접 딥링크됐는데, 그 사이트가
@@ -18,16 +20,39 @@ const SIDO_LIST = [
   "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
 ];
 
-const PHRASES = ["나의 가족이 되어주세요", "나의 가족을 찾아주세요"];
+// 시·도를 고르면 그 안의 시·군·구까지 고를 수 있게, 지역을 골랐을 때는 공고를 넉넉히 받아옵니다.
+const REGION_FETCH_LIMIT = 300;
+const NATIONWIDE_FETCH_LIMIT = 60;
+
+const chipStyle = (active: boolean, small = false): React.CSSProperties => ({
+  flexShrink: 0, padding: small ? "5px 11px" : "7px 14px", borderRadius: 999,
+  border: small && !active ? "1px solid #e3e0d6" : "none",
+  background: active ? (small ? "#48603A" : "#5C7A4A") : "white",
+  color: active ? "white" : "#555",
+  fontWeight: 700, fontSize: small ? 11.5 : 12, cursor: "pointer", whiteSpace: "nowrap",
+  boxShadow: active || small ? "none" : "0 1px 2px rgba(0,0,0,0.06)",
+});
 
 export default function ShelterNoticesPage() {
   const router = useRouter();
   const detectedRegion = useUserRegion();
 
+  const adoptPhrase = useAdoptPhrases();
   const [sido, setSido] = useState<string>("");
+  const [sub, setSub] = useState<string>(""); // 시·군·구(선택한 시·도 안에서)
   const [initialized, setInitialized] = useState(false);
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 알림을 눌러 들어온 경우(?region=대구)에는 그 지역을 먼저 보여줍니다.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get("region");
+    if (fromUrl && SIDO_LIST.includes(fromUrl)) {
+      setSido(fromUrl);
+      setSub(new URLSearchParams(window.location.search).get("sub") || "");
+      setInitialized(true);
+    }
+  }, []);
 
   // 위치 기반으로 감지된 지역이 오면 그걸 기본 선택값으로 한 번만 반영합니다.
   useEffect(() => {
@@ -38,15 +63,31 @@ export default function ShelterNoticesPage() {
   }, [detectedRegion, initialized]);
 
   useEffect(() => {
+    // ⚠ 지역을 바꾸면 이전 요청의 응답은 버립니다. 예전엔 화면이 열릴 때 "전국" 요청과 감지된 지역 요청이
+    // 연달아 나가서, 늦게 도착한 전국 응답이 지역 결과를 덮어써 "대구"를 골랐는데 전국 공고가 보였습니다.
+    let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ full: "1", limit: "60" });
+    const params = new URLSearchParams({ full: "1", limit: String(sido ? REGION_FETCH_LIMIT : NATIONWIDE_FETCH_LIMIT) });
     if (sido) params.set("region", sido);
     fetch(`/api/shelter-notices?${params.toString()}`)
       .then((r) => r.json())
-      .then((data) => setNotices(data.notices || []))
-      .catch(() => setNotices([]))
-      .finally(() => setLoading(false));
+      .then((data) => { if (!cancelled) setNotices(data.notices || []); })
+      .catch(() => { if (!cancelled) setNotices([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [sido]);
+
+  // 선택한 시·도에 실제로 공고가 있는 시·군·구 목록(공고 많은 순)
+  const subRegions = useMemo(() => {
+    if (!sido) return [];
+    const counts = new Map<string, number>();
+    notices.forEach((n) => { if (n.subRegion) counts.set(n.subRegion, (counts.get(n.subRegion) ?? 0) + 1); });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"));
+  }, [notices, sido]);
+  // 고른 시·군·구가 새로 받은 목록에 없으면(지역을 바꿨거나 공고가 마감됨) 전체로 보여줍니다.
+  const activeSub = sub && subRegions.some(([name]) => name === sub) ? sub : "";
+  const visibleNotices = activeSub ? notices.filter((n) => n.subRegion === activeSub) : notices;
+  const selectSido = (next: string) => { setSido(next); setSub(""); };
 
   return (
     <div
@@ -82,37 +123,38 @@ export default function ShelterNoticesPage() {
         <div style={{ padding: "18px 20px 4px" }}>
           <p style={{ fontSize: 12.5, color: "#666", lineHeight: 1.6, marginBottom: 14 }}>
             국가동물보호정보시스템(animal.go.kr) 공고를 마감이 임박한 순서로 보여드려요.
-            지역을 선택하면 해당 지역 공고만, 선택하지 않으면 전국 공고를 볼 수 있어요.
+            시·도를 고르면 그 아래에서 시·군·구까지 골라 볼 수 있고, 선택하지 않으면 전국 공고를 볼 수 있어요.
           </p>
+          <ShelterAlertToggle region={sido} />
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
             <button
-              onClick={() => setSido("")}
-              style={{
-                flexShrink: 0, padding: "7px 14px", borderRadius: 999, border: "none",
-                background: sido === "" ? "#5C7A4A" : "white",
-                color: sido === "" ? "white" : "#555",
-                fontWeight: 700, fontSize: 12, cursor: "pointer",
-                boxShadow: sido === "" ? "none" : "0 1px 2px rgba(0,0,0,0.06)",
-              }}
+              onClick={() => selectSido("")}
+              style={chipStyle(sido === "")}
             >
               전국
             </button>
             {SIDO_LIST.map((s) => (
               <button
                 key={s}
-                onClick={() => setSido(s)}
-                style={{
-                  flexShrink: 0, padding: "7px 14px", borderRadius: 999, border: "none",
-                  background: sido === s ? "#5C7A4A" : "white",
-                  color: sido === s ? "white" : "#555",
-                  fontWeight: 700, fontSize: 12, cursor: "pointer",
-                  boxShadow: sido === s ? "none" : "0 1px 2px rgba(0,0,0,0.06)",
-                }}
+                onClick={() => selectSido(s)}
+                style={chipStyle(sido === s)}
               >
                 {s}
               </button>
             ))}
           </div>
+          {/* ── 시·군·구 선택(시·도를 골랐을 때만) ── */}
+          {sido && !loading && subRegions.length > 1 && (
+            <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 4px", alignItems: "center" }}>
+              <span style={{ flexShrink: 0, fontSize: 11, color: "#999", fontWeight: 700, marginRight: 2 }}>{sido}</span>
+              <button onClick={() => setSub("")} style={chipStyle(activeSub === "", true)}>전체 {notices.length}</button>
+              {subRegions.map(([name, count]) => (
+                <button key={name} onClick={() => setSub(name)} style={chipStyle(activeSub === name, true)}>
+                  {name} {count}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── 공고 카드 그리드 ── */}
@@ -137,9 +179,11 @@ export default function ShelterNoticesPage() {
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
               gap: 14,
             }}>
-              {notices.map((n, i) => (
-                <div key={n.desertionNo} style={{ height: 230 }}>
-                  <ShelterNoticeCard notice={n} phrase={PHRASES[i % PHRASES.length]} />
+              {visibleNotices.map((n, i) => (
+                // ⚠ 카드는 flex:1로 부모 높이를 채우게 만들어져 있어(사이드 레일용), 부모가 flex 칸이어야 합니다.
+                // 예전엔 일반 블록이라 카드가 제목 줄 높이로 찌그러져 사진이 보이지 않았습니다.
+                <div key={n.desertionNo} style={{ height: 230, display: "flex", flexDirection: "column" }}>
+                  <ShelterNoticeCard notice={n} phrase={adoptPhrase(i)} />
                 </div>
               ))}
             </div>

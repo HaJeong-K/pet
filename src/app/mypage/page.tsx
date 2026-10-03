@@ -11,10 +11,11 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck, Store, Crown,
+  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
+import OwnerStatsPanel from "@/components/OwnerStatsPanel";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
@@ -92,7 +93,7 @@ export default function MyPage() {
   const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium"|"owner-place">("menu");
+  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium"|"owner-place"|"owner-stats">("menu");
 
   // ── 사장님 프리미엄 등록 ──
   const [premiumPlace, setPremiumPlace] = useState<{ is_premium: boolean; premium_expires_at: string | null } | null>(null);
@@ -1155,6 +1156,21 @@ export default function MyPage() {
                     </button>
                   )}
 
+                  {/* 내 가게 통계 — 조회·찜·후기, AI 코스·추천 노출을 보여줍니다(프리미엄 가치를 판단할 근거). */}
+                  {(isVerifiedOwner || isOwnerPreview) && (
+                    <button
+                      className="setting-row"
+                      onClick={() => setSettingView("owner-stats")}
+                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f3f0ff", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
+                    >
+                      <div style={{ width:32, height:32, borderRadius:9, background:"#e4dcff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <BarChart3 size={15} color="#5b21b6" />
+                      </div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>내 가게 통계{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#5b21b6" }}>관리자 미리보기</span>}</div>
+                      <ChevronRight size={14} color="#bbb" />
+                    </button>
+                  )}
+
                   {/* 프리미엄 등록 — 인증된 사장님만 진입 가능. 신청/현재 상태를 별도 패널에서 보여줍니다. */}
                   {(isVerifiedOwner || isOwnerPreview) && (
                     <button
@@ -1361,6 +1377,24 @@ export default function MyPage() {
                     )}
                   </>
                 )}
+              </div>
+            )}
+
+            {/* 내 가게 통계 */}
+            {settingView === "owner-stats" && (
+              <div style={{ padding:"18px" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#111", display:"flex", alignItems:"center", gap:5 }}>
+                    <BarChart3 size={15} color="#5b21b6" />내 가게 통계
+                  </div>
+                  <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <X size={14} color="#666" />
+                  </button>
+                </div>
+                {isOwnerPreview && renderOwnerPreviewPicker(() => {})}
+                {isOwnerPreview && ownerPlaceId == null
+                  ? null
+                  : <OwnerStatsPanel previewPlaceId={isOwnerPreview ? ownerPlaceId : undefined} />}
               </div>
             )}
 

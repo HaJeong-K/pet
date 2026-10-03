@@ -22,6 +22,7 @@ import { isPlacePremiumNow } from "@/lib/premium";
 import { openKakaoWalkFromHere, openNaverWalk, type DirectionPoint } from "@/lib/directions";
 import { useParams, useRouter } from "next/navigation";
 import { randomId } from "@/lib/randomId";
+import { requestCheckin, fetchCheckinSummary } from "@/lib/checkinClient";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   Shuffle, MapPin, Clock, PawPrint, Plus, Navigation,
@@ -36,6 +37,7 @@ import {
   X,           // 이미지 확대 모달 닫기
   Flag,        // 이미지 신고
   Crown,       // 프리미엄 배지
+  BadgeCheck,  // 방문 인증
 } from "lucide-react";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
@@ -192,6 +194,37 @@ export default function PlaceDetail({
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin]         = useState(false); // ★ 관리자 상태 추가
   const isLoggedIn = !!session?.user;
+
+  // ── 방문 인증(체크인): 가게 근처에 있을 때만 서버가 기록 → 후기에 "방문 인증" 배지
+  const [checkinCount, setCheckinCount] = useState(0);
+  const [verifiedReviewIds, setVerifiedReviewIds] = useState<Set<number>>(new Set());
+  const [checkinBusy, setCheckinBusy] = useState(false);
+  const [checkinDone, setCheckinDone] = useState(false);
+  const [checkinMessage, setCheckinMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const loadCheckins = async () => {
+    const summary = await fetchCheckinSummary(placeId);
+    setCheckinCount(summary.count);
+    setVerifiedReviewIds(new Set(summary.verifiedReviewIds));
+  };
+  useEffect(() => {
+    if (!Number.isFinite(placeId)) return;
+    loadCheckins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeId, reviews.length]);
+  const handleCheckin = async () => {
+    if (checkinBusy) return;
+    setCheckinBusy(true);
+    setCheckinMessage(null);
+    const result = await requestCheckin(placeId, "manual");
+    setCheckinBusy(false);
+    if (result.ok) {
+      setCheckinDone(true);
+      setCheckinMessage({ ok: true, text: result.already ? "오늘 이미 방문 인증을 했어요. 후기를 남겨 보세요!" : "방문 인증 완료! 후기를 남기면 '방문 인증' 배지가 붙어요." });
+      loadCheckins();
+    } else {
+      setCheckinMessage({ ok: false, text: result.error });
+    }
+  };
 
   const [myNickname, setMyNickname] = useState("");
   const [password, setPassword]     = useState("");
@@ -1323,6 +1356,20 @@ export default function PlaceDetail({
           </button>
         </div>
 
+        {/* 방문 인증 — 가게 근처(150m 안)에 있을 때만 서버가 인정합니다 */}
+        <button onClick={handleCheckin} disabled={checkinBusy} className="ggk-body" style={{ marginTop:"7px", width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${checkinDone?"#059669":"#e2e4e8"}`, background:checkinDone?"#ecfdf5":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:checkinBusy?"default":"pointer", color:checkinDone?"#047857":"#555", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+          <BadgeCheck size={14} />
+          <span style={{ fontSize:"12px", fontWeight:600 }}>
+            {checkinBusy ? "위치 확인 중..." : checkinDone ? "방문 인증 완료" : "지금 여기 있어요 · 방문 인증"}
+            {checkinCount > 0 ? ` (${checkinCount})` : ""}
+          </span>
+        </button>
+        {checkinMessage && (
+          <div className="ggk-body" role="status" style={{ marginTop:"6px", fontSize:"11px", lineHeight:1.5, color:checkinMessage.ok?"#047857":"#b45309" }}>
+            {checkinMessage.text}
+          </div>
+        )}
+
         {/* 길찾기 선택 — 좌표 기준이라 이름이 같은 다른 가게로 잘못 연결되지 않습니다 */}
         {showDirections && (
           <div style={{ marginTop:"7px", padding:"10px", borderRadius:"10px", border:"1px solid #ece4fc", background:"#faf7ff" }}>
@@ -1419,6 +1466,11 @@ export default function PlaceDetail({
                         {r.avatar_url ? <Image src={r.avatar_url} alt={r.nickname} fill sizes="24px" referrerPolicy="no-referrer" style={{ objectFit:"cover" }} /> : r.nickname?.charAt(0)}
                       </div>
                       <div className="ggk-body" style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{r.nickname}</div>
+                      {verifiedReviewIds.has(r.id) && (
+                        <span className="ggk-body" title="이 장소 근처에서 방문 인증을 한 사용자의 후기예요" style={{ display:"inline-flex", alignItems:"center", gap:"2px", padding:"1px 6px", borderRadius:"999px", background:"#ecfdf5", color:"#047857", fontSize:"9.5px", fontWeight:700, whiteSpace:"nowrap" }}>
+                          <BadgeCheck size={10} />방문 인증
+                        </span>
+                      )}
                       {isOwner(r) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                     </div>
                     <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>

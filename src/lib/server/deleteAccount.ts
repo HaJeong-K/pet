@@ -64,6 +64,8 @@ export async function deleteAccount(
   const { data: { user } } = await client.auth.admin.getUserById(authUserId);
   const kakaoId = user ? kakaoIdOf(user) : null;
 
+  // 브라우저 알림 구독도 함께 지웁니다(테이블이 없으면 그냥 넘어감).
+  await client.from("push_subscriptions").delete().eq("auth_user_id", authUserId);
   const { error: profileError } = await client.from("users").delete().eq("auth_user_id", authUserId);
   const { error: authError } = await client.auth.admin.deleteUser(authUserId);
   if (authError) console.error("[deleteAccount] 로그인 계정 삭제 실패:", authError.message);

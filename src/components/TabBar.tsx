@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn, PawPrint } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function TabBar() {
@@ -53,6 +53,7 @@ export default function TabBar() {
   const getActiveTab = () => {
     if (pathname === "/" || pathname === "") return "map";
     if (pathname.startsWith("/community")) return "community";
+    if (pathname.startsWith("/shelter-notices")) return "adopt";
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/mypage")) return "mypage";
     if (pathname.startsWith("/login")) return "login";
@@ -64,6 +65,8 @@ export default function TabBar() {
   const tabs = [
     { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
     { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
+    // 유기동물 보호소 공고(전체 목록·지역 알림) — 예전엔 이 화면으로 가는 링크가 어디에도 없었습니다.
+    { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
     ...(isAdmin ? [
       { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
     ] : []),

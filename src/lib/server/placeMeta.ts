@@ -64,3 +64,18 @@ export function placeShareDescription(meta: PlaceMeta): string {
     ? `${parts.join(" · ")} — 반려동물과 함께 갈 수 있는 곳`
     : "반려동물과 함께 갈 수 있는 곳 — 같이가개에서 상세정보를 확인하세요.";
 }
+
+/** 장소 좌표(방문 체크인 거리 확인용). 못 찾으면 null */
+export async function getPlaceCoords(rawId: string | number): Promise<{ id: number; name: string; lat: number; lng: number } | null> {
+  const id = Number(rawId);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  let row: { name: string; lat: unknown; lng: unknown } | null = null;
+  if (id >= PUBLIC_DATA_ID_MIN) {
+    row = (await getMergedPublicDataPlaces().catch(() => [])).find((p) => p.id === id) ?? null;
+  } else {
+    row = (await supabase.from("places").select("name, lat, lng").eq("id", id).maybeSingle()).data;
+  }
+  const lat = Number(row?.lat), lng = Number(row?.lng);
+  if (!row || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { id, name: row.name, lat, lng };
+}

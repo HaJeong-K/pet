@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Crown } from "lucide-react";
+import { useAdoptPhrases } from "@/lib/adoptPhrases";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "./ShelterNoticeCard";
 import { useUserRegion } from "@/lib/useUserRegion";
 import { supabase } from "@/lib/supabase";
@@ -11,8 +12,8 @@ import { openPlaceDetail } from "@/lib/openPlace";
 // ── 좌우 사이드 레일 ──
 // 왼쪽: 광고 2개 — 오른쪽 보호소 공고 카드와 동일한 크기·간격으로 대칭 배치.
 // 오른쪽: 국가동물보호정보시스템(animal.go.kr) 실제 보호동물 공고 2건을 마감임박·
-//         현재 위치 지역 우선순으로 보여줍니다. 클릭하면 실제 공고 상세페이지가 새 탭으로 열립니다.
-// "전국 보호소 공고 전체보기"는 포인핸드(pawinhand.kr)로 바로 연결합니다.
+//         현재 위치 지역 우선순으로 보여줍니다. 클릭하면 우리 사이트의 공고 상세 화면으로 이동합니다.
+// "전국 보호소 공고 전체보기"는 우리 사이트의 공고 목록(/shelter-notices)으로 연결합니다.
 //
 // ── 반응형 기준: 가로폭이 아니라 "화면 비율" ──
 // 예전엔 가로폭(예: 1600px)으로만 노출 여부를 갈랐는데, 그러면 노트북을 그냥 최대화한
@@ -39,9 +40,9 @@ const RAIL_BOTTOM_GAP_VH = 1;
 // 페이지의 grid 레이아웃(1fr 여백 / 본문(최대 1200px) / 1fr 여백)에서, 레일은 자기
 // 여백 칼럼 안에서 justifySelf:"center"로 가운데 정렬됩니다 — 본문 가장자리에 붙지도,
 // 화면 진짜 가장자리에 붙지도 않고 남는 여백 폭의 정중앙에 위치합니다.
-const SHELTER_FULL_LIST_URL = "https://pawinhand.kr/shelter/animal";
+// 전체보기는 우리 사이트의 공고 목록(지역 선택·알림 설정 가능)으로 연결합니다(예전엔 외부 사이트로 나갔음).
+const SHELTER_FULL_LIST_URL = "/shelter-notices";
 
-const PHRASES = ["나의 가족이 되어주세요", "나의 가족을 찾아주세요"];
 
 // ── 좌측(+우측 ad 모드) 레일의 실제 수익 메커니즘: 사장님이 마이페이지에서 프리미엄을
 // 신청하고 관리자가 승인하면 places.is_premium=true가 되고, 이 훅이 그 장소들을 가져와
@@ -225,6 +226,7 @@ export function AdRailRight({
   shelterOffset?: number;
 }) {
   const region = useUserRegion();
+  const adoptPhrase = useAdoptPhrases();
   const { notices, loaded } = useShelterNotices(region, rightMode !== "ad", shelterOffset);
   const { places: adPlaces, loaded: adLoaded } = usePremiumAdPlaces(rightMode === "ad");
 
@@ -269,7 +271,7 @@ export function AdRailRight({
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minHeight: 0 }}>
           {notices.length > 0 ? (
             notices.map((n, i) => (
-              <ShelterNoticeCard key={n.desertionNo} notice={n} phrase={PHRASES[i % PHRASES.length]} />
+              <ShelterNoticeCard key={n.desertionNo} notice={n} phrase={adoptPhrase(i)} />
             ))
           ) : (
             <>
@@ -288,8 +290,6 @@ export function AdRailRight({
         </div>
         <a
           href={SHELTER_FULL_LIST_URL}
-          target="_blank"
-          rel="noopener noreferrer"
           style={{
             fontSize: 10.5,
             color: "#8FA876",
