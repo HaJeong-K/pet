@@ -2617,15 +2617,21 @@ const courseMeta = (route: RouteResult) => ({
       content: {
         title: "같이가개",
         description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
-        imageUrl: `${window.location.origin}/icons/header_logo_final.png`,
+        imageUrl: `${window.location.origin}/api/og`,
         link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
       },
+      buttons: [{ title: "지도 열기", link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
     });
   };
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    alert("링크가 복사되었습니다.");
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      alert("링크가 복사되었습니다.");
+    } catch {
+      // 클립보드 API는 보안 연결(https)에서만 동작 — 안 되면 직접 복사할 수 있게 보여줍니다.
+      window.prompt("아래 링크를 길게 눌러 복사해 주세요", window.location.href);
+    }
     setShowShareModal(false);
   };
 

@@ -1,57 +1,44 @@
 import type { Metadata } from "next";
-import { supabase } from "@/lib/supabase";
 import PlaceDetailClient from "./PlaceDetailClient";
 import { siteUrl } from "@/lib/siteUrl";
+import { getPlaceMeta, placeShareDescription, placeShareImage } from "@/lib/server/placeMeta";
 
-const DEFAULT_IMAGE = "/icons/header_logo_final.png";
-
-// ⚠ SEO/공유 미리보기: 공공데이터 출처 장소(합성 id, places 테이블에 실제 행 없음)는
-// 여기서 전국 데이터를 다시 fetch하면 페이지 요청마다 수만 건을 훑게 되어 렌더링
-// 목표(3초)에 역행합니다. 그래서 실제 DB 행이 있는 places(사용자 제보·사장님 등록
-// 장소)만 풍부한 메타데이터를 만들고, 공공데이터 장소는 사이트 기본 메타데이터로
-// 폴백합니다 — 공유가 잦은 쪽은 대부분 실사용자가 등록한 장소이므로 실익이 큽니다.
+// SEO/공유 미리보기: 직접 등록·제보된 장소와 공공데이터 장소 모두 이름·주소·분류가 담긴 미리보기를
+// 만듭니다. 사진이 있으면 그 사진을, 없으면 서버가 그린 카드(/api/og/place/[id])를 씁니다.
+// (예전엔 공공데이터 장소는 전국 데이터를 다시 받아야 해서 사이트 기본 문구로만 나왔습니다 —
+//  이제 스냅샷 캐시에서 바로 찾습니다. src/lib/server/placeMeta.ts)
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const placeId = Number(id);
+  const meta = await getPlaceMeta(id);
 
-  if (Number.isFinite(placeId)) {
-    const { data: place } = await supabase
-      .from("places")
-      .select("name, address, category, pet_zone, image_url")
-      .eq("id", placeId)
-      .maybeSingle();
-
-    if (place) {
-      const title = `${place.name} | 같이가개`;
-      const description = place.address
-        ? `${place.address} · 반려동물과 함께 갈 수 있는 곳 — 같이가개에서 상세정보를 확인하세요.`
-        : "반려동물과 함께 갈 수 있는 곳 — 같이가개에서 상세정보를 확인하세요.";
-      const image = place.image_url || DEFAULT_IMAGE;
-
-      return {
+  if (meta) {
+    const title = `${meta.name} | 같이가개`;
+    const description = placeShareDescription(meta);
+    const image = placeShareImage(meta);
+    return {
+      title,
+      description,
+      alternates: { canonical: `${siteUrl}/place/${meta.id}` },
+      openGraph: {
         title,
         description,
-        openGraph: {
-          title,
-          description,
-          url: `${siteUrl}/place/${placeId}`,
-          siteName: "같이가개",
-          images: [{ url: image, alt: place.name }],
-          locale: "ko_KR",
-          type: "article",
-        },
-        twitter: {
-          card: "summary_large_image",
-          title,
-          description,
-          images: [image],
-        },
-      };
-    }
+        url: `${siteUrl}/place/${meta.id}`,
+        siteName: "같이가개",
+        images: [{ url: image, alt: meta.name, ...(meta.photo ? {} : { width: 1200, height: 630 }) }],
+        locale: "ko_KR",
+        type: "article",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [image],
+      },
+    };
   }
 
   return {

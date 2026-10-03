@@ -12,9 +12,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { desertionNo } = await params;
   const n = await fetchShelterNoticeDetail(desertionNo);
   if (!n) return { title: "보호동물 공고 | 같이가개" };
+  const title = `${n.breed || n.kind || "보호동물"} · ${n.careName} | 같이가개`;
+  const description = `${n.noticeNumber} — ${n.careName}에서 새 가족을 기다리고 있어요.`;
+  // 카카오톡 등에 공유하면 동물 사진이 카드로 보이게 합니다(사진이 없으면 사이트 기본 카드).
+  const image = n.images[0] || "/api/og";
   return {
-    title: `${n.breed || n.kind || "보호동물"} · ${n.careName} | 같이가개`,
-    description: `${n.noticeNumber} — ${n.careName}에서 새 가족을 기다리고 있어요.`,
+    title,
+    description,
+    openGraph: { title, description, images: [{ url: image, alt: n.breed || "보호동물" }], locale: "ko_KR", type: "article", siteName: "같이가개" },
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 

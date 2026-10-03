@@ -48,19 +48,24 @@ export default function ModalPage() {
 
   const [placeName, setPlaceName] = useState<string>("");
   const [placeAddress, setPlaceAddress] = useState<string>("");
+  // 카카오톡 공유 카드에 쓸 실제 장소 사진(https만, 기본 이미지는 제외) — 없으면 서버가 그린 장소 카드를 씁니다.
+  const [placePhoto, setPlacePhoto] = useState<string | null>(null);
+  const pickSharePhoto = (url: unknown) =>
+    setPlacePhoto(typeof url === "string" && url.startsWith("https://") ? url : null);
   useEffect(() => {
     if (!placeId) return;
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from("places")
-        .select("name, address")
+        .select("name, address, image_url")
         .eq("id", placeId)
         .single();
       if (cancelled) return;
       if (data?.name) {
         setPlaceName(data.name);
         setPlaceAddress(data.address || "");
+        pickSharePhoto(data.image_url);
         return;
       }
       // ⚠ 관광공사·문화정보원·식품안전나라 공공데이터 출처 장소는 `places` 테이블에
@@ -73,6 +78,7 @@ export default function ModalPage() {
       if (found) {
         setPlaceName(found.name || "");
         setPlaceAddress(found.address || "");
+        pickSharePhoto(found.image_url);
       }
     })();
     return () => { cancelled = true; };
@@ -192,14 +198,15 @@ export default function ModalPage() {
       content: {
         title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
         description: placeName
-          ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 같이가개에서 확인해보세요.`
-          : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",  // ← 변경
-        imageUrl: `${window.location.origin}/icons/header_logo_final.png`,
+          ? `${placeAddress ? placeAddress + " · " : ""}반려동물과 함께 갈 수 있는 곳이에요.`
+          : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
+        imageUrl: placePhoto ?? `${window.location.origin}/api/og/place/${placeId}`,
         link: {
           mobileWebUrl: shareUrl,
           webUrl: shareUrl,
         },
       },
+      buttons: [{ title: "장소 보기", link: { mobileWebUrl: shareUrl, webUrl: shareUrl } }],
     });
     setShowShareModal(false);
   };
