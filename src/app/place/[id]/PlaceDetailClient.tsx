@@ -168,6 +168,23 @@ function MultilineText({ text }: { text: string | null | undefined }) {
   );
 }
 
+// 공원 시설 메모("운동시설: 축구장+야구장 · 편익시설: 매점")를 종류별 항목 목록으로 나눕니다.
+const PARK_FACILITY_TONE: Record<string, { bg: string; color: string }> = {
+  "운동": { bg: "#E8F1FF", color: "#2563eb" },
+  "유희": { bg: "#FFF1E0", color: "#C2590A" },
+  "편익": { bg: "#E6F4EA", color: "#2F7D46" },
+  "교양": { bg: "#F1EAFE", color: "#6D28D9" },
+  "기타": { bg: "#F0F1F3", color: "#666" },
+};
+function parseParkFacilities(note: string): { label: string; items: string[] }[] {
+  return note.split(" · ").map((line) => {
+    const colon = line.indexOf(":");
+    const rawLabel = colon >= 0 ? line.slice(0, colon).trim() : "기타";
+    const items = (colon >= 0 ? line.slice(colon + 1) : line).split(/[+,]/).map((v) => v.trim()).filter(Boolean);
+    return { label: rawLabel.replace(/시설$/, "") || "기타", items };
+  }).filter((group) => group.items.length > 0);
+}
+
 export default function PlaceDetail({
   onAdminMenu,
 }: {
@@ -1188,15 +1205,37 @@ export default function PlaceDetail({
               <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <MapPin size={10} />시설
               </div>
-              <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6 }}>
-                {place.park_facility_note
-                  ? String(place.park_facility_note).split(" · ").map((line: string, i: number) => <div key={i}>{line}</div>)
-                  : "—"}
-              </div>
+              {/* 시설 메모는 "운동시설: 축구장+야구장 · 편익시설: 매점" 형태 — 종류별로 한 줄, 항목은 낱개 칩으로 나눠 보여줍니다 */}
+              {place.park_facility_note ? (
+                <div className="ggk-body" style={{ display:"flex", flexDirection:"column", gap:"7px", marginTop:"6px" }}>
+                  {parseParkFacilities(String(place.park_facility_note)).map((group, i) => {
+                    const tone = PARK_FACILITY_TONE[group.label] ?? PARK_FACILITY_TONE["기타"];
+                    return (
+                      <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:"8px" }}>
+                        <span style={{ flexShrink:0, width:"38px", textAlign:"center", padding:"3px 0", borderRadius:"6px", background:tone.bg, color:tone.color, fontSize:"10.5px", fontWeight:800 }}>
+                          {group.label}
+                        </span>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:"4px", minWidth:0 }}>
+                          {group.items.map((item, j) => (
+                            <span key={j} style={{ padding:"3px 8px", borderRadius:"999px", background:"#f5f6f8", border:"1px solid #eceef1", color:"#333", fontSize:"11.5px", fontWeight:500 }}>
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>—</div>
+              )}
             </div>
-            <div className="ggk-body" style={{ padding:"10px 12px", fontSize:"11px", color:"#888", lineHeight:1.6 }}>
-              <PawPrint size={10} style={{ display:"inline", verticalAlign:"-1px", marginRight:"3px" }} />
-              공원에서는 목줄(2m 이내)과 배변 봉투를 꼭 챙겨 주세요. 다녀온 뒤 후기로 산책하기 좋았는지 알려 주세요!
+            <div className="ggk-body" style={{ padding:"10px 12px", fontSize:"11px", color:"#888", lineHeight:1.7, display:"flex", gap:"5px" }}>
+              <PawPrint size={11} style={{ flexShrink:0, marginTop:"3px" }} />
+              <div>
+                <div>공원에서는 목줄(2m 이내)과 배변 봉투를 꼭 챙겨 주세요.</div>
+                <div>다녀온 뒤 후기로 산책하기 좋았는지 알려 주세요!</div>
+              </div>
             </div>
           </>) : (<>
 
