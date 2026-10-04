@@ -1,6 +1,7 @@
 "use client";
 
 import PageGuide from "@/components/PageGuide";
+import { BOARDS } from "@/lib/communityBoards";
 import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -34,27 +35,6 @@ const FONT_STYLE = `
   }
 `;
 
-const BOARDS = [
-  { id: "all", label: "전체" },
-  { id: "free", label: "자유게시판" },
-  { id: "business", label: "사장님 게시판" },
-  { id: "seoul", label: "서울" },
-  { id: "gyeonggi", label: "경기" },
-  { id: "incheon", label: "인천" },
-  { id: "gangwon", label: "강원" },
-  { id: "chungbuk", label: "충북" },
-  { id: "daejeon", label: "대전" },
-  { id: "chungnam", label: "충남" },
-  { id: "gyeongbuk", label: "경북" },
-  { id: "daegu", label: "대구" },
-  { id: "ulsan", label: "울산" },
-  { id: "gyeongnam", label: "경남" },
-  { id: "busan", label: "부산" },
-  { id: "jeonbuk", label: "전북" },
-  { id: "jeonnam", label: "전남" },
-  { id: "gwangju", label: "광주" },
-  { id: "jeju", label: "제주" },
-];
 
 // 지역 드롭다운 전용 목록 — "전체"/"자유게시판"/"사장님 게시판"은 지역이 아니므로
 // 위치(index) 기반 slice 대신 id로 명시적으로 걸러냅니다. (배열 순서가 바뀌어도 안전)

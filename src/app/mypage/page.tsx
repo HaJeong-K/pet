@@ -1,6 +1,7 @@
 "use client";
 
 import PageGuide from "@/components/PageGuide";
+import { boardLabel } from "@/lib/communityBoards";
 import { MYPAGE_GUIDE_KEY, MYPAGE_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -87,7 +88,8 @@ export default function MyPage() {
   const [userProfile, setUserProfile]   = useState<any>(null);
   const [bookmarks, setBookmarks]       = useState<any[]>([]);
   const [myReviews, setMyReviews]       = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<"bookmarks"|"reviews">("bookmarks");
+  const [activeSection, setActiveSection] = useState<"bookmarks"|"posts"|"reviews">("bookmarks");
+  const [myPosts, setMyPosts]           = useState<any[]>([]); // 커뮤니티에 내가 쓴 글
   const [loading, setLoading]           = useState(true);
   // 로딩이 너무 오래 걸리면(네트워크 멈춤·인증 교착 등) 투명한 흰 화면으로 두지 않고 안내를 띄웁니다.
   const [loadStalled, setLoadStalled]   = useState(false);
@@ -118,6 +120,7 @@ export default function MyPage() {
 
   const [bookmarkPage, setBookmarkPage] = useState(1);
   const [reviewPage, setReviewPage]     = useState(1);
+  const [postPage, setPostPage]         = useState(1);
   const PAGE_SIZE = 10;
 
   const [newNickname, setNewNickname]   = useState("");
@@ -167,10 +170,18 @@ export default function MyPage() {
   const loadData = async (sess: any) => {
     setBookmarks([]);
     setMyReviews([]);
+    setMyPosts([]);
 
     const uid = sess.user.id;
 
     try {
+      // 커뮤니티에 내가 쓴 글(삭제된 글 제외) — 아래 조회들과 동시에 진행합니다.
+      const postsPromise = supabase.from("community_posts")
+        .select("id, title, content, created_at, board_id, post_type, likes, comment_count, views, image_urls")
+        .eq("author_auth_key", uid)
+        .eq("deleted", false)
+        .eq("is_admin_deleted", false)
+        .order("created_at", { ascending: false });
       const [
         { data: profile },
         { data: bookmarkReactions },
@@ -209,6 +220,7 @@ export default function MyPage() {
       ]);
       setUserProfile(profile);
       setMyCommunityComments(communityComments || []);
+      setMyPosts((await postsPromise).data || []);
 
       // 찜·댓글이 가리키는 장소 정보를 한 번에 모읍니다. 등록 장소는 places 테이블에서,
       // 공공데이터 장소(id 10억 이상 — 관광공사·공원 등)는 places에 없으므로 공공데이터 API에서
@@ -480,6 +492,9 @@ export default function MyPage() {
     ...myCommunityComments.filter(c => !c.parent_id).map(c => ({ ...c, _type: "community" as const, _subtype: "comment" as const })),
     ...myCommunityComments.filter(c => !!c.parent_id).map(c => ({ ...c, _type: "community" as const, _subtype: "reply" as const })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // 작성한 글 페이지네이션
+  const postTotalPages = Math.ceil(myPosts.length / PAGE_SIZE);
+  const pagedPosts = myPosts.slice((postPage - 1) * PAGE_SIZE, postPage * PAGE_SIZE);
   const reviewTotalPages = Math.ceil(allReviews.length / PAGE_SIZE);
   const pagedReviews = allReviews.slice((reviewPage - 1) * PAGE_SIZE, reviewPage * PAGE_SIZE);
 
@@ -708,8 +723,8 @@ export default function MyPage() {
 									padding: "0 28px",
 									boxSizing: "border-box",
 								display: "grid",
-								gridTemplateColumns: "1fr 1fr",
-								gap: 12,
+								gridTemplateColumns: "1fr 1fr 1fr",
+								gap: 10,
 							}}
 						>
 							{/* 찜한 장소 — 시안 .toggle-card 스펙: 아이콘 없이 중앙정렬, 선택 시 solid primary */}
@@ -736,6 +751,33 @@ export default function MyPage() {
                 </div>
                 <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "bookmarks" ? "white" : "#333", lineHeight: 1 }}>
                   {bookmarks.length}
+                </div>
+              </button>
+
+              {/* 작성한 글(커뮤니티) */}
+              <button
+                onClick={() => setActiveSection("posts")}
+                style={{
+                  padding: "20px 8px",
+                  borderRadius: 16,
+                  border: activeSection === "posts" ? "none" : "1px solid #e8eaed",
+                  background: activeSection === "posts" ? "#5C7A4A" : "white",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  boxShadow: activeSection === "posts" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  transition: "all 0.18s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: activeSection === "posts" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                  작성한 글
+                </div>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "posts" ? "white" : "#333", lineHeight: 1 }}>
+                  {myPosts.length}
                 </div>
               </button>
 
@@ -920,6 +962,71 @@ export default function MyPage() {
             <Pagination page={bookmarkPage} total={bookmarkTotalPages} onChange={p => { setBookmarkPage(p); }} />
 
 						{/* ── 작성한 댓글 */}
+            {/* ── 작성한 글(커뮤니티) */}
+            {activeSection === "posts" && (
+              <>
+                {myPosts.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "56px 0" }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 18, background: "#f0f2f5",
+                      display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
+                    }}>
+                      <PetIllustration variant="empty" width={40} />
+                    </div>
+                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                      아직 작성한 글이 없어요
+                    </div>
+                    <button
+                      onClick={() => router.push("/community/write")}
+                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      커뮤니티에 글 쓰기
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {pagedPosts.map((post) => (
+                      <div
+                        key={post.id}
+                        className="card-hover"
+                        onClick={() => router.push(`/community/post/${post.id}`)}
+                        style={{
+                          marginBottom: 12, padding: "13px 15px", cursor: "pointer",
+                          background: "white", borderRadius: 18, border: "1px solid #e8eaed",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}>
+                            {boardLabel(post.board_id)}
+                          </span>
+                          {post.post_type && (
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#888" }}>[{post.post_type}]</span>
+                          )}
+                          <span style={{ marginLeft: "auto", fontSize: 10, color: "#bbb" }}>{formatDate(post.created_at)}</span>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {post.title}
+                        </div>
+                        {post.content && (
+                          <div style={{ marginTop: 4, fontSize: 12.5, color: "#777", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>
+                            {post.content}
+                          </div>
+                        )}
+                        <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 11, color: "#aaa" }}>
+                          <span>좋아요 {post.likes ?? 0}</span>
+                          <span>댓글 {post.comment_count ?? 0}</span>
+                          <span>조회 {post.views ?? 0}</span>
+                          {Array.isArray(post.image_urls) && post.image_urls.length > 0 && <span>사진 {post.image_urls.length}</span>}
+                        </div>
+                      </div>
+                    ))}
+                    <Pagination page={postPage} total={postTotalPages} onChange={(p) => setPostPage(p)} />
+                  </>
+                )}
+              </>
+            )}
+
             {activeSection === "reviews" && (
               <>
                 {allReviews.length === 0 ? (
