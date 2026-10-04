@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { rebuildPublicDataSnapshot } from "@/lib/publicDataAggregate";
+import { enrichTourDetails } from "@/lib/server/tourDetails";
+import { fetchTourTargets } from "@/app/api/public-data/tour/route";
 import { syncParks } from "@/lib/server/parksSync";
 import { runClosureCheck } from "@/lib/server/closureCheck";
 import { runDataQualityCheck } from "@/lib/server/dataQuality";
@@ -21,12 +23,16 @@ import { notifyAdmin } from "@/lib/server/notify";
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(public-data | parks | closure | quality | shelter-push | cleanup | digest).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(tour-details | public-data | parks | closure | quality | shelter-push | cleanup | digest).
+// tour-details는 ?ms=240000 처럼 받을 시간을 늘려 수동으로 여러 번 돌려 빨리 채울 수도 있습니다.
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 const CLIENT_ERROR_RETENTION_DAYS = 90;
+/** 매일 새벽 관광공사 상세를 받는 데 쓰는 시간(다른 작업 시간을 남겨 둠) / 수동 실행 시 상한 */
+const TOUR_DETAILS_MS = 120_000;
+const TOUR_DETAILS_MAX_MS_LIMIT = 270_000;
 
 type JobResult = { ok: boolean; ms: number; detail?: unknown; error?: string; skipped?: string };
 
@@ -90,6 +96,13 @@ export async function GET(req: NextRequest) {
   const kstDay = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDay();
   const results: Record<string, JobResult> = {};
 
+  // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.
+  // 목록 갱신(public-data)보다 먼저 돌려서, 오늘 받은 상세가 바로 오늘 스냅샷에 들어가게 합니다.
+  if (want("tour-details")) {
+    const requested = Number(req.nextUrl.searchParams.get("ms"));
+    const maxMs = Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested > 0 ? requested : TOUR_DETAILS_MS);
+    results.tourDetails = await runJob(async () => enrichTourDetails(await fetchTourTargets(), maxMs));
+  }
   if (want("public-data")) results.publicData = await runJob(() => rebuildPublicDataSnapshot());
   if (want("parks")) {
     results.parks = only === "parks" || kstDay === 0

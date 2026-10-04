@@ -27,6 +27,9 @@ import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
 import { parkToPlace } from "@/lib/parkPlace";
+import DemoNoticeModal, { shouldShowDemoNotice } from "@/components/DemoNoticeModal";
+import PageGuide from "@/components/PageGuide";
+import { MAP_GUIDE_KEY, MAP_GUIDE_STEPS } from "@/lib/pageGuides";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -475,29 +478,14 @@ export default function KakaoMap() {
   const showListPanel = !isNarrowScreen || (!showRecentPanel && !showRecommendPanel && !showRoutePanel);
   void showListPanelMobile;
 
-  // ── 액션 버튼 첫 방문 안내 투어 ──
-  // 신규 장소/추천 장소/AI 코스/사장님 등록/제보하기 버튼을 텍스트 없이 아이콘만
-  // 남기면서(화면이 좁을 때 자꾸 줄바꿈되던 문제 해결), 처음 보는 사용자는 아이콘
-  // 뜻을 알기 어려워질 수 있습니다. 그래서 처음 방문했을 때만(로컬스토리지 체크)
-  // 각 아이콘을 순서대로 짚어주는 짧은 안내를 보여주고, 한 번 보거나 건너뛰면
-  // 다시 뜨지 않습니다. 마우스를 올렸을 때도 각 버튼의 title 속성으로 이름이 뜹니다.
-  const ACTION_TOUR_STORAGE_KEY = "ggk_action_tour_seen_v1";
+  // ── 첫 방문 안내 ── 화면의 버튼·영역을 하나씩 짚어 주는 안내는 공용 PageGuide가 맡습니다
+  // (문구: src/lib/pageGuides.ts). 아이콘만 있는 버튼이 많아서 처음 온 사용자에게 한 번 보여 줍니다.
   const recentBtnRef = useRef<HTMLButtonElement>(null);
   const recommendBtnRef = useRef<HTMLButtonElement>(null);
   const routeBtnRef = useRef<HTMLButtonElement>(null);
   const ownerBtnRef = useRef<HTMLButtonElement>(null);
   const jeboBtnRef = useRef<HTMLButtonElement>(null);
   const mobileMenuBtnRef = useRef<HTMLButtonElement>(null);
-  // 휴대폰에서는 아이콘 5개 대신 메뉴 버튼 하나만 있어서, 안내도 그 버튼 하나만 짚습니다.
-  const ACTION_TOUR_STEPS = isNarrowScreen
-    ? [{ ref: mobileMenuBtnRef, text: "신규 장소·추천·AI 코스·사장님 등록·제보하기는 이 메뉴에 모여 있어요." }]
-    : [
-        { ref: recentBtnRef, text: "새로 등록된 장소를 모아 보여줘요." },
-        { ref: recommendBtnRef, text: "취향에 맞는 장소를 AI가 추천해드려요." },
-        { ref: routeBtnRef, text: "AI가 산책하기 좋은 코스를 짜드려요." },
-        { ref: ownerBtnRef, text: "사장님이시라면 여기서 업장을 등록하세요." },
-        { ref: jeboBtnRef, text: "새로운 장소나 정보를 제보할 수 있어요." },
-      ];
   // 휴대폰 전용 기능 메뉴(아래에서 올라오는 시트)
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   // 기능 메뉴 시트를 손가락으로 아래로 끌어 닫기(지도 앱·OS 공통 동작)
@@ -517,40 +505,13 @@ export default function KakaoMap() {
     if (menuDragY > 70) setShowMobileMenu(false);
     setMenuDragY(0);
   };
-  const [tourStep, setTourStep] = useState<number | null>(null);
-  const [tourRect, setTourRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-
+  // 첫 접속 안내 팝업(데모 버전·의견 요청). 팝업이 떠 있는 동안에는 화면 안내를 미루고, 닫으면 이어서 시작합니다.
+  const [showDemoNotice, setShowDemoNotice] = useState(false);
+  const [demoNoticeChecked, setDemoNoticeChecked] = useState(false);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (localStorage.getItem(ACTION_TOUR_STORAGE_KEY)) return;
-    setTourStep(0);
+    if (shouldShowDemoNotice()) setShowDemoNotice(true);
+    setDemoNoticeChecked(true);
   }, []);
-
-  useEffect(() => {
-    if (tourStep === null) { setTourRect(null); return; }
-    const step = ACTION_TOUR_STEPS[tourStep];
-    if (!step) { setTourStep(null); return; }
-    const measure = () => {
-      const el = step.ref.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setTourRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tourStep, isNarrowScreen]);
-
-  const endActionTour = () => {
-    if (typeof window !== "undefined") localStorage.setItem(ACTION_TOUR_STORAGE_KEY, "1");
-    setTourStep(null);
-  };
-  const advanceActionTour = () => {
-    if (tourStep === null) return;
-    if (tourStep >= ACTION_TOUR_STEPS.length - 1) endActionTour();
-    else setTourStep(tourStep + 1);
-  };
 
   // ── 리스트 패널 좌/우 도킹 (웹 전용): 좁은 화면에서는 지도 위에 다른 패널과 겹칠 자리가
   // 없어서 의미가 없으므로 무시하고 항상 좌측 취급합니다. 넓은 화면에서 사용자가 우측으로
@@ -3192,6 +3153,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div
                 className="ggk-chip-row"
+                data-guide="filters-mobile"
                 style={{
                   display: "flex", gap: 6, overflowX: "auto", overflowY: "hidden",
                   margin: "0 -10px", padding: "0 10px 2px", scrollbarWidth: "none",
@@ -3290,7 +3252,7 @@ const courseMeta = (route: RouteResult) => ({
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+            <div data-guide="filters" style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
               <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
               <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
               <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
@@ -3561,66 +3523,7 @@ const courseMeta = (route: RouteResult) => ({
       )}
 
       {/* ── 액션 버튼 첫 방문 안내 투어: position:fixed라 트리 안 위치는 상관없습니다. ── */}
-      {tourStep !== null && tourRect && (
-        <>
-          <div onClick={endActionTour} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.5)" }} />
-          <div
-            style={{
-              position: "fixed",
-              top: tourRect.top - 4,
-              left: tourRect.left - 4,
-              width: tourRect.width + 8,
-              height: tourRect.height + 8,
-              borderRadius: 10,
-              boxShadow: "0 0 0 3px white, 0 0 0 5px #3a7438",
-              zIndex: 2001,
-              pointerEvents: "none",
-              transition: "top 0.2s ease, left 0.2s ease",
-            }}
-          />
-          <div
-            className="ggk-body"
-            style={{
-              position: "fixed",
-              top: tourRect.top + tourRect.height + 12,
-              left: Math.max(12, Math.min(tourRect.left, (typeof window !== "undefined" ? window.innerWidth : 400) - 222)),
-              width: 210,
-              zIndex: 2002,
-              background: "white",
-              borderRadius: 12,
-              padding: "12px 14px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.22)",
-              transition: "top 0.2s ease, left 0.2s ease",
-            }}
-          >
-            <div style={{ fontSize: 12, color: "#333", lineHeight: 1.5, marginBottom: 10 }}>
-              {ACTION_TOUR_STEPS[tourStep].text}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <button
-                onClick={endActionTour}
-                style={{ border: "none", background: "transparent", color: "#999", fontSize: 11, cursor: "pointer", padding: 0, fontFamily: "'Noto Sans KR', sans-serif" }}
-              >
-                건너뛰기
-              </button>
-              <div style={{ display: "flex", gap: 4 }}>
-                {ACTION_TOUR_STEPS.map((_, i) => (
-                  <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === tourStep ? "#3a7438" : "#ddd" }} />
-                ))}
-              </div>
-              <button
-                onClick={advanceActionTour}
-                style={{
-                  border: "none", background: "#3a7438", color: "white", fontSize: 11, fontWeight: 700,
-                  padding: "5px 10px", borderRadius: 6, cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
-                }}
-              >
-                {tourStep >= ACTION_TOUR_STEPS.length - 1 ? "완료" : "다음"}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <PageGuide storageKey={MAP_GUIDE_KEY} steps={MAP_GUIDE_STEPS} enabled={demoNoticeChecked && !showDemoNotice} />
 
       {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
           좁은 화면에서는 헤더의 "목록" 토글을 켰을 때만 보이고, 폭도 clamp()로 화면 크기에
@@ -3631,6 +3534,7 @@ const courseMeta = (route: RouteResult) => ({
           그 위에 고정 노출 섹션을 얹었습니다. */}
       {showListPanel && (
       <div
+        data-guide={isNarrowScreen ? undefined : "list-panel"}
         className="ggk-body"
         style={{
           position: "fixed",
@@ -4781,6 +4685,10 @@ const courseMeta = (route: RouteResult) => ({
             </div>
           )}
         </div>
+      )}
+
+      {showDemoNotice && (
+        <DemoNoticeModal onClose={() => setShowDemoNotice(false)} />
       )}
 
       {/* ── 공유 모달 */}

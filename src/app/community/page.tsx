@@ -1,5 +1,7 @@
 "use client";
 
+import PageGuide from "@/components/PageGuide";
+import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -266,6 +268,7 @@ export default function CommunityPage() {
   return (
     <>
       <style>{FONT_STYLE}</style>
+      <PageGuide storageKey={COMMUNITY_GUIDE_KEY} steps={COMMUNITY_GUIDE_STEPS} />
 
       {/* ── 전체 래퍼: grid로 [여백칼럼(1fr)] [본문(최대 1200px)] [여백칼럼(1fr)] 3단 구성 ──
           좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
@@ -323,6 +326,7 @@ export default function CommunityPage() {
           {/* 게시판 탭: 전체/자유게시판은 바로 노출, 17개 지역은 드롭다운으로 정리해
               한 화면에 다 펼쳐놓았을 때 생기던 시각적 잡음을 줄였습니다. */}
           <div
+            data-guide="community-boards"
             style={{
               background: "white",
               borderBottom: "1px solid #eee",

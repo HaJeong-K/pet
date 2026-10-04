@@ -428,6 +428,7 @@ export default function ModalPage() {
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => setShowMenu((v) => !v)}
+                  data-guide="place-menu"
                   title="더 보기"
                   style={{
                     width: 34, height: 34, border: "none",

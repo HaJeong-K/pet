@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, PawPrint } from "lucide-react";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "@/components/ShelterNoticeCard";
 import { useUserRegion } from "@/lib/useUserRegion";
 import ShelterAlertToggle from "@/components/ShelterAlertToggle";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
+import PageGuide from "@/components/PageGuide";
+import { ADOPT_GUIDE_KEY, ADOPT_GUIDE_STEPS } from "@/lib/pageGuides";
 
 // ── 전국 보호소 공고 전체보기 ──
 // 예전에는 이 버튼이 animal.go.kr의 검색결과 페이지로 직접 딥링크됐는데, 그 사이트가
@@ -23,6 +25,14 @@ const SIDO_LIST = [
 // 시·도를 고르면 그 안의 시·군·구까지 고를 수 있게, 지역을 골랐을 때는 공고를 넉넉히 받아옵니다.
 const REGION_FETCH_LIMIT = 300;
 const NATIONWIDE_FETCH_LIMIT = 60;
+// 한 화면에 보여 줄 카드 수 — 너무 길게 늘어지지 않도록 페이지를 나눕니다.
+const PAGE_SIZE = 20;
+
+const pagerBtn = (active: boolean, disabled = false): React.CSSProperties => ({
+  minWidth: 34, height: 34, padding: "0 10px", borderRadius: 10, border: active ? "none" : "1px solid #e3e0d6",
+  background: active ? "#5C7A4A" : "white", color: active ? "white" : disabled ? "#ccc" : "#555",
+  fontWeight: 700, fontSize: 12.5, cursor: disabled ? "default" : "pointer",
+});
 
 const chipStyle = (active: boolean, small = false): React.CSSProperties => ({
   flexShrink: 0, padding: small ? "5px 11px" : "7px 14px", borderRadius: 999,
@@ -40,6 +50,8 @@ export default function ShelterNoticesPage() {
   const adoptPhrase = useAdoptPhrases();
   const [sido, setSido] = useState<string>("");
   const [sub, setSub] = useState<string>(""); // 시·군·구(선택한 시·도 안에서)
+  const [page, setPage] = useState(1);
+  const pageTopRef = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +99,21 @@ export default function ShelterNoticesPage() {
   // 고른 시·군·구가 새로 받은 목록에 없으면(지역을 바꿨거나 공고가 마감됨) 전체로 보여줍니다.
   const activeSub = sub && subRegions.some(([name]) => name === sub) ? sub : "";
   const visibleNotices = activeSub ? notices.filter((n) => n.subRegion === activeSub) : notices;
-  const selectSido = (next: string) => { setSido(next); setSub(""); };
+  const selectSido = (next: string) => { setSido(next); setSub(""); setPage(1); };
+  const selectSub = (next: string) => { setSub(next); setPage(1); };
+
+  const totalPages = Math.max(1, Math.ceil(visibleNotices.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageNotices = visibleNotices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const goPage = (next: number) => {
+    setPage(Math.max(1, Math.min(totalPages, next)));
+    pageTopRef.current?.scrollIntoView({ block: "start" }); // 다음 페이지 첫 카드부터 보이게
+  };
+  // 페이지 번호는 현재 페이지 주변 5개까지만 보여줍니다.
+  const pageNumbers = (() => {
+    const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+    return Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i);
+  })();
 
   return (
     <div
@@ -98,6 +124,8 @@ export default function ShelterNoticesPage() {
         background: "#F7F3E8", alignItems: "center",
       }}
     >
+      {/* 공고가 다 뜬 뒤에 안내를 시작합니다(카드를 짚는 단계가 있어서) */}
+      <PageGuide storageKey={ADOPT_GUIDE_KEY} steps={ADOPT_GUIDE_STEPS} enabled={!loading} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column" }}>
         {/* ── 상단바 ── */}
         <div style={{
@@ -125,8 +153,8 @@ export default function ShelterNoticesPage() {
             국가동물보호정보시스템(animal.go.kr) 공고를 마감이 임박한 순서로 보여드려요.
             시·도를 고르면 그 아래에서 시·군·구까지 골라 볼 수 있고, 선택하지 않으면 전국 공고를 볼 수 있어요.
           </p>
-          <ShelterAlertToggle region={sido} />
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+          <div data-guide="adopt-alert"><ShelterAlertToggle region={sido} /></div>
+          <div data-guide="adopt-regions" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
             <button
               onClick={() => selectSido("")}
               style={chipStyle(sido === "")}
@@ -147,9 +175,9 @@ export default function ShelterNoticesPage() {
           {sido && !loading && subRegions.length > 1 && (
             <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 4px", alignItems: "center" }}>
               <span style={{ flexShrink: 0, fontSize: 11, color: "#999", fontWeight: 700, marginRight: 2 }}>{sido}</span>
-              <button onClick={() => setSub("")} style={chipStyle(activeSub === "", true)}>전체 {notices.length}</button>
+              <button onClick={() => selectSub("")} style={chipStyle(activeSub === "", true)}>전체 {notices.length}</button>
               {subRegions.map(([name, count]) => (
-                <button key={name} onClick={() => setSub(name)} style={chipStyle(activeSub === name, true)}>
+                <button key={name} onClick={() => selectSub(name)} style={chipStyle(activeSub === name, true)}>
                   {name} {count}
                 </button>
               ))}
@@ -158,7 +186,7 @@ export default function ShelterNoticesPage() {
         </div>
 
         {/* ── 공고 카드 그리드 ── */}
-        <div style={{ padding: "16px 20px 60px" }}>
+        <div ref={pageTopRef} style={{ padding: "16px 20px 110px", scrollMarginTop: 70 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}>
               공고를 불러오는 중...
@@ -173,21 +201,32 @@ export default function ShelterNoticesPage() {
                 {sido ? `${sido} 지역에 진행 중인 공고가 없습니다.` : "현재 진행 중인 공고가 없습니다."}
               </div>
             </div>
-          ) : (
-            <div style={{
+          ) : (<>
+            <div data-guide="adopt-list" style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
               gap: 14,
             }}>
-              {visibleNotices.map((n, i) => (
+              {pageNotices.map((n, i) => (
                 // ⚠ 카드는 flex:1로 부모 높이를 채우게 만들어져 있어(사이드 레일용), 부모가 flex 칸이어야 합니다.
                 // 예전엔 일반 블록이라 카드가 제목 줄 높이로 찌그러져 사진이 보이지 않았습니다.
                 <div key={n.desertionNo} style={{ height: 230, display: "flex", flexDirection: "column" }}>
-                  <ShelterNoticeCard notice={n} phrase={adoptPhrase(i)} />
+                  <ShelterNoticeCard notice={n} phrase={adoptPhrase((currentPage - 1) * PAGE_SIZE + i)} />
                 </div>
               ))}
             </div>
-          )}
+            {/* ── 페이지 이동 ── */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, marginTop: 22, flexWrap: "wrap" }}>
+                <button onClick={() => goPage(currentPage - 1)} disabled={currentPage === 1} style={pagerBtn(false, currentPage === 1)}>이전</button>
+                {pageNumbers.map((n) => (
+                  <button key={n} onClick={() => goPage(n)} aria-current={n === currentPage ? "page" : undefined} style={pagerBtn(n === currentPage)}>{n}</button>
+                ))}
+                <button onClick={() => goPage(currentPage + 1)} disabled={currentPage === totalPages} style={pagerBtn(false, currentPage === totalPages)}>다음</button>
+                <span style={{ fontSize: 11.5, color: "#999", marginLeft: 4 }}>{currentPage} / {totalPages}쪽 · 총 {visibleNotices.length}건</span>
+              </div>
+            )}
+          </>)}
         </div>
       </div>
     </div>

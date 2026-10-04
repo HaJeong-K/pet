@@ -1,5 +1,7 @@
 "use client";
 
+import PageGuide from "@/components/PageGuide";
+import { MYPAGE_GUIDE_KEY, MYPAGE_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toHttps } from "@/lib/imageUrl";
@@ -483,6 +485,8 @@ export default function MyPage() {
 
   return (
     <>
+      {/* 로그인해서 내 정보가 다 뜬 뒤에 안내를 시작합니다 */}
+      <PageGuide storageKey={MYPAGE_GUIDE_KEY} steps={MYPAGE_GUIDE_STEPS} enabled={!loading} />
       <style>{`
         * { box-sizing: border-box; }
         .card-hover { transition: box-shadow 0.15s, transform 0.15s; }
@@ -673,6 +677,7 @@ export default function MyPage() {
 
 							{/* 설정 버튼 */}
 							<button
+								data-guide="mypage-settings"
 								onClick={() => setShowSettings(true)}
 								style={{
 									width: "32px",
@@ -696,6 +701,7 @@ export default function MyPage() {
 					<div style={{ flexShrink: 0 }}>
 						{/* ── 통계 카드 */}
 						<div
+							data-guide="mypage-tabs"
 							style={{
 								margin: "20px auto",
 									maxWidth: "760px",

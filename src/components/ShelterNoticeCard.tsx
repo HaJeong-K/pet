@@ -52,16 +52,21 @@ export default function ShelterNoticeCard({
         title={`${notice.noticeNumber} 자세히 보기 · 입양/임보 문의`}
       >
         {/* 상단 타이틀 바 — 이미지 출력 영역을 살짝 줄이고 그 자리에 문구를 표시합니다 */}
+        {/* 입양 문구 — 아이가 직접 쓴 쪽지처럼 보이도록 손글씨 폰트(Gaegu)로, 가운데 정렬 */}
         <div
-          className="ggk-logo"
           style={{
             flexShrink: 0,
-            background: "#5C7A4A",
-            color: "white",
-            fontSize: 14.5,
-            fontWeight: 800,
-            padding: "7px 10px",
-            lineHeight: 1.25,
+            // 초록 대신 따뜻한 살구·크림색 바탕에 갈색 글씨(손편지 느낌)
+            background: "linear-gradient(180deg, #FFF3DF, #FFE6C7)",
+            color: "#7A4A26",
+            borderBottom: "1px solid #F3D3A6",
+            fontFamily: "'Gaegu', 'Pretendard', sans-serif",
+            fontSize: 19,
+            fontWeight: 700,
+            textAlign: "center",
+            letterSpacing: "0.2px",
+            padding: "6px 10px 5px",
+            lineHeight: 1.2,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",

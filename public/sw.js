@@ -12,8 +12,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
-      icon: "/icons/header_logo_final.png",
-      badge: "/icons/header_logo_final.png",
+      icon: "/icon.png",
+      badge: "/icon.png",
       image: data.image || undefined,
       tag: data.tag || "ggk",          // 같은 종류 알림은 쌓이지 않고 최신 것으로 바뀝니다
       data: { url: data.url || "/" },

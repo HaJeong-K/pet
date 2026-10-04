@@ -96,6 +96,7 @@ export default function TabBar() {
       `}</style>
 
       <div
+        data-guide="tabbar"
         style={{
           position: "fixed",
           bottom: "20px",

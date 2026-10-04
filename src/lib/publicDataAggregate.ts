@@ -239,6 +239,7 @@ async function buildFromSources(): Promise<any[]> {
       pet_zone: item.pet_zone ?? "both",
       hours: item.hours ?? null,
       large_dog: item.large_dog ?? null,
+      treatable_animals: item.treatable_animals ?? null,
       phone: item.phone ?? null,
       memo: item.memo ?? null,
       website: item.website ?? null,

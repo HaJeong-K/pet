@@ -23,6 +23,8 @@ import { openKakaoWalkFromHere, openNaverWalk, primeCurrentLocation, type Direct
 import { useParams, useRouter } from "next/navigation";
 import { randomId } from "@/lib/randomId";
 import { isParkPlaceId } from "@/lib/parkPlace";
+import PageGuide from "@/components/PageGuide";
+import { PLACE_GUIDE_KEY, PLACE_GUIDE_STEPS } from "@/lib/pageGuides";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   Shuffle, MapPin, Clock, PawPrint, Plus, Navigation,
@@ -1001,6 +1003,7 @@ export default function PlaceDetail({
   return (
     <>
       <style>{FONT_STYLE}</style>
+      <PageGuide storageKey={PLACE_GUIDE_KEY} steps={PLACE_GUIDE_STEPS} />
 
       <div
         ref={scrollRef}
@@ -1064,7 +1067,7 @@ export default function PlaceDetail({
         {affinity && (() => {
           const tier = getAffinityTier(affinity.total);
           return (
-            <div style={{
+            <div data-guide="place-score" style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "10px 12px", borderRadius: 12, marginBottom: 10,
               background: AFFINITY_TIER_BG[tier],
@@ -1274,7 +1277,7 @@ export default function PlaceDetail({
                 <Dog size={10} />대형견 가능 여부
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.large_dog ? "가능" : "불가"}
+                {place.large_dog == null ? "—" : place.large_dog ? "가능" : "불가"}
               </div>
             </div>
           </div>
@@ -1402,7 +1405,7 @@ export default function PlaceDetail({
         </div>
 
         {/* 찜/추천/비추천/네이버 */}
-        <div style={{ marginTop:"12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px" }}>
+        <div data-guide="place-actions" style={{ marginTop:"12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px" }}>
           <button onClick={handleBookmark} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${bookmarked?"#ff3040":"#e2e4e8"}`, background:bookmarked?"#fff0f2":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
             <Heart size={14} fill={bookmarked?"#ff3040":"none"} color={bookmarked?"#ff3040":"#666"} />
             <span style={{ fontSize:"12px", fontWeight:600, color:bookmarked?"#ff3040":"#555" }}>찜 {bookmarkCount}</span>
