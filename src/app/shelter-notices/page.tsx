@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, PawPrint } from "lucide-react";
+import { ArrowLeft, PawPrint, MapPin } from "lucide-react";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "@/components/ShelterNoticeCard";
-import { useUserRegion } from "@/lib/useUserRegion";
+import { useUserArea } from "@/lib/useUserRegion";
+import { normalizeSigungu } from "@/lib/sigungu";
 import ShelterAlertToggle from "@/components/ShelterAlertToggle";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
 import PageGuide from "@/components/PageGuide";
@@ -27,6 +28,8 @@ const REGION_FETCH_LIMIT = 300;
 const NATIONWIDE_FETCH_LIMIT = 60;
 // 한 화면에 보여 줄 카드 수 — 너무 길게 늘어지지 않도록 페이지를 나눕니다.
 const PAGE_SIZE = 20;
+/** 시·군·구 선택값 중 "내 주변"을 뜻하는 특별한 값 */
+const NEAR = "__near__";
 
 const pagerBtn = (active: boolean, disabled = false): React.CSSProperties => ({
   minWidth: 34, height: 34, padding: "0 10px", borderRadius: 10, border: active ? "none" : "1px solid #e3e0d6",
@@ -45,11 +48,15 @@ const chipStyle = (active: boolean, small = false): React.CSSProperties => ({
 
 export default function ShelterNoticesPage() {
   const router = useRouter();
-  const detectedRegion = useUserRegion();
+  const userArea = useUserArea();
+  const detectedRegion = userArea.sido;
 
   const adoptPhrase = useAdoptPhrases();
   const [sido, setSido] = useState<string>("");
-  const [sub, setSub] = useState<string>(""); // 시·군·구(선택한 시·도 안에서)
+  // 시·군·구 선택: ""=시·도 전체, NEAR="내 주변"(내 시·군·구 → 모자라면 가까운 지역), 그 외=시·군·구 이름
+  const [sub, setSub] = useState<string>("");
+  // 서버가 알려 준 "내 주변" 구성(내 지역 + 더해진 가까운 지역)
+  const [near, setNear] = useState<{ ownSub: string | null; ownCount: number; subs: string[] } | null>(null);
   const [page, setPage] = useState(1);
   const pageTopRef = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
@@ -70,6 +77,7 @@ export default function ShelterNoticesPage() {
   useEffect(() => {
     if (!initialized && detectedRegion) {
       setSido(detectedRegion);
+      setSub(NEAR); // 내 위치의 시·도이므로 "내 주변"부터 보여줍니다
       setInitialized(true);
     }
   }, [detectedRegion, initialized]);
@@ -81,13 +89,19 @@ export default function ShelterNoticesPage() {
     setLoading(true);
     const params = new URLSearchParams({ full: "1", limit: String(sido ? REGION_FETCH_LIMIT : NATIONWIDE_FETCH_LIMIT) });
     if (sido) params.set("region", sido);
+    // 내가 있는 시·도를 볼 때만 위치를 함께 보내 "내 주변" 구성을 받습니다(다른 시·도를 구경할 땐 의미가 없음).
+    if (sido && sido === userArea.sido) {
+      if (userArea.sigungu) params.set("sub", userArea.sigungu);
+      if (userArea.lat != null && userArea.lng != null) { params.set("lat", userArea.lat.toFixed(2)); params.set("lng", userArea.lng.toFixed(2)); }
+    }
     fetch(`/api/shelter-notices?${params.toString()}`)
       .then((r) => r.json())
-      .then((data) => { if (!cancelled) setNotices(data.notices || []); })
-      .catch(() => { if (!cancelled) setNotices([]); })
+      .then((data) => { if (!cancelled) { setNotices(data.notices || []); setNear(data.near ?? null); } })
+      .catch(() => { if (!cancelled) { setNotices([]); setNear(null); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [sido]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sido, userArea.sido, userArea.sigungu]);
 
   // 선택한 시·도에 실제로 공고가 있는 시·군·구 목록(공고 많은 순)
   const subRegions = useMemo(() => {
@@ -97,8 +111,22 @@ export default function ShelterNoticesPage() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"));
   }, [notices, sido]);
   // 고른 시·군·구가 새로 받은 목록에 없으면(지역을 바꿨거나 공고가 마감됨) 전체로 보여줍니다.
-  const activeSub = sub && subRegions.some(([name]) => name === sub) ? sub : "";
-  const visibleNotices = activeSub ? notices.filter((n) => n.subRegion === activeSub) : notices;
+  const nearAvailable = !!near && near.subs.length > 0;
+  const activeSub = sub === NEAR ? (nearAvailable ? NEAR : "") : sub && subRegions.some(([name]) => name === sub) ? sub : "";
+  // "내 주변": 내 지역 공고 먼저, 그다음 가까운 지역 순서(각 지역 안에서는 마감임박순 그대로)
+  const nearNotices = useMemo(() => {
+    if (!near) return [];
+    return near.subs.flatMap((name) => notices.filter((n) => normalizeSigungu(n.subRegion) === name));
+  }, [near, notices]);
+  const visibleNotices = activeSub === NEAR ? nearNotices : activeSub ? notices.filter((n) => n.subRegion === activeSub) : notices;
+  // "내 주변"에 가까운 지역이 더해졌는지 안내하는 문구
+  const nearNote = (() => {
+    if (activeSub !== NEAR || !near) return null;
+    const own = near.ownSub, others = near.subs.filter((name) => name !== own);
+    if (!own || near.ownCount === 0) return others.length > 0 ? `${own ? own + " 지역에는" : "내 지역에는"} 진행 중인 공고가 없어, 가까운 ${others.join("·")} 공고를 보여드려요.` : null;
+    if (others.length > 0) return `${own} 공고가 ${near.ownCount}건뿐이라, 가까운 ${others.join("·")} 공고도 함께 보여드려요.`;
+    return `내 위치 기준 ${own} 지역 공고예요.`;
+  })();
   const selectSido = (next: string) => { setSido(next); setSub(""); setPage(1); };
   const selectSub = (next: string) => { setSub(next); setPage(1); };
 
@@ -172,9 +200,14 @@ export default function ShelterNoticesPage() {
             ))}
           </div>
           {/* ── 시·군·구 선택(시·도를 골랐을 때만) ── */}
-          {sido && !loading && subRegions.length > 1 && (
+          {sido && !loading && (subRegions.length > 1 || nearAvailable) && (
             <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 4px", alignItems: "center" }}>
               <span style={{ flexShrink: 0, fontSize: 11, color: "#999", fontWeight: 700, marginRight: 2 }}>{sido}</span>
+              {nearAvailable && (
+                <button onClick={() => selectSub(NEAR)} style={chipStyle(activeSub === NEAR, true)}>
+                  <MapPin size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 2 }} />내 주변 {nearNotices.length}
+                </button>
+              )}
               <button onClick={() => selectSub("")} style={chipStyle(activeSub === "", true)}>전체 {notices.length}</button>
               {subRegions.map(([name, count]) => (
                 <button key={name} onClick={() => selectSub(name)} style={chipStyle(activeSub === name, true)}>
@@ -184,6 +217,12 @@ export default function ShelterNoticesPage() {
             </div>
           )}
         </div>
+
+        {nearNote && !loading && (
+          <div style={{ margin: "8px 20px 0", padding: "9px 12px", borderRadius: 10, background: "#EEF3E8", color: "#48603A", fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+            <MapPin size={12} style={{ display: "inline", verticalAlign: "-2px", marginRight: 4 }} />{nearNote}
+          </div>
+        )}
 
         {/* ── 공고 카드 그리드 ── */}
         <div ref={pageTopRef} style={{ padding: "16px 20px 110px", scrollMarginTop: 70 }}>

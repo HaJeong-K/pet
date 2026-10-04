@@ -11,13 +11,31 @@ const REGION_CACHE_AT_KEY = "user_region_sido_at";
 // 오래된 캐시 때문이었습니다. 캐시에 저장 시각을 같이 남겨서, 일정 시간이 지나면
 // (설정 없이도) 무조건 새로 조회하도록 만료시킵니다.
 const REGION_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
+// 시·군·구와 좌표(가까운 지역 공고 노출용)도 같은 만료 시간으로 함께 기억합니다.
+const AREA_CACHE_KEY = "user_region_area";
+
+export type UserArea = {
+  /** 시·도(짧은 이름, 예: "경북"). 아직 모르면 null */
+  sido: string | null;
+  /** 시·군·구(카카오 표기, 예: "포항시 남구") */
+  sigungu: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+const EMPTY_AREA: UserArea = { sido: null, sigungu: null, lat: null, lng: null };
 
 // ── 사용자 위치 기반 시/도 감지 ──
 // 카카오 좌표→행정구역 변환 API로 현재 위치의 시/도(짧은 이름, 예: "경남")를 구합니다.
 // SideAdRail(미리보기 2건)과 /shelter-notices(전체보기 페이지)에서 공통으로 씁니다.
 // 위치 조회에 실패하거나 사용자가 거부하면 null을 반환하고, 호출부는 전국 공고로 대체합니다.
-export function useUserRegion() {
-  const [region, setRegion] = useState<string | null>(null);
+export function useUserRegion(): string | null {
+  return useUserArea().sido;
+}
+
+/** 현재 위치의 시·도 + 시·군·구 + 좌표. 위치를 모르면 값이 null인 채로 둡니다. */
+export function useUserArea(): UserArea {
+  const [area, setArea] = useState<UserArea>(EMPTY_AREA);
+  const setRegion = (sido: string) => setArea((prev) => ({ ...prev, sido }));
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -26,12 +44,18 @@ export function useUserRegion() {
       const cached = localStorage.getItem(REGION_CACHE_KEY);
       const cachedAt = Number(localStorage.getItem(REGION_CACHE_AT_KEY) || 0);
       const isFresh = cached && Date.now() - cachedAt < REGION_CACHE_TTL_MS;
-      if (isFresh) setRegion(normalizeSidoName(cached));
+      if (isFresh) {
+        // 시·군·구·좌표까지 기억해 둔 게 있으면 함께 복원합니다.
+        let extra: Partial<UserArea> = {};
+        try { extra = JSON.parse(localStorage.getItem(AREA_CACHE_KEY) || "{}"); } catch { /* 깨진 값은 무시 */ }
+        setArea({ sido: normalizeSidoName(cached), sigungu: extra.sigungu ?? null, lat: extra.lat ?? null, lng: extra.lng ?? null });
+      }
       else if (cached) {
         // 만료된 캐시는 화면에 잠깐이라도 잘못된 지역을 보여주지 않도록 지웁니다 —
         // 새 위치 조회가 끝날 때까지는 null(전국) 상태로 둡니다.
         localStorage.removeItem(REGION_CACHE_KEY);
         localStorage.removeItem(REGION_CACHE_AT_KEY);
+        localStorage.removeItem(AREA_CACHE_KEY);
       }
     }
 
@@ -53,7 +77,9 @@ export function useUserRegion() {
             // 브라우저가 애초에 부정확한 좌표를 준 것인지(기기/네트워크 위치 정확도
             // 한계) 콘솔 로그만으로 바로 구분할 수 있습니다.
             console.info(`[useUserRegion] 감지된 위치: (${latitude}, ${longitude}) → "${rawName}" → "${name}"`);
-            setRegion(name);
+            const sigungu: string | null = data.result?.sigungu || null;
+            setArea({ sido: name, sigungu, lat: latitude, lng: longitude });
+            localStorage.setItem(AREA_CACHE_KEY, JSON.stringify({ sigungu, lat: latitude, lng: longitude }));
             localStorage.setItem(REGION_CACHE_KEY, name);
             localStorage.setItem(REGION_CACHE_AT_KEY, String(Date.now()));
           } else {
@@ -86,5 +112,6 @@ export function useUserRegion() {
     );
   }, []);
 
-  return region;
+  void setRegion;
+  return area;
 }

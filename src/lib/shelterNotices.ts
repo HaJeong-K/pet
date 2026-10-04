@@ -1,3 +1,4 @@
+import { pickNearbyNotices, type NearbyInput } from "@/lib/sigungu";
 // ── 국가동물보호정보시스템(animal.go.kr) 보호동물 공고 연동 ──
 //
 // 1순위: 공공데이터포털(data.go.kr)의 정식 Open API(구조동물 조회 서비스, 인증키 필요).
@@ -527,6 +528,52 @@ export async function getPrioritizedShelterNotices(
 
   const regional = sortActive(await fetchNoticePage(sidoCode));
   return regional.slice(offset, offset + limit);
+}
+
+/** 시·도 전체 공고를 넉넉히 받아야 시·군·구별로 나눌 수 있습니다. */
+const NEARBY_FETCH_SIZE = 300;
+/** 내 지역 공고가 이보다 적으면 가장 가까운 지역 공고를 더합니다. */
+export const NEARBY_MIN_NOTICES = 4;
+
+/**
+ * 위치 기반(시·군·구) 공고: 내 시·군·구 공고를 먼저, NEARBY_MIN_NOTICES건이 안 되면
+ * 같은 시·도 안에서 가장 가까운 시·군·구 공고를 차례로 더합니다.
+ * 시·도를 모르면 예전처럼 전국 마감임박순입니다.
+ */
+export async function getNearbyShelterNotices(
+  area: NearbyInput | { sido: null },
+  limit = 2,
+  offset = 0
+): Promise<{ notices: ShelterNotice[]; near: { ownSub: string | null; ownCount: number; subs: string[] } | null }> {
+  const sidoShort = area.sido ? normalizeSidoName(area.sido) : null;
+  const sidoCode = sidoShort ? SIDO_CODE_MAP[sidoShort] ?? null : null;
+  if (!sidoShort || !sidoCode) {
+    const nationwide = sortActive(await fetchNoticePage(null));
+    return { notices: nationwide.slice(offset, offset + limit), near: null };
+  }
+  const regional = sortActive(await fetchNoticePage(sidoCode, NEARBY_FETCH_SIZE));
+  const input = area as NearbyInput;
+  if (!input.sigungu && (input.lat == null || input.lng == null)) {
+    return { notices: regional.slice(offset, offset + limit), near: null };
+  }
+  // 한 화면(레일 2건 + 마이페이지 2건)에 필요한 만큼은 채워지도록 최소 건수를 잡습니다.
+  const picked = pickNearbyNotices(regional, { ...input, sido: sidoShort }, Math.max(NEARBY_MIN_NOTICES, offset + limit));
+  return {
+    notices: picked.notices.slice(offset, offset + limit),
+    near: { ownSub: picked.ownSub, ownCount: picked.ownCount, subs: picked.subs },
+  };
+}
+
+/** 전체보기 페이지용: 시·도 전체 공고 + "내 주변"에 해당하는 시·군·구 목록 */
+export async function getRegionNoticesWithNearby(
+  regionShort: string,
+  area: NearbyInput,
+  limit = 300
+): Promise<{ notices: ShelterNotice[]; near: { ownSub: string | null; ownCount: number; subs: string[] } | null }> {
+  const notices = await getRegionShelterNotices(regionShort, limit);
+  if (!area.sigungu && (area.lat == null || area.lng == null)) return { notices, near: null };
+  const picked = pickNearbyNotices(notices, { ...area, sido: normalizeSidoName(regionShort) }, NEARBY_MIN_NOTICES);
+  return { notices, near: { ownSub: picked.ownSub, ownCount: picked.ownCount, subs: picked.subs } };
 }
 
 // "전국 보호소 공고 전체보기" 전용 페이지(/shelter-notices)에서 씁니다. 사이드 레일의

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Crown } from "lucide-react";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "./ShelterNoticeCard";
-import { useUserRegion } from "@/lib/useUserRegion";
+import { useUserArea, type UserArea } from "@/lib/useUserRegion";
 import { supabase } from "@/lib/supabase";
 import { openPlaceDetail } from "@/lib/openPlace";
 
@@ -108,7 +108,12 @@ function PremiumAdCard({ place }: { place: any }) {
   );
 }
 
-function useShelterNotices(region: string | null, enabled: boolean, offset: number) {
+function useShelterNotices(area: UserArea, enabled: boolean, offset: number) {
+  const region = area.sido;
+  // 좌표는 약 1km 단위로만 보냅니다(조금 움직일 때마다 다시 불러오지 않게, 서버 캐시도 잘 맞게).
+  const lat = area.lat != null ? area.lat.toFixed(2) : "";
+  const lng = area.lng != null ? area.lng.toFixed(2) : "";
+  const sigungu = area.sigungu ?? "";
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -129,6 +134,9 @@ function useShelterNotices(region: string | null, enabled: boolean, offset: numb
     setLoaded(false);
     const params = new URLSearchParams({ limit: "2" });
     if (region) params.set("region", region);
+    // 시·군·구까지 알면 내 지역 공고 먼저, 모자라면 가까운 지역 공고를 받습니다.
+    if (region && sigungu) params.set("sub", sigungu);
+    if (region && lat && lng) { params.set("lat", lat); params.set("lng", lng); }
     if (offset) params.set("offset", String(offset));
     fetch(`/api/shelter-notices?${params.toString()}`)
       .then((r) => r.json())
@@ -136,7 +144,7 @@ function useShelterNotices(region: string | null, enabled: boolean, offset: numb
       .catch(() => { if (!ignore) setNotices([]); })
       .finally(() => { if (!ignore) setLoaded(true); });
     return () => { ignore = true; };
-  }, [region, enabled, offset]);
+  }, [region, sigungu, lat, lng, enabled, offset]);
 
   return { notices, loaded };
 }
@@ -225,9 +233,9 @@ export function AdRailRight({
   rightMode?: "shelter" | "ad";
   shelterOffset?: number;
 }) {
-  const region = useUserRegion();
+  const area = useUserArea();
   const adoptPhrase = useAdoptPhrases();
-  const { notices, loaded } = useShelterNotices(region, rightMode !== "ad", shelterOffset);
+  const { notices, loaded } = useShelterNotices(area, rightMode !== "ad", shelterOffset);
   const { places: adPlaces, loaded: adLoaded } = usePremiumAdPlaces(rightMode === "ad");
 
   if (rightMode === "ad") {
