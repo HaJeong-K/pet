@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck } from "lucide-react";
@@ -23,6 +23,9 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/** 탭 줄을 옆으로 넘겨 둔 위치 — 관리자 화면 사이를 옮겨 다녀도 유지합니다(새로고침하면 처음으로). */
+let lastScrollLeft: number | null = null;
+
 export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefresh?: () => void }) {
   const router = useRouter();
   const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number; premium: number }>({ reports: 0, tips: 0, owners: 0, premium: 0 });
@@ -40,6 +43,24 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
     fetchCounts();
   }, []);
 
+  // 탭 줄은 화면마다 새로 그려져서, 휴대폰에서 줄을 옆으로 넘긴 뒤 탭을 누르면 줄이 다시 맨 앞으로
+  // 돌아가 버렸습니다. 넘겨 둔 가로 위치를 기억했다가(lastScrollLeft) 그려지자마자 그대로 되돌려서,
+  // 다른 탭으로 옮겨도 줄이 움직이지 않게 합니다.
+  // 주소를 직접 열었을 때처럼 현재 탭이 화면 밖이면, 그 탭이 보일 만큼만 옮깁니다.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    const row = rowRef.current, btn = activeRef.current;
+    if (!row) return;
+    if (lastScrollLeft != null) row.scrollLeft = lastScrollLeft;
+    if (btn) {
+      const left = btn.offsetLeft - row.offsetLeft, right = left + btn.offsetWidth;
+      if (left < row.scrollLeft) row.scrollLeft = Math.max(0, left - 8);
+      else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth + 8;
+    }
+    lastScrollLeft = row.scrollLeft;
+  }, [active]);
+
   return (
     // 최상단 탭 영역 — 뷰포트 가로 전체(full-bleed)로 펼치고, 내부 탭 행만
     // 페이지 본문과 동일한 maxWidth 1200으로 가운데 정렬해 시각적으로 정렬을 맞춥니다.
@@ -54,10 +75,10 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
       <div
         style={{
           width: "100%", maxWidth: "1200px", boxSizing: "border-box",
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "10px 28px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "10px clamp(14px, 4vw, 28px)",
         }}
       >
-        <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+        <div ref={rowRef} onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }} style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", minWidth: 0 }}>
           {TABS.map((tab) => {
             const isActive = tab.key === active;
             const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : 0;
@@ -65,6 +86,8 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
             return (
               <button
                 key={tab.key}
+                ref={isActive ? activeRef : undefined}
+                aria-current={isActive ? "page" : undefined}
                 onClick={() => router.push(tab.href)}
                 style={{
                   display: "flex", alignItems: "center", gap: 6, flexShrink: 0,

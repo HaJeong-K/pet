@@ -126,10 +126,10 @@ export default function AdminKpi() {
           <TrendingUp size={18} color="#5C7A4A" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>성과 지표</div>
           <span style={{ fontSize: 12, color: "#888" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {[6, 12, 24].map((m) => (
               <button key={m} onClick={() => setMonths(m)} style={{
-                padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
+                padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
                 background: months === m ? "#5C7A4A" : "white", color: months === m ? "white" : "#555",
               }}>
                 최근 {m}개월
@@ -137,7 +137,7 @@ export default function AdminKpi() {
             ))}
             <button onClick={downloadCsv} disabled={monthly.length === 0} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 999,
-              border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700,
+              border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
               cursor: monthly.length === 0 ? "default" : "pointer",
             }}>
               <Download size={13} /> 엑셀(CSV) 내려받기
