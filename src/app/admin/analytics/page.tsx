@@ -177,7 +177,7 @@ export default function AdminAnalytics() {
         {/* ⚠ 막대그래프에 말풍선(툴팁)이 뜰 때 컨텐츠 높이가 살짝 바뀌면서
             overflowY:"auto"가 스크롤바를 나타났다 사라지게 해 화면이 흔들렸습니다.
             "scroll"로 고정해 스크롤바 자리를 항상 확보해둡니다. */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: "scroll", padding: "24px 28px 60px", scrollbarWidth: "thin" as any }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "scroll", padding: "24px clamp(14px, 4vw, 28px) 120px", scrollbarWidth: "thin" as any }}>
           {error && (
             <div style={{ padding: 14, borderRadius: 12, background: "#fff1f1", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>
               {error}
@@ -191,7 +191,7 @@ export default function AdminAnalytics() {
           {data && (
             <>
               {/* 핵심 지표 카드 — 항상 한 줄(6칸)로 출력 */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 24 }}>
                 <StatCard icon={Users} label="가입 회원 수" value={data.totals.members} sub={`비회원 ${data.totals.guests}명`} />
                 <StatCard icon={TrendingUp} label="일간 이용자" value={data.totals.dau} />
                 <StatCard icon={TrendingUp} label="주간 이용자" value={data.totals.wau} />
@@ -202,28 +202,28 @@ export default function AdminAnalytics() {
 
               {/* 추이 차트 2개 — 기간 직접 선택 */}
               <div style={{
-                display: "flex", alignItems: "center", gap: 8, marginBottom: 12,
+                display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap",
                 background: "white", borderRadius: 12, border: "1px solid rgba(0,0,0,0.06)", padding: "10px 14px",
               }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#888" }}>추이 조회 기간</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#888", whiteSpace: "nowrap" }}>추이 조회 기간</span>
                 <input type="date" value={trendFrom} max={trendTo} onChange={(e) => setTrendFrom(e.target.value)} style={dateInputStyle} />
                 <span style={{ color: "#ccc" }}>~</span>
                 <input type="date" value={trendTo} min={trendFrom} max={daysAgo(0)} onChange={(e) => setTrendTo(e.target.value)} style={dateInputStyle} />
                 <button onClick={applyTrendRange} style={{
                   padding: "6px 12px", borderRadius: 8, border: "none", background: "#5C7A4A", color: "white",
-                  fontSize: 11.5, fontWeight: 700, cursor: "pointer",
+                  fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   조회
                 </button>
                 <button onClick={resetTrendRange} style={{
                   display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8,
-                  border: "1px solid #ddd", background: "white", color: "#777", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  border: "1px solid #ddd", background: "white", color: "#777", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   <RotateCcw size={11} />최근 14일
                 </button>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16, marginBottom: 24 }}>
                 <div style={cardStyle}>
                   <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 14 }}>
                     일별 신규 가입자 추이 ({fmtDate(data.trendFrom)} ~ {fmtDate(data.trendTo)})
@@ -239,7 +239,7 @@ export default function AdminAnalytics() {
               </div>
 
               {/* 검색어 / 인기 장소 */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
                 <div style={cardStyle}>
                   <div className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 14 }}>
                     <Search size={14} color="#5C7A4A" /> 인기 검색어 TOP 10 (최근 30일)

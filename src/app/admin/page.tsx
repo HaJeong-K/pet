@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import AdminNav from "@/components/AdminNav";
 import KakaoTalkAlertCard from "@/components/admin/KakaoTalkAlertCard";
+import DbBackupCard from "@/components/admin/DbBackupCard";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, Flag, FileText,
@@ -109,13 +110,13 @@ export default function AdminDashboard() {
         <AdminNav active="dashboard" onRefresh={fetchStats} />
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", scrollbarWidth: "thin" }}>
-          <div style={{ width: "100%", maxWidth: "1200px", padding: "24px 28px 60px", boxSizing: "border-box" }}>
+          <div style={{ width: "100%", maxWidth: "1200px", padding: "24px clamp(14px, 4vw, 28px) 120px", boxSizing: "border-box" }}>
 
             {/* ── 웰컴 배너 — 시안 .hero 스펙: solid primaryDark, no radius ── */}
             <div style={{
               position: "relative", overflow: "hidden",
               background: "#48603A",
-              padding: "48px 40px", marginBottom: 24,
+              padding: "clamp(24px, 6vw, 48px) clamp(20px, 5vw, 40px)", marginBottom: 24,
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
             }}>
               <div>
@@ -130,9 +131,10 @@ export default function AdminDashboard() {
 
             {/* ── 카카오톡 관리자 알림 연결 ── */}
             <KakaoTalkAlertCard />
+            <DbBackupCard />
 
             {/* ── 시안 .stat-grid 스펙: 아이콘 없는 플랫 카드 (가입 회원 옆에 비가입 이용자 추가로 5개) ── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 24 }}>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/reports")}

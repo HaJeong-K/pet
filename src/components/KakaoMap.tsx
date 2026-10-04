@@ -3169,6 +3169,7 @@ const courseMeta = (route: RouteResult) => ({
                   </button>
                 ))}
                 <button
+                  data-guide="park-toggle"
                   onClick={() => setShowParks((v) => !v)}
                   aria-pressed={showParks}
                   style={{
@@ -3263,7 +3264,8 @@ const courseMeta = (route: RouteResult) => ({
                   같은 톤) — 텍스트는 "🌳 공원"으로 고정, 켜져 있으면 진한 초록으로 채워지고
                   꺼지면 옅은 외곽선만 남는 식으로 버튼 전체가 토글됩니다. */}
               <button
-                onClick={() => setShowParks((v) => !v)}
+                data-guide="park-toggle"
+                  onClick={() => setShowParks((v) => !v)}
                 aria-pressed={showParks}
                 style={{
                   padding: "4px 9px",

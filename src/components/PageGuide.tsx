@@ -84,7 +84,10 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
       return;
     }
     const r0 = el.getBoundingClientRect();
-    if (r0.top < 0 || r0.bottom > window.innerHeight) el.scrollIntoView({ block: "center" });
+    // 화면 밖에 있으면 보이는 자리로 옮깁니다 — 가로로 넘기는 줄(필터 등) 안에 숨어 있는 버튼도 포함
+    if (r0.top < 0 || r0.bottom > window.innerHeight || r0.left < 0 || r0.right > window.innerWidth) {
+      el.scrollIntoView({ block: "nearest", inline: "center" });
+    }
     const measure = () => {
       const r = el.getBoundingClientRect();
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height });

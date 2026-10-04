@@ -69,7 +69,7 @@ export default function AdminErrorsPage() {
     <div className="ggk-body" style={{ minHeight: "100vh", background: "#F7F3E8" }}>
       <AdminNav active="errors" onRefresh={fetchErrors} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 28px 60px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) 120px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
           <AlertTriangle size={18} color="#dc2626" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>

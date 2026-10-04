@@ -133,7 +133,7 @@ export default function RecommendMetricsSection() {
       )}
 
       {!message && rows && rows.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(rows.length, 2)}, minmax(0, 1fr))`, gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 330px), 1fr))", gap: 16 }}>
           {rows.map((r) => (
             <div key={r.variant} style={cardStyle}>
               <div style={{ fontSize: 12, fontWeight: 800, color: "#48603A", marginBottom: 12 }}>

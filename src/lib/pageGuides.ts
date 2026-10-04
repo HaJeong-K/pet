@@ -7,11 +7,12 @@
 
 import type { GuideStep } from "@/components/PageGuide";
 
-export const MAP_GUIDE_KEY = "ggk_guide_map_v2";
+export const MAP_GUIDE_KEY = "ggk_guide_map_v3";
 export const MAP_GUIDE_STEPS: GuideStep[] = [
   // 휴대폰: 가로로 넘기는 필터 줄 / PC: 가운데 필터 줄
   { selector: '[data-guide="filters-mobile"]', title: "필터", text: "동반 가능 범위로 골라 볼 수 있어요.\n옆으로 밀면 동물병원·동물약국·공원 필터가 더 있어요." },
   { selector: '[data-guide="filters"]', title: "필터", text: "실내·야외 동반 가능 범위와 동물병원·동물약국·공원으로 골라 볼 수 있어요." },
+  { selector: '[data-guide="park-toggle"]', title: "공원 표시", text: "공원은 지도에 기본으로 함께 보여요.\n이 버튼을 누르면 끄고, 다시 누르면 켤 수 있어요." },
   // 휴대폰: 메뉴 버튼 하나 / PC: 아이콘 5개
   { selector: '[aria-label="메뉴 열기"]', title: "메뉴", text: "신규 장소·추천·AI 코스·사장님 등록·제보하기는 이 메뉴에 모여 있어요." },
   { selector: '[aria-label="신규 장소"]', title: "신규 장소", text: "새로 등록된 장소를 모아 보여줘요." },

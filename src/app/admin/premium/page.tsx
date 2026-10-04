@@ -140,7 +140,7 @@ export default function AdminPremiumPage() {
             </div>
           </div>
 
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 28px 60px", scrollbarWidth:"thin" }}>
+          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) 120px", scrollbarWidth:"thin" }}>
             {loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
             ) : displayList.length === 0 ? (
