@@ -117,8 +117,12 @@ function useShelterNotices(area: UserArea, enabled: boolean, offset: number) {
   const [notices, setNotices] = useState<ShelterNoticeLite[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  const waiting = area.status === "pending";
   useEffect(() => {
     if (!enabled) return;
+    // 위치를 아직 확인하는 중이면 요청하지 않습니다 — 여기서 전국 공고를 먼저 띄우면, 위치가 잡히기 전
+    // 몇 초 동안(또는 위치 확인이 늦어지는 내내) 내 지역과 상관없는 공고가 보입니다.
+    if (waiting) { setLoaded(false); return; }
     // ⚠ 실제로 겪은 버그: 페이지가 막 열리면 위치 감지(useUserRegion)가 아직 끝나기 전이라
     // region이 처음엔 null입니다 — 그 순간 이 effect가 먼저 "전국(region 없음)" 요청을
     // 한 번 보냅니다. 잠시 후 위치 감지가 끝나 region이 실제 값("경북" 등)으로 바뀌면
@@ -144,7 +148,7 @@ function useShelterNotices(area: UserArea, enabled: boolean, offset: number) {
       .catch(() => { if (!ignore) setNotices([]); })
       .finally(() => { if (!ignore) setLoaded(true); });
     return () => { ignore = true; };
-  }, [region, sigungu, lat, lng, enabled, offset]);
+  }, [region, sigungu, lat, lng, enabled, offset, waiting]);
 
   return { notices, loaded };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeSidoName } from "@/lib/shelterNotices";
 
 const REGION_CACHE_KEY = "user_region_sido";
@@ -21,8 +21,15 @@ export type UserArea = {
   sigungu: string | null;
   lat: number | null;
   lng: number | null;
+  /**
+   * pending: 위치를 아직 확인하는 중(이 동안에는 전국 공고를 보여주지 말고 기다립니다)
+   * ready: 지역을 알고 있음 / unavailable: 위치를 알 수 없음(권한 거부 등 — 전국으로 대체)
+   */
+  status: "pending" | "ready" | "unavailable";
 };
-const EMPTY_AREA: UserArea = { sido: null, sigungu: null, lat: null, lng: null };
+const EMPTY_AREA: UserArea = { sido: null, sigungu: null, lat: null, lng: null, status: "pending" };
+/** 만료된 기억이라도 이 기간 안이면, 새 위치 확인이 실패했을 때 대신 씁니다(전국 공고보다 낫습니다). */
+const STALE_FALLBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 // ── 사용자 위치 기반 시/도 감지 ──
 // 카카오 좌표→행정구역 변환 API로 현재 위치의 시/도(짧은 이름, 예: "경남")를 구합니다.
@@ -36,6 +43,9 @@ export function useUserRegion(): string | null {
 export function useUserArea(): UserArea {
   const [area, setArea] = useState<UserArea>(EMPTY_AREA);
   const setRegion = (sido: string) => setArea((prev) => ({ ...prev, sido }));
+  // 위치 확인이 실패했을 때 쓸 예전 지역(만료됐지만 너무 오래되지는 않은 기억)
+  const staleRef = useRef<UserArea | null>(null);
+  const giveUp = () => setArea((prev) => (prev.status === "ready" ? prev : staleRef.current ?? { ...EMPTY_AREA, status: "unavailable" }));
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -44,22 +54,20 @@ export function useUserArea(): UserArea {
       const cached = localStorage.getItem(REGION_CACHE_KEY);
       const cachedAt = Number(localStorage.getItem(REGION_CACHE_AT_KEY) || 0);
       const isFresh = cached && Date.now() - cachedAt < REGION_CACHE_TTL_MS;
-      if (isFresh) {
+      if (cached) {
         // 시·군·구·좌표까지 기억해 둔 게 있으면 함께 복원합니다.
         let extra: Partial<UserArea> = {};
         try { extra = JSON.parse(localStorage.getItem(AREA_CACHE_KEY) || "{}"); } catch { /* 깨진 값은 무시 */ }
-        setArea({ sido: normalizeSidoName(cached), sigungu: extra.sigungu ?? null, lat: extra.lat ?? null, lng: extra.lng ?? null });
-      }
-      else if (cached) {
-        // 만료된 캐시는 화면에 잠깐이라도 잘못된 지역을 보여주지 않도록 지웁니다 —
-        // 새 위치 조회가 끝날 때까지는 null(전국) 상태로 둡니다.
-        localStorage.removeItem(REGION_CACHE_KEY);
-        localStorage.removeItem(REGION_CACHE_AT_KEY);
-        localStorage.removeItem(AREA_CACHE_KEY);
+        const remembered: UserArea = { sido: normalizeSidoName(cached), sigungu: extra.sigungu ?? null, lat: extra.lat ?? null, lng: extra.lng ?? null, status: "ready" };
+        if (isFresh) setArea(remembered);
+        // ⚠ 예전엔 만료된 기억을 바로 지우고 "지역 모름(전국)"으로 뒀습니다. 그래서 1시간마다, 위치가 다시
+        //    잡히기 전 몇 초 동안(위치 확인이 실패하면 계속) 사이드 공고에 전혀 다른 지역이 떴습니다.
+        //    이제는 만료돼도 "확인 중"으로 두고 기다리며, 확인에 실패하면 예전 지역을 대신 씁니다.
+        else if (Date.now() - cachedAt < STALE_FALLBACK_MS) staleRef.current = remembered;
       }
     }
 
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) { giveUp(); return; }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
@@ -78,7 +86,7 @@ export function useUserArea(): UserArea {
             // 한계) 콘솔 로그만으로 바로 구분할 수 있습니다.
             console.info(`[useUserRegion] 감지된 위치: (${latitude}, ${longitude}) → "${rawName}" → "${name}"`);
             const sigungu: string | null = data.result?.sigungu || null;
-            setArea({ sido: name, sigungu, lat: latitude, lng: longitude });
+            setArea({ sido: name, sigungu, lat: latitude, lng: longitude, status: "ready" });
             localStorage.setItem(AREA_CACHE_KEY, JSON.stringify({ sigungu, lat: latitude, lng: longitude }));
             localStorage.setItem(REGION_CACHE_KEY, name);
             localStorage.setItem(REGION_CACHE_AT_KEY, String(Date.now()));
@@ -87,11 +95,13 @@ export function useUserArea(): UserArea {
             // 없었습니다 — 카카오 응답에 documents가 비어있는 경우(좌표가 국내가
             // 아니거나, API 키 문제 등)를 바로 알 수 있도록 남깁니다.
             console.warn("[useUserRegion] 카카오 좌표→행정구역 응답에 지역 정보가 없습니다:", data);
+            giveUp();
           }
         } catch (e) {
           // 위치 조회 실패 시 전국 공고로 대체되지만, 원인은 콘솔에서 확인할 수 있게 남깁니다
           // (예: fetch 자체 실패, API 키 오류, 네트워크 차단 등).
           console.warn("[useUserRegion] 좌표→행정구역 변환 실패:", e);
+          giveUp();
         }
       },
       (err) => {
@@ -99,6 +109,7 @@ export function useUserArea(): UserArea {
         // 안 되는지"를 사용자도 개발자도 콘솔에서 확인할 방법이 없었습니다.
         // code 1=권한 거부, 2=위치 확인 불가, 3=시간 초과 (GeolocationPositionError 스펙).
         console.warn(`[useUserRegion] geolocation 실패 (code ${err.code}): ${err.message}`);
+        giveUp();
       },
       // ⚠ KakaoMap.tsx의 "내 위치" 갱신과 동일한 기준(enableHighAccuracy:true)으로
       // 맞췄습니다 — 기본값(low accuracy)은 데스크톱·실내 등에서 Wi-Fi/IP 기반의 부정확한

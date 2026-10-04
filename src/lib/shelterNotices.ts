@@ -556,10 +556,15 @@ export async function getNearbyShelterNotices(
   if (!input.sigungu && (input.lat == null || input.lng == null)) {
     return { notices: regional.slice(offset, offset + limit), near: null };
   }
-  // 한 화면(레일 2건 + 마이페이지 2건)에 필요한 만큼은 채워지도록 최소 건수를 잡습니다.
-  const picked = pickNearbyNotices(regional, { ...input, sido: sidoShort }, Math.max(NEARBY_MIN_NOTICES, offset + limit));
+  const picked = pickNearbyNotices(regional, { ...input, sido: sidoShort }, NEARBY_MIN_NOTICES);
+  // 커뮤니티(0번부터)·마이페이지(2번부터)·글 상세(4번부터)가 서로 다른 공고를 보여주려고 순번을 나눠 쓰는데,
+  // ⚠ 예전엔 내 지역 공고가 몇 건 안 되면 뒤 순번이 먼 지역 공고로 넘어갔습니다.
+  //    이제는 "내 지역 + 가까운 지역" 묶음 안에서만 돌려 씁니다(묶음이 작으면 같은 공고가 다시 나옵니다).
+  const pool = picked.notices;
+  const count = Math.min(limit, pool.length);
+  const rotated = Array.from({ length: count }, (_, i) => pool[(offset + i) % pool.length]);
   return {
-    notices: picked.notices.slice(offset, offset + limit),
+    notices: rotated,
     near: { ownSub: picked.ownSub, ownCount: picked.ownCount, subs: picked.subs },
   };
 }
