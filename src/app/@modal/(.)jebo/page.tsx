@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { randomId } from "@/lib/randomId";
 import { closeModal } from "@/lib/closeModal";
+import { joinAddress } from "@/lib/geocodeAddress";
 import {
   MapPin, Clock, Phone, ChefHat, LandPlot,
   Dog, MessageCircle, Plus, X, AlertCircle,
@@ -83,6 +84,7 @@ export default function JeboModal() {
   /* ── 장소 기본 정보 ── */
   const [name,     setName]     = useState("");
   const [address,  setAddress]  = useState("");
+  const [addressDetail, setAddressDetail] = useState(""); // 상세 주소(층·호수·건물명 등, 선택)
   const [category, setCategory] = useState("");
   const [petZone,  setPetZone]  = useState<"indoor" | "terrace" | "both" | "">("");
   const [hours,    setHours]    = useState("");
@@ -201,8 +203,8 @@ export default function JeboModal() {
         .from("proposals")
         .insert([{
           place_name:   name.trim(),
-          address:      address.trim(),
-          category:     category.trim() || null,
+          address:      joinAddress(address, addressDetail),
+          category:    category.trim() || null,
           hours:        hours.trim()    || null,
           pet_zone:     petZone         || null,
           large_dog:    largeDog,
@@ -426,7 +428,7 @@ export default function JeboModal() {
                 {/* 주소 초기화 버튼 */}
                 {address && (
                   <button
-                    onClick={() => setAddress("")}
+                    onClick={() => { setAddress(""); setAddressDetail(""); }}
                     style={{
                       position: "absolute", right: 10, top: "50%",
                       transform: "translateY(-50%)",
@@ -440,6 +442,16 @@ export default function JeboModal() {
                 )}
               </div>
 
+              {/* 상세 주소(선택) — 주소 검색으로는 건물까지만 나오므로 층·호수를 따로 받습니다 */}
+              <input
+                className="jebo-input"
+                placeholder="상세 주소 (선택) 예: 2층, 201호, ○○빌딩 1층"
+                value={addressDetail}
+                onChange={(e) => setAddressDetail(e.target.value)}
+                maxLength={60}
+                style={{ ...inputStyle, marginTop: 8 }}
+              />
+
               {/* 주소 선택 완료 안내 */}
               {address && (
                 <div style={{
@@ -450,7 +462,7 @@ export default function JeboModal() {
                 }}>
                   <MapPin size={11} color="#7c3aed" />
                   <span style={{ fontSize: 11, color: "#6d28d9", fontWeight: 600 }}>
-                    {address}
+                    {joinAddress(address, addressDetail)}
                   </span>
                 </div>
               )}
