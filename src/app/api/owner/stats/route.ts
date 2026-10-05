@@ -47,6 +47,9 @@ export async function GET(req: NextRequest) {
     bookmarks, likes, reviews,
     courseClicks30, courseDirections30, recClicks30,
     { count: courseIncluded30 },
+    { count: recImpressions30 },
+    directions30, calls30, website30,
+    { data: reviewRows },
   ] = await Promise.all([
     supabaseAdmin.from("places").select("name").eq("id", placeIdNum).maybeSingle(),
     countEvents("place_view", placeId),
@@ -63,7 +66,24 @@ export async function GET(req: NextRequest) {
     // AI 코스에 정거장으로 포함돼 노출된 횟수(코스 기록의 stops 목록에 이 장소가 들어 있는 것)
     supabaseAdmin.from("analytics_events").select("*", { count: "exact", head: true })
       .eq("event_type", "course_impression").gte("created_at", since30).contains("meta", { stops: [placeId] }),
+    // 추천 장소 목록에 노출된 횟수(추천 기록의 items 목록에 이 장소가 들어 있는 것)
+    supabaseAdmin.from("analytics_events").select("*", { count: "exact", head: true })
+      .eq("event_type", "rec_impression").gte("created_at", since30).contains("meta", { items: [{ id: placeId }] }),
+    // 장소 상세에서 이어진 행동
+    countEvents("place_directions", placeId, since30),
+    countEvents("place_call", placeId, since30),
+    countEvents("place_website", placeId, since30),
+    // 후기 관리용: 최근 후기와 사장님 답글 여부(작성자를 알 수 있는 값은 내려주지 않음)
+    supabaseAdmin.from("reviews").select("id, nickname, content, created_at, likes").eq("place_id", placeIdNum).eq("deleted", false).eq("is_admin_deleted", false).order("created_at", { ascending: false }).limit(30),
   ]);
+
+  // 후기별 사장님 답글 여부 — is_owner 컬럼이 아직 없으면(SQL 실행 전) 모두 "답글 없음"으로 봅니다.
+  const reviewIds = (reviewRows || []).map((r) => r.id);
+  const repliedIds = new Set<string>();
+  if (reviewIds.length > 0) {
+    const { data: ownerReplies } = await supabaseAdmin.from("review_replies").select("review_id").in("review_id", reviewIds).eq("is_owner", true).eq("deleted", false);
+    for (const r of ownerReplies || []) repliedIds.add(String(r.review_id));
+  }
 
   const byDay = new Map<string, number>();
   for (const row of viewRows || []) {
@@ -88,6 +108,11 @@ export async function GET(req: NextRequest) {
       courseClicks: courseClicks30,
       courseDirections: courseDirections30,
       recommendClicks: recClicks30,
+      recommendImpressions: recImpressions30 ?? 0,
+      directions: directions30,
+      calls: calls30,
+      website: website30,
     },
+    recentReviews: (reviewRows || []).map((r) => ({ ...r, ownerReplied: repliedIds.has(String(r.id)) })),
   });
 }

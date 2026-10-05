@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch } from "lucide-react";
 
 // ── 관리자 페이지 공통 상단 탭 — 대시보드 / 신고 관리 / 제보 관리 / 통계 분석 / 사장님 인증을
 // 어느 관리자 화면에서든 한 번에 오가며 확인할 수 있도록 하는 공용 네비게이션입니다.
@@ -13,6 +13,7 @@ const TABS = [
   { key: "dashboard", href: "/admin", label: "대시보드", icon: LayoutDashboard },
   { key: "reports", href: "/admin/reports", label: "신고 관리", icon: Flag },
   { key: "tips", href: "/admin/tips", label: "제보 관리", icon: FileText },
+  { key: "review", href: "/admin/review", label: "글 검토", icon: ScanSearch },
   { key: "owners", href: "/admin/owners", label: "사장님 인증", icon: BadgeCheck },
   { key: "premium", href: "/admin/premium", label: "프리미엄", icon: Crown },
   { key: "analytics", href: "/admin/analytics", label: "통계 분석", icon: BarChart3 },
@@ -28,17 +29,19 @@ let lastScrollLeft: number | null = null;
 
 export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefresh?: () => void }) {
   const router = useRouter();
-  const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number; premium: number }>({ reports: 0, tips: 0, owners: 0, premium: 0 });
+  const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number; premium: number; review: number }>({ reports: 0, tips: 0, owners: 0, premium: 0, review: 0 });
 
   useEffect(() => {
     const fetchCounts = async () => {
-      const [{ count: reportsCount }, { count: tipsCount }, { count: ownersCount }, { count: premiumCount }] = await Promise.all([
+      const [{ count: reportsCount }, { count: tipsCount }, { count: ownersCount }, { count: premiumCount }, { count: reviewCount }] = await Promise.all([
         supabase.from("reports").select("*", { count: "exact", head: true }).eq("is_resolved", false),
         supabase.from("proposals").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("users").select("*", { count: "exact", head: true }).eq("owner_status", "pending"),
         supabase.from("premium_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        // 자동 검토 대기 글(컬럼이 아직 없으면 오류 → 0건으로 표시)
+        supabase.from("community_posts").select("*", { count: "exact", head: true }).eq("review_status", "pending").eq("deleted", false),
       ]);
-      setCounts({ reports: reportsCount ?? 0, tips: tipsCount ?? 0, owners: ownersCount ?? 0, premium: premiumCount ?? 0 });
+      setCounts({ reports: reportsCount ?? 0, tips: tipsCount ?? 0, owners: ownersCount ?? 0, premium: premiumCount ?? 0, review: reviewCount ?? 0 });
     };
     fetchCounts();
   }, []);
@@ -81,7 +84,7 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
         <div ref={rowRef} onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }} style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", minWidth: 0 }}>
           {TABS.map((tab) => {
             const isActive = tab.key === active;
-            const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : 0;
+            const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : tab.key === "review" ? counts.review : 0;
             const Icon = tab.icon;
             return (
               <button

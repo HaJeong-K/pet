@@ -16,8 +16,27 @@ type Stats = {
   bookmarks: number;
   likes: number;
   reviews: number;
-  last30: { courseIncluded: number; courseClicks: number; courseDirections: number; recommendClicks: number };
+  last30: {
+    courseIncluded: number; courseClicks: number; courseDirections: number; recommendClicks: number;
+    recommendImpressions?: number; directions?: number; calls?: number; website?: number;
+  };
+  recentReviews?: { id: string; nickname: string; content: string; created_at: string; likes: number; ownerReplied: boolean }[];
 };
+export type OwnerStats = Stats;
+
+/** 사장님 통계 조회(본인 가게, 관리자는 미리보기용 placeId 지정 가능) */
+export async function fetchOwnerStats(previewPlaceId?: number | null): Promise<{ stats: Stats | null; error: string | null }> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { stats: null, error: "로그인이 필요해요." };
+    const qs = previewPlaceId != null ? `?placeId=${previewPlaceId}` : "";
+    const res = await fetch(`/api/owner/stats${qs}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const json = await res.json();
+    return res.ok ? { stats: json, error: null } : { stats: null, error: json.error || "통계를 불러오지 못했어요." };
+  } catch {
+    return { stats: null, error: "통계를 불러오지 못했어요." };
+  }
+}
 
 const fmt = (n: number) => Number(n || 0).toLocaleString("ko-KR");
 
@@ -65,7 +84,14 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
     { label: "AI 코스에 포함", value: stats.last30.courseIncluded, hint: "추천 코스의 정거장으로 노출된 횟수" },
     { label: "코스에서 선택", value: stats.last30.courseClicks, hint: "코스 안에서 내 가게를 눌러 본 횟수" },
     { label: "길찾기 연결", value: stats.last30.courseDirections, hint: "코스에서 내 가게로 길찾기를 연 횟수" },
+    { label: "추천 목록에 노출", value: stats.last30.recommendImpressions ?? 0, hint: "추천 장소 목록에 내 가게가 보인 횟수" },
     { label: "추천 목록에서 선택", value: stats.last30.recommendClicks, hint: "추천 장소 목록에서 눌러 본 횟수" },
+  ];
+  // 내 가게 상세 화면에서 실제 방문·문의로 이어진 행동
+  const actions: { label: string; value: number; hint: string }[] = [
+    { label: "길찾기 열기", value: (stats.last30.directions ?? 0) + stats.last30.courseDirections, hint: "상세 화면·AI 코스에서 내 가게로 길찾기를 연 횟수" },
+    { label: "전화 걸기", value: stats.last30.calls ?? 0, hint: "상세 화면에서 전화번호를 누른 횟수" },
+    { label: "홈페이지 방문", value: stats.last30.website ?? 0, hint: "상세 화면에서 홈페이지 링크를 누른 횟수" },
   ];
 
   return (
@@ -104,6 +130,16 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
         <span>오늘</span>
       </div>
 
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#555", marginBottom: 6 }}>최근 30일 방문·문의로 이어진 행동</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+        {actions.map((a) => (
+          <div key={a.label} title={a.hint} style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 11, padding: "10px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: 10.5, color: "#92400E", fontWeight: 700 }}>{a.label}</div>
+            <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#78350F", marginTop: 3 }}>{fmt(a.value)}</div>
+          </div>
+        ))}
+      </div>
+
       <div style={{ fontSize: 11.5, fontWeight: 700, color: "#555", marginBottom: 6 }}>최근 30일 AI 코스·추천</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {funnel.map((f) => (
@@ -118,6 +154,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
       </div>
       <p style={{ fontSize: 10.5, color: "#aaa", marginTop: 10, lineHeight: 1.6 }}>
         · 조회는 장소 상세 화면이 열린 횟수예요(같은 사람이 여러 번 열면 여러 번 세요).
+        <br />· 길찾기·전화·홈페이지 횟수는 2026년 10월 5일부터 세기 시작했어요.
         <br />· 프리미엄에 등록하면 추천 정렬 가점과 광고 영역 노출로 조회가 늘어날 수 있어요.
       </p>
     </div>

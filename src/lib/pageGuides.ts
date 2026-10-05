@@ -43,7 +43,7 @@ export const ADOPT_GUIDE_STEPS: GuideStep[] = [
 
 export const MYPAGE_GUIDE_KEY = "ggk_guide_mypage_v1";
 export const MYPAGE_GUIDE_STEPS: GuideStep[] = [
-  { selector: '[data-guide="mypage-tabs"]', title: "내 활동", text: "찜한 장소, 커뮤니티에 쓴 글, 내가 쓴 댓글을 모아 볼 수 있어요." },
+  { selector: '[data-guide="mypage-tabs"]', title: "내 활동", text: "찜한 장소, 저장한 코스, 커뮤니티에 쓴 글, 내가 쓴 댓글을 모아 볼 수 있어요." },
   { selector: '[data-guide="mypage-settings"]', title: "설정", text: "닉네임·프로필 변경, 로그아웃, 회원 탈퇴는 여기서 해요.\n사장님은 가게 정보와 통계도 여기서 볼 수 있어요." },
 ];
 

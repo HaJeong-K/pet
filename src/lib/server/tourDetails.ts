@@ -18,7 +18,17 @@ const BASE_URL = "https://apis.data.go.kr/B551011/KorPetTourService2";
 const BUCKET = "public-data-cache";
 const PATH = "tour-details-v1.json.gz";
 const FETCH_TIMEOUT_MS = 8000;
-const CONCURRENCY = 10;
+/** 한 번에 처리하는 장소 수(장소 하나에 상세 호출 3번) */
+const CONCURRENCY = 6;
+// ── 호출 속도 조절 ──
+// 공공데이터포털은 "하루 호출 한도"와 별개로 "초당 호출 제한"이 있습니다. 예전엔 한꺼번에 30건씩
+// 보내다 초당 제한(429, …_PER_SECOND_EXCEEDS_ERROR)에 걸렸는데, 이를 하루 한도 초과로 잘못 알고
+// 100곳 남짓 받은 뒤 그날 수집을 끝내 버렸습니다. 이제는 일정한 간격으로 보내고, 초당 제한에 걸리면
+// 잠시 쉬었다가 간격을 넓혀 다시 시도합니다. 하루 한도 초과일 때만 수집을 멈춥니다.
+const START_INTERVAL_MS = 40;    // 처음 호출 간격(초당 약 25건) — 제한에 걸리면 자동으로 넓어집니다
+const MAX_INTERVAL_MS = 500;     // 제한에 계속 걸릴 때 넓히는 간격의 상한(초당 2건)
+const RATE_LIMIT_PAUSE_MS = 4000; // 초당 제한에 걸렸을 때 쉬는 시간
+const RATE_LIMIT_RETRIES = 4;
 /** 이보다 오래된 상세는 (새 장소를 다 받은 뒤) 다시 받아 최신으로 바꿉니다. */
 const REFRESH_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
 /** 이만큼 받을 때마다 중간 저장(도중에 시간 초과로 끊겨도 받은 만큼은 남게) */
@@ -152,27 +162,63 @@ export function extractIntroFields(contentTypeId: string | undefined, intro: any
 }
 
 class QuotaExceeded extends Error {}
+class RateLimited extends Error {}
 
-/** 상세 API 한 번 호출. 항목이 없으면 null, 하루 호출 한도를 넘으면 QuotaExceeded */
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// 다음 호출을 보낼 수 있는 시각과 현재 호출 간격(수집 한 번 도는 동안 공유)
+let nextSlotAt = 0;
+let intervalMs = START_INTERVAL_MS;
+/** 정해진 간격으로 한 건씩만 나가도록 순서를 기다립니다. */
+async function takeSlot(): Promise<void> {
+  const now = Date.now();
+  const at = Math.max(now, nextSlotAt);
+  nextSlotAt = at + intervalMs;
+  if (at > now) await sleep(at - now);
+}
+
+/** 응답 글에서 호출 제한 종류를 가려냅니다. */
+export function limitKind(status: number, text: string): "second" | "day" | null {
+  if (/PER_SECOND/.test(text)) return "second";
+  if (/LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS|<returnReasonCode>22<|"resultCode"\s*:\s*"22"/.test(text)) return "day";
+  // 본문 없이 429만 온 경우는 일시적인 제한으로 보고 다시 시도합니다.
+  return status === 429 ? "second" : null;
+}
+
+/** 상세 API 한 번 호출. 항목이 없으면 null, 하루 한도 초과면 QuotaExceeded, 초당 제한이면 RateLimited */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchDetailItem(apiKey: string, path: string, contentId: string, contentTypeId?: string): Promise<any | null> {
+async function fetchDetailOnce(apiKey: string, path: string, contentId: string, contentTypeId?: string): Promise<any | null> {
   const qs = new URLSearchParams({ MobileOS: "ETC", MobileApp: "GachiGagae", _type: "json", contentId });
   if (contentTypeId) qs.set("contentTypeId", contentTypeId);
+  await takeSlot();
   const res = await fetch(`${BASE_URL}/${path}?${qs.toString()}&serviceKey=${encodeServiceKey(apiKey)}`, {
     cache: "no-store",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   const text = await res.text();
-  // 한도 초과는 JSON이 아닌 XML/문구로 오기도 합니다(LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR, 코드 22).
-  if (res.status === 429 || /LIMITED_NUMBER_OF_SERVICE_REQUESTS|<returnReasonCode>22</.test(text)) throw new QuotaExceeded();
+  const limit = limitKind(res.status, text);
+  if (limit === "day") throw new QuotaExceeded();
+  if (limit === "second") throw new RateLimited();
   let data: any; // eslint-disable-line @typescript-eslint/no-explicit-any
   try { data = JSON.parse(text); } catch { throw new Error(`응답 형식 오류(${res.status})`); }
   const code = data?.response?.header?.resultCode;
-  if (code === "22") throw new QuotaExceeded();
   if (code && !["0", "00", "0000"].includes(code)) throw new Error(`resultCode ${code}`);
   const item = data?.response?.body?.items?.item;
   if (!item) return null;
   return Array.isArray(item) ? item[0] : item;
+}
+
+/** 초당 제한에 걸리면 모두 잠시 쉬고 간격을 넓혀 다시 시도합니다. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchDetailItem(apiKey: string, path: string, contentId: string, contentTypeId?: string): Promise<any | null> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchDetailOnce(apiKey, path, contentId, contentTypeId);
+    } catch (e) {
+      if (!(e instanceof RateLimited) || attempt >= RATE_LIMIT_RETRIES) throw e;
+      intervalMs = Math.min(MAX_INTERVAL_MS, Math.round(intervalMs * 1.6));
+      nextSlotAt = Math.max(nextSlotAt, Date.now() + RATE_LIMIT_PAUSE_MS);
+    }
+  }
 }
 
 async function fetchOneDetail(apiKey: string, item: TourListItem): Promise<TourDetail> {
@@ -198,7 +244,7 @@ async function fetchOneDetail(apiKey: string, item: TourListItem): Promise<TourD
   };
 }
 
-export type EnrichResult = { total: number; have: number; fetched: number; failed: number; remaining: number; stopped: "done" | "time" | "quota" };
+export type EnrichResult = { total: number; have: number; fetched: number; failed: number; remaining: number; stopped: "done" | "time" | "quota" | "rate"; intervalMs: number };
 
 /**
  * 아직 상세가 없는 장소부터(그다음 오래된 순으로) maxMs 동안 받아서 저장합니다.
@@ -216,24 +262,29 @@ export async function enrichTourDetails(items: TourListItem[], maxMs: number): P
     .sort((a, b) => map[a.contentid].at - map[b.contentid].at);
   const queue = [...missing, ...stale];
 
+  nextSlotAt = 0;
+  intervalMs = START_INTERVAL_MS;
   let fetched = 0, failed = 0, sinceSave = 0;
   let stopped: EnrichResult["stopped"] = "done";
   for (let i = 0; i < queue.length; i += CONCURRENCY) {
     if (Date.now() - startedAt > maxMs) { stopped = "time"; break; }
     const results = await Promise.allSettled(queue.slice(i, i + CONCURRENCY).map(async (item) => ({ id: item.contentid, detail: await fetchOneDetail(apiKey, item) })));
-    let quota = false;
+    let quota = false, rate = false;
     for (const r of results) {
       if (r.status === "fulfilled") { map[r.value.id] = r.value.detail; fetched++; sinceSave++; }
       else if (r.reason instanceof QuotaExceeded) quota = true;
+      else if (r.reason instanceof RateLimited) rate = true;
       else failed++;
     }
     if (quota) { stopped = "quota"; break; }
+    // 여러 번 쉬었다 다시 해도 초당 제한이 풀리지 않으면 오늘은 여기까지(다음 실행에서 이어 받음)
+    if (rate) { stopped = "rate"; break; }
     if (sinceSave >= SAVE_EVERY) { await saveTourDetails(map); sinceSave = 0; }
   }
   if (sinceSave > 0) await saveTourDetails(map);
 
   const have = items.filter((it) => map[it.contentid]).length;
-  return { total: items.length, have, fetched, failed, remaining: items.length - have, stopped };
+  return { total: items.length, have, fetched, failed, remaining: items.length - have, stopped, intervalMs };
 }
 
 /** 가능 동물 문구로 대형견 가능 여부를 추정합니다(판단할 수 없으면 null). */

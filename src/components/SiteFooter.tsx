@@ -125,13 +125,16 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 export function PrivacyModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="개인정보 처리방침" onClose={onClose}>
-      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 8월 10일</p>
+      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 10월 5일</p>
 
       <FooterSection title="1. 개인정보의 수집 및 이용 목적">
         같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
         • 회원 가입 및 관리: 회원 식별, 사장님(업주) 인증, 서비스 부정이용 방지<br />
         • 서비스 제공: 반려동물 동반 장소 정보 제공, 리뷰·찜·신고·제보 기능 운영, 현재 위치 기반 주변 장소·보호소 공고 안내<br />
         • 사장님 서비스: 사업자등록증 진위 확인을 통한 업주 인증, 본인 업장 정보 수정 권한 부여<br />
+        • 알림: 이용자가 신청한 지역의 새 유기동물 공고 알림 발송<br />
+        • 사장님 광고 상품: 프리미엄 신청 접수, 입금 확인, 성과 통계·보고서 제공<br />
+        • 서비스 개선: 이용 통계 분석(개인을 식별하지 않는 집계), 오류 원인 파악<br />
         • 고객 지원: 문의 응대 및 민원 처리
       </FooterSection>
 
@@ -143,12 +146,18 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
         • <strong>리뷰 작성 시:</strong> 비회원 리뷰의 수정·삭제 확인용 비밀번호<br />
         • <strong>위치정보:</strong> 브라우저 위치정보 제공에 동의한 경우, 현재 위치(위도·경도) — 주변 장소 추천, 지도 중심 이동, 인근 보호소 공고 표시에 사용되며 별도 서버 저장 없이 그때그때 조회에만 사용됩니다<br />
         • <strong>이용자가 업로드하는 이미지:</strong> 장소 사진, 제보 첨부 사진, 사업자등록증 이미지<br />
-        • <strong>서비스 이용 시 자동 수집:</strong> 접속 기록, 검색어, 조회한 장소, 접속 지역(주소 기반 시/도·시/군/구 단위)
+        • <strong>서비스 이용 시 자동 수집:</strong> 접속 기록, 검색어, 조회한 장소, 길찾기·전화·홈페이지 버튼 이용 여부, 접속 지역(주소 기반 시/도·시/군/구 단위)<br />
+        • <strong>새 공고 알림을 켠 경우:</strong> 브라우저 알림 수신 주소(푸시 구독 정보), 알림을 받을 지역<br />
+        • <strong>코스를 저장한 경우:</strong> 저장한 코스의 장소 목록<br />
+        • <strong>사장님 광고 상품 신청 시:</strong> 신청 기간, 입금자명, 요청 메모<br />
+        • <strong>오류 발생 시:</strong> 오류 내용, 발생한 화면, 브라우저 종류(원인 파악용)
       </FooterSection>
 
       <FooterSection title="3. 개인정보의 보유 및 이용 기간">
         • 회원 탈퇴 시 지체 없이 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br />
         • 사업자등록증 이미지 등 사장님 인증 자료는 인증 심사 및 사후 확인 목적으로 사장님 계정 활동 기간 동안 보관<br />
+        • 알림 수신 정보는 알림을 끄거나 탈퇴하면 삭제, 오류 기록은 90일 후 삭제<br />
+        • 데이터 복구를 위한 백업본은 최대 14일간 보관 후 삭제<br />
         • 서비스 이용 관련 분쟁 발생 시 분쟁 해결 시까지 보관
       </FooterSection>
 
@@ -173,7 +182,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       </FooterSection>
 
       <FooterSection title="7. 쿠키 및 브라우저 저장소 운용">
-        서비스는 로그인 상태 유지, 비회원 식별을 위해 쿠키 및 브라우저 로컬 저장소(localStorage)를 사용합니다. 브라우저 설정을 통해 저장을 거부할 수 있으나, 일부 서비스(리뷰 작성 등) 이용이 제한될 수 있습니다.
+        서비스는 로그인 상태 유지, 비회원 식별, 최근 확인한 지역(시/도·시/군/구) 기억, 안내 화면을 다시 띄우지 않기 위한 설정 저장을 위해 쿠키 및 브라우저 로컬 저장소(localStorage)를 사용합니다. 브라우저 설정을 통해 저장을 거부할 수 있으나, 일부 서비스(리뷰 작성 등) 이용이 제한될 수 있습니다.
       </FooterSection>
 
       <FooterSection title="8. 개인정보 보호 책임자">
@@ -188,7 +197,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
 
       <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
         <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
-          본 개인정보 처리방침은 <strong>2026년 8월 10일</strong>부터 적용됩니다.<br />
+          본 개인정보 처리방침은 <strong>2026년 10월 5일</strong>부터 적용됩니다.<br />
           문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
         </div>
       </div>
@@ -199,7 +208,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
 export function TermsModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="이용약관" onClose={onClose}>
-          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 8월 3일</p>
+          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="제1조 (목적)">
             본 약관은 같이가개(이하 "회사")가 제공하는 반려동물 동반 장소 정보 및 커뮤니티 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
@@ -235,6 +244,14 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
             이용자는 타인의 정보 도용, 서비스 운영 방해, 명예훼손, 무단 광고·스팸 게시, 관계 법령 위반 행위를 해서는 안 됩니다.
           </FooterSection>
 
+          <FooterSection title="제8조의2 (사장님 서비스 및 유료 광고 상품)">
+            • 사업자 인증을 마친 회원(이하 "사장님")은 본인 업장의 정보를 직접 관리하고, 본인 업장의 후기에 사장님 표시가 붙는 답글을 작성할 수 있습니다. 사장님 답글에도 본 약관과 커뮤니티 운영정책이 동일하게 적용됩니다.<br />
+            • 회사는 사장님에게 추천 노출, 광고 영역 노출, 성과 보고서 등을 포함한 유료 광고 상품을 제공할 수 있으며, 상품의 내용·요금·이용 기간은 신청 화면에 표시합니다.<br />
+            • 무료 또는 할인 기간이 끝난 뒤의 요금은 신청 전에 미리 안내하며, 회사는 사장님의 별도 신청 없이 자동으로 결제하거나 기간을 연장하지 않습니다.<br />
+            • 광고 상품은 노출 기회를 제공하는 것으로, 방문자 수나 매출 증가를 보장하지 않습니다.<br />
+            • 환불은 이용하지 않은 기간에 대해 관계 법령과 신청 화면의 안내에 따릅니다.
+          </FooterSection>
+
           <FooterSection title="제9조 (면책조항)">
             회사는 천재지변 등 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다. 이용자 간 또는 이용자와 제3자 간 분쟁에 개입할 의무가 없으며, 이용자가 게재한 정보의 신뢰도·정확성을 보증하지 않습니다.
           </FooterSection>
@@ -245,7 +262,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
             <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
-              본 이용약관은 <strong>2026년 8월 3일</strong>부터 적용됩니다.<br />
+              본 이용약관은 <strong>2026년 10월 5일</strong>부터 적용됩니다.<br />
               문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
             </div>
           </div>
@@ -256,7 +273,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
 function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="커뮤니티 운영정책" onClose={onClose}>
-          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 8월 3일</p>
+          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="1. 목적">
             같이가개 커뮤니티는 반려인과 반려동물 관련 사업자가 함께 정보를 나누고 소통하는 공간입니다. 모두가 안전하고 즐겁게 이용할 수 있도록 아래 운영정책을 준수해 주세요.
@@ -269,7 +286,17 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
             • 도배, 스팸성 반복 게시물<br />
             • 사전 승인되지 않은 상업적 광고(사장님 게시판 외 지역)<br />
             • 동물 학대를 조장하거나 미화하는 내용<br />
+            • 동물을 돈을 받고 사고파는 글, 품종 분양·교배 홍보(유기동물 게시판은 무료 입양·임시보호·실종·목격 제보만 가능)<br />
+            • 나눔 게시판에서 돈을 받는 판매 글<br />
+            • 게시판 성격과 맞지 않는 글(각 게시판 상단의 안내를 따라 주세요), 정치·종교 관련 분쟁을 일으키는 글<br />
             • 관계 법령을 위반하는 내용
+          </FooterSection>
+
+          <FooterSection title="2-1. 유기동물 게시판 이용 안내">
+            • 입양·임시보호 글에는 동물의 상태와 보호 지역을 사실대로 적어 주세요.<br />
+            • 실종·목격 글에는 날짜와 장소를 적되, 개인 연락처 공개는 최소한으로 하고 상황이 끝나면 글을 수정하거나 삭제해 주세요.<br />
+            • 책임비·분양비 등 명목과 관계없이 금전을 요구하는 글은 삭제될 수 있습니다.<br />
+            • 회사는 게시글의 사실 여부와 이용자 간 입양·보호 과정을 보증하지 않습니다. 입양 전 직접 확인해 주세요.
           </FooterSection>
 
           <FooterSection title="3. 사장님(사업자) 게시판 이용 안내">
@@ -279,6 +306,7 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
 
           <FooterSection title="4. 신고 및 제재">
             • 이용자는 부적절한 게시물·댓글을 신고할 수 있습니다.<br />
+            • 게시판 이용 안내와 맞지 않을 수 있는 글(판매·분양·광고 의심 등)은 자동으로 감지되어, 운영진이 확인하기 전까지 공개되지 않을 수 있습니다. 문제가 없는 글은 확인 후 게시됩니다.<br />
             • 신고가 접수된 게시물은 운영진 검토 후 삭제 또는 비공개 처리될 수 있습니다.<br />
             • 반복적으로 정책을 위반하는 회원은 이용 제한(경고 → 일시 정지 → 영구 정지) 조치를 받을 수 있습니다.
           </FooterSection>
@@ -289,7 +317,7 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
             <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
-              본 운영정책은 <strong>2026년 8월 3일</strong>부터 시행됩니다.
+              본 운영정책은 <strong>2026년 10월 5일</strong>부터 시행됩니다.
             </div>
           </div>
         </ModalShell>
@@ -310,6 +338,10 @@ export default function SiteFooter() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <a href="/about" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
+            서비스 소개
+          </a>
+          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
           <button onClick={() => setShowTerms(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
             이용약관
           </button>

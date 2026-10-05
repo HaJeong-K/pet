@@ -132,6 +132,10 @@ export default function DemoNoticeModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        <a href="/about" style={{ margin: "10px 22px 0", fontSize: 12, fontWeight: 700, color: "#5C7A4A", textDecoration: "underline", textUnderlineOffset: 3, alignSelf: "flex-start" }}>
+          같이가개가 어떤 서비스인지 보기 →
+        </a>
+
         {/* 버튼 */}
         <div style={{ display: "flex", gap: 8, padding: "14px 22px 20px" }}>
           <button

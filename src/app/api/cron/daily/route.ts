@@ -24,15 +24,20 @@ import { notifyAdmin } from "@/lib/server/notify";
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | tour-details | public-data | parks | closure | quality | shelter-push | cleanup | digest).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
 // tour-details는 ?ms=240000 처럼 받을 시간을 늘려 수동으로 여러 번 돌려 빨리 채울 수도 있습니다.
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 const CLIENT_ERROR_RETENTION_DAYS = 90;
-/** 매일 새벽 관광공사 상세를 받는 데 쓰는 시간(다른 작업 시간을 남겨 둠) / 수동 실행 시 상한 */
-const TOUR_DETAILS_MS = 100_000;
+/** 이 함수가 쓸 수 있는 전체 시간(maxDuration과 같음) */
+const FUNCTION_LIMIT_MS = 300_000;
+/** 관광공사 상세 수집 뒤에 남겨 둘 시간 — 목록 갱신(약 10초)·실패 알림·응답 */
+const TAIL_RESERVE_MS = 35_000;
+/** 매일 새벽 관광공사 상세를 받는 데 쓰는 시간의 상한(하루 한도 약 1,000곳 ≈ 3분) / 이보다 적게 남으면 건너뜀 / 수동 실행 시 상한 */
+const TOUR_DETAILS_MS = 210_000;
+const TOUR_DETAILS_MIN_MS = 20_000;
 const TOUR_DETAILS_MAX_MS_LIMIT = 270_000;
 
 type JobResult = { ok: boolean; ms: number; detail?: unknown; error?: string; skipped?: string };
@@ -70,6 +75,8 @@ async function sendMorningDigest(): Promise<Record<string, number>> {
     reports: await count(admin.from("reports").select("*", { count: "exact", head: true }).eq("is_resolved", false)),
     premium: await count(admin.from("premium_requests").select("*", { count: "exact", head: true }).eq("status", "pending")),
     errors24h: await count(admin.from("client_errors").select("*", { count: "exact", head: true }).gte("created_at", since)),
+    // 자동 검토에 걸려 확인을 기다리는 커뮤니티 글(컬럼이 아직 없으면 0)
+    postReview: await count(admin.from("community_posts").select("*", { count: "exact", head: true }).eq("review_status", "pending").eq("deleted", false)),
   };
   if (Object.values(counts).some((n) => n > 0)) {
     await notifyAdmin({
@@ -78,6 +85,7 @@ async function sendMorningDigest(): Promise<Record<string, number>> {
         counts.owners > 0 && `사장님 신청 ${counts.owners}건 (/admin/owners)`,
         counts.tips > 0 && `제보 ${counts.tips}건 (/admin/tips)`,
         counts.reports > 0 && `신고 ${counts.reports}건 (/admin/reports)`,
+        counts.postReview > 0 && `글 검토 ${counts.postReview}건 (/admin/review)`,
         counts.premium > 0 && `프리미엄 신청 ${counts.premium}건 (/admin/premium)`,
         counts.errors24h > 0 && `최근 24시간 오류 ${counts.errors24h}건 (/admin/errors)`,
       ],
@@ -96,18 +104,11 @@ export async function GET(req: NextRequest) {
   // 한국 시간 기준 일요일에 공원 동기화(크론은 UTC 18시 = 한국 새벽 3시)
   const kstDay = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDay();
   const results: Record<string, JobResult> = {};
+  const startedAt = Date.now();
 
   // DB 백업 — 다른 작업이 데이터를 바꾸기 전에 가장 먼저 합니다.
   if (want("backup")) results.backup = await runJob(() => runDbBackup());
 
-  // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.
-  // 목록 갱신(public-data)보다 먼저 돌려서, 오늘 받은 상세가 바로 오늘 스냅샷에 들어가게 합니다.
-  if (want("tour-details")) {
-    const requested = Number(req.nextUrl.searchParams.get("ms"));
-    const maxMs = Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested > 0 ? requested : TOUR_DETAILS_MS);
-    results.tourDetails = await runJob(async () => enrichTourDetails(await fetchTourTargets(), maxMs));
-  }
-  if (want("public-data")) results.publicData = await runJob(() => rebuildPublicDataSnapshot());
   if (want("parks")) {
     results.parks = only === "parks" || kstDay === 0
       ? await runJob(() => syncParks())
@@ -142,6 +143,20 @@ export async function GET(req: NextRequest) {
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
   if (want("cleanup")) results.cleanup = await runJob(() => cleanupOldErrors());
   if (want("digest")) results.digest = await runJob(() => sendMorningDigest());
+
+  // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.
+  // 하루 한도(약 1,000곳)를 다 쓰려면 3분쯤 걸려서, 다른 작업을 모두 끝낸 뒤 "남은 시간"을 여기에 씁니다
+  // (요일마다 도는 작업이 달라 남는 시간이 다릅니다). 목록 갱신(public-data)은 그 뒤에 돌려서
+  // 오늘 받은 상세가 바로 오늘 스냅샷에 들어가게 합니다.
+  if (want("tour-details")) {
+    const requested = Number(req.nextUrl.searchParams.get("ms"));
+    const remaining = FUNCTION_LIMIT_MS - (Date.now() - startedAt) - TAIL_RESERVE_MS;
+    const maxMs = requested > 0 ? Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested) : Math.min(TOUR_DETAILS_MS, remaining);
+    results.tourDetails = maxMs >= TOUR_DETAILS_MIN_MS
+      ? await runJob(async () => enrichTourDetails(await fetchTourTargets(), maxMs))
+      : { ok: true, ms: 0, skipped: "남은 시간이 부족해 다음 실행으로 미룸" };
+  }
+  if (want("public-data")) results.publicData = await runJob(() => rebuildPublicDataSnapshot());
 
   const allOk = Object.values(results).every((r) => r.ok);
   if (!allOk) {

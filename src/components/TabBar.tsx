@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn, PawPrint } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export default function TabBar() {
@@ -10,6 +10,7 @@ export default function TabBar() {
   const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const checkLogin = async () => {
@@ -17,8 +18,9 @@ export default function TabBar() {
       setIsLoggedIn(!!session);
       if (session?.user) {
         const { data: profile } = await supabase
-          .from("users").select("is_admin").eq("auth_user_id", session.user.id).single();
+          .from("users").select("is_admin, owner_status, owner_place_id").eq("auth_user_id", session.user.id).single();
         setIsAdmin(!!profile?.is_admin);
+        setIsOwner(profile?.owner_status === "verified" && profile?.owner_place_id != null);
       }
     };
     checkLogin();
@@ -31,11 +33,13 @@ export default function TabBar() {
         const uid = session.user.id;
         setTimeout(async () => {
           const { data: profile } = await supabase
-            .from("users").select("is_admin").eq("auth_user_id", uid).single();
+            .from("users").select("is_admin, owner_status, owner_place_id").eq("auth_user_id", uid).single();
           setIsAdmin(!!profile?.is_admin);
+          setIsOwner(profile?.owner_status === "verified" && profile?.owner_place_id != null);
         }, 0);
       } else {
         setIsAdmin(false);
+        setIsOwner(false);
       }
     });
     return () => subscription.unsubscribe();
@@ -55,6 +59,7 @@ export default function TabBar() {
     if (pathname.startsWith("/community")) return "community";
     if (pathname.startsWith("/shelter-notices")) return "adopt";
     if (pathname.startsWith("/admin")) return "admin";
+    if (pathname.startsWith("/owner")) return isOwner || isAdmin ? "owner" : "mypage";
     if (pathname.startsWith("/mypage")) return "mypage";
     if (pathname.startsWith("/login")) return "login";
     return "map";
@@ -69,6 +74,11 @@ export default function TabBar() {
     { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
     ...(isAdmin ? [
       { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
+    ] : []),
+    // 인증된 사장님 전용 — 가게 성과·후기 답글·광고 상품(관리자 탭과 같은 자리).
+    // 관리자에게도 보여서, 사장님 화면을 그대로 확인하고 사장님 요청이 있을 때 대신 처리할 수 있습니다.
+    ...(isOwner || isAdmin ? [
+      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false },
     ] : []),
     {
       key:      isLoggedIn ? "mypage" : "login",

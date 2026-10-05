@@ -6,32 +6,11 @@ import { ArrowLeft, ImagePlus, X } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
 import { toHttps } from "@/lib/imageUrl";
+import { WRITABLE_BOARDS, postTypesFor, findBoard } from "@/lib/communityBoards";
+import { reviewStatusOf, notifyPostReview, HELD_MESSAGE } from "@/lib/postReview";
 
-// community/page.tsx의 BOARDS와 반드시 동일한 지역 목록을 유지해야 합니다.
-// (이전엔 전북·전남이 여기 빠져있어서, 조회 화면엔 있는데 글쓰기에서는 선택이
-//  불가능한 불일치가 있었습니다 — 코드 점검 중 발견해 수정.)
-const BOARDS = [
-  { id: "all", label: "게시판 선택" },
-  { id: "free", label: "자유게시판" },
-  { id: "business", label: "사장님 게시판" },
-
-  { id: "seoul", label: "서울" },
-  { id: "gyeonggi", label: "경기" },
-  { id: "incheon", label: "인천" },
-  { id: "gangwon", label: "강원" },
-  { id: "chungbuk", label: "충북" },
-  { id: "daejeon", label: "대전" },
-  { id: "chungnam", label: "충남" },
-  { id: "gyeongbuk", label: "경북" },
-  { id: "daegu", label: "대구" },
-  { id: "ulsan", label: "울산" },
-  { id: "gyeongnam", label: "경남" },
-  { id: "busan", label: "부산" },
-  { id: "jeonbuk", label: "전북" },
-  { id: "jeonnam", label: "전남" },
-  { id: "gwangju", label: "광주" },
-  { id: "jeju", label: "제주" },
-];
+// 게시판·말머리 목록은 커뮤니티 목록과 같은 파일을 씁니다(예전엔 여기에 따로 적어 둬서 서로 어긋난 적이 있음).
+const BOARDS = [{ id: "all", label: "게시판 선택" }, ...WRITABLE_BOARDS];
 
 function CommunityWritePageContent() {
   const router = useRouter();
@@ -294,7 +273,13 @@ function CommunityWritePageContent() {
 
       console.log("게시글 저장 완료");
 
-      alert("등록 완료!");
+      // 게시판 규칙 위반이 의심돼 자동으로 보류된 글이면, 바로 공개되지 않는다고 알리고 관리자에게 알립니다.
+      if (reviewStatusOf(insertData) === "pending") {
+        notifyPostReview(insertData.id);
+        alert(HELD_MESSAGE);
+      } else {
+        alert("등록 완료!");
+      }
 
       setLoading(false);
 
@@ -434,7 +419,7 @@ function CommunityWritePageContent() {
 
                 <select
                   value={boardId}
-                  onChange={(e) => setBoardId(e.target.value)}
+                  onChange={(e) => { setBoardId(e.target.value); setPostType(""); }}
                   style={{
                     width: "100%",
                     padding: "11px 13px",
@@ -454,6 +439,13 @@ function CommunityWritePageContent() {
                   ))}
                 </select>
               </div>
+
+              {/* 게시판 안내 — 이 게시판에 무엇을 쓰는지, 지켜야 할 점 */}
+              {findBoard(boardId)?.desc && (
+                <div style={{ margin: "-4px 0 12px", padding: "9px 12px", borderRadius: 10, background: "#F3F6EE", color: "#48603A", fontSize: 11.5, fontWeight: 600, lineHeight: 1.55 }}>
+                  {findBoard(boardId)?.desc}
+                </div>
+              )}
 
               {/* 말머리 */}
               <div style={{ marginBottom: 12 }}>
@@ -482,11 +474,10 @@ function CommunityWritePageContent() {
                   }}
                 >
                   <option value="">말머리 없음</option>
-                  <option value="방문후기">방문후기</option>
-                  <option value="질문">질문</option>
-                  <option value="정보공유">정보공유</option>
-                  <option value="산책친구">산책친구</option>
-                  <option value="업체소식">업체소식</option>
+                  {/* 고른 게시판에서 쓸 수 있는 말머리만 보여줍니다 */}
+                  {postTypesFor(boardId).map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
                 </select>
               </div>
 

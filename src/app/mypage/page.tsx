@@ -2,6 +2,8 @@
 
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
+import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
+import { openKakaoWalk, openNaverWalk } from "@/lib/directions";
 import { MYPAGE_GUIDE_KEY, MYPAGE_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +16,7 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3,
+  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
@@ -88,7 +90,8 @@ export default function MyPage() {
   const [userProfile, setUserProfile]   = useState<any>(null);
   const [bookmarks, setBookmarks]       = useState<any[]>([]);
   const [myReviews, setMyReviews]       = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<"bookmarks"|"posts"|"reviews">("bookmarks");
+  const [activeSection, setActiveSection] = useState<"bookmarks"|"courses"|"posts"|"reviews">("bookmarks");
+  const [myCourses, setMyCourses]       = useState<SavedCourse[]>([]); // 저장한 AI 코스
   const [myPosts, setMyPosts]           = useState<any[]>([]); // 커뮤니티에 내가 쓴 글
   const [loading, setLoading]           = useState(true);
   // 로딩이 너무 오래 걸리면(네트워크 멈춤·인증 교착 등) 투명한 흰 화면으로 두지 않고 안내를 띄웁니다.
@@ -121,6 +124,15 @@ export default function MyPage() {
   const [bookmarkPage, setBookmarkPage] = useState(1);
   const [reviewPage, setReviewPage]     = useState(1);
   const [postPage, setPostPage]         = useState(1);
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "courses" || tab === "posts" || tab === "reviews") setActiveSection(tab);
+  }, []);
+  const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm("이 코스를 저장 목록에서 지울까요?")) return;
+    if (await deleteSavedCourse(id)) setMyCourses((prev) => prev.filter((c) => c.id !== id));
+    else alert("코스를 지우지 못했어요. 잠시 후 다시 시도해 주세요.");
+  };
   const PAGE_SIZE = 10;
 
   const [newNickname, setNewNickname]   = useState("");
@@ -171,13 +183,14 @@ export default function MyPage() {
     setBookmarks([]);
     setMyReviews([]);
     setMyPosts([]);
+    setMyCourses([]);
 
     const uid = sess.user.id;
 
     try {
       // 커뮤니티에 내가 쓴 글(삭제된 글 제외) — 아래 조회들과 동시에 진행합니다.
       const postsPromise = supabase.from("community_posts")
-        .select("id, title, content, created_at, board_id, post_type, likes, comment_count, views, image_urls")
+        .select("*") // review_status(자동 검토 상태) 컬럼이 아직 없는 환경에서도 조회되도록 전체 컬럼으로 받습니다
         .eq("author_auth_key", uid)
         .eq("deleted", false)
         .eq("is_admin_deleted", false)
@@ -221,6 +234,7 @@ export default function MyPage() {
       setUserProfile(profile);
       setMyCommunityComments(communityComments || []);
       setMyPosts((await postsPromise).data || []);
+      setMyCourses(await listSavedCourses().catch(() => []));
 
       // 찜·댓글이 가리키는 장소 정보를 한 번에 모읍니다. 등록 장소는 places 테이블에서,
       // 공공데이터 장소(id 10억 이상 — 관광공사·공원 등)는 places에 없으므로 공공데이터 API에서
@@ -723,7 +737,7 @@ export default function MyPage() {
 									padding: "0 28px",
 									boxSizing: "border-box",
 								display: "grid",
-								gridTemplateColumns: "1fr 1fr 1fr",
+								gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))",
 								gap: 10,
 							}}
 						>
@@ -751,6 +765,33 @@ export default function MyPage() {
                 </div>
                 <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "bookmarks" ? "white" : "#333", lineHeight: 1 }}>
                   {bookmarks.length}
+                </div>
+              </button>
+
+              {/* 저장한 코스(AI 추천 코스 보관함) */}
+              <button
+                onClick={() => setActiveSection("courses")}
+                style={{
+                  padding: "20px 8px",
+                  borderRadius: 16,
+                  border: activeSection === "courses" ? "none" : "1px solid #e8eaed",
+                  background: activeSection === "courses" ? "#5C7A4A" : "white",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  boxShadow: activeSection === "courses" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  transition: "all 0.18s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: activeSection === "courses" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                  저장한 코스
+                </div>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "courses" ? "white" : "#333", lineHeight: 1 }}>
+                  {myCourses.length}
                 </div>
               </button>
 
@@ -824,6 +865,8 @@ export default function MyPage() {
             scrollbarWidth: "thin",
             boxSizing: "border-box",
           }}>
+            <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: "1 0 auto" }}>
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>
@@ -962,6 +1005,107 @@ export default function MyPage() {
             <Pagination page={bookmarkPage} total={bookmarkTotalPages} onChange={p => { setBookmarkPage(p); }} />
 
 						{/* ── 작성한 댓글 */}
+            {/* ── 저장한 코스 */}
+            {activeSection === "courses" && (
+              <>
+                {myCourses.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "56px 0" }}>
+                    <div style={{
+                      width: 56, height: 56, borderRadius: 18, background: "#f0f2f5",
+                      display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
+                    }}>
+                      <PetIllustration variant="empty" width={40} />
+                    </div>
+                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                      아직 저장한 코스가 없어요
+                    </div>
+                    <div style={{ fontSize: 12, color: "#b6bcc6", marginTop: 6, lineHeight: 1.6 }}>
+                      지도의 AI 코스에서 마음에 드는 코스를<br />"이 코스 저장"으로 담아 보세요.
+                    </div>
+                    <button
+                      onClick={() => router.push("/")}
+                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      지도에서 코스 보기
+                    </button>
+                  </div>
+                ) : (
+                  myCourses.map((course) => {
+                    const points = course.stops.map((st) => ({ lat: st.lat, lng: st.lng, name: st.name }));
+                    return (
+                      <div
+                        key={course.id}
+                        style={{
+                          marginBottom: 12, padding: "14px 15px",
+                          background: "white", borderRadius: 18, border: "1px solid #e8eaed",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#222", wordBreak: "keep-all" }}>{course.title}</div>
+                            <div style={{ marginTop: 4, display: "flex", gap: 10, fontSize: 11, color: "#999", flexWrap: "wrap" }}>
+                              <span>{formatDate(course.created_at)} 저장</span>
+                              {course.total_distance_km != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}><Footprints size={10} />약 {course.total_distance_km}km</span>}
+                              {course.estimated_minutes != null && <span>약 {course.estimated_minutes >= 60 ? `${Math.floor(course.estimated_minutes / 60)}시간 ${course.estimated_minutes % 60}분` : `${course.estimated_minutes}분`}</span>}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteCourse(course.id)}
+                            aria-label="저장한 코스 삭제"
+                            style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: "none", background: "#f5f6f8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >
+                            <Trash2 size={13} color="#999" />
+                          </button>
+                        </div>
+
+                        {/* 정거장 — 누르면 그 장소 상세로 */}
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {course.stops.map((st, i) => (
+                            <button
+                              key={`${st.id}-${i}`}
+                              onClick={() => router.push(`/place/${st.id}`)}
+                              className="card-hover"
+                              style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 11, border: "1px solid #f0f0f0", background: "#fafafa", cursor: "pointer", textAlign: "left" }}
+                            >
+                              <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#5C7A4A", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.name}</span>
+                                {(st.category || st.address) && (
+                                  <span style={{ display: "block", fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {[st.category, st.address].filter(Boolean).join(" · ")}
+                                  </span>
+                                )}
+                              </span>
+                              <ChevronRight size={13} color="#ccc" style={{ flexShrink: 0 }} />
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* 코스 전체 길찾기 — 첫 정거장에서 출발해 순서대로 */}
+                        {points.length > 0 && (
+                          <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
+                            <button
+                              onClick={() => (points.length >= 2 ? openKakaoWalk(points) : router.push(`/place/${course.stops[0].id}`))}
+                              style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                            >
+                              <Navigation size={12} />카카오맵 길찾기
+                            </button>
+                            <button
+                              onClick={() => openNaverWalk(points[points.length - 1], points.slice(1, -1), points.length >= 2 ? points[0] : undefined)}
+                              style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #03C75A", background: "white", color: "#03A24A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                            >
+                              <Navigation size={12} />네이버지도
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </>
+            )}
+
             {/* ── 작성한 글(커뮤니티) */}
             {activeSection === "posts" && (
               <>
@@ -1002,6 +1146,12 @@ export default function MyPage() {
                           </span>
                           {post.post_type && (
                             <span style={{ fontSize: 10.5, fontWeight: 700, color: "#888" }}>[{post.post_type}]</span>
+                          )}
+                          {post.review_status === "pending" && (
+                            <span title={post.review_reason || undefined} style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>관리자 확인 중 · 비공개</span>
+                          )}
+                          {post.review_status === "rejected" && (
+                            <span title={post.review_reason || undefined} style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#FEE2E2", color: "#991b1b" }}>반려됨 · 비공개</span>
                           )}
                           <span style={{ marginLeft: "auto", fontSize: 10, color: "#bbb" }}>{formatDate(post.created_at)}</span>
                         </div>
@@ -1191,16 +1341,18 @@ export default function MyPage() {
                 )}
               </>
             )}
-          </div>
 
-          {/* ── 하단 푸터 — 리스트 영역 밖(스크롤 대상 아님)으로 빼서 항상 보이도록 고정하고,
-                하단 탭바(플로팅 필, 약 78px)에 가려지지 않도록 그만큼 아래쪽 여백을 둡니다.
-                배경은 흰 카드로 튀지 않도록 커뮤니티 페이지들과 동일하게 페이지 배경색(#F7F3E8)으로 통일. */}
-          <div style={{
-            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
-            padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
-          }}>
-            <SiteFooter />
+            </div>
+            {/* ── 하단 푸터 — 목록과 함께 스크롤됩니다. 예전엔 스크롤 영역 밖에 고정해 둬서 항상 화면 아래를
+                차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
+                하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
+            <div style={{
+              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -40px 0",
+              padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
+            }}>
+              <SiteFooter />
+            </div>
+            </div>
           </div>
         </div>
 
@@ -1255,47 +1407,17 @@ export default function MyPage() {
                   {/* 인증된 사장님만 보이는 진입점 — 마이페이지 설정 안에서 바로 수정합니다
                       (place/[id]/page.tsx의 OwnerPlaceEditPanel을 그대로 재사용하되,
                       더 이상 상세페이지로 이동시키지 않고 이 설정 패널 안에서 엽니다). */}
+                  {/* 사장님 기능(가게 정보·통계·광고 상품·후기 답글)은 사장님 페이지(/owner)로 옮겼습니다 —
+                      인증된 사장님은 하단 "사장님" 탭으로도 바로 들어갈 수 있습니다. */}
                   {(isVerifiedOwner || isOwnerPreview) && (
                     <button
                       className="setting-row"
-                      onClick={() => openOwnerPlacePane()}
-                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f0f7ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
+                      onClick={() => { closeSettings(); router.push("/owner"); }}
+                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 12px", borderRadius:10, border:"1px solid #FDE68A", background:"#FFFBEB", cursor:"pointer", marginBottom:7 }}
                     >
-                      <div style={{ width:32, height:32, borderRadius:9, background:"#dcecd3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        <Store size={15} color="#5C7A4A" />
-                      </div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>가게 정보 수정하기{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#5C7A4A" }}>관리자 미리보기</span>}</div>
-                      <ChevronRight size={14} color="#bbb" />
-                    </button>
-                  )}
-
-                  {/* 내 가게 통계 — 조회·찜·후기, AI 코스·추천 노출을 보여줍니다(프리미엄 가치를 판단할 근거). */}
-                  {(isVerifiedOwner || isOwnerPreview) && (
-                    <button
-                      className="setting-row"
-                      onClick={() => setSettingView("owner-stats")}
-                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f3f0ff", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
-                    >
-                      <div style={{ width:32, height:32, borderRadius:9, background:"#e4dcff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        <BarChart3 size={15} color="#5b21b6" />
-                      </div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>내 가게 통계{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#5b21b6" }}>관리자 미리보기</span>}</div>
-                      <ChevronRight size={14} color="#bbb" />
-                    </button>
-                  )}
-
-                  {/* 프리미엄 등록 — 인증된 사장님만 진입 가능. 신청/현재 상태를 별도 패널에서 보여줍니다. */}
-                  {(isVerifiedOwner || isOwnerPreview) && (
-                    <button
-                      className="setting-row"
-                      onClick={() => openPremiumPane()}
-                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#fff8ec", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}
-                    >
-                      <div style={{ width:32, height:32, borderRadius:9, background:"#ffe9c2", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        <Crown size={15} color="#B8860B" />
-                      </div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>프리미엄 등록{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10.5, fontWeight:700, color:"#B8860B" }}>관리자 미리보기</span>}</div>
-                      <ChevronRight size={14} color="#bbb" />
+                      <div style={{ width:30, height:30, borderRadius:8, background:"#FEF3C7", display:"flex", alignItems:"center", justifyContent:"center" }}><Store size={14} color="#B45309"/></div>
+                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:"#78350F" }}>사장님 페이지{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10, fontWeight:700, color:"#7c3aed" }}>관리자 미리보기</span>}</div>
+                      <ChevronRight size={14} color="#D6A656"/>
                     </button>
                   )}
 

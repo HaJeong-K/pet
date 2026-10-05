@@ -9,6 +9,7 @@ import {
   MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
+import { reviewStatusOf, notifyPostReview, HELD_MESSAGE } from "@/lib/postReview";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 
 const FONT_STYLE = `
@@ -134,6 +135,8 @@ export default function CommunityDetailPage() {
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [likedReplyIds2, setLikedReplyIds2] = useState<Set<string>>(new Set());
   const [isAdminDeleted, setIsAdminDeleted] = useState(false);
+  // 자동 검토 대기·반려 글을 작성자·관리자가 아닌 사람이 열었을 때
+  const [heldFromView, setHeldFromView] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminDeletedPopup, setShowAdminDeletedPopup] = useState(false);
 
@@ -168,6 +171,19 @@ export default function CommunityDetailPage() {
       if (data.is_admin_deleted) {
         setIsAdminDeleted(true);
         setShowAdminDeletedPopup(true);
+        return;
+      }
+      // 자동 검토 대기·반려 글은 작성자와 관리자만 볼 수 있습니다(조회수도 올리지 않음).
+      if (reviewStatusOf(data) !== "visible") {
+        const { data: { session: viewer } } = await supabase.auth.getSession();
+        const mine = !!viewer && viewer.user.id === data.author_auth_key;
+        let admin = false;
+        if (viewer && !mine) {
+          const { data: prof } = await supabase.from("users").select("is_admin").eq("auth_user_id", viewer.user.id).maybeSingle();
+          admin = !!prof?.is_admin;
+        }
+        if (!mine && !admin) { setHeldFromView(true); return; }
+        setPost(data);
         return;
       }
       // 조회수는 여기서 바로 +1 해서 화면에 최신값을 보여주고, DB에도 반영합니다.
@@ -350,9 +366,13 @@ export default function CommunityDetailPage() {
       .from("community_posts")
       .update({ title: editPostTitle, content: editPostContent })
       .eq("id", Number(postId));
-    if (error) { console.error(error); return; }
-    setPost((prev: any) => prev ? { ...prev, title: editPostTitle, content: editPostContent } : prev);
+    if (error) { console.error(error); alert(error.message || "수정하지 못했어요."); return; }
+    // 수정한 내용이 자동 검토에 걸렸는지 확인합니다(걸리면 다시 관리자 확인 전까지 비공개).
+    const { data: after } = await supabase.from("community_posts").select("*").eq("id", Number(postId)).maybeSingle();
+    const nowHeld = reviewStatusOf(after) === "pending" && reviewStatusOf(post as any) === "visible";
+    setPost((prev: any) => prev ? { ...prev, title: editPostTitle, content: editPostContent, review_status: after?.review_status, review_reason: after?.review_reason } : prev);
     setEditingPost(false);
+    if (nowHeld) { notifyPostReview(Number(postId)); alert(HELD_MESSAGE); }
   };
 
   const handlePostDelete = async () => {
@@ -643,6 +663,14 @@ export default function CommunityDetailPage() {
       <style>{FONT_STYLE}</style>
 
       {/* ★ 관리자 삭제 게시글 팝업 */}
+      {heldFromView && (
+        <div className="ggk-body" style={{ position: "fixed", inset: 0, zIndex: 300, background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#333" }}>확인 중인 글이에요</div>
+          <div style={{ fontSize: 13, color: "#777", lineHeight: 1.7 }}>관리자 확인이 끝나면 볼 수 있어요.</div>
+          <button onClick={() => router.replace("/community")} style={{ marginTop: 6, padding: "11px 20px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>커뮤니티로 돌아가기</button>
+        </div>
+      )}
+
       {showAdminDeletedPopup && (
         <>
           <div
@@ -840,6 +868,17 @@ export default function CommunityDetailPage() {
               padding: "14px",
             }}
           >
+            <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: "1 0 auto" }}>
+
+            {/* 자동 검토 상태 안내 — 작성자·관리자에게만 이 화면이 보입니다 */}
+            {post && reviewStatusOf(post as any) !== "visible" && (
+              <div className="ggk-body" style={{ marginBottom: 12, padding: "12px 14px", borderRadius: 12, background: reviewStatusOf(post as any) === "pending" ? "#FFFBEB" : "#FEF2F2", border: `1px solid ${reviewStatusOf(post as any) === "pending" ? "#FDE68A" : "#FECACA"}`, color: reviewStatusOf(post as any) === "pending" ? "#92400E" : "#991b1b", fontSize: 13, lineHeight: 1.6 }}>
+                <b>{reviewStatusOf(post as any) === "pending" ? "관리자 확인을 기다리는 글이에요" : "게시되지 않은 글이에요(반려)"}</b><br />
+                {reviewStatusOf(post as any) === "pending" ? "아직 다른 사람에게는 보이지 않아요. 확인이 끝나면 게시돼요." : "게시판 이용 안내와 맞지 않아 공개되지 않았어요. 내용을 고쳐 새 글로 올려 주세요."}
+                {(post as any).review_reason ? <><br />사유: {(post as any).review_reason}</> : null}
+              </div>
+            )}
 
             {/* ── 게시글 카드 ── */}
             <div
@@ -1585,19 +1624,19 @@ export default function CommunityDetailPage() {
                   })}
               </div>
             </div>
-          </div>{/* /post-scroll */}
 
-          {/* ── 하단 푸터 — 스크롤 영역(post-scroll) 밖으로 빼서 마이페이지/커뮤니티
-              목록과 동일하게 항상 탭바 바로 위에 고정됩니다. 다른 페이지와 완전히
-              같은 공용 SiteFooter 컴포넌트라 이용약관/운영정책 링크 누락, 문의 이메일
-              불일치 같은 문제가 다시 생기지 않고, 배경도 흰 카드가 아니라 페이지
-              배경(#F7F3E8)과 동일하게 맞췄습니다. ── */}
-          <div style={{
-            flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0",
-            padding: "18px 14px calc(78px + 18px)", boxSizing: "border-box",
-          }}>
-            <SiteFooter />
-          </div>
+            </div>
+            {/* ── 하단 푸터 — 목록과 함께 스크롤됩니다. 예전엔 스크롤 영역 밖에 고정해 둬서 항상 화면 아래를
+                차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
+                하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
+            <div style={{
+              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -14px 0",
+              padding: "18px 14px calc(78px + 18px)", boxSizing: "border-box",
+            }}>
+              <SiteFooter />
+            </div>
+            </div>
+          </div>{/* /post-scroll */}
         </div>{/* /680px 컬럼 */}
 
         {/* 우측 레일 — 커뮤니티 목록(offset 0)·마이페이지(offset 2)와 겹치지 않도록

@@ -5,6 +5,9 @@ export async function reportClientError(
   stack: string | null | undefined,
   source: "window.onerror" | "unhandledrejection" | "react-error-boundary"
 ) {
+  // 개발용 컴퓨터(localhost)에서 난 오류는 기록하지 않습니다 — 개발·시험 중에 일부러 낸 오류가
+  // 실제 서비스 오류 기록(관리자 "에러 로그", 아침 요약의 오류 건수)에 섞여 들어가던 문제 방지.
+  if (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)) return;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     await fetch("/api/log-error", {

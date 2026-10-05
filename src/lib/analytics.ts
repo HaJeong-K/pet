@@ -41,7 +41,10 @@ export type AnalyticsEventType =
   | "course_regenerate"
   | "course_stop_click"
   | "course_start"
-  | "course_stop_directions";
+  | "course_stop_directions"
+  | "place_directions"  // 장소 상세에서 길찾기 열기(meta.app: kakao | naver)
+  | "place_call"        // 장소 상세에서 전화번호 누르기
+  | "place_website";    // 장소 상세에서 홈페이지 열기
 
 export function trackEvent(
   type: AnalyticsEventType,

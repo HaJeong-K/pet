@@ -40,6 +40,7 @@ import {
   Flag,        // 이미지 신고
   Crown,       // 프리미엄 배지
   Trees,       // 공원 구분
+  Store,       // 사장님 답글 배지
 } from "lucide-react";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
@@ -215,6 +216,10 @@ export default function PlaceDetail({
   const isLoggedIn = !!session?.user;
   // 공원(장소 번호 90억 이상) — 가게용 항목(영업시간·주차 등) 대신 공원 정보(구분·면적·시설)를 보여줍니다.
   const isPark = isParkPlaceId(placeId);
+  // 이 장소의 인증된 사장님인지 — 사장님이 자기 가게 후기에 단 답글에는 "사장님" 배지가 붙습니다.
+  // (배지 자체는 DB가 판정해 review_replies.is_owner에 기록합니다 — scripts/sql/owner-replies.sql.
+  //  여기 값은 "사장님 답글" 안내 문구를 보여줄지 정하는 데만 씁니다.)
+  const isPlaceOwner = !!userProfile && userProfile.owner_status === "verified" && String(userProfile.owner_place_id) === String(placeId);
 
   const [myNickname, setMyNickname] = useState("");
   const [password, setPassword]     = useState("");
@@ -998,7 +1003,10 @@ export default function PlaceDetail({
     !isNaN(placeLat) && !isNaN(placeLng) ? { lat: placeLat, lng: placeLng, name: place.name } : null;
 
   // 휴대폰은 네이버지도 앱, PC는 현재 위치를 출발지로 네이버 지도 웹을 엽니다.
-  const handleNaverDirections = (destination: DirectionPoint) => openNaverWalk(destination);
+  // 사장님 성과 지표용 — 이 장소로 이어진 행동(길찾기·전화·홈페이지)을 익명으로 셉니다.
+  const trackPlaceAction = (type: "place_directions" | "place_call" | "place_website", meta?: Record<string, unknown>) =>
+    trackEvent(type, { placeId, placeName: place?.name, authUserId: session?.user?.id ?? null, meta: meta ?? null });
+  const handleNaverDirections = (destination: DirectionPoint) => { trackPlaceAction("place_directions", { app: "naver" }); openNaverWalk(destination); };
 
   return (
     <>
@@ -1200,7 +1208,7 @@ export default function PlaceDetail({
                   <Phone size={10} />전화번호
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                  {place.phone ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>{place.phone}</a> : "—"}
+                  {place.phone ? <a href={`tel:${place.phone}`} onClick={() => trackPlaceAction("place_call")} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>{place.phone}</a> : "—"}
                 </div>
               </div>
             </div>
@@ -1312,7 +1320,7 @@ export default function PlaceDetail({
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
                 {place.phone
-                  ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                  ? <a href={`tel:${place.phone}`} onClick={() => trackPlaceAction("place_call")} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
                       {place.phone}
                     </a>
                   : "—"
@@ -1327,7 +1335,7 @@ export default function PlaceDetail({
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
                   {place.phone
-                    ? <a href={`tel:${place.phone}`} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
+                    ? <a href={`tel:${place.phone}`} onClick={() => trackPlaceAction("place_call")} style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
                         {place.phone}
                       </a>
                     : "—"
@@ -1353,7 +1361,7 @@ export default function PlaceDetail({
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", fontWeight:500 }}>
                 {hasInfo(place.website)
-                  ? <a href={place.website} target="_blank" rel="noreferrer"
+                  ? <a href={place.website} target="_blank" rel="noreferrer" onClick={() => trackPlaceAction("place_website")}
                       style={{ color:"#2563eb", textDecoration:"none", fontWeight:600 }}>
                       바로가기
                     </a>
@@ -1430,7 +1438,7 @@ export default function PlaceDetail({
           <div style={{ marginTop:"7px", padding:"10px", borderRadius:"10px", border:"1px solid #ece4fc", background:"#faf7ff" }}>
             {placeDirectionPoint ? (
               <div style={{ display:"flex", gap:"7px" }}>
-                <button onClick={() => openKakaoWalkFromHere(placeDirectionPoint)} className="ggk-body" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 0", borderRadius:"10px", border:"none", background:"linear-gradient(135deg,#7c3aed,#5b21b6)", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                <button onClick={() => { trackPlaceAction("place_directions", { app: "kakao" }); openKakaoWalkFromHere(placeDirectionPoint); }} className="ggk-body" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 0", borderRadius:"10px", border:"none", background:"linear-gradient(135deg,#7c3aed,#5b21b6)", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
                   <Navigation size={12} />카카오맵
                 </button>
                 <button onClick={() => handleNaverDirections(placeDirectionPoint)} className="ggk-body" style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 0", borderRadius:"10px", border:"1px solid #03C75A", background:"white", color:"#03A24A", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
@@ -1585,28 +1593,38 @@ export default function PlaceDetail({
 
                   {/* 답글 입력 */}
                   {replyingId === r.id && (
-                    <div style={{ marginTop:"8px", marginLeft:"28px", padding:"10px", background:"#f8fafc", borderRadius:"9px", border:"1px solid #e2e8f0" }}>
+                    <div style={{ marginTop:"8px", marginLeft:"28px", padding:"10px", background:isPlaceOwner?"#FFFBEB":"#f8fafc", borderRadius:"9px", border:`1px solid ${isPlaceOwner?"#FDE68A":"#e2e8f0"}` }}>
+                      {isPlaceOwner && (
+                        <div className="ggk-body" style={{ display:"flex", alignItems:"center", gap:"4px", marginBottom:"7px", fontSize:"11px", fontWeight:700, color:"#92400E" }}>
+                          <Store size={12} />사장님 답글로 등록돼요 — 고객에게 "사장님" 배지와 함께 보여요.
+                        </div>
+                      )}
                       <div style={{ display:"grid", gridTemplateColumns:isLoggedIn?"calc(40% - 20px)":"4fr auto 6fr", gap:"7px", marginBottom:"7px" }}>
                         <div style={{ display:"flex", alignItems:"center", background:"white", padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", fontSize:"11px", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>{myNickname}</div>
                         {!isLoggedIn && <button onClick={createRandomNickname} style={{ width:"36px", height:"36px", borderRadius:"6px", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><Shuffle size={13} /></button>}
                         {!isLoggedIn && <input placeholder="비밀번호" type="password" value={replyPassword} onChange={(e) => setReplyPassword(e.target.value)} style={{ width:"100%", padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", fontSize:"11px", boxSizing:"border-box" }} />}
                       </div>
                       <div style={{ display:"flex", gap:"7px" }}>
-                        <textarea placeholder="답글을 입력하세요" value={replyContent} onChange={(e) => setReplyContent(e.target.value)} style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box" }} />
+                        <textarea placeholder={isPlaceOwner ? "방문해 주신 고객께 답글을 남겨 보세요" : "답글을 입력하세요"} value={replyContent} onChange={(e) => setReplyContent(e.target.value)} style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box" }} />
                         <button disabled={!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())} onClick={() => handleReplySubmit(r.id)} className="ggk-body" style={{ width:"46px", borderRadius:"6px", border:"none", background:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color:"white", cursor:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"default":"pointer", fontSize:"11px", fontWeight:700 }}>등록</button>
                       </div>
                     </div>
                   )}
 
                   {/* 답글 리스트 */}
-                  {replies.filter((reply) => reply.review_id === r.id).map((reply) => (
-                    <div key={reply.id} style={{ marginLeft:"28px", marginTop:"8px", padding:"8px 10px", background:"#f8fafc", borderRadius:"9px", border:"1px solid #e2e8f0" }}>
+                  {replies.filter((reply) => reply.review_id === r.id).sort((a, b) => Number(!!b.is_owner) - Number(!!a.is_owner)).map((reply) => (
+                    <div key={reply.id} style={{ marginLeft:"28px", marginTop:"8px", padding:"8px 10px", background:reply.is_owner?"#FFFBEB":"#f8fafc", borderRadius:"9px", border:`1px solid ${reply.is_owner?"#FDE68A":"#e2e8f0"}` }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                         <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
                           <div style={{ width:"20px", height:"20px", borderRadius:"50%", background:getProfileColor(reply.nickname), color:"white", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"10px", fontWeight:700, overflow:"hidden", position:"relative" }}>
                             {reply.avatar_url ? <Image src={reply.avatar_url} referrerPolicy="no-referrer" alt={reply.nickname} fill sizes="20px" style={{ objectFit:"cover" }} /> : reply.nickname?.charAt(0)}
                           </div>
                           <div className="ggk-body" style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
+                          {reply.is_owner && (
+                            <span className="ggk-body" title="이 가게의 인증된 사장님이 직접 남긴 답글이에요" style={{ display:"inline-flex", alignItems:"center", gap:"2px", fontSize:"10px", fontWeight:800, background:"#F59E0B", color:"white", padding:"1px 7px", borderRadius:"99px", whiteSpace:"nowrap" }}>
+                              <Store size={10} />사장님
+                            </span>
+                          )}
                           {isOwnerReply(reply) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                         </div>
                         <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>

@@ -9,6 +9,7 @@ import { siteUrl } from "@/lib/siteUrl";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: siteUrl, changeFrequency: "daily", priority: 1 },
+    { url: `${siteUrl}/about`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/community`, changeFrequency: "hourly", priority: 0.8 },
     { url: `${siteUrl}/shelter-notices`, changeFrequency: "daily", priority: 0.6 },
   ];

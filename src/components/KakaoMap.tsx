@@ -29,6 +29,7 @@ import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
 import { parkToPlace } from "@/lib/parkPlace";
 import DemoNoticeModal, { shouldShowDemoNotice } from "@/components/DemoNoticeModal";
 import PageGuide from "@/components/PageGuide";
+import { saveCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
 import { MAP_GUIDE_KEY, MAP_GUIDE_STEPS } from "@/lib/pageGuides";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
@@ -39,7 +40,7 @@ import {
   Link, Upload, MessageCircle, PawPrint, X,
   Search, Bot, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
-  Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown,
+  Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown, Bookmark,
 } from "lucide-react";
 // ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
 // 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
@@ -2652,6 +2653,17 @@ const courseMeta = (route: RouteResult) => ({
     openWalkDirections(app, routeOriginPoint(route), targets);
   };
 
+  // ── 코스 저장(회원 전용) — 지금 보이는 코스를 마이페이지 "저장한 코스"에 담아 둡니다.
+  const [courseSave, setCourseSave] = useState<{ key: string; state: "saving" | "saved" | "error"; message?: string } | null>(null);
+  const courseKey = (route: RouteResult) => `${routeTheme}:${route.stops.map((s) => s.place.id).join(",")}`;
+  const handleSaveCourse = async (route: RouteResult) => {
+    if (!session?.user) { router.push("/login"); return; }
+    const key = courseKey(route);
+    setCourseSave({ key, state: "saving" });
+    const result = await saveCourse({ title: courseTitle(ROUTE_THEME_LABEL[routeTheme], toSavedStops(route)), theme: routeTheme, route });
+    setCourseSave(result.ok ? { key, state: "saved" } : { key, state: "error", message: result.error });
+  };
+
   /** 코스의 정거장 하나로 바로 길찾기 — 순서대로 다 돌지 않고 원하는 곳만 찾아갈 때 */
   const handleStopDirections = (route: RouteResult, stopIdx: number, app: "kakao" | "naver") => {
     const stop = route.stops[stopIdx];
@@ -4653,6 +4665,32 @@ const courseMeta = (route: RouteResult) => ({
 
           {displayRoute && (
             <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
+              {(() => {
+                const mine = courseSave && courseSave.key === courseKey(displayRoute) ? courseSave : null;
+                const saved = mine?.state === "saved";
+                return (
+                  <>
+                    <button
+                      onClick={() => (saved ? router.push("/mypage?tab=courses") : handleSaveCourse(displayRoute))}
+                      disabled={mine?.state === "saving"}
+                      className="ggk-body"
+                      style={{
+                        width: "100%", padding: "9px 0", marginBottom: "6px", borderRadius: "12px",
+                        border: saved ? "1px solid #86efac" : "1px dashed rgba(91,33,182,0.45)",
+                        background: saved ? "#f0fdf4" : "rgba(255,255,255,0.7)", color: saved ? "#15803d" : "#5b21b6",
+                        fontWeight: 700, fontSize: "11.5px", cursor: mine?.state === "saving" ? "default" : "pointer",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                      }}
+                    >
+                      <Bookmark size={12} fill={saved ? "#15803d" : "none"} />
+                      {mine?.state === "saving" ? "저장 중…" : saved ? "저장됐어요 · 마이페이지에서 보기" : session?.user ? "이 코스 저장" : "로그인하고 이 코스 저장"}
+                    </button>
+                    {mine?.state === "error" && (
+                      <div role="status" style={{ fontSize: "10.5px", color: "#b45309", textAlign: "center", marginBottom: "6px", lineHeight: 1.5 }}>{mine.message}</div>
+                    )}
+                  </>
+                );
+              })()}
               <div style={{ display: "flex", gap: "6px" }}>
                 <button
                   onClick={() => handleRouteDirections(displayRoute, "kakao")}

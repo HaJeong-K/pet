@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanText, extractPhone, extractIntroFields, largeDogFrom, petZoneFrom, tidyLines, petMemo, type TourDetail } from "./tourDetails";
+import { limitKind, cleanText, extractPhone, extractIntroFields, largeDogFrom, petZoneFrom, tidyLines, petMemo, type TourDetail } from "./tourDetails";
 
 describe("관광공사 상세 정보 가공", () => {
   it("문의처 글에서 첫 전화번호만 꺼낸다", () => {
@@ -47,5 +47,13 @@ describe("관광공사 상세 정보 가공", () => {
     const d = { petType: "전구역 동반가능", petNeeds: "목줄 착용", petEtc: null } as TourDetail;
     expect(petMemo(d)).toBe("동반 범위: 전구역 동반가능\n준비물: 목줄 착용");
     expect(petMemo({ petType: null, petNeeds: null, petEtc: null } as TourDetail)).toBeNull();
+  });
+
+  it("초당 호출 제한과 하루 한도 초과를 구분한다", () => {
+    expect(limitKind(429, '{"errMsg":"LIMITED_NUMBER_OF_SERVICE_REQUESTS_PER_SECOND_EXCEEDS_ERROR"}')).toBe("second");
+    expect(limitKind(429, '{"errMsg":"LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR"}')).toBe("day");
+    expect(limitKind(200, "<returnReasonCode>22</returnReasonCode>")).toBe("day");
+    expect(limitKind(429, "")).toBe("second");
+    expect(limitKind(200, '{"response":{"header":{"resultCode":"0000"}}}')).toBeNull();
   });
 });
