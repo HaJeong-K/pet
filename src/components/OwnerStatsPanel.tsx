@@ -44,6 +44,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pickedDay, setPickedDay] = useState<string | null>(null); // 그래프에서 고른 날짜
 
   useEffect(() => {
     let cancelled = false;
@@ -108,26 +109,48 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
       </div>
 
       <div style={{ fontSize: 11.5, fontWeight: 700, color: "#555", marginBottom: 6 }}>최근 30일 조회 추이</div>
+      {/* 막대 위에 그날 조회수를 적고, 막대를 누르거나 올려 두면 아래에 날짜와 함께 보여 줍니다 */}
       <div
         role="img"
         aria-label={`최근 30일 조회 추이, 합계 ${stats.views.last30}회`}
-        style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 70, padding: "6px 6px 0", background: "#f8fafc", border: "1px solid #eef0f2", borderRadius: 11 }}
+        style={{ display: "flex", alignItems: "stretch", gap: 2, height: 110, padding: "6px 6px 0", background: "#f8fafc", border: "1px solid #eef0f2", borderRadius: 11 }}
       >
-        {stats.daily.map((d) => (
-          <div
-            key={d.day}
-            title={`${d.day.slice(5).replace("-", "/")} · ${d.views}회`}
-            style={{
-              flex: 1, minWidth: 0, borderRadius: "3px 3px 0 0",
-              height: `${d.views === 0 ? 2 : Math.max(6, Math.round((d.views / max) * 100))}%`,
-              background: d.views === 0 ? "#e5e7eb" : "#5C7A4A",
-            }}
-          />
-        ))}
+        {stats.daily.map((d) => {
+          const picked = pickedDay === d.day;
+          return (
+            <div
+              key={d.day}
+              title={`${d.day.slice(5).replace("-", "/")} · ${d.views}회`}
+              onClick={() => setPickedDay(picked ? null : d.day)}
+              onMouseEnter={() => setPickedDay(d.day)}
+              style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", cursor: "pointer" }}
+            >
+              {d.views > 0 && (
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: picked ? "#A8551F" : "#48603A", lineHeight: 1, marginBottom: 2, whiteSpace: "nowrap" }}>{d.views}</span>
+              )}
+              <div
+                style={{
+                  width: "100%", borderRadius: "3px 3px 0 0", flexShrink: 0,
+                  // 숫자 자리(14px)를 남기고 가장 높은 막대가 꽉 차도록
+                  height: d.views === 0 ? 2 : `max(5px, calc((100% - 14px) * ${d.views / max}))`,
+                  background: d.views === 0 ? "#e5e7eb" : picked ? "#A8551F" : "#5C7A4A",
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", margin: "3px 2px 14px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", margin: "3px 2px 6px" }}>
         <span>{stats.daily[0]?.day.slice(5).replace("-", "/")}</span>
         <span>오늘</span>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#666", margin: "0 2px 14px", minHeight: 17 }}>
+        {(() => {
+          const d = stats.daily.find((x) => x.day === pickedDay);
+          return d
+            ? <><b style={{ color: "#A8551F" }}>{d.day.slice(5).replace("-", "/")}</b> 조회 <b style={{ color: "#222" }}>{d.views}회</b></>
+            : "막대를 누르면 그날 조회수를 볼 수 있어요.";
+        })()}
       </div>
 
       <div style={{ fontSize: 11.5, fontWeight: 700, color: "#555", marginBottom: 6 }}>최근 30일 방문·문의로 이어진 행동</div>

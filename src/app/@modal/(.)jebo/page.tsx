@@ -199,10 +199,8 @@ export default function JeboModal() {
         isOwnerRequest = ownerProfile?.owner_status === "verified";
       }
 
-      const { data: insertedProposal, error } = await supabase
-        .from("proposals")
-        .insert([{
-          place_name:   name.trim(),
+      const proposalRow = {
+          place_name:  name.trim(),
           address:      joinAddress(address, addressDetail),
           category:    category.trim() || null,
           hours:        hours.trim()    || null,
@@ -221,9 +219,15 @@ export default function JeboModal() {
           is_owner_request: isOwnerRequest, // ★ 인증된 사장님 본인 제보 여부
           ai_verified: false,
           ai_review: null,
-        }])
-        .select()
-        .single();
+      };
+      let { data: insertedProposal, error } = await supabase.from("proposals").insert([proposalRow]).select().single();
+      // 동물병원 전용 칸이 아직 DB에 없으면(scripts/sql/add-proposals-vet-columns.sql 실행 전) 그 두 칸만 빼고 다시 저장합니다
+      // — 칸 하나 때문에 제보 전체가 막히지 않게.
+      if (error?.code === "PGRST204") {
+        const { specialty_department, treatable_animals, ...rest } = proposalRow;
+        void specialty_department; void treatable_animals;
+        ({ data: insertedProposal, error } = await supabase.from("proposals").insert([rest]).select().single());
+      }
 
       if (error || !insertedProposal) { console.error("제보 저장 실패:", JSON.stringify(error, null, 2)); alert("제보 저장 중 오류가 발생했습니다."); return; }
 
