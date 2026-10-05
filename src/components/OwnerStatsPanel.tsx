@@ -45,6 +45,13 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pickedDay, setPickedDay] = useState<string | null>(null); // 그래프에서 고른 날짜
+  // 막대 바깥(빈 배경)을 누르면 고른 날짜를 풉니다. 막대를 누른 경우는 막대 쪽에서 전파를 막습니다.
+  useEffect(() => {
+    if (!pickedDay) return;
+    const reset = () => setPickedDay(null);
+    document.addEventListener("click", reset);
+    return () => document.removeEventListener("click", reset);
+  }, [pickedDay]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +116,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
       </div>
 
       <div style={{ fontSize: 11.5, fontWeight: 700, color: "#555", marginBottom: 6 }}>최근 30일 조회 추이</div>
-      {/* 막대 위에 그날 조회수를 적고, 막대를 누르거나 올려 두면 아래에 날짜와 함께 보여 줍니다 */}
+      {/* 막대 위에 그날 조회수를 적고, 막대를 누르면 아래에 날짜와 함께 보여 줍니다(다른 막대를 누르면 그 날짜로 바뀜) */}
       <div
         role="img"
         aria-label={`최근 30일 조회 추이, 합계 ${stats.views.last30}회`}
@@ -121,8 +128,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
             <div
               key={d.day}
               title={`${d.day.slice(5).replace("-", "/")} · ${d.views}회`}
-              onClick={() => setPickedDay(picked ? null : d.day)}
-              onMouseEnter={() => setPickedDay(d.day)}
+              onClick={(e) => { e.stopPropagation(); setPickedDay(d.day); }}
               style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", cursor: "pointer" }}
             >
               {d.views > 0 && (
@@ -149,7 +155,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
           const d = stats.daily.find((x) => x.day === pickedDay);
           return d
             ? <><b style={{ color: "#A8551F" }}>{d.day.slice(5).replace("-", "/")}</b> 조회 <b style={{ color: "#222" }}>{d.views}회</b></>
-            : "막대를 누르면 그날 조회수를 볼 수 있어요.";
+            : "막대를 누르면 그날 조회수를 볼 수 있어요. 빈 곳을 누르면 선택이 풀려요.";
         })()}
       </div>
 
