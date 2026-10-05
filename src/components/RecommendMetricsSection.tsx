@@ -60,12 +60,13 @@ function Metric({ label, value, hint }: { label: string; value: string | number;
 function PositionBars({ data }: { data: { pos: number; clicks: number }[] }) {
   const max = Math.max(1, ...data.map((d) => d.clicks));
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 56 }}>
+    // 높이 = 수치(12) + 막대(최대 40) + 순위(12) + 간격 — 예전엔 칸(56px)이 내용보다 낮아 가장 높은 막대의 수치가 위쪽 제목과 겹쳤습니다.
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 76, marginTop: 6 }}>
       {data.map((d) => (
-        <div key={d.pos} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-          <span style={{ fontSize: 9, color: "#999", fontWeight: 700 }}>{d.clicks}</span>
-          <div style={{ width: "100%", height: `${(d.clicks / max) * 36}px`, minHeight: 2, background: "#8FA876", borderRadius: 3 }} />
-          <span style={{ fontSize: 9, color: "#bbb" }}>{d.pos}</span>
+        <div key={d.pos} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 9, lineHeight: "12px", color: "#999", fontWeight: 700 }}>{d.clicks}</span>
+          <div style={{ width: "100%", height: `${(d.clicks / max) * 40}px`, minHeight: 2, flexShrink: 0, background: "#8FA876", borderRadius: 3 }} />
+          <span style={{ fontSize: 9, lineHeight: "12px", color: "#bbb" }}>{d.pos}</span>
         </div>
       ))}
     </div>

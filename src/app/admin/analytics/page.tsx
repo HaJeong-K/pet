@@ -65,7 +65,7 @@ function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: nu
     // 겹쳐서 사실상 수치를 확인할 수 없었습니다. 그래서 호버/스크롤과 무관하게
     // 막대 "위에 수치를 항상" 작게 표시하는 방식으로 바꿨습니다 — 스크롤 여부와
     // 상관없이 보이는 모든 막대의 수치를 바로 읽을 수 있습니다.
-    <div style={{ display: "flex", alignItems: "flex-end", gap: Math.max(2, 6 - Math.floor(data.length / 10)), height: 120, overflowX: "scroll" }}>
+    <div style={{ display: "flex", alignItems: "flex-end", gap: Math.max(2, 6 - Math.floor(data.length / 10)), height: 136, paddingTop: 6, boxSizing: "border-box", overflowX: "scroll" }}>
       {data.map((d, i) => (
         <div
           key={d.date}
@@ -83,13 +83,14 @@ function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: nu
             style={{
               width: "100%",
               height: Math.max(3, (d.count / max) * 78),
+              flexShrink: 0,
               background: hoverIdx === i ? "#48603A" : color,
               borderRadius: 4,
               cursor: "default",
               transition: "background 0.1s ease",
             }}
           />
-          <span style={{ fontSize: 9, color: hoverIdx === i ? "#555" : "#aaa", fontWeight: hoverIdx === i ? 700 : 400 }}>{fmtDate(d.date)}</span>
+          <span style={{ fontSize: 9, lineHeight: "12px", whiteSpace: "nowrap", color: hoverIdx === i ? "#555" : "#aaa", fontWeight: hoverIdx === i ? 700 : 400 }}>{fmtDate(d.date)}</span>
         </div>
       ))}
     </div>
