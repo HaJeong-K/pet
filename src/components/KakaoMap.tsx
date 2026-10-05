@@ -4735,7 +4735,6 @@ const courseMeta = (route: RouteResult) => ({
       {showShareModal && (
         <>
           <div
-            onClick={() => setShowShareModal(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 100 }}
           />
           <div
@@ -4792,7 +4791,6 @@ const courseMeta = (route: RouteResult) => ({
       {showOwnerRegisterModal && session?.user && (
         <>
           <div
-            onClick={() => setShowOwnerRegisterModal(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", zIndex: 99999 }}
           />
           <div

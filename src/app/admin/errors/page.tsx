@@ -66,7 +66,7 @@ export default function AdminErrorsPage() {
   };
 
   return (
-    <div className="ggk-body" style={{ minHeight: "100vh", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ minHeight: "100dvh", background: "#F7F3E8" }}>
       <AdminNav active="errors" onRefresh={fetchErrors} />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) 120px" }}>

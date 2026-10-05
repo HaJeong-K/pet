@@ -378,7 +378,6 @@ export default function ModalPage() {
 
       {/* ── 배경 오버레이 ── */}
       <div
-        onClick={() => router.back()}
         style={{
           position: "fixed", inset: 0,
           background: "rgba(0,0,0,0.5)",
@@ -586,7 +585,6 @@ export default function ModalPage() {
       {showShareModal && (
         <>
           <div
-            onClick={() => setShowShareModal(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.38)", zIndex: 10100, backdropFilter: "blur(3px)" }}
           />
           <div
@@ -671,7 +669,6 @@ export default function ModalPage() {
       {showReportModal && (
         <>
           <div
-            onClick={closeReport}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 10100, backdropFilter: "blur(3px)" }}
           />
           <div
@@ -836,7 +833,6 @@ export default function ModalPage() {
       {showTipModal && (
         <>
           <div
-            onClick={closeTip}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 10100, backdropFilter: "blur(3px)" }}
           />
           <div

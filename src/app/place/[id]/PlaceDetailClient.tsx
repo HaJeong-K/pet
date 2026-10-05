@@ -1713,7 +1713,7 @@ export default function PlaceDetail({
 
         {/* 신고 모달 */}
         {(reportingId || reportingReplyId) && (
-          <div onClick={() => { setReportingId(null); setReportingReplyId(null); setReportTargetType(null); setReportTargetId(null); setReportCategory(""); setReportReason(""); }} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:"20px" }}>
             <div onClick={(e) => e.stopPropagation()} className="ggk-body" style={{ width:"100%", maxWidth:"380px", background:"white", borderRadius:"18px", padding:"20px", boxSizing:"border-box", boxShadow:"0 16px 48px rgba(0,0,0,0.22)" }}>
               <h2 className="ggk-title" style={{ margin:0, marginBottom:"16px", fontSize:"18px", fontWeight:800 }}>신고하기</h2>
               <div style={{ marginBottom:"12px" }}>

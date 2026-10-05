@@ -106,7 +106,7 @@ export default function AdminDashboard() {
   return (
     <>
       <style>{STYLES}</style>
-      <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#F7F3E8", overflow: "hidden" }}>
+      <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden" }}>
         <AdminNav active="dashboard" onRefresh={fetchStats} />
 
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", scrollbarWidth: "thin" }}>

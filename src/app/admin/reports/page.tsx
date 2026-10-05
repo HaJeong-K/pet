@@ -610,7 +610,7 @@ export default function AdminReportsPage() {
       <div className="ggk-body" style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "100dvh",
         background: "#F7F3E8",
         overflow: "hidden",
         alignItems: "center",      // 수평 중앙

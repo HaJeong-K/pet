@@ -36,7 +36,7 @@ function ModalShell({
       {/* ⚠ z-index를 100000대로 높게 잡습니다 — 이 모달은 회원가입/사장님가입 모달
           (z-index 99999) "안에서" 약관 보기 링크로도 열리기 때문에, 그보다 낮으면
           뒤에 가려져 안 보입니다. */}
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100000, backdropFilter: "blur(4px)" }} />
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 100000, backdropFilter: "blur(4px)" }} />
       <div className="ggk-body" style={{
         position: "fixed", top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",

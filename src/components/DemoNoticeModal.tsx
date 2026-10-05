@@ -58,7 +58,7 @@ export default function DemoNoticeModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000 }} />
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 2000 }} />
       <div
         role="dialog"
         aria-modal="true"

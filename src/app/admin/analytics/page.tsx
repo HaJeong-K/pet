@@ -171,7 +171,7 @@ export default function AdminAnalytics() {
   };
 
   return (
-    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
+    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="analytics" onRefresh={() => fetchAnalytics()} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
         {/* ⚠ 막대그래프에 말풍선(툴팁)이 뜰 때 컨텐츠 높이가 살짝 바뀌면서

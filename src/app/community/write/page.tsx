@@ -762,7 +762,7 @@ function CommunityWritePageContent() {
             ══════════════════════════════════════ */}
             {showPrivacy && (
               <>
-                <div onClick={() => setShowPrivacy(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:300, backdropFilter:"blur(4px)" }} />
+                <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:300, backdropFilter:"blur(4px)" }} />
                 <div className="ggk-body" style={{
                   position:"fixed", top:"50%", left:"50%",
                   transform:"translate(-50%, -50%)",

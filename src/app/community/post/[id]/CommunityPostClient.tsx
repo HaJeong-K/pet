@@ -1645,7 +1645,7 @@ export default function CommunityDetailPage() {
       </div>{/* /전체 레이아웃 */}
       {postReportOpen && (
         <>
-          <div onClick={() => setPostReportOpen(false)}
+          <div
               style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999 }} />
           <div onClick={e => e.stopPropagation()}
               style={{
@@ -1700,7 +1700,6 @@ export default function CommunityDetailPage() {
         <>
           {/* 배경 */}
           <div
-            onClick={() => setDeletingPost(false)}
             style={{
               position: "fixed",
               inset: 0,
@@ -1857,7 +1856,6 @@ export default function CommunityDetailPage() {
       {commentReportOpen && (
         <>
           <div
-            onClick={() => setCommentReportOpen(false)}
             style={{
               position: "fixed",
               inset: 0,

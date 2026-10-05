@@ -315,7 +315,7 @@ export default function AdminProposalsPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100vh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
+      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
         <AdminNav active="tips" onRefresh={fetchProposals} />
         <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
 

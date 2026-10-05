@@ -21,11 +21,19 @@ export default function PetIllustration({
   className?: string;
 }) {
   return (
+    // 꾸밈용 그림이라 대체 글자를 비워 둡니다 — 이미지를 못 받았을 때(통신이 잠깐 끊긴 경우 등)
+    // 긴 설명 글자가 좁은 칸에 세로로 깨져 보이던 문제가 있었습니다. 실패하면 한 번 다시 받고, 그래도 안 되면 숨깁니다.
     <img
       src={MASCOT_SRC}
-      alt="같이가개 — 반갑게 웃고 있는 슈나우저 두 마리"
+      alt=""
+      aria-hidden="true"
       className={className}
       width={width}
+      onError={(e) => {
+        const img = e.currentTarget;
+        if (!img.dataset.retried) { img.dataset.retried = "1"; img.src = `${MASCOT_SRC}?r=1`; }
+        else img.style.visibility = "hidden";
+      }}
       style={{ display: "block", width, height: "auto", maxWidth: "100%", objectFit: "contain" }}
     />
   );
