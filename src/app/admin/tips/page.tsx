@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { geocodeAddress } from "@/lib/geocodeAddress";
 import { approveProposal } from "@/lib/approveProposal";
-import { applyInfoUpdateProposal } from "@/lib/applyInfoUpdateProposal";
 import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
@@ -48,7 +47,7 @@ const formatDate = (s: string) => {
 // 이동했습니다 — jebo 자동 승인(AI 비전 검증) 흐름과 이 관리자 수동 승인이 완전히 같은
 // 로직을 타도록 하기 위함입니다.
 
-type ActiveFilter = "pending" | "on_hold" | "approved";
+type ActiveFilter = "pending" | "on_hold" | "approved" | "deleted";
 
 /* ── 필드 행 컴포넌트 ── */
 function FieldRow({
@@ -193,8 +192,24 @@ export default function AdminProposalsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("이 제보를 삭제하시겠습니까?")) return;
-    await supabase.from("proposals").delete().eq("id", id);
+    if (!confirm("이 제보를 삭제하시겠습니까?\n'삭제됨' 탭에 보관되고, 거기서 되살릴 수 있어요.")) return;
+    // 바로 지우지 않고 상태만 '삭제됨'으로 바꿔 보관합니다(나중에 왜 지웠는지 확인·복구할 수 있게).
+    const { error } = await supabase.from("proposals").update({ status: "deleted", is_resolved: true }).eq("id", id);
+    if (error) { alert("삭제하지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
+    setProposals(prev => prev.map(p => p.id === id ? { ...p, status: "deleted", is_resolved: true } : p));
+  };
+
+  /* ── 삭제됨 탭: 되살리기 / 완전 삭제 ── */
+  const handleRestore = async (id: number) => {
+    const { error } = await supabase.from("proposals").update({ status: "pending", is_resolved: false }).eq("id", id);
+    if (error) { alert("되살리지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
+    setProposals(prev => prev.map(p => p.id === id ? { ...p, status: "pending", is_resolved: false } : p));
+  };
+
+  const handlePurge = async (id: number) => {
+    if (!confirm("이 제보를 완전히 삭제할까요?\n되돌릴 수 없어요.")) return;
+    const { error } = await supabase.from("proposals").delete().eq("id", id);
+    if (error) { alert("삭제하지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
     setProposals(prev => prev.filter(p => p.id !== id));
   };
 
@@ -205,9 +220,16 @@ export default function AdminProposalsPage() {
      - 그 외(기본값 "new_place"): 신규 장소 등록 제보 → 기존 approveProposal.ts (places INSERT) */
   const handleApprove = async (proposal: any) => {
     if (proposal.proposal_kind === "info_update") {
-      const result = await applyInfoUpdateProposal(supabase, proposal);
+      // 반영은 서버가 합니다(원래 장소를 숨기는 단계가 브라우저 권한으로는 막혀 있어서).
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/apply-info-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+        body: JSON.stringify({ proposalId: proposal.id }),
+      });
+      const result = (await res.json().catch(() => ({}))) as { ok?: boolean; reason?: string };
 
-      if (!result.ok) {
+      if (!res.ok || !result.ok) {
         const msg =
           result.reason === "place_not_found" ? "대상 장소를 찾을 수 없습니다. 이미 삭제되었을 수 있습니다." :
           result.reason === "update_failed"    ? "장소 정보 업데이트 중 오류가 발생했습니다." :
@@ -216,9 +238,9 @@ export default function AdminProposalsPage() {
         return;
       }
 
-      await supabase.from("proposals").update({ status: "approved", is_resolved: true }).eq("id", proposal.id);
       setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true } : p));
-      alert(`"${proposal.place_name}" 장소에 제안하신 정보가 반영되었습니다.`);
+      alert(`"${proposal.place_name}" 장소에 제안하신 정보가 반영되었습니다.
+지도·상세 화면에는 최대 5분 안에 보여요.`);
       return;
     }
 
@@ -283,9 +305,11 @@ export default function AdminProposalsPage() {
   const pendingList  = proposals.filter(p => p.status === "pending");
   const onHoldList   = proposals.filter(p => p.status === "on_hold");
   const approvedList = proposals.filter(p => p.status === "approved");
+  const deletedList  = proposals.filter(p => p.status === "deleted");
   const displayList  =
     activeFilter === "pending"  ? pendingList  :
-    activeFilter === "on_hold"  ? onHoldList   : approvedList;
+    activeFilter === "on_hold"  ? onHoldList   :
+    activeFilter === "deleted"  ? deletedList  : approvedList;
 
   return (
     <>
@@ -302,6 +326,7 @@ export default function AdminProposalsPage() {
                 { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#5C7A4A", activeBg:"#E4EBDC" },
                 { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
                 { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
+                { key:"deleted",  label:"삭제됨",    count: deletedList.length,  icon: <Trash2 size={13}/>,       activeColor:"#6b7280", activeBg:"#e5e7eb" },
               ] as const).map((tab) => {
                 const isActive = activeFilter === tab.key;
                 return (
@@ -345,7 +370,8 @@ export default function AdminProposalsPage() {
                 </div>
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222" }}>
                   {activeFilter === "pending" ? "미처리 제보가 없습니다" :
-                   activeFilter === "on_hold" ? "보류 중인 제보가 없습니다" : "처리완료 내역이 없습니다"}
+                   activeFilter === "on_hold" ? "보류 중인 제보가 없습니다" :
+                   activeFilter === "deleted" ? "삭제한 제보가 없습니다" : "처리완료 내역이 없습니다"}
                 </div>
               </div>
             ) : (
@@ -358,7 +384,7 @@ export default function AdminProposalsPage() {
                     background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
                     border:`1.5px solid ${
                       tip.status === "pending"  ? "#8FA876" :
-                      tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
+                      tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
                     }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
                   }}>
@@ -367,10 +393,10 @@ export default function AdminProposalsPage() {
                       padding:"11px 16px",
                       background:
                         tip.status === "pending"  ? "#F7F3E8" :
-                        tip.status === "on_hold"  ? "#fffbeb" : "#f0fdf4",
+                        tip.status === "on_hold"  ? "#fffbeb" : tip.status === "deleted" ? "#f3f4f6" : "#f0fdf4",
                       borderBottom:`1px solid ${
                         tip.status === "pending"  ? "#8FA876" :
-                        tip.status === "on_hold"  ? "#fde68a" : "#bbf7d0"
+                        tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
                       }`,
                       display:"flex", alignItems:"center", justifyContent:"space-between",
                     }}>
@@ -419,15 +445,16 @@ export default function AdminProposalsPage() {
                           fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
                           background:
                             tip.status === "pending"  ? "#E4EBDC" :
-                            tip.status === "on_hold"  ? "#fef3c7" : "#dcfce7",
+                            tip.status === "on_hold"  ? "#fef3c7" : tip.status === "deleted" ? "#e5e7eb" : "#dcfce7",
                           color:
                             tip.status === "pending"  ? "#48603A" :
-                            tip.status === "on_hold"  ? "#92400e" : "#15803d",
+                            tip.status === "on_hold"  ? "#92400e" : tip.status === "deleted" ? "#4b5563" : "#15803d",
                           display:"flex", alignItems:"center", gap:4,
                         }}>
                           {tip.status === "pending"  && <><AlertCircle size={9}/>검토 대기</>}
                           {tip.status === "on_hold"  && <><PauseCircle size={9}/>보류 중</>}
                           {tip.status === "approved" && <><CheckCircle size={9}/>승인 완료</>}
+                          {tip.status === "deleted"  && <><Trash2 size={9}/>삭제됨</>}
                         </span>
                       </span>
                       <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(tip.created_at)}</span>
@@ -573,7 +600,38 @@ export default function AdminProposalsPage() {
                       </div>
 
                       {/* ── 액션 버튼 ── */}
-                      {tip.status !== "approved" && (
+                      {tip.status === "deleted" && (
+                        <div style={{ display:"flex", gap:8 }}>
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handleRestore(tip.id)}
+                            style={{
+                              flex:1, padding:"10px 12px", borderRadius:11,
+                              border:"1.5px solid #8FA876", background:"#F7F3E8",
+                              color:"#48603A", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <AlertCircle size={14} />미처리로 되살리기
+                          </button>
+                          <button
+                            className="action-btn ggk-body"
+                            onClick={() => handlePurge(tip.id)}
+                            style={{
+                              flex:1, padding:"10px 12px", borderRadius:11,
+                              border:"1.5px solid #fecaca", background:"#fef2f2",
+                              color:"#b91c1c", fontWeight:700, cursor:"pointer", fontSize:12,
+                              display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                              fontFamily:"'Noto Sans KR', sans-serif",
+                            }}
+                          >
+                            <Trash2 size={14} />완전 삭제
+                          </button>
+                        </div>
+                      )}
+
+                      {tip.status !== "approved" && tip.status !== "deleted" && (
                         <div style={{ display:"flex", gap:8 }}>
                           {/* 보류 버튼 (미처리에서만) */}
                           {tip.status === "pending" && (

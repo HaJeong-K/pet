@@ -51,7 +51,9 @@ function pickProvided(fields: Record<string, any>): Record<string, any> {
 
 export async function applyInfoUpdateProposal(
   supabase: SupabaseClient,
-  proposal: InfoUpdateProposalLike
+  proposal: InfoUpdateProposalLike,
+  // 공공데이터 원본을 찾는 방법 — 서버(/api/admin/apply-info-update)에서는 서버용 조회 함수를 넘깁니다.
+  loadOriginal: (id: number) => Promise<any | null> = fetchPublicDataPlaceById
 ): Promise<ApplyInfoUpdateResult> {
   const provided = pickProvided({
     category: proposal.category,
@@ -84,7 +86,7 @@ export async function applyInfoUpdateProposal(
 
   // 2) 실제 행이 없는 공공데이터 출처 장소 — 원본 정보를 찾아 제안 내용과 합쳐
   //    새 행으로 승격시킵니다. (단건 조회 — 전국 데이터 전체를 받지 않습니다.)
-  const original = await fetchPublicDataPlaceById(Number(proposal.place_id)).catch(() => null);
+  const original = await loadOriginal(Number(proposal.place_id)).catch(() => null);
   if (!original) {
     return { ok: false, reason: "place_not_found" };
   }
@@ -120,10 +122,30 @@ export async function applyInfoUpdateProposal(
 
   // 원래 합성 id는 숨겨서 새로 승격된 실제 행과 중복으로 뜨지 않게 합니다
   // (관리자 "장소 숨기기"와 동일한 hidden_public_places 메커니즘).
-  await supabase.from("hidden_public_places").upsert(
+  const { error: hideError } = await supabase.from("hidden_public_places").upsert(
     [{ place_id: proposal.place_id, reason: "정보 추가 제안 승인으로 실제 행으로 승격됨", hidden_by: "system(info_update_proposal)" }],
     { onConflict: "place_id" }
   );
+  // 숨기지 못하면 정보가 빈 원래 장소가 그대로 보이므로 실패로 알립니다(조용히 넘어가지 않게).
+  if (hideError) {
+    console.error("[applyInfoUpdateProposal] 원래 장소 숨김 실패:", hideError.message);
+    await supabase.from("places").delete().eq("id", inserted.id);
+    return { ok: false, reason: "insert_failed", error: hideError };
+  }
+
+  // 원래 장소에 쌓인 기록(후기·사진·찜/좋아요·통계·신고·사장님 연결)을 새 행으로 옮깁니다
+  // — 숨겨진 번호에 그대로 두면 후기가 사라진 것처럼 보입니다. (서버 권한으로 불렸을 때만 실제로 옮겨집니다.)
+  const from = Number(proposal.place_id);
+  const to = inserted.id;
+  const moves = await Promise.all([
+    supabase.from("reviews").update({ place_id: to }).eq("place_id", from),
+    supabase.from("place_images").update({ place_id: to }).eq("place_id", from),
+    supabase.from("reactions").update({ place_id: to }).eq("place_id", from),
+    supabase.from("reports").update({ place_id: to }).eq("place_id", from),
+    supabase.from("analytics_events").update({ place_id: String(to) }).eq("place_id", String(from)),
+    supabase.from("users").update({ owner_place_id: to }).eq("owner_place_id", from),
+  ]);
+  for (const m of moves) if (m.error) console.error("[applyInfoUpdateProposal] 기록 이동 실패:", m.error.message);
 
   return { ok: true, mode: "graduated_public_data" };
 }
