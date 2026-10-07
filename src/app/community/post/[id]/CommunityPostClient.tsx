@@ -646,7 +646,7 @@ export default function CommunityDetailPage() {
     return (
       <div
         style={{
-          height: "100vh",
+          height: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -803,7 +803,7 @@ export default function CommunityDetailPage() {
       <div
         className="ggk-body"
         style={{
-          height: "100vh",       /* ← 뷰포트 높이 고정 */
+          height: "100dvh",       /* ← 뷰포트 높이 고정 */
           overflow: "hidden",    /* ← 바깥 스크롤 차단 */
           background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
           display: "grid",

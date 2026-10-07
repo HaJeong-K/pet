@@ -178,7 +178,7 @@ export default function AdminAnalytics() {
         {/* ⚠ 막대그래프에 말풍선(툴팁)이 뜰 때 컨텐츠 높이가 살짝 바뀌면서
             overflowY:"auto"가 스크롤바를 나타났다 사라지게 해 화면이 흔들렸습니다.
             "scroll"로 고정해 스크롤바 자리를 항상 확보해둡니다. */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: "scroll", padding: "24px clamp(14px, 4vw, 28px) 120px", scrollbarWidth: "thin" as any }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "scroll", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth: "thin" as any }}>
           {error && (
             <div style={{ padding: 14, borderRadius: 12, background: "#fff1f1", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>
               {error}

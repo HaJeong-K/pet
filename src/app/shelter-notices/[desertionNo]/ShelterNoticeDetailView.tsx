@@ -165,7 +165,7 @@ export default function ShelterNoticeDetailView({
           <style>{`.ggk-photo-slider::-webkit-scrollbar { display: none; }`}</style>
         </div>
 
-        <div style={{ padding: "16px 16px 110px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ padding: "16px 16px var(--ggk-tabbar-space)", display: "flex", flexDirection: "column", gap: 12 }}>
           {/* ── 이름·상태 ── */}
           <div style={cardStyle}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>

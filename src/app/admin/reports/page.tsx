@@ -710,7 +710,7 @@ export default function AdminReportsPage() {
             flex:1,
             minHeight:0,
             overflowY:"auto",
-            padding:"0 clamp(14px, 4vw, 28px) 120px",
+            padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)",
             scrollbarWidth:"thin",
             scrollbarColor:"#d1d5db transparent",
           }}>

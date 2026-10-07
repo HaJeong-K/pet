@@ -547,7 +547,7 @@ export default function MyPage() {
         gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
         // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
         columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         background: "#F7F3E8",
         opacity: loading ? 0 : 1,
         transition: "opacity 0.2s ease",
@@ -562,7 +562,7 @@ export default function MyPage() {
             gridColumn: "2",
           minWidth: 0,
           width: "100%",
-          height: "100vh",
+          height: "100dvh",
           overflow: "hidden",
           background: "#F7F3E8",
           display: "flex",

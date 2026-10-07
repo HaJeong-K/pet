@@ -75,7 +75,7 @@ export default function AdminOwners() {
     <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="owners" onRefresh={fetchOwners} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px clamp(14px, 4vw, 28px) 120px", scrollbarWidth: "thin" as any }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth: "thin" as any }}>
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 700, color: "#111", marginBottom: 14 }}>
           사장님 가입 승인 대기 {rows.length > 0 && `(${rows.length}건)`}
         </div>

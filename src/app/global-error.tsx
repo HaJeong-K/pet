@@ -23,7 +23,7 @@ export default function GlobalError({
       <body style={{ margin: 0 }}>
         <div
           style={{
-            minHeight: "100vh", display: "flex", flexDirection: "column",
+            minHeight: "100dvh", display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 14,
             fontFamily: "'Noto Sans KR', sans-serif", textAlign: "center", padding: 24,
           }}

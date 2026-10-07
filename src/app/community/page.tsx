@@ -271,7 +271,7 @@ export default function CommunityPage() {
       <div
         className="ggk-body"
         style={{
-          minHeight: "100vh",
+          minHeight: "100dvh",
           background: "#F7F3E8",
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
@@ -292,7 +292,7 @@ export default function CommunityPage() {
             display: "flex",
             flexDirection: "column",
 
-            height: "100vh",
+            height: "100dvh",
 
             background: "#F7F3E8",
 

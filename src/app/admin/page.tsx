@@ -110,8 +110,10 @@ export default function AdminDashboard() {
       <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden" }}>
         <AdminNav active="dashboard" onRefresh={fetchStats} />
 
-        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", justifyContent: "center", scrollbarWidth: "thin" }}>
-          <div style={{ width: "100%", maxWidth: "1200px", padding: "24px clamp(14px, 4vw, 28px) 120px", boxSizing: "border-box" }}>
+        {/* ⚠ 이 스크롤 칸을 flex로 만들면 안 됩니다 — 안쪽 상자가 칸 높이에 맞춰 늘어나기만 하고 내용은 그 밖으로 넘쳐서,
+            아래 여백이 내용 뒤가 아니라 화면 중간에 붙습니다(마지막 카드가 탭바에 가려지던 원인). 가운데 정렬은 margin으로 합니다. */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "thin" }}>
+          <div style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>
 
             {/* ── 웰컴 배너 — 시안 .hero 스펙: solid primaryDark, no radius ── */}
             <div style={{
@@ -146,6 +148,7 @@ export default function AdminDashboard() {
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.pendingReports}
                 </div>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>신고 관리 ›</div>
               </button>
               <button
                 className="dash-card"
@@ -156,25 +159,41 @@ export default function AdminDashboard() {
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.pendingTips}
                 </div>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>제보 관리 ›</div>
               </button>
-              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/quality")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
                 <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>등록된 장소</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalPlaces}
                 </div>
-              </div>
-              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>데이터 품질 ›</div>
+              </button>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/members")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
                 <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>가입 회원</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalMembers}
                 </div>
-              </div>
-              <div style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>회원 관리 ›</div>
+              </button>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/analytics")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
                 <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>비가입 이용자</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalGuests}
                 </div>
-              </div>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>통계 분석 ›</div>
+              </button>
             </div>
 
             {/* ── 시안 .panel "최근 제보·신고" ── */}

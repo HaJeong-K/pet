@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -44,6 +44,34 @@ export default function TabBar() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── 탭바가 실제로 가리는 높이를 재서 --ggk-tabbar-space에 넣습니다 ──
+  // 스크롤 화면들은 이 값만큼 아래 여백을 둡니다(globals.css). 숫자를 고정하지 않고 재는 이유:
+  // 폰 화면 크기, 글자 크기 설정, 탭 개수, 아래 제스처 바 유무에 따라 탭바가 차지하는 높이가 달라서입니다.
+  const barRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const measure = () => {
+      const bar = barRef.current;
+      // 탭바가 없는 화면(로그인·장소 상세 등)은 기본 여백만 둡니다.
+      if (!bar) { root.style.setProperty("--ggk-tabbar-space", "24px"); return; }
+      const rect = bar.getBoundingClientRect();
+      if (rect.height === 0) return;
+      // 화면 아래 끝에서 탭바 윗변까지 = 탭바가 가리는 높이. 여기에 숨 쉴 틈 16px.
+      const covered = Math.max(0, window.innerHeight - rect.top);
+      root.style.setProperty("--ggk-tabbar-space", `${Math.ceil(covered) + 16}px`);
+    };
+    measure();
+    const observer = typeof ResizeObserver !== "undefined" && barRef.current ? new ResizeObserver(measure) : null;
+    if (observer && barRef.current) observer.observe(barRef.current);
+    window.addEventListener("resize", measure);
+    window.visualViewport?.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      window.visualViewport?.removeEventListener("resize", measure);
+    };
+  }, [pathname, isLoggedIn, isAdmin, isOwner]);
 
   const hideTabBar =
     pathname.includes("/login") ||
@@ -106,10 +134,12 @@ export default function TabBar() {
       `}</style>
 
       <div
+        ref={barRef}
         data-guide="tabbar"
         style={{
           position: "fixed",
-          bottom: "20px",
+          // 아래 제스처 바·홈 표시줄이 있는 기기에서는 그만큼 위로 띄웁니다.
+          bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
           left: "50%",
           transform: "translateX(-50%)",
           width: "450px",

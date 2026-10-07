@@ -225,7 +225,7 @@ export default function ShelterNoticesPage() {
         )}
 
         {/* ── 공고 카드 그리드 ── */}
-        <div ref={pageTopRef} style={{ padding: "16px 20px 110px", scrollMarginTop: 70 }}>
+        <div ref={pageTopRef} style={{ padding: "16px 20px var(--ggk-tabbar-space)", scrollMarginTop: 70 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}>
               공고를 불러오는 중...

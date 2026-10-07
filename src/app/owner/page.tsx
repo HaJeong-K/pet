@@ -179,7 +179,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           .owner-no-print, [data-guide="tabbar"] { display: none !important; }
         }
       `}</style>
-      <div style={{ width: "100%", maxWidth: 760, margin: "0 auto", padding: "0 16px 130px", boxSizing: "border-box" }}>{children}</div>
+      <div style={{ width: "100%", maxWidth: 760, margin: "0 auto", padding: "0 16px var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>
     </div>
   );
 }

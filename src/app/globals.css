@@ -28,6 +28,19 @@
   }
 }
 
+/* ── 하단 탭바가 가리는 높이(기기마다 다름) ──
+   탭바는 화면 아래에 떠 있어서, 스크롤되는 화면은 맨 아래에 이만큼 여백을 둬야 마지막 내용이 가려지지 않습니다.
+   값은 고정 숫자가 아니라 TabBar가 실제 탭바 위치를 재서 넣습니다(src/components/TabBar.tsx) — 폰 크기·글자 크기·
+   제스처 바 유무에 따라 자동으로 달라집니다. 아래 값은 재기 전 잠깐 쓰는 기본값입니다.
+   ⚠ 스크롤 화면의 아래 여백은 숫자(120px 등)로 적지 말고 반드시 var(--ggk-tabbar-space)나 .ggk-tabbar-pad를 쓰세요.
+     (src/lib/tabbarSpace.test.ts가 검사합니다.) */
+:root {
+  --ggk-tabbar-space: calc(108px + env(safe-area-inset-bottom, 0px));
+}
+.ggk-tabbar-pad {
+  padding-bottom: var(--ggk-tabbar-space) !important;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

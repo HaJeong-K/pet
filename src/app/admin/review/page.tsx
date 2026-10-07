@@ -82,7 +82,7 @@ export default function AdminReview() {
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
       <AdminNav active="review" onRefresh={load} />
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) 120px" }}>
+      <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <ScanSearch size={18} color="#5C7A4A" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>글 검토</div>
