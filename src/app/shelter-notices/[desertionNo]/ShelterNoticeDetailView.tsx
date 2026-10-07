@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Phone, MapPin, ExternalLink, Copy, Check, PawPrint } from "lucide-react";
 import type { ShelterNoticeDetail } from "@/lib/shelterNotices";
+import { shelterImageSrc } from "@/lib/shelterImage";
 
 export default function ShelterNoticeDetailView({
   notice,
@@ -120,11 +121,13 @@ export default function ShelterNoticeDetailView({
               }}
             >
               {notice.images.map((src, i) => (
-                // 보호소 사진 서버는 next/image 최적화 대상에서 불안정해(응답 타입 octet-stream) 일반 img로 둡니다.
+                // 정부 서버의 원본(수백 KB, 느림) 대신 우리 서버가 줄인 사진을 받습니다(src/lib/shelterImage.ts).
+                // 줄인 사진을 못 받으면 원본 주소로 한 번 더 시도합니다.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={src}
-                  src={src}
+                  src={shelterImageSrc(src, 960)}
+                  onError={(e) => { const img = e.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = src; } }}
                   alt={`${title} 사진 ${i + 1}`}
                   draggable={false}
                   loading={i === 0 ? "eager" : "lazy"}

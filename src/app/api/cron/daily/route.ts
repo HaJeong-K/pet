@@ -11,6 +11,7 @@ import { runShelterPush } from "@/lib/server/shelterPush";
 import { rejectUnauthorizedCron } from "@/lib/server/cronAuth";
 import { notifyAdmin } from "@/lib/server/notify";
 import { syncCultureFile, syncFoodFile } from "@/lib/server/fileDataSync";
+import { cleanupShelterThumbs } from "@/lib/server/shelterThumbs";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
 // vercel.json의 crons가 매일 UTC 18:00(한국 시간 새벽 3시)에 부릅니다.
@@ -142,7 +143,8 @@ export async function GET(req: NextRequest) {
       : { ok: true, ms: 0, skipped: "매달 1일에만 실행" };
   }
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
-  if (want("cleanup")) results.cleanup = await runJob(() => cleanupOldErrors());
+  // 오래된 오류 기록과, 줄여 둔 공고 사진 가운데 30일 지난 것을 지웁니다.
+  if (want("cleanup")) results.cleanup = await runJob(async () => ({ ...(await cleanupOldErrors()), thumbs: await cleanupShelterThumbs() }));
   if (want("digest")) results.digest = await runJob(() => sendMorningDigest());
 
   // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.

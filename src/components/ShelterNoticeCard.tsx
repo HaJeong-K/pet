@@ -1,6 +1,7 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
+import { shelterImageSrc } from "@/lib/shelterImage";
 import Link from "next/link";
 import { PawPrint } from "lucide-react";
 
@@ -43,6 +44,8 @@ export default function ShelterNoticeCard({
   };
 
   const urgent = notice.daysLeft <= 2;
+  // 사진을 끝내 못 받으면(정부 서버 응답 없음 등) 깨진 그림 표시 대신 발자국 그림으로 바꿉니다.
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <div style={cardStyle}>
@@ -78,15 +81,16 @@ export default function ShelterNoticeCard({
         </div>
 
         <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-          {notice.imageUrl ? (
-            // ⚠ 트래픽: 예전에는 배경 그림(CSS)으로 넣어서, 화면에 보이지 않는 카드의 사진까지 한꺼번에 받았습니다
-            // (공고 사진은 정부 서버의 원본이라 한 장이 수백 KB). <img loading="lazy">는 화면 가까이 왔을 때만 받습니다.
+          {notice.imageUrl && !imageFailed ? (
+            // 사진은 화면 가까이 왔을 때만 받고(loading="lazy"), 정부 서버의 원본(한 장이 수백 KB) 대신
+            // 우리 서버가 작게 줄인 것을 받습니다(src/lib/shelterImage.ts) — 원본은 느리고 가끔 응답이 없었습니다.
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={notice.imageUrl}
+              src={shelterImageSrc(notice.imageUrl, 480)}
               alt=""
               loading="lazy"
               decoding="async"
+              onError={() => setImageFailed(true)}
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", background: "#eee", display: "block" }}
             />
           ) : (
