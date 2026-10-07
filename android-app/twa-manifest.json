@@ -1,0 +1,43 @@
+{
+  "packageId": "kr.gachigagae.app",
+  "host": "gachigagae.vercel.app",
+  "name": "같이가개",
+  "launcherName": "같이가개",
+  "display": "standalone",
+  "themeColor": "#5C7A4A",
+  "themeColorDark": "#48603A",
+  "navigationColor": "#F7F3E8",
+  "navigationColorDark": "#F7F3E8",
+  "navigationDividerColor": "#F7F3E8",
+  "navigationDividerColorDark": "#F7F3E8",
+  "backgroundColor": "#F7F3E8",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://gachigagae.vercel.app/icon.png",
+  "maskableIconUrl": "https://gachigagae.vercel.app/icon.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./keys/gachigagae-release.jks",
+    "alias": "gachigagae"
+  },
+  "appVersionName": "0.1.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://gachigagae.vercel.app/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {
+    "locationDelegation": { "enabled": true }
+  },
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://gachigagae.vercel.app/",
+  "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "0.1.0"
+}

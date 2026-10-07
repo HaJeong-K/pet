@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.gachigagae.app",
+      "sha256_cert_fingerprints": [
+        "5B:99:01:39:42:64:D9:3A:70:E3:FC:75:D7:C9:51:7C:DE:45:6A:5E:2A:59:10:25:36:69:34:60:CC:81:A7:6A"
+      ]
+    }
+  }
+]

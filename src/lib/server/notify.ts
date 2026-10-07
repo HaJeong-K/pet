@@ -7,7 +7,6 @@
 // 연결: 관리자 대시보드의 "카카오톡 알림" 카드에서 한 번 연결합니다. 연결 전에는 알림만 조용히 건너뜁니다.
 // 알림 실패가 사용자 요청을 막으면 안 되므로 절대 예외를 던지지 않습니다.
 import { sendKakaoTalkMemo } from "@/lib/server/kakaoTalk";
-import { sendAdminPush } from "@/lib/server/adminPush";
 
 export type AdminAlert = {
   /** 한 줄 제목(앞에 이모지 권장) */
@@ -22,15 +21,8 @@ export type AdminAlert = {
 export async function notifyAdmin(alert: AdminAlert): Promise<boolean> {
   // 카카오톡 본문은 200자까지라 제목 + 항목만 담고, 자세한 내용은 버튼으로 관리자 화면에서 봅니다.
   const text = [alert.title, ...(alert.lines || []).filter(Boolean).map((l) => `• ${l}`)].join("\n");
-  // 카카오톡(기록용)과 폰 알림(알림음이 울림)을 함께 보냅니다 — 한쪽이 실패해도 다른 쪽은 갑니다.
-  const [sent, pushed] = await Promise.all([
-    sendKakaoTalkMemo(text, alert.path ?? "/admin"),
-    sendAdminPush({
-      title: alert.title,
-      body: (alert.lines || []).filter(Boolean).join("\n"),
-      path: alert.path ?? "/admin",
-    }),
-  ]);
+  // 폰 알림(브라우저 푸시)도 붙여 봤지만 갤럭시 크롬에서 알림이 표시되지 않아 뺐습니다 — 앱을 만들 때 앱 푸시로 다시 붙입니다.
+  const sent = await sendKakaoTalkMemo(text, alert.path ?? "/admin");
   if (sent === false) console.warn("[notify] 카카오톡 알림 전송 실패");
-  return sent === true || pushed > 0;
+  return sent === true;
 }

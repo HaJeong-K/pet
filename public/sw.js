@@ -9,24 +9,15 @@ self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
   const title = data.title || "같이가개";
-  const options = {
-    body: data.body || "",
-    icon: "/icon.png",
-    badge: "/icon.png",
-    tag: data.tag || "ggk",          // 같은 종류 알림은 쌓이지 않고 최신 것으로 바뀝니다
-    data: { url: data.url || "/" },
-  };
-  if (data.image) options.image = data.image;
-  // 알림을 띄운 결과를 열려 있는 화면에 알려 줍니다 — 관리자 "폰 알림" 카드가 "기기까지 도착했는지,
-  // 화면에 띄우는 데 성공했는지"를 보여 주는 데 씁니다(알림이 안 보일 때 어디서 막혔는지 확인용).
-  const report = (ok, error) =>
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const client of list) client.postMessage({ type: "ggk-push", ok: ok, error: error || null, title: title, permission: (self.Notification && self.Notification.permission) || null });
-    }).catch(() => {});
   event.waitUntil(
-    self.registration.showNotification(title, options)
-      .then(() => report(true))
-      .catch((e) => report(false, String((e && e.message) || e)))
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/icon.png",
+      badge: "/icon.png",
+      image: data.image || undefined,
+      tag: data.tag || "ggk",          // 같은 종류 알림은 쌓이지 않고 최신 것으로 바뀝니다
+      data: { url: data.url || "/" },
+    })
   );
 });
 

@@ -43,3 +43,10 @@ next-env.d.ts
 
 # claude code local settings
 .claude/settings.local.json
+
+# 안드로이드 앱(사이트를 감싼 앱) — 설정 파일만 올리고, 서명 열쇠·빌드 결과물은 올리지 않습니다
+/android-app/*
+!/android-app/twa-manifest.json
+!/android-app/README.md
+*.jks
+*.keystore
