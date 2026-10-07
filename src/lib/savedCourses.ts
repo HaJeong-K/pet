@@ -59,20 +59,21 @@ export function courseTitle(themeLabel: string, stops: SavedStop[]): string {
 
 const tableMissing = (message: string) => /saved_courses/.test(message) && /find|exist|schema cache/i.test(message);
 
-export async function saveCourse(input: { title: string; theme: string; route: RouteLike }): Promise<{ ok: true } | { ok: false; error: string }> {
+/** 저장하고, 저장된 코스 번호를 돌려줍니다(잘못 눌렀을 때 바로 취소할 수 있게). */
+export async function saveCourse(input: { title: string; theme: string; route: RouteLike }): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const stops = toSavedStops(input.route);
   if (stops.length === 0) return { ok: false, error: "저장할 정거장이 없어요." };
   const { count, error: countError } = await supabase.from("saved_courses").select("id", { count: "exact", head: true });
   if (countError) return { ok: false, error: tableMissing(countError.message) ? "코스 저장 기능을 준비 중이에요." : "코스를 저장하지 못했어요." };
   if ((count ?? 0) >= MAX_SAVED_COURSES) return { ok: false, error: `코스는 ${MAX_SAVED_COURSES}개까지 저장할 수 있어요. 마이페이지에서 안 쓰는 코스를 지워 주세요.` };
-  const { error } = await supabase.from("saved_courses").insert([{
+  const { data, error } = await supabase.from("saved_courses").insert([{
     title: input.title.slice(0, 80),
     theme: input.theme,
     stops,
     total_distance_km: input.route.totalDistanceKm,
     estimated_minutes: Math.round(input.route.estimatedMinutes),
-  }]);
-  return error ? { ok: false, error: "코스를 저장하지 못했어요. 잠시 후 다시 시도해 주세요." } : { ok: true };
+  }]).select("id").single();
+  return error || !data ? { ok: false, error: "코스를 저장하지 못했어요. 잠시 후 다시 시도해 주세요." } : { ok: true, id: data.id as number };
 }
 
 export async function listSavedCourses(): Promise<SavedCourse[]> {

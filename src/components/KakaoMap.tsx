@@ -30,7 +30,7 @@ import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
 import { parkToPlace } from "@/lib/parkPlace";
 import DemoNoticeModal, { shouldShowDemoNotice } from "@/components/DemoNoticeModal";
 import PageGuide from "@/components/PageGuide";
-import { saveCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
+import { saveCourse, deleteSavedCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
 import { MAP_GUIDE_KEY, MAP_GUIDE_STEPS } from "@/lib/pageGuides";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
@@ -2684,14 +2684,23 @@ const courseMeta = (route: RouteResult) => ({
   };
 
   // ── 코스 저장(회원 전용) — 지금 보이는 코스를 마이페이지 "저장한 코스"에 담아 둡니다.
-  const [courseSave, setCourseSave] = useState<{ key: string; state: "saving" | "saved" | "error"; message?: string } | null>(null);
+  // 저장되면 저장된 코스 번호(id)를 기억해 둡니다 — 잘못 눌렀을 때 "저장 취소"로 바로 지울 수 있게.
+  const [courseSave, setCourseSave] = useState<{ key: string; state: "saving" | "saved" | "canceling" | "error"; id?: number; message?: string } | null>(null);
   const courseKey = (route: RouteResult) => `${routeTheme}:${route.stops.map((s) => s.place.id).join(",")}`;
   const handleSaveCourse = async (route: RouteResult) => {
     if (!session?.user) { router.push("/login"); return; }
     const key = courseKey(route);
     setCourseSave({ key, state: "saving" });
     const result = await saveCourse({ title: courseTitle(ROUTE_THEME_LABEL[routeTheme], toSavedStops(route)), theme: routeTheme, route });
-    setCourseSave(result.ok ? { key, state: "saved" } : { key, state: "error", message: result.error });
+    setCourseSave(result.ok ? { key, state: "saved", id: result.id } : { key, state: "error", message: result.error });
+  };
+  const handleCancelSaveCourse = async () => {
+    if (!courseSave || courseSave.state !== "saved" || courseSave.id == null) return;
+    const { key, id } = courseSave;
+    setCourseSave({ key, state: "canceling", id });
+    const ok = await deleteSavedCourse(id);
+    // 취소에 실패하면 저장된 상태로 되돌려 다시 시도할 수 있게 합니다.
+    setCourseSave(ok ? null : { key, state: "saved", id, message: "저장을 취소하지 못했어요. 잠시 후 다시 시도해 주세요." });
   };
 
   /** 코스의 정거장 하나로 바로 길찾기 — 순서대로 다 돌지 않고 원하는 곳만 찾아갈 때 */
@@ -4703,24 +4712,59 @@ const courseMeta = (route: RouteResult) => ({
             <div style={{ padding: "10px 12px", borderTop: "1px solid #f0f0f0", flexShrink: 0 }}>
               {(() => {
                 const mine = courseSave && courseSave.key === courseKey(displayRoute) ? courseSave : null;
-                const saved = mine?.state === "saved";
+                const saved = mine?.state === "saved" || mine?.state === "canceling";
                 return (
                   <>
-                    <button
-                      onClick={() => (saved ? router.push("/mypage?tab=courses") : handleSaveCourse(displayRoute))}
-                      disabled={mine?.state === "saving"}
-                      className="ggk-body"
-                      style={{
-                        width: "100%", padding: "9px 0", marginBottom: "6px", borderRadius: "12px",
-                        border: saved ? "1px solid #86efac" : "1px dashed rgba(91,33,182,0.45)",
-                        background: saved ? "#f0fdf4" : "rgba(255,255,255,0.7)", color: saved ? "#15803d" : "#5b21b6",
-                        fontWeight: 700, fontSize: "11.5px", cursor: mine?.state === "saving" ? "default" : "pointer",
-                        display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-                      }}
-                    >
-                      <Bookmark size={12} fill={saved ? "#15803d" : "none"} />
-                      {mine?.state === "saving" ? "저장 중…" : saved ? "저장됐어요 · 마이페이지에서 보기" : session?.user ? "이 코스 저장" : "로그인하고 이 코스 저장"}
-                    </button>
+                    {saved ? (
+                      // 저장된 뒤: 잘못 눌렀을 때를 위한 "저장 취소"와, 마이페이지로 가는 "확인하기"를 나란히 둡니다.
+                      <>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "5px", fontSize: "11.5px", fontWeight: 700, color: "#15803d", marginBottom: "6px" }}>
+                          <Bookmark size={12} fill="#15803d" />이 코스를 저장했어요
+                        </div>
+                        <div style={{ display: "flex", gap: "6px", marginBottom: "6px" }}>
+                          <button
+                            onClick={handleCancelSaveCourse}
+                            disabled={mine?.state === "canceling"}
+                            className="ggk-body"
+                            style={{
+                              flex: 1, padding: "9px 0", borderRadius: "12px", border: "1px solid #e2e4e8", background: "white", color: "#666",
+                              fontWeight: 700, fontSize: "11.5px", cursor: mine?.state === "canceling" ? "default" : "pointer", opacity: mine?.state === "canceling" ? 0.6 : 1,
+                            }}
+                          >
+                            {mine?.state === "canceling" ? "취소하는 중…" : "저장 취소"}
+                          </button>
+                          <button
+                            onClick={() => router.push("/mypage?tab=courses")}
+                            className="ggk-body"
+                            style={{
+                              flex: 1, padding: "9px 0", borderRadius: "12px", border: "1px solid #86efac", background: "#f0fdf4", color: "#15803d",
+                              fontWeight: 700, fontSize: "11.5px", cursor: "pointer",
+                            }}
+                          >
+                            마이페이지에서 확인하기
+                          </button>
+                        </div>
+                        {mine?.message && (
+                          <div role="status" style={{ fontSize: "10.5px", color: "#b45309", textAlign: "center", marginBottom: "6px", lineHeight: 1.5 }}>{mine.message}</div>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleSaveCourse(displayRoute)}
+                        disabled={mine?.state === "saving"}
+                        className="ggk-body"
+                        style={{
+                          width: "100%", padding: "9px 0", marginBottom: "6px", borderRadius: "12px",
+                          border: "1px dashed rgba(91,33,182,0.45)",
+                          background: "rgba(255,255,255,0.7)", color: "#5b21b6",
+                          fontWeight: 700, fontSize: "11.5px", cursor: mine?.state === "saving" ? "default" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+                        }}
+                      >
+                        <Bookmark size={12} />
+                        {mine?.state === "saving" ? "저장 중…" : session?.user ? "이 코스 저장" : "로그인하고 이 코스 저장"}
+                      </button>
+                    )}
                     {mine?.state === "error" && (
                       <div role="status" style={{ fontSize: "10.5px", color: "#b45309", textAlign: "center", marginBottom: "6px", lineHeight: 1.5 }}>{mine.message}</div>
                     )}
