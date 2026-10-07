@@ -44,9 +44,14 @@ next-env.d.ts
 # claude code local settings
 .claude/settings.local.json
 
-# 안드로이드 앱(사이트를 감싼 앱) — 설정 파일만 올리고, 서명 열쇠·빌드 결과물은 올리지 않습니다
-/android-app/*
-!/android-app/twa-manifest.json
-!/android-app/README.md
+# 모바일 앱(mobile/) — 소스와 설정은 올리고, 서명 열쇠·비밀번호·빌드 결과물·내 컴퓨터 경로는 올리지 않습니다
+/mobile/android/keys/
+/mobile/android/local.properties
+/mobile/android/.gradle/
+/mobile/android/build/
+/mobile/android/app/build/
+/mobile/**/*.apk
+/mobile/**/*.aab
+/mobile/**/*.idsig
 *.jks
 *.keystore
