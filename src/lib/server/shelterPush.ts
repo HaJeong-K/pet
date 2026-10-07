@@ -75,6 +75,11 @@ async function sendOne(sub: { endpoint: string; p256dh: string; auth: string }, 
   }
 }
 
+/** 다른 알림(관리자 폰 알림 등)에서도 같은 발송 설정으로 한 건 보냅니다. 발송 키가 없으면 "fail". */
+export async function sendPush(sub: { endpoint: string; p256dh: string; auth: string }, payload: PushPayload): Promise<"ok" | "gone" | "fail"> {
+  return configure() ? sendOne(sub, payload) : "fail";
+}
+
 export async function runShelterPush(): Promise<{ regions: number; newNotices: number; sent: number; removed: number; skipped?: string }> {
   if (!configure()) return { regions: 0, newNotices: 0, sent: 0, removed: 0, skipped: "알림 발송 키(VAPID) 없음" };
   const client = admin();
