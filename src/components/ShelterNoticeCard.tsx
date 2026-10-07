@@ -48,6 +48,8 @@ export default function ShelterNoticeCard({
     <div style={cardStyle}>
       <Link
         href={`/shelter-notices/${notice.desertionNo}`}
+        // 카드가 화면에 보이기만 해도 상세 화면을 미리 불러오던 것을 끕니다(카드마다 서버 요청이 나가던 원인).
+        prefetch={false}
         style={linkStyle}
         title={`${notice.noticeNumber} 자세히 보기 · 입양/임보 문의`}
       >
@@ -77,15 +79,15 @@ export default function ShelterNoticeCard({
 
         <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
           {notice.imageUrl ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage: `url(${notice.imageUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundColor: "#eee",
-              }}
+            // ⚠ 트래픽: 예전에는 배경 그림(CSS)으로 넣어서, 화면에 보이지 않는 카드의 사진까지 한꺼번에 받았습니다
+            // (공고 사진은 정부 서버의 원본이라 한 장이 수백 KB). <img loading="lazy">는 화면 가까이 왔을 때만 받습니다.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={notice.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", background: "#eee", display: "block" }}
             />
           ) : (
             // 사진 파싱이 실패한 공고도 정보 자체는 값이 있으니 버리지 않고, 사진 대신

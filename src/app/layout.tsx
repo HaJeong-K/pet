@@ -64,6 +64,9 @@ export default function RootLayout({
         {/* 공통 웹폰트 — CSS @import 대신 <link>로 로드합니다. globals.css에서
             @import url(...)로 불러오면 Tailwind v4 PostCSS 처리 순서와 충돌해
             "@import rules must precede all rules" 빌드 에러가 났었습니다. */}
+        {/* 글꼴 파일을 받는 서버에도 미리 연결해 둡니다(글꼴이 늦게 바뀌어 보이는 시간을 줄임). */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"

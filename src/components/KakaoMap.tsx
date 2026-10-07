@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { buildNearestGrid } from "@/lib/nearestGrid";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -55,9 +56,10 @@ const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 const NARROW_BREAKPOINT = "(max-width: 720px)";
 
 // 보고 있는 지역 데이터 추가 로드 기준: 지도 가운데가 내 위치에서 이만큼 멀어지면 그 지역 데이터를 받고,
-// 마지막으로 받은 지점에서 이만큼 더 움직이면 다시 받습니다(각 요청은 반경 40km를 받아 옵니다).
-const VIEW_REGION_HOME_KM = 25;
-const VIEW_REGION_REFETCH_KM = 20;
+// 마지막으로 받은 지점에서 이만큼 더 움직이면 다시 받습니다. 각 요청은 0.1도 칸 가운데 기준 반경 30km를 받아
+// 오고(src/lib/mapTile.ts), 내 위치 기준으로는 약 23km가 보장되므로 그보다 안쪽에서 미리 받기 시작합니다.
+const VIEW_REGION_HOME_KM = 15;
+const VIEW_REGION_REFETCH_KM = 12;
 
 // 휴대폰 바텀시트: 떠 있는 하단 탭바(아래 20px + 높이 약 62px)를 피하는 여백과, 가장 낮게
 // 내렸을 때 보이는 내용 높이(손잡이 + 제목 한 줄)
@@ -834,11 +836,26 @@ export default function KakaoMap() {
       const cachedLng = parseFloat(localStorage.getItem("user_lng") || "");
       const geoOptions = !isNaN(cachedLat) && !isNaN(cachedLng) ? { lat: cachedLat, lng: cachedLng } : {};
 
+      // 이 첫 요청이 어느 위치 기준인지(아래 "내 위치 기준 재요청" 효과와 같은 형식의 표시). 저장된 위치가 없으면 null.
+      const initKey = geoOptions.lat != null && geoOptions.lng != null ? `${geoOptions.lat.toFixed(1)},${geoOptions.lng.toFixed(1)}` : null;
+      // 저장된 위치가 없는 첫 방문: 위치 권한을 바로 주면 곧 내 위치가 잡히므로 잠깐(최대 2초) 기다립니다.
+      // 그 사이 내 위치 기준 요청이 시작됐으면 여기서는 받지 않습니다 — 예전엔 이때 전국 데이터를, 그다음엔
+      // 기준점(서울) 데이터를 따로 한 번 더 받았습니다.
+      if (!initKey) {
+        for (let waited = 0; waited < 2000 && !regionalFetchKeyRef.current && !cancelled; waited += 100) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        if (cancelled || regionalFetchKeyRef.current) return;
+      }
+
       const [publicDataPlaces, parkPlaces] = await Promise.all([
         fetchPublicDataPlaces(geoOptions),
         fetchParks(geoOptions),
       ]);
       if (cancelled) return;
+      // ⚠ 받는 동안 내 위치가 다른 칸으로 확정됐으면(예: 저장된 위치는 대구인데 지금은 포항, 또는 기준점(서울)으로
+      // 받는 중에 내 위치가 잡힘) 이 결과로 덮어쓰지 않습니다 — 내 위치 기준 데이터가 지워져 지도가 비어 보입니다.
+      if (regionalFetchKeyRef.current && regionalFetchKeyRef.current !== initKey) return;
       // ⚠ 중복 렌더 버그 수정: 캐시된 위치가 있으면 이 fetch도 이미 지역 범위(geoOptions)로
       // 걸러진 데이터를 받는데, 아래 "지역 범위로 공공데이터 재요청" 효과가 userLocation이
       // 설정되는 즉시(이 init()과 별개로, 더 일찍) 똑같은 지역 데이터를 따로 받아 먼저
@@ -1357,6 +1374,13 @@ export default function KakaoMap() {
   // 거리순으로 다시 정렬해 보여줍니다. 공원 항목은 __isPark 플래그로 구분해서, 클릭
   // 시 장소 상세(setSelectedPlace) 대신 지도 위 공원 마커를 눌렀을 때와 동일한 공원
   // 정보 카드(setSelectedPark)로 연결합니다.
+  // ⚠ 성능: 목록은 최대 300곳인데, 지도를 조금만 움직여도 카드 300장(사진 포함)을 전부 새로 그려서
+  // 끌 때마다 화면이 멈칫했습니다. 처음에는 LIST_PAGE장만 그리고, 목록을 끝까지 내리면 그만큼씩 더 그립니다.
+  // 지도를 움직여 목록이 바뀌면 다시 처음 분량으로 돌아갑니다.
+  const LIST_PAGE = 30;
+  const [listLimit, setListLimit] = useState(LIST_PAGE);
+  const listMoreRef = useRef<HTMLDivElement | null>(null);
+
   const displayedPlaces = useMemo(() => {
     if (debouncedSearch.trim() && nameSearchResults.length > 0) return nameSearchResults;
     if (nearbyParks.length === 0) return nearbyPlaces;
@@ -1376,6 +1400,19 @@ export default function KakaoMap() {
       .map((entry) => entry.item);
     return sorted.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
   }, [debouncedSearch, nameSearchResults, nearbyPlaces, nearbyParks, searchCenter, userLocation, mapBounds]);
+
+  // 목록 내용이 바뀌면 처음 분량부터 다시 그립니다.
+  useEffect(() => { setListLimit(LIST_PAGE); }, [displayedPlaces]);
+  // 목록 끝 표시가 화면에 들어오면 더 그립니다.
+  useEffect(() => {
+    const el = listMoreRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setListLimit((n) => n + LIST_PAGE);
+    }, { rootMargin: "300px 0px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [listLimit, displayedPlaces]);
 
   // ── debouncedSearch 변경 시 지도 이동 + searchCenter 갱신
   // 1순위: 가게명이 일부라도 일치하는 곳이 있으면 그중 가장 가까운 곳을 지도
@@ -1527,18 +1564,11 @@ export default function KakaoMap() {
       });
     }
 
-    const nearestParkDistanceKm = (lat: number, lng: number): number | null => {
-      if (isNaN(lat) || isNaN(lng) || nearbyParks.length === 0) return null;
-      let min = Infinity;
-      for (const park of nearbyParks) {
-        const pLat = parseFloat(park.lat);
-        const pLng = parseFloat(park.lng);
-        if (isNaN(pLat) || isNaN(pLng)) continue;
-        const d = getDistance(lat, lng, pLat, pLng);
-        if (d < min) min = d;
-      }
-      return Number.isFinite(min) ? min : null;
-    };
+    // ⚠ 성능: 예전에는 장소 하나마다 주변 공원을 전부 훑었습니다(장소 약 1,700곳 × 공원 수천 곳 = 수백만 번의
+    // 거리 계산) — 지도 로딩이 몇 초씩 멈추던 가장 큰 원인이었습니다. 공원을 격자 칸에 나눠 담아 가까운 칸만 봅니다.
+    // 결과는 전부 훑는 방식과 같습니다(src/lib/nearestGrid.ts, 테스트로 확인).
+    const parkGrid = buildNearestGrid(nearbyParks);
+    const nearestParkDistanceKm = (lat: number, lng: number): number | null => parkGrid.nearestKm(lat, lng);
 
     const distanceOf = (place: any) => {
       const lat = parseFloat(place.lat);
@@ -3687,7 +3717,7 @@ const courseMeta = (route: RouteResult) => ({
               <div>{searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "이 화면에 보이는 장소가 없습니다"}</div>
             </div>
           )}
-          {displayedPlaces.map((place) => {
+          {displayedPlaces.slice(0, listLimit).map((place) => {
             // ⚠ 공원 토글이 켜져 있으면 displayedPlaces에 공원이 __isPark 플래그를 달고
             // 섞여 들어옵니다. 공원은 image_url/pet_zone 등 장소 전용 필드가 없어서
             // 카드 내용과 클릭 동작(장소 상세 대신 지도 위 공원 마커와 동일한 공원
@@ -3811,6 +3841,12 @@ const courseMeta = (route: RouteResult) => ({
             </div>
             );
           })}
+          {/* 목록 끝 감지 — 여기까지 내려오면 카드를 더 그립니다(listLimit 설명 참고) */}
+          {displayedPlaces.length > listLimit && (
+            <div ref={listMoreRef} style={{ padding: "14px 0 6px", textAlign: "center", fontSize: 11, color: "#bbb" }}>
+              더 불러오는 중… ({listLimit} / {displayedPlaces.length})
+            </div>
+          )}
           <div style={{ height: "8px" }} />
         </div>
       </div>

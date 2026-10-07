@@ -17,7 +17,11 @@ export interface ParkPlace {
   facilityNote: string | null;
 }
 
+import { tileQuery } from "@/lib/mapTile";
+
 let cachedParks: ParkPlace[] | null = null;
+// 지금 받고 있는 요청 — 같은 칸을 동시에 두 번 요청하지 않게 함께 기다립니다.
+const inFlight = new Map<string, Promise<ParkPlace[]>>();
 let cachedKey = "";
 let cachedAt = 0;
 const CACHE_TTL_MS = 30 * 60_000; // 공원 목록은 자주 안 바뀌므로 다른 공공데이터보다 긴 캐시
@@ -29,28 +33,31 @@ export interface FetchParksOptions {
 }
 
 export async function fetchParks(options: FetchParksOptions = {}): Promise<ParkPlace[]> {
-  const { lat, lng, radiusKm = 40 } = options;
-  const key = lat != null && lng != null ? `${lat.toFixed(1)},${lng.toFixed(1)},${radiusKm}` : "nationwide";
+  const { lat, lng } = options;
+  // 장소(publicDataPlaces.ts)와 같은 칸 단위 주소로 요청합니다(src/lib/mapTile.ts).
+  const key = tileQuery(lat, lng);
 
   if (cachedParks && cachedKey === key && Date.now() - cachedAt < CACHE_TTL_MS) {
     return cachedParks;
   }
 
-  try {
-    const params = new URLSearchParams();
-    if (lat != null && lng != null) {
-      params.set("lat", String(lat));
-      params.set("lng", String(lng));
-      params.set("radiusKm", String(radiusKm));
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const request = (async () => {
+    try {
+      const res = await fetch(`/api/public-data/parks?${key}`);
+      const data = res.ok ? await res.json() : [];
+      cachedParks = data;
+      cachedKey = key;
+      cachedAt = Date.now();
+      return data as ParkPlace[];
+    } catch (e) {
+      console.error("공원 데이터 조회 실패:", e);
+      return cachedParks || [];
+    } finally {
+      inFlight.delete(key);
     }
-    const res = await fetch(`/api/public-data/parks?${params.toString()}`);
-    const data = res.ok ? await res.json() : [];
-    cachedParks = data;
-    cachedKey = key;
-    cachedAt = Date.now();
-    return data;
-  } catch (e) {
-    console.error("공원 데이터 조회 실패:", e);
-    return cachedParks || [];
-  }
+  })();
+  inFlight.set(key, request);
+  return request;
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { haversineKm } from "@/lib/geo";
+import { compactPlace, DEFAULT_CENTER, TILE_CACHE_CONTROL } from "@/lib/mapTile";
 
 export const runtime = "nodejs";
 
@@ -34,16 +35,11 @@ export async function GET(req: NextRequest) {
 
   const merged = await getMergedPublicDataPlaces();
 
-  if (latParam == null || lngParam == null) {
-    // 위치를 아직 모르면(최초 진입 등) 예전과 동일하게 전국 데이터를 그대로 반환합니다.
-    return NextResponse.json(merged);
-  }
-
-  const lat = Number(latParam);
-  const lng = Number(lngParam);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return NextResponse.json(merged);
-  }
+  // ⚠ 트래픽: 예전에는 위치 없이 부르면 전국 3만 곳(압축해도 2.4MB)을 통째로 내려줬습니다 — 위치 권한을
+  // 주지 않은 첫 방문자마다 이만큼을 받았습니다. 이제는 기준점(서울시청) 주변만 내려줍니다.
+  const hasPoint = latParam != null && lngParam != null && Number.isFinite(Number(latParam)) && Number.isFinite(Number(lngParam));
+  const lat = hasPoint ? Number(latParam) : DEFAULT_CENTER.lat;
+  const lng = hasPoint ? Number(lngParam) : DEFAULT_CENTER.lng;
 
   const nearby = merged.filter((p) => {
     const pLat = parseFloat(p.lat);
@@ -52,5 +48,8 @@ export async function GET(req: NextRequest) {
     return haversineKm(lat, lng, pLat, pLng) <= radiusKm;
   });
 
-  return NextResponse.json(nearby);
+  // 브라우저는 칸 단위 주소로 요청하므로(src/lib/mapTile.ts) 같은 동네의 요청은 CDN이 대신 응답합니다.
+  // 관리자가 장소를 숨기거나 정보를 고쳐도 이 시간(약 5분)만큼은 예전 내용이 보일 수 있습니다.
+  // 지도·목록에 필요한 값만 가볍게 보냅니다(브라우저가 expandPlace로 되돌려 씁니다).
+  return NextResponse.json(nearby.map(compactPlace), { headers: { "Cache-Control": TILE_CACHE_CONTROL } });
 }

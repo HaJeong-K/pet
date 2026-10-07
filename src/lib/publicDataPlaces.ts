@@ -11,7 +11,11 @@
 // 데이터를 받습니다(하위 호환 폴백 — 지도가 "일부만 보인다"는 인상을 주지 않기
 // 위함).
 
+import { expandPlace, tileQuery } from "@/lib/mapTile";
+
 let cachedPlaces: any[] | null = null;
+// 지금 받고 있는 요청 — 같은 칸을 동시에 두 번 요청하지 않게 함께 기다립니다(예전엔 첫 화면에서 같은 요청이 두 번 나갔습니다).
+const inFlight = new Map<string, Promise<any[]>>();
 let cachedKey = "";
 let cachedAt = 0;
 const CACHE_TTL_MS = 5 * 60_000; // 5분 — 정부 API 호출량을 아끼기 위해 클라이언트에서도 캐시
@@ -34,34 +38,35 @@ export interface FetchPublicDataOptions {
 }
 
 export async function fetchPublicDataPlaces(options: FetchPublicDataOptions = {}): Promise<any[]> {
-  const { lat, lng, radiusKm = 40 } = options;
-  // 캐시 키에 위치를 (대략) 반영 — 사용자가 다른 지역으로 이동하면 그 지역 데이터를
-  // 다시 받아야 하므로, 소수점 첫째 자리(~11km 단위)로 반올림해 같은 동네 안에서의
-  // 자잘한 좌표 변화는 캐시를 재사용하도록 합니다.
-  const key =
-    lat != null && lng != null ? `${lat.toFixed(1)},${lng.toFixed(1)},${radiusKm}` : "nationwide";
+  const { lat, lng } = options;
+  // 좌표를 0.1도 칸의 가운데로 맞춘 주소로 요청합니다(src/lib/mapTile.ts) — 같은 동네에서는 같은 주소라
+  // CDN 캐시를 함께 쓰고, 위치를 모를 때도 전국이 아니라 기준점(서울시청) 주변만 받습니다.
+  const key = tileQuery(lat, lng);
 
   if (cachedPlaces && cachedKey === key && Date.now() - cachedAt < CACHE_TTL_MS) {
     return cachedPlaces;
   }
 
-  try {
-    const params = new URLSearchParams();
-    if (lat != null && lng != null) {
-      params.set("lat", String(lat));
-      params.set("lng", String(lng));
-      params.set("radiusKm", String(radiusKm));
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const request = (async () => {
+    try {
+      const res = await fetch(`/api/public-data/nearby?${key}`);
+      // 서버가 가볍게 줄여 보낸 것을 원래 모양으로 되돌립니다.
+      const data = res.ok ? ((await res.json()) as Record<string, unknown>[]).map(expandPlace) : [];
+      cachedPlaces = data;
+      cachedKey = key;
+      cachedAt = Date.now();
+      return data;
+    } catch (e) {
+      console.error("공공데이터 장소 조회 실패:", e);
+      return cachedPlaces || [];
+    } finally {
+      inFlight.delete(key);
     }
-    const res = await fetch(`/api/public-data/nearby?${params.toString()}`);
-    const data = res.ok ? await res.json() : [];
-    cachedPlaces = data;
-    cachedKey = key;
-    cachedAt = Date.now();
-    return data;
-  } catch (e) {
-    console.error("공공데이터 장소 조회 실패:", e);
-    return cachedPlaces || [];
-  }
+  })();
+  inFlight.set(key, request);
+  return request;
 }
 
 // 단건 조회용 초소형 캐시 — 같은 장소 상세페이지를 짧은 시간 안에 다시 열 때

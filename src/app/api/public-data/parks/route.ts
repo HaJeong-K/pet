@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { haversineKm } from "@/lib/geo";
+import { DEFAULT_CENTER, TILE_CACHE_CONTROL } from "@/lib/mapTile";
 
 export const runtime = "nodejs";
 
@@ -56,15 +57,10 @@ export async function GET(req: NextRequest) {
 
   const all = await getAllParks();
 
-  if (latParam == null || lngParam == null) {
-    return NextResponse.json(all);
-  }
-
-  const lat = Number(latParam);
-  const lng = Number(lngParam);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return NextResponse.json(all);
-  }
+  // 위치 없이 부르면 전국 공원 1만 7천 곳을 통째로 내려주던 것을, 기준점(서울시청) 주변만 내려주도록 바꿨습니다.
+  const hasPoint = latParam != null && lngParam != null && Number.isFinite(Number(latParam)) && Number.isFinite(Number(lngParam));
+  const lat = hasPoint ? Number(latParam) : DEFAULT_CENTER.lat;
+  const lng = hasPoint ? Number(lngParam) : DEFAULT_CENTER.lng;
 
   const nearby = all.filter((p) => {
     const pLat = parseFloat(p.lat);
@@ -73,5 +69,5 @@ export async function GET(req: NextRequest) {
     return haversineKm(lat, lng, pLat, pLng) <= radiusKm;
   });
 
-  return NextResponse.json(nearby);
+  return NextResponse.json(nearby, { headers: { "Cache-Control": TILE_CACHE_CONTROL } });
 }
