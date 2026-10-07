@@ -62,7 +62,7 @@ async function cleanupOldErrors(): Promise<{ deleted: number }> {
   return { deleted: count ?? 0 };
 }
 
-/** 처리 대기 건수를 모아 한 번에 알립니다. 대기 건이 하나도 없으면 보내지 않습니다. */
+// 처리 대기 건수 — 알림은 맨 마지막 "새벽 자동 작업 결과" 한 통에 함께 담습니다.
 async function sendMorningDigest(): Promise<Record<string, number>> {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
@@ -78,20 +78,6 @@ async function sendMorningDigest(): Promise<Record<string, number>> {
     // 자동 검토에 걸려 확인을 기다리는 커뮤니티 글(컬럼이 아직 없으면 0)
     postReview: await count(admin.from("community_posts").select("*", { count: "exact", head: true }).eq("review_status", "pending").eq("deleted", false)),
   };
-  if (Object.values(counts).some((n) => n > 0)) {
-    await notifyAdmin({
-      title: "☀️ 같이가개 아침 요약 — 처리 대기",
-      lines: [
-        counts.owners > 0 && `사장님 신청 ${counts.owners}건 (/admin/owners)`,
-        counts.tips > 0 && `제보 ${counts.tips}건 (/admin/tips)`,
-        counts.reports > 0 && `신고 ${counts.reports}건 (/admin/reports)`,
-        counts.postReview > 0 && `글 검토 ${counts.postReview}건 (/admin/review)`,
-        counts.premium > 0 && `프리미엄 신청 ${counts.premium}건 (/admin/premium)`,
-        counts.errors24h > 0 && `최근 24시간 오류 ${counts.errors24h}건 (/admin/errors)`,
-      ],
-      path: "/admin",
-    });
-  }
   return counts;
 }
 
@@ -159,10 +145,28 @@ export async function GET(req: NextRequest) {
   if (want("public-data")) results.publicData = await runJob(() => rebuildPublicDataSnapshot());
 
   const allOk = Object.values(results).every((r) => r.ok);
-  if (!allOk) {
+  // 결과 보고 — 매일 한 통. 예전엔 실패했거나 처리할 것이 있을 때만 보내서, 조용한 날에는
+  // 작업이 돌았는지조차 알 수 없었습니다. (한 작업만 골라 돌린 수동 실행은 실패했을 때만 알립니다.)
+  if (!only || !allOk) {
+    const failed = Object.entries(results).filter(([, r]) => !r.ok);
+    const backup = results.backup?.detail as { rows?: number; sizeKb?: number } | undefined;
+    const tour = results.tourDetails?.detail as { fetched?: number; have?: number; total?: number } | undefined;
+    const c = (results.digest?.detail ?? {}) as Record<string, number>;
+    const pending = [
+      c.owners > 0 && `사장님 신청 ${c.owners}`, c.tips > 0 && `제보 ${c.tips}`, c.reports > 0 && `신고 ${c.reports}`,
+      c.postReview > 0 && `글 검토 ${c.postReview}`, c.premium > 0 && `프리미엄 ${c.premium}`,
+    ].filter(Boolean);
     await notifyAdmin({
-      title: "🚨 자동 작업 실패",
-      lines: Object.entries(results).filter(([, r]) => !r.ok).map(([name, r]) => `${name}: ${r.error}`),
+      title: allOk ? "🌙 새벽 자동 작업 완료" : "🚨 새벽 자동 작업 — 일부 실패",
+      lines: [
+        ...failed.map(([name, r]) => `실패 ${name}: ${String(r.error).slice(0, 40)}`),
+        results.backup?.ok && `DB 백업 완료${backup?.sizeKb ? ` (${backup.sizeKb}KB)` : ""}`,
+        results.tourDetails?.ok && tour && `장소 상세 +${tour.fetched ?? 0}곳 (${tour.have ?? 0}/${tour.total ?? 0})`,
+        results.publicData?.ok && "지도 장소 목록 갱신",
+        !only && (pending.length > 0 ? `처리 대기: ${pending.join(", ")}` : "처리 대기 없음"),
+        c.errors24h > 0 && `최근 24시간 오류 ${c.errors24h}건`,
+      ],
+      path: "/admin",
     });
   }
   console.info("[cron/daily]", JSON.stringify(results));
