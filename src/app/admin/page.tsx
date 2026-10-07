@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AdminNav from "@/components/AdminNav";
 import KakaoTalkAlertCard from "@/components/admin/KakaoTalkAlertCard";
 import DbBackupCard from "@/components/admin/DbBackupCard";
+import AdminPushCard from "@/components/admin/AdminPushCard";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, Flag, FileText,
@@ -133,6 +134,7 @@ export default function AdminDashboard() {
 
             {/* ── 카카오톡 관리자 알림 연결 ── */}
             <KakaoTalkAlertCard />
+            <AdminPushCard />
             <DbBackupCard />
 
             {/* ── 시안 .stat-grid 스펙: 아이콘 없는 플랫 카드 (가입 회원 옆에 비가입 이용자 추가로 5개) ── */}

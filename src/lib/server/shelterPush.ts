@@ -58,7 +58,7 @@ async function saveSeen(seen: SeenMap): Promise<void> {
   await client.storage.from(BUCKET).upload(SEEN_FILE, Buffer.from(JSON.stringify(seen)), { upsert: true, contentType: "application/json" });
 }
 
-export type PushPayload = { title: string; body: string; url: string; tag?: string; image?: string };
+export type PushPayload = { title: string; body: string; url: string; tag?: string; image?: string; /** 소리·진동 없이 표시 */ silent?: boolean };
 
 /** 구독 하나에 알림을 보냅니다. 구독이 만료·해지됐으면 "gone"(DB에서 지워야 함). */
 async function sendOne(sub: { endpoint: string; p256dh: string; auth: string }, payload: PushPayload): Promise<"ok" | "gone" | "fail"> {
@@ -73,6 +73,11 @@ async function sendOne(sub: { endpoint: string; p256dh: string; auth: string }, 
     const status = (e as { statusCode?: number }).statusCode;
     return status === 404 || status === 410 ? "gone" : "fail";
   }
+}
+
+/** 다른 알림(관리자 폰 알림 등)에서도 같은 발송 설정으로 한 건 보냅니다. 발송 키가 없으면 "fail". */
+export async function sendPush(sub: { endpoint: string; p256dh: string; auth: string }, payload: PushPayload): Promise<"ok" | "gone" | "fail"> {
+  return configure() ? sendOne(sub, payload) : "fail";
 }
 
 export async function runShelterPush(): Promise<{ regions: number; newNotices: number; sent: number; removed: number; skipped?: string }> {
