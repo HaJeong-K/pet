@@ -91,6 +91,8 @@ export default function ShelterNoticeCard({
               loading="lazy"
               decoding="async"
               onError={() => setImageFailed(true)}
+              // 화면이 준비되기 전에 이미 실패한 사진은 onError가 불리지 않으므로 여기서 한 번 더 확인합니다.
+              ref={(el) => { if (el && el.complete && el.naturalWidth === 0 && el.getAttribute("src")) setImageFailed(true); }}
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", background: "#eee", display: "block" }}
             />
           ) : (

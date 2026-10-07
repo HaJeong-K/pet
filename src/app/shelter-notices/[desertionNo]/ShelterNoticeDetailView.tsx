@@ -15,7 +15,14 @@ export default function ShelterNoticeDetailView({
 }) {
   const router = useRouter();
   const [photo, setPhoto] = useState(0);
+  // 끝내 받지 못한 사진(정부 서버에서 지워졌거나 응답이 없는 경우) — 넘겨 보는 사진 목록에서 뺍니다.
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const sliderRef = useRef<HTMLDivElement>(null);
+  // 줄인 사진을 못 받으면 원본 주소로 한 번 더 시도하고, 그래도 안 되면(정부 서버에서 지워진 사진 등) 목록에서 뺍니다.
+  const onImageError = (img: HTMLImageElement, src: string) => {
+    if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = src; return; }
+    setFailedImages((prev) => (prev.has(src) ? prev : new Set(prev).add(src)));
+  };
 
   // 사진은 가로 스크롤 + scroll-snap으로 손가락 스와이프를 그대로 받고, 점·화살표는 그 위치로 이동만 시킵니다.
   const goToPhoto = (i: number) => {
@@ -74,6 +81,7 @@ export default function ShelterNoticeDetailView({
   }
 
   const title = notice.breed || notice.kind || "보호동물";
+  const images = notice.images.filter((src) => !failedImages.has(src));
   const ended = notice.daysLeft < 0 || (notice.processState && notice.processState !== "보호중");
   const telHref = notice.careTel ? `tel:${notice.careTel.replace(/[^\d+]/g, "")}` : "";
   const mapHref = notice.careAddr ? `https://map.kakao.com/link/search/${encodeURIComponent(notice.careAddr)}` : "";
@@ -109,7 +117,7 @@ export default function ShelterNoticeDetailView({
 
         {/* ── 사진 (좌우로 넘기기) ── */}
         <div style={{ position: "relative", background: "#e9e4d6", aspectRatio: "4 / 3", maxHeight: 460, width: "100%", flexShrink: 0 }}>
-          {notice.images.length > 0 ? (
+          {images.length > 0 ? (
             <div
               ref={sliderRef}
               onScroll={onSliderScroll}
@@ -120,14 +128,16 @@ export default function ShelterNoticeDetailView({
                 scrollbarWidth: "none", WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain",
               }}
             >
-              {notice.images.map((src, i) => (
+              {images.map((src, i) => (
                 // 정부 서버의 원본(수백 KB, 느림) 대신 우리 서버가 줄인 사진을 받습니다(src/lib/shelterImage.ts).
                 // 줄인 사진을 못 받으면 원본 주소로 한 번 더 시도합니다.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={src}
                   src={shelterImageSrc(src, 960)}
-                  onError={(e) => { const img = e.currentTarget; if (!img.dataset.fallback) { img.dataset.fallback = "1"; img.src = src; } }}
+                  onError={(e) => onImageError(e.currentTarget, src)}
+                  // 화면이 준비되기 전에(서버가 보낸 첫 화면 단계에서) 이미 실패한 사진은 onError가 불리지 않으므로 여기서 한 번 더 확인합니다.
+                  ref={(el) => { if (el && el.complete && el.naturalWidth === 0 && el.getAttribute("src")) onImageError(el, src); }}
                   alt={`${title} 사진 ${i + 1}`}
                   draggable={false}
                   loading={i === 0 ? "eager" : "lazy"}
@@ -140,23 +150,23 @@ export default function ShelterNoticeDetailView({
               <PawPrint size={40} color="#5C7A4A" />
             </div>
           )}
-          {notice.images.length > 1 && (
+          {images.length > 1 && (
             <>
               {photo > 0 && (
                 <button onClick={() => goToPhoto(photo - 1)} aria-label="이전 사진" style={arrowStyle("left")}>
                   <ChevronLeft size={20} color="#333" />
                 </button>
               )}
-              {photo < notice.images.length - 1 && (
+              {photo < images.length - 1 && (
                 <button onClick={() => goToPhoto(photo + 1)} aria-label="다음 사진" style={arrowStyle("right")}>
                   <ChevronRight size={20} color="#333" />
                 </button>
               )}
               <div style={{ position: "absolute", top: 10, right: 12, background: "rgba(0,0,0,0.5)", color: "white", fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999 }}>
-                {photo + 1} / {notice.images.length}
+                {Math.min(photo, images.length - 1) + 1} / {images.length}
               </div>
               <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 6 }}>
-                {notice.images.map((_, i) => (
+                {images.map((_, i) => (
                   <button key={i} onClick={() => goToPhoto(i)} aria-label={`사진 ${i + 1}`} style={{
                     width: i === photo ? 22 : 9, height: 9, borderRadius: 999, border: "none", cursor: "pointer", padding: 0,
                     background: i === photo ? "white" : "rgba(255,255,255,0.55)", transition: "width 0.15s",
