@@ -10,6 +10,7 @@ import { runDataQualityCheck } from "@/lib/server/dataQuality";
 import { runShelterPush } from "@/lib/server/shelterPush";
 import { rejectUnauthorizedCron } from "@/lib/server/cronAuth";
 import { notifyAdmin } from "@/lib/server/notify";
+import { syncCultureFile, syncFoodFile } from "@/lib/server/fileDataSync";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
 // vercel.json의 crons가 매일 UTC 18:00(한국 시간 새벽 3시)에 부릅니다.
@@ -24,7 +25,7 @@ import { notifyAdmin } from "@/lib/server/notify";
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | food-file | culture-file | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
 // tour-details는 ?ms=240000 처럼 받을 시간을 늘려 수동으로 여러 번 돌려 빨리 채울 수도 있습니다.
 
 export const maxDuration = 300;
@@ -89,6 +90,7 @@ export async function GET(req: NextRequest) {
   const want = (name: string) => !only || only === name;
   // 한국 시간 기준 일요일에 공원 동기화(크론은 UTC 18시 = 한국 새벽 3시)
   const kstDay = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDay();
+  const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCDate();
   const results: Record<string, JobResult> = {};
   const startedAt = Date.now();
 
@@ -126,6 +128,19 @@ export async function GET(req: NextRequest) {
         })
       : { ok: true, ms: 0, skipped: "화요일에만 실행" };
   }
+  // 파일로만 제공되는 공공데이터(실시간 API 없음) 자동 갱신 — src/lib/server/fileDataSync.ts
+  //   식품안전나라 음식점: 매주 수요일(최신 목록을 받아 새 곳 추가·빠진 곳 삭제)
+  //   문화정보원 문화시설: 매달 1일(파일이 바뀌었는지 확인하고, 바뀌었을 때만 다시 넣음)
+  if (want("food-file")) {
+    results.foodFile = only === "food-file" || kstDay === 3
+      ? await runJob(() => syncFoodFile())
+      : { ok: true, ms: 0, skipped: "수요일에만 실행" };
+  }
+  if (want("culture-file")) {
+    results.cultureFile = only === "culture-file" || kstDate === 1
+      ? await runJob(() => syncCultureFile(req.nextUrl.searchParams.get("force") === "1"))
+      : { ok: true, ms: 0, skipped: "매달 1일에만 실행" };
+  }
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
   if (want("cleanup")) results.cleanup = await runJob(() => cleanupOldErrors());
   if (want("digest")) results.digest = await runJob(() => sendMorningDigest());
@@ -152,6 +167,8 @@ export async function GET(req: NextRequest) {
     const backup = results.backup?.detail as { rows?: number; sizeKb?: number } | undefined;
     const tour = results.tourDetails?.detail as { fetched?: number; have?: number; total?: number } | undefined;
     const c = (results.digest?.detail ?? {}) as Record<string, number>;
+    const food = results.foodFile?.ok ? (results.foodFile.detail as { added?: number; removed?: number; pending?: number } | undefined) : undefined;
+    const culture = results.cultureFile?.ok ? (results.cultureFile.detail as { changed?: boolean; added?: number; removed?: number } | undefined) : undefined;
     const pending = [
       c.owners > 0 && `사장님 신청 ${c.owners}`, c.tips > 0 && `제보 ${c.tips}`, c.reports > 0 && `신고 ${c.reports}`,
       c.postReview > 0 && `글 검토 ${c.postReview}`, c.premium > 0 && `프리미엄 ${c.premium}`,
@@ -163,6 +180,8 @@ export async function GET(req: NextRequest) {
         results.backup?.ok && `DB 백업 완료${backup?.sizeKb ? ` (${backup.sizeKb}KB)` : ""}`,
         results.tourDetails?.ok && tour && `장소 상세 +${tour.fetched ?? 0}곳 (${tour.have ?? 0}/${tour.total ?? 0})`,
         results.publicData?.ok && "지도 장소 목록 갱신",
+        food && `음식점 목록 갱신: +${food.added ?? 0} / -${food.removed ?? 0}${food.pending ? ` (좌표 대기 ${food.pending})` : ""}`,
+        culture?.changed && `문화시설 새 파일 반영: +${culture.added ?? 0} / -${culture.removed ?? 0}`,
         !only && (pending.length > 0 ? `처리 대기: ${pending.join(", ")}` : "처리 대기 없음"),
         c.errors24h > 0 && `최근 24시간 오류 ${c.errors24h}건`,
       ],

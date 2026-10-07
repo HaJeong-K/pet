@@ -11,6 +11,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { purgePlaceRecords } from "@/lib/purgePlaceRecords";
+import { rememberDeletedSourceKey } from "@/lib/server/fileDataSync";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,6 +75,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 지우기 전에 고유 키를 기억해 둡니다 — 파일 자동 갱신(fileDataSync) 때 이 장소가 되살아나지 않게.
+    const { data: target } = await supabaseAdmin.from(table).select("source_key").eq("id", rawId).maybeSingle();
+    if (target?.source_key) await rememberDeletedSourceKey(target.source_key as string).catch(() => {});
 
     // ── 3. 원본 테이블에서 실제 행 삭제
     const { error: deleteError } = await supabaseAdmin

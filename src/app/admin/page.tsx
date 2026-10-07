@@ -34,6 +34,7 @@ export default function AdminDashboard() {
     totalPlaces: 0,
     totalMembers: 0, // auth_user_id가 있는 실제 가입 회원
     totalGuests: 0,  // user_key만 있는 비회원(익명 닉네임)
+    premiumPlaces: 0, // 지금 프리미엄이 유효한 가게
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
@@ -55,12 +56,14 @@ export default function AdminDashboard() {
       { count: totalPlaces },
       { count: totalMembers },
       { count: totalGuests },
+      { count: premiumPlaces },
     ] = await Promise.all([
       supabase.from("reports").select("*", { count: "exact", head: true }).eq("is_resolved", false),
       supabase.from("proposals").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("places").select("*", { count: "exact", head: true }),
       supabase.from("users").select("*", { count: "exact", head: true }).not("auth_user_id", "is", null),
       supabase.from("users").select("*", { count: "exact", head: true }).not("user_key", "is", null).is("auth_user_id", null),
+      supabase.from("places").select("*", { count: "exact", head: true }).eq("is_premium", true).gt("premium_expires_at", new Date().toISOString()),
     ]);
     setStats({
       pendingReports: pendingReports ?? 0,
@@ -68,6 +71,7 @@ export default function AdminDashboard() {
       totalPlaces: totalPlaces ?? 0,
       totalMembers: totalMembers ?? 0,
       totalGuests: totalGuests ?? 0,
+      premiumPlaces: premiumPlaces ?? 0,
     });
 
     // ── 최근 제보·신고 — 시안 .panel "최근 제보·신고" 리스트용
@@ -171,6 +175,17 @@ export default function AdminDashboard() {
                   {loading ? "–" : stats.totalPlaces}
                 </div>
                 <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>데이터 품질 ›</div>
+              </button>
+              <button
+                className="dash-card"
+                onClick={() => router.push("/admin/premium?tab=active")}
+                style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
+              >
+                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>프리미엄 가게</div>
+                <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#B8860B" }}>
+                  {loading ? "–" : stats.premiumPlaces}
+                </div>
+                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>프리미엄 관리 ›</div>
               </button>
               <button
                 className="dash-card"

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
+import PremiumPlacesPanel from "@/components/admin/PremiumPlacesPanel";
 import {
   Crown, MapPin, Clock, AlertCircle, CheckCircle, XCircle,
   User, MessageCircle, CalendarClock,
@@ -29,7 +30,7 @@ const formatDate = (s: string) => {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 };
 
-type ActiveFilter = "pending" | "approved" | "rejected";
+type ActiveFilter = "active" | "pending" | "approved" | "rejected";
 
 export default function AdminPremiumPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -38,7 +39,12 @@ export default function AdminPremiumPage() {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("pending");
   const [processingId, setProcessingId] = useState<number | null>(null);
 
+  // "이용 중 가게" 탭을 다시 불러오게 하는 번호(새로고침 버튼·승인 직후에 올립니다)
+  const [placesRefresh, setPlacesRefresh] = useState(0);
+
   useEffect(() => {
+    // 대시보드의 "프리미엄 가게" 카드에서 넘어오면(?tab=active) 이용 중 가게 탭을 먼저 엽니다.
+    if (new URLSearchParams(window.location.search).get("tab") === "active") setActiveFilter("active");
     fetchRequests();
   }, []);
 
@@ -81,6 +87,7 @@ export default function AdminPremiumPage() {
       const data = await res.json();
       if (!res.ok) { alert(`처리 실패: ${data.error || "알 수 없는 오류"}`); return; }
       setRequests((prev) => prev.map((r) => r.id === request.id ? { ...r, status: action === "approve" ? "approved" : "rejected" } : r));
+      if (action === "approve") setPlacesRefresh((n) => n + 1);
       alert(action === "approve" ? "승인되었습니다. 장소에 프리미엄이 적용됩니다." : "거절 처리되었습니다.");
     } finally {
       setProcessingId(null);
@@ -99,12 +106,13 @@ export default function AdminPremiumPage() {
       <style>{STYLES}</style>
 
       <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
-        <AdminNav active="premium" onRefresh={fetchRequests} />
+        <AdminNav active="premium" onRefresh={() => { fetchRequests(); setPlacesRefresh((n) => n + 1); }} />
         <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
 
           <div style={{ padding:"16px 28px 10px", flexShrink:0 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
               {([
+                { key:"active",   label:"이용 중 가게", count: null, icon: <Crown size={13}/>, activeColor:"#B8860B", activeBg:"#ffe9c2" },
                 { key:"pending",  label:"심사 대기", count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#B8860B", activeBg:"#ffe9c2" },
                 { key:"approved", label:"승인 완료", count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
                 { key:"rejected", label:"거절",       count: rejectedList.length, icon: <XCircle size={13}/>,     activeColor:"#ef4444", activeBg:"#fee2e2" },
@@ -127,13 +135,15 @@ export default function AdminPremiumPage() {
                   >
                     <span style={{ color: isActive ? tab.activeColor : "#aaa" }}>{tab.icon}</span>
                     {tab.label}
-                    <span style={{
-                      fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
-                      background: isActive ? tab.activeBg : "#f0f2f5",
-                      color: isActive ? tab.activeColor : "#999",
-                    }}>
-                      {tab.count}
-                    </span>
+                    {tab.count !== null && (
+                      <span style={{
+                        fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
+                        background: isActive ? tab.activeBg : "#f0f2f5",
+                        color: isActive ? tab.activeColor : "#999",
+                      }}>
+                        {tab.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -141,7 +151,9 @@ export default function AdminPremiumPage() {
           </div>
 
           <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
-            {loading ? (
+            {activeFilter === "active" ? (
+              <PremiumPlacesPanel refreshKey={placesRefresh} />
+            ) : loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
