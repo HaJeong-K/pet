@@ -133,6 +133,14 @@ const formatDate = (s: string) => {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 };
 
+// ── 신고 처리 결과 기록 ──
+// 신고를 닫을 때 "받아들임(accepted — 신고된 글·장소를 실제로 조치함)"인지 "기각(dismissed — 문제없어 그대로 둠)"인지
+// 함께 남깁니다. 회원 레벨에서 "받아들여진 신고"만 기여로 세기 위해서입니다(src/lib/memberLevel.ts).
+// reports.resolution 칸이 아직 없으면(scripts/sql/report-resolution.sql 실행 전) 예전처럼 처리 여부만 기록합니다.
+let hasResolutionColumn = false;
+const resolvedAs = (resolution: "accepted" | "dismissed") =>
+  hasResolutionColumn ? { is_resolved: true, resolution, resolved_at: new Date().toISOString() } : { is_resolved: true };
+
 export default function AdminReportsPage() {
   const router = useRouter();
   const [reports,    setReports]    = useState<any[]>([]);
@@ -152,6 +160,8 @@ export default function AdminReportsPage() {
   /* ── 미처리 신고 불러오기 ── */
   const fetchReports = async () => {
     setLoading(true);
+    // 처리 결과 칸이 있는지 한 번 확인합니다(없으면 오류가 납니다).
+    hasResolutionColumn = !(await supabase.from("reports").select("resolution").limit(1)).error;
     const { data: reportsData, error } = await supabase
       .from("reports")
       .select("*")
@@ -172,7 +182,7 @@ export default function AdminReportsPage() {
           // ★ 이미 삭제된 댓글이면 DB 정리 후 스킵
           if (review.is_admin_deleted) {
             await supabase.from("reports")
-              .update({ is_resolved: true })
+              .update(resolvedAs("accepted"))
               .eq("type", "review")
               .eq("target_id", report.target_id);
             return null;
@@ -198,7 +208,7 @@ export default function AdminReportsPage() {
           // ★ 이미 삭제된 답글이면 DB 정리 후 스킵
           if (reply.is_admin_deleted) {
             await supabase.from("reports")
-              .update({ is_resolved: true })
+              .update(resolvedAs("accepted"))
               .eq("type", "reply")
               .eq("target_id", report.target_id);
             return null;
@@ -274,7 +284,7 @@ export default function AdminReportsPage() {
           // ★ 이미 관리자 삭제된 댓글이면 DB 정리 후 스킵
           if (comment.is_admin_deleted) {
             await supabase.from("reports")
-              .update({ is_resolved: true })
+              .update(resolvedAs("accepted"))
               .eq("type", report.type)
               .eq("target_id", report.target_id);
             return null;
@@ -425,7 +435,7 @@ export default function AdminReportsPage() {
 
     // ★ 해당 target_id의 모든 신고를 한꺼번에 처리 (id 하나만 처리하던 것 수정)
     await supabase.from("reports")
-      .update({ is_resolved: true })
+      .update(resolvedAs("accepted"))
       .eq("type", type)
       .eq("target_id", targetId);
 
@@ -454,7 +464,7 @@ export default function AdminReportsPage() {
 
     // ★ 해당 target_id의 모든 신고를 일괄 처리완료
     await supabase.from("reports")
-      .update({ is_resolved: true })
+      .update(resolvedAs("accepted"))
       .eq("type", type)
       .eq("target_id", targetId);
 
@@ -492,7 +502,7 @@ export default function AdminReportsPage() {
     // 관련 신고 처리 완료
     await supabase
       .from("reports")
-      .update({ is_resolved: true })
+      .update(resolvedAs("accepted"))
       .eq("target_id", targetId);
 
     const movedItems = reports.filter(
@@ -566,13 +576,14 @@ export default function AdminReportsPage() {
 
   /* ── 보류 처리 ── */
   const handleResolve = async (reportId: number) => {
-    await supabase.from("reports").update({ is_resolved: true }).eq("id", reportId);
+    // 글·장소를 그대로 두고 신고만 닫는 경우 = 기각
+    await supabase.from("reports").update(resolvedAs("dismissed")).eq("id", reportId);
 
     // 낙관적 업데이트: 미처리에서 제거하고 처리완료로 이동
     const moved = reports.find((r) => r.id === reportId);
     if (moved) {
       setReports((prev) => prev.filter((r) => r.id !== reportId));
-      setResolvedReports((prev) => [{ ...moved, is_resolved: true }, ...prev]);
+      setResolvedReports((prev) => [{ ...moved, is_resolved: true, resolution: hasResolutionColumn ? "dismissed" : null }, ...prev]);
     }
   };
 
@@ -813,6 +824,13 @@ export default function AdminReportsPage() {
                           <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#dcfce7", color:"#15803d", display:"flex", alignItems:"center", gap:3 }}>
                             <CheckCircle size={9} /> 처리완료
                           </span>
+                        )}
+                        {/* 처리 결과 — 받아들임(조치함) / 기각(그대로 둠). 구분 칸을 만들기 전에 처리된 신고는 표시가 없습니다 */}
+                        {activeFilter === "done" && report.resolution === "accepted" && (
+                          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#FEE2E2", color:"#b91c1c" }}>받아들임 · 조치함</span>
+                        )}
+                        {activeFilter === "done" && report.resolution === "dismissed" && (
+                          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#f1f2f4", color:"#666" }}>기각 · 그대로 둠</span>
                         )}
                       </div>
 
@@ -1056,13 +1074,13 @@ export default function AdminReportsPage() {
 
                       {activeFilter === "pending" && (
                         <div style={{ display:"flex", gap:7 }}>
-                          {/* 보류 */}
+                          {/* 기각 — 신고된 내용은 그대로 두고 신고만 닫습니다(처리 결과에 "기각"으로 남음) */}
                           <button className="action-btn ggk-body" onClick={() => handleResolve(report.id)}
                             style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"1px solid #e8eaed",
                               background:"white", color:"#555", fontWeight:700, cursor:"pointer", fontSize:12,
                               display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                               fontFamily:"'Noto Sans KR', sans-serif" }}>
-                            <CheckCircle size={14} color="#22c55e" />보류
+                            <CheckCircle size={14} color="#22c55e" />문제없음 · 기각
                           </button>
 
                           {/* 장소 댓글/답글 삭제 */}

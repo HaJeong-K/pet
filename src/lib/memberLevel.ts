@@ -6,6 +6,7 @@
 //  1) "많이 한 사람"이 아니라 "도움이 된 기여"에 점수를 줍니다. 지도 데이터를 실제로 늘리는 일(제보 승인)이 가장 큽니다.
 //  2) 글·댓글처럼 쉽게 늘릴 수 있는 활동은 점수가 낮고 하루 상한이 있습니다(도배로 레벨을 올리지 못하게).
 //  3) 관리자가 삭제한 글·후기는 점수를 깎습니다.
+//     ("받은 좋아요"는 점수에 넣지 않습니다 — 좋아요 수는 여러 계정으로 부풀릴 수 있어 레벨이 조작될 수 있습니다.)
 //  4) 가장 높은 두 단계는 점수만으로는 오를 수 없고, 지도에 도움이 된 기여(제보·정보 추가 승인, 받아들여진 신고)가
 //     일정 횟수 이상 있어야 합니다.
 //  5) 단계는 "쌓은 것"과 "요즘 방문"을 함께 봅니다.
@@ -28,7 +29,6 @@ export type ActivityType =
   | "review_photo"        // 사진이 들어간 후기(후기 점수에 더해지는 가산)
   | "post"                // 커뮤니티 글
   | "comment"             // 댓글·답글(후기 답글 포함)
-  | "like_received"       // 내 후기·글·댓글이 좋아요를 받음
   | "admin_deleted";      // 내 글·후기가 관리자에게 삭제됨(감점)
 
 export type PointRule = {
@@ -48,7 +48,6 @@ export const POINT_RULES: Record<ActivityType, PointRule> = {
   review_photo:         { points: 5,  dailyLimit: 3, label: "사진 후기 가산" },
   post:                 { points: 3,  dailyLimit: 2, label: "커뮤니티 글" },
   comment:              { points: 1,  dailyLimit: 3, label: "댓글·답글" },
-  like_received:        { points: 2,  dailyLimit: 20, label: "받은 좋아요" },
   admin_deleted:        { points: -20, label: "관리자 삭제(감점)" },
 };
 

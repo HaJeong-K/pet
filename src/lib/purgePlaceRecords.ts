@@ -56,4 +56,6 @@ export async function purgePlaceRecords(supabaseAdmin: SupabaseClient, placeId: 
     supabaseAdmin.from("analytics_events").delete().eq("place_id", String(placeId)),
     supabaseAdmin.from("reports").update({ is_resolved: true }).eq("place_id", placeId),
   ]);
+  // 신고된 장소를 실제로 지우거나 숨긴 것이므로 "받아들임"으로 남깁니다(칸이 아직 없으면 조용히 건너뜀 — scripts/sql/report-resolution.sql).
+  await supabaseAdmin.from("reports").update({ resolution: "accepted", resolved_at: new Date().toISOString() }).eq("place_id", placeId).is("resolution", null);
 }
