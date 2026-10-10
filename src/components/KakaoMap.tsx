@@ -2610,7 +2610,7 @@ const courseMeta = (route: RouteResult) => ({
       content: {
         title: "같이가개",
         description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
-        imageUrl: `${window.location.origin}/api/og`,
+        imageUrl: `${window.location.origin}/og-default.png`,
         link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
       },
       buttons: [{ title: "지도 열기", link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],
