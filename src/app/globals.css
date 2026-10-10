@@ -8,7 +8,7 @@
    더 빠릅니다. 아래는 그 폰트를 가리키는 클래스 이름만 남겨둔 것입니다.*/
 @import "tailwindcss";
 
-.ggk-logo { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+.ggk-logo { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 .ggk-body { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 
 :root {

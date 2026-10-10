@@ -47,10 +47,10 @@ import {
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
 const DEFAULT_VET_DEPARTMENT = "종합진료";
 
-// ── 폰트 (Pretendard 제목/로고 + Noto Sans KR 본문)
+// ── 폰트 (제목·본문 모두 Noto Sans KR — 사이트 전체를 한 글꼴로 통일)
 const FONT_STYLE = `
   * { box-sizing: border-box; }
-  .ggk-title { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .ggk-title { font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif; }
 `;
 
 const adjectives = ["행복한","귀여운","용감한","졸린","말랑한","똑똑한","신난","배고픈"];

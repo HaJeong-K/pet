@@ -65,7 +65,7 @@ export default function ShelterNoticeCard({
             background: "linear-gradient(180deg, #FFF3DF, #FFE6C7)",
             color: "#7A4A26",
             borderBottom: "1px solid #F3D3A6",
-            fontFamily: "'Gaegu', 'Pretendard', sans-serif",
+            fontFamily: "'Gaegu', 'Noto Sans KR', sans-serif",
             fontSize: 19,
             fontWeight: 700,
             textAlign: "center",

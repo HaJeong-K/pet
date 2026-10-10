@@ -14,7 +14,7 @@ const ADMIN_EMAIL = "infoker12@naver.com";
 function FooterSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 5, fontFamily: "'Pretendard', sans-serif" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 5, fontFamily: "'Noto Sans KR', sans-serif" }}>
         {title}
       </div>
       <div style={{ fontSize: 11, color: "#555", lineHeight: 1.8 }}>{children}</div>

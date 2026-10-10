@@ -10,8 +10,8 @@ import { siteUrl } from "@/lib/siteUrl";
 
 // ⚠ 최적화: 여기서 Geist/Geist Mono(next/font/google)를 불러오고 있었는데, 실제로는
 // <body>에 그 클래스/CSS 변수를 한 번도 적용하지 않아서(className 미부착) 화면에
-// 전혀 쓰이지 않는 죽은 폰트였습니다. 이 프로젝트는 실제로 Pretendard(.ggk-logo)와
-// Noto Sans KR(.ggk-body, 대부분의 본문)만 씁니다. 안 쓰는 웹폰트 2종을 통째로
+// 전혀 쓰이지 않는 죽은 폰트였습니다. 이 프로젝트는 Noto Sans KR 하나(제목 .ggk-logo·본문
+// .ggk-body 공통)와 입양 카드 문구용 Gaegu만 씁니다(아래 글꼴 스크립트 참고). 안 쓰는 웹폰트 2종을 통째로
 // 제거해서 폰트 다운로드/파싱 비용을 없앴습니다.
 
 // 카카오맵 안내 파일 주소(지도 엔진의 시작점).
@@ -69,14 +69,17 @@ export default function RootLayout({
             "@import rules must precede all rules" 빌드 에러가 났었습니다. */}
         {/* 글꼴 파일을 받는 서버에도 미리 연결해 둡니다(글꼴이 늦게 바뀌어 보이는 시간을 줄임). */}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
-        {/* ⚠ 속도: 글꼴 목록(CSS)을 <link rel="stylesheet">로 넣으면, 그 파일(구글 글꼴만 압축 100KB)을 다 받을
-            때까지 화면에 아무것도 그려지지 않습니다(폰에서 첫 그림이 약 1초 늦어지던 원인). 그래서 화면을 먼저
-            그리고 나서 글꼴 목록을 붙입니다 — 글자는 잠깐 기기 기본 글꼴로 보이다가 바뀝니다(안드로이드는 기본
-            글꼴이 같은 계열이라 거의 티가 나지 않습니다). 안 쓰던 글꼴(Gaegu)은 뺐습니다. */}
+        {/* ⚠ 속도: 웹 글꼴 — 사이트 전체를 Noto Sans KR 하나로 통일했습니다(PC·폰 같은 글꼴).
+            예전에는 본문 Noto Sans KR(굵기 4종) + 제목 Pretendard를 따로 받았는데, 한글 글꼴은 글자를 조각으로 나눠
+            두는 방식이라 조각이 1,324개나 됐고, 그걸 화면에 적용하는 계산만 느린 폰에서 1초 넘게 걸렸습니다.
+            굵기를 한 파일로 다루는 방식(wght@400..800)으로 바꿔 조각을 124개로 줄였습니다(입양 카드 문구용 손글씨
+            Gaegu 124개 포함 248개).
+            또 <link rel="stylesheet">로 넣으면 글꼴 목록을 다 받을 때까지 화면에 아무것도 그려지지 않으므로, 화면이
+            다 뜬 뒤 한가할 때 붙입니다 — 글자는 기기 글꼴로 먼저 보이다가 바뀝니다(안드로이드는 기기 글꼴이 같은
+            계열이라 거의 티가 나지 않습니다). */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var u=["https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap","https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"];var done=false;function add(){if(done)return;done=true;for(var i=0;i<u.length;i++){var l=document.createElement("link");l.rel="stylesheet";l.href=u[i];document.head.appendChild(l);}}if(window.requestAnimationFrame){requestAnimationFrame(function(){setTimeout(add,0);});}setTimeout(add,1500);})();`,
+            __html: `(function(){var u="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400..800&family=Gaegu:wght@700&display=swap";var done=false;function add(){if(done)return;done=true;var l=document.createElement("link");l.rel="stylesheet";l.href=u;document.head.appendChild(l);}function soon(){if(window.requestIdleCallback){requestIdleCallback(add,{timeout:2500});}else{setTimeout(add,300);}}if(document.readyState==="complete"){soon();}else{window.addEventListener("load",soon);}setTimeout(add,6000);})();`,
           }}
         />
         {/* 불러오는 화면의 로고 그림 — 화면이 그려지자마자 보이도록 미리 받습니다. */}
@@ -96,7 +99,7 @@ export default function RootLayout({
         <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/libs/clusterer/1.1.4/clusterer.js" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var S=${JSON.stringify(KAKAO_MAP_SDK)};var isMap=location.pathname==="/";function early(){try{var m=window.kakao.maps;if(!document.body||document.getElementById("map")||window.__ggkEarlyMap)return;var lat=parseFloat(localStorage.getItem("user_lat")),lng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(lat)||isNaN(lng)){lat=37.5665;lng=126.978;}var el=document.createElement("div");el.id="ggk-early-map";el.style.cssText="position:fixed;inset:0;z-index:2";document.body.appendChild(el);var map=new m.Map(el,{center:new m.LatLng(lat,lng),level:3,scrollwheel:true,disableDoubleClickZoom:false});window.__ggkEarlyMap={map:map,el:el};}catch(e){}}var s=document.createElement("script");s.src=S;s.async=true;try{s.fetchPriority="high";}catch(e){}if(isMap){s.onload=function(){try{window.kakao.maps.load(function(){if(document.body)early();else document.addEventListener("DOMContentLoaded",early);});}catch(e){}};}document.head.appendChild(s);})();`,
+            __html: `(function(){var S=${JSON.stringify(KAKAO_MAP_SDK)};var isMap=location.pathname==="/";function early(){try{var m=window.kakao.maps;if(!document.body||document.getElementById("map")||window.__ggkEarlyMap)return;var lat=parseFloat(localStorage.getItem("user_lat")),lng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(lat)||isNaN(lng)){lat=37.5665;lng=126.978;}var el=document.createElement("div");el.id="ggk-early-map";el.style.cssText="position:fixed;inset:0;z-index:2";document.body.appendChild(el);var map=new m.Map(el,{center:new m.LatLng(lat,lng),level:3,scrollwheel:true,disableDoubleClickZoom:false});var h={map:map,el:el,painted:false};window.__ggkEarlyMap=h;try{m.event.addListener(map,"tilesloaded",function(){h.painted=true;});}catch(e){h.painted=true;}}catch(e){}}var s=document.createElement("script");s.src=S;s.async=true;try{s.fetchPriority="high";}catch(e){}if(isMap){s.onload=function(){try{window.kakao.maps.load(function(){if(document.body)early();else document.addEventListener("DOMContentLoaded",early);});}catch(e){}};}document.head.appendChild(s);})();`,
           }}
         />
       </head>
