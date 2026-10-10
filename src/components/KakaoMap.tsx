@@ -3153,11 +3153,12 @@ const courseMeta = (route: RouteResult) => ({
             // 검색창 글자는 16px(그보다 작으면 아이폰이 입력할 때 화면을 확대해 버림).
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* 로고: 핀 속 슈나우저 + "같이가개"(앱 아이콘과 같은 핀). 예전 손그림 두 마리는 빈 화면 등의 마스코트로 남겨 뒀습니다. */}
                 <Image
-                  src="/icons/header_logo_final.png"
+                  src="/icons/logo_lockup.png"
                   alt="같이가개"
-                  width={141}
-                  height={60}
+                  width={721}
+                  height={231}
                   priority
                   style={{ height: "30px", width: "auto", display: "block", objectFit: "contain", flexShrink: 0 }}
                 />
@@ -3242,12 +3243,12 @@ const courseMeta = (route: RouteResult) => ({
           {/* 좌측: 로고 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
             <Image
-              src="/icons/header_logo_final.png"
+              src="/icons/logo_lockup.png"
               alt="같이가개"
-              width={141}
-              height={60}
+              width={721}
+              height={231}
               priority
-              style={{ height: "60px", width: "auto", display: "block", objectFit: "contain" }}
+              style={{ height: "52px", width: "auto", display: "block", objectFit: "contain" }}
             />
             <div
               className="ggk-body"

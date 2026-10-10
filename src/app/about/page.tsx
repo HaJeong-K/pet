@@ -82,7 +82,7 @@ export default function AboutPage() {
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(247,243,232,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e8e2d2" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
           <Link href="/" aria-label="같이가개 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/header_logo_final.png" alt="같이가개" width={132} height={56} style={{ objectFit: "contain", height: 40, width: "auto" }} priority />
+            <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
           </Link>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* 좁은 화면에서는 로고와 "지도 열기"만 남깁니다 */}
