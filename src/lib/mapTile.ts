@@ -36,7 +36,7 @@ export function tileQuery(lat?: number | null, lng?: number | null): string {
 // 상세 화면에서만 쓰는 긴 안내문(memo)·출처 번호(sourceId)를 빼면 전송량이 절반쯤으로 줄어듭니다.
 // 상세 화면은 장소 하나를 따로 받아 오므로(/api/public-data/place/[id]) 거기서는 전부 보입니다.
 const DEFAULT_IMAGE = "/images/default-place.png";
-const PLACE_KEYS = ["id", "name", "category", "address", "lat", "lng", "pet_zone", "hours", "large_dog", "treatable_animals", "phone", "website", "closed_days", "parking", "entry_fee", "image_url", "created_at"] as const;
+export const PLACE_KEYS = ["id", "name", "category", "address", "lat", "lng", "pet_zone", "hours", "large_dog", "treatable_animals", "phone", "website", "closed_days", "parking", "entry_fee", "image_url", "created_at"] as const;
 
 /** 서버: 보낼 때 가볍게 줄입니다. */
 export function compactPlace(place: Record<string, unknown>): Record<string, unknown> {
@@ -53,10 +53,17 @@ export function compactPlace(place: Record<string, unknown>): Record<string, unk
 
 /** 브라우저: 받은 뒤 원래 모양으로 되돌립니다(빠진 값은 null, 기본 그림·출처 표시 복원). */
 export function expandPlace(place: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = { memo: null, source: "public-data" };
-  for (const key of PLACE_KEYS) out[key] = place[key] ?? null;
-  if (out.image_url == null) out.image_url = DEFAULT_IMAGE;
-  return out;
+  // ⚠ 속도: 지도를 열 때 장소 1만여 곳에 대해 실행됩니다. 키를 하나씩 돌며 채우던 것을 한 번에 쓰는 모양으로 바꿨습니다
+  // (같은 결과, 몇 배 빠름). PLACE_KEYS에 항목을 더하면 여기에도 더해야 합니다 — 빠뜨리면 mapTile.test.ts가 알려 줍니다.
+  const p = place;
+  return {
+    memo: null, source: "public-data",
+    id: p.id ?? null, name: p.name ?? null, category: p.category ?? null, address: p.address ?? null,
+    lat: p.lat ?? null, lng: p.lng ?? null, pet_zone: p.pet_zone ?? null, hours: p.hours ?? null,
+    large_dog: p.large_dog ?? null, treatable_animals: p.treatable_animals ?? null, phone: p.phone ?? null,
+    website: p.website ?? null, closed_days: p.closed_days ?? null, parking: p.parking ?? null,
+    entry_fee: p.entry_fee ?? null, image_url: p.image_url ?? DEFAULT_IMAGE, created_at: p.created_at ?? null,
+  };
 }
 
 /** CDN 캐시 지시 — 5분 동안은 캐시를 그대로 쓰고, 그 뒤 하루까지는 일단 캐시를 주면서 뒤에서 새로 받아 둡니다. */

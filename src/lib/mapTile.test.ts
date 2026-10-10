@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactPlace, DEFAULT_CENTER, expandPlace, snapToTile, tileQuery, TILE_RADIUS_KM } from "./mapTile";
+import { compactPlace, DEFAULT_CENTER, expandPlace, PLACE_KEYS, snapToTile, tileQuery, TILE_RADIUS_KM } from "./mapTile";
 import { distanceKm } from "./nearestGrid";
 
 describe("지도 칸 단위 요청", () => {
@@ -51,5 +51,13 @@ describe("가벼운 장소(전송량 줄이기)", () => {
 
   it("false 값(대형견 불가)은 빈 값으로 취급하지 않고 보낸다", () => {
     expect(expandPlace(compactPlace({ ...full, large_dog: false })).large_dog).toBe(false);
+  });
+
+  it("expandPlace는 PLACE_KEYS의 모든 항목을 빠짐없이 채운다(항목을 더하고 여기 반영을 잊지 않게)", () => {
+    const keys = Object.keys(expandPlace({})).sort();
+    expect(keys).toEqual([...PLACE_KEYS, "memo", "source"].sort());
+    const filled = Object.fromEntries(PLACE_KEYS.map((k) => [k, `값-${k}`]));
+    const back = expandPlace(filled);
+    for (const k of PLACE_KEYS) expect(back[k], k).toBe(`값-${k}`);
   });
 });

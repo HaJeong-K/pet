@@ -1475,7 +1475,10 @@ export default function KakaoMap() {
   // 수천 건)를 매번 복사+정렬했습니다. places가 실제로 바뀔 때만 다시 계산하도록
   // useMemo로 옮겼습니다.
   const recentPlaces = useMemo(() => {
-    return [...places]
+    // ⚠ 속도: 등록일이 있는 장소(제보로 등록된 곳)만 정렬합니다. 공공데이터 장소 1만여 곳은 등록일이 없어 어차피
+    // 맨 뒤로 가는데, 예전에는 그것까지 전부 날짜로 바꿔 가며 정렬했습니다(장소 목록이 바뀔 때마다).
+    return places
+      .filter((p) => p.created_at)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 10);
   }, [places]);
@@ -1629,9 +1632,11 @@ export default function KakaoMap() {
   // 장소 id → 장소 정보(취향 프로필 계산용). 공원은 추천 목록 대상이 아니라 제외합니다.
   const placeById = useMemo(() => {
     const map = new Map<string, any>();
+    // 내 반응(찜·좋아요 등)이 있을 때만 씁니다 — 없으면 1만여 곳을 담는 일을 하지 않습니다.
+    if (myReactions.length === 0) return map;
     for (const p of places) map.set(String(p.id), p);
     return map;
-  }, [places]);
+  }, [places, myReactions.length]);
 
   const preferenceProfile = useMemo(
     () => (myReactions.length === 0 ? EMPTY_PREFERENCE_PROFILE : buildUserPreferenceProfile(myReactions, (id) => placeById.get(id))),
@@ -1668,6 +1673,10 @@ export default function KakaoMap() {
   );
 
   const recommendation = useMemo(() => {
+    // ⚠ 속도: 추천 목록은 추천 패널에서만 씁니다. 예전에는 패널을 열지 않아도 지도가 뜰 때, 그리고 장소·위치가 바뀔
+    // 때마다 주변 1만여 곳의 점수(공원까지의 거리 포함)를 계산해서 화면이 떠 있는 채로 한동안 멈칫했습니다.
+    // 패널을 열 때만 계산합니다.
+    if (!showRecommendPanel) return { list: [], ad: null };
     const center = searchCenter || userLocation;
 
     // ⚠ 성능 안전장치: center(내 위치/검색 중심)가 아직 전혀 없는 상태(위치 권한 대기 중인
@@ -1809,7 +1818,7 @@ export default function KakaoMap() {
     return { list, ad: adCandidate ? { place: adCandidate.place, score: adCandidate.score } : null };
   }, [
     filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap,
-    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf,
+    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf, showRecommendPanel,
   ]);
   const recommendedPlaces = recommendation.list;
   const recommendedAd = recommendation.ad;
