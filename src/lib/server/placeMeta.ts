@@ -22,6 +22,7 @@ export type PlaceMeta = {
 };
 
 const PUBLIC_DATA_ID_MIN = 1_000_000_000;
+// "/icons/header_logo_final.png"는 지운 예전 로고입니다 — 예전에 저장된 값이 남아 있을 때 "사진 없음"으로 보도록 목록에는 남겨 둡니다.
 const DEFAULT_IMAGES = new Set(["/images/default-place.png", "/icons/header_logo_final.png"]);
 
 export const PET_ZONE_TEXT: Record<string, string> = {
