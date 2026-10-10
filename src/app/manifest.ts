@@ -17,7 +17,8 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ko",
     icons: [
       { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // maskable: 폰이 제 모양(동그라미 등)으로 잘라 쓰는 아이콘 — 그림을 가운데에 작게 두고 바탕을 끝까지 채운 파일을 따로 씁니다.
+      { src: "/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
       { src: "/apple-icon.png", sizes: "180x180", type: "image/png", purpose: "any" },
     ],
   };

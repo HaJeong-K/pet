@@ -59,6 +59,12 @@ bash mobile/android/build-apk.sh
 `android/twa-manifest.json`의 `appVersionName`(예: `0.1.1`)과 `appVersionCode`(1씩 올림)를 바꾸고,
 `android/app/build.gradle`의 `versionCode`·`versionName`도 같은 값으로 맞춘 뒤 다시 빌드합니다.
 
+## 앱 아이콘
+
+글자 없는 핀 로고(갈색 핀 속 슈나우저와 발자국)를 씁니다. 그림을 바꾸려면 `mobile/icon-drafts/make-app-icons.cjs`의 도형을 고친 뒤
+`node mobile/icon-drafts/make-app-icons.cjs`를 실행하면 사이트 아이콘(브라우저 탭·홈 화면 추가)과 앱 아이콘·시작 화면 그림이 모든 크기로 다시 만들어집니다.
+그다음 버전을 올려 앱을 다시 빌드합니다.
+
 ## 알림 아이콘
 
 상단바에 뜨는 작은 알림 아이콘은 안드로이드 규칙상 **한 가지 색 실루엣**만 됩니다(투명하지 않은 부분이 전부 흰색으로 칠해짐).
