@@ -67,6 +67,9 @@ bash mobile/android/build-apk.sh
 - 실루엣·컬러 아이콘은 `node mobile/icon-drafts/make-notification-icons.cjs`로 다시 만듭니다
   (`public/notification-badge.png`, `public/notification-icon.png`, 앱의 `ic_notification_icon.png` 5종).
 - 앱이 알림을 대신 띄울 때는 앱 안의 `ic_notification_icon`을 쓰므로, 실루엣을 바꾸면 앱도 다시 빌드해 설치해야 합니다.
+- 알림창을 내렸을 때의 아이콘 색은 로고의 갈색입니다(`DelegationService.java`의 `NOTIFICATION_COLOR`).
+  상단바에 뜨는 아이콘의 색은 안드로이드가 정해서(어두운 바탕 흰색, 밝은 바탕 검은색) 바꿀 수 없습니다.
+- ⚠ `DelegationService.java`는 직접 고친 파일입니다. `bubblewrap update`로 프로젝트를 다시 만들면 덮어써지니, 그때는 이 파일의 색 지정 부분을 다시 넣어야 합니다.
 
 ## 아직 없는 것
 
