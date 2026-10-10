@@ -101,13 +101,10 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
       if (userArea.lat != null && userArea.lng != null) { params.set("lat", userArea.lat.toFixed(2)); params.set("lng", userArea.lng.toFixed(2)); }
     }
     const cacheKey = params.toString();
-    // 전국 공고는 서버가 이미 화면에 채워 보냈으므로 다시 받지 않습니다(지역을 알게 되면 그 지역 것을 받습니다).
-    if (!sido && hasInitial) {
-      setNotices(initial ?? []); setNear(null); setLoading(false);
-      return;
-    }
     // 기억해 둔 목록이 있으면 먼저 보여 주고, 없으면 지금 보이는 목록을 흐리게 둔 채 새 목록을 기다립니다.
-    const remembered = noticeCache.get(cacheKey);
+    // 전국 공고는 서버가 화면에 채워 보낸 것(initial)을 먼저 보여 주고, 뒤에서 최신으로 바꿉니다
+    // (서버가 만들어 둔 화면이 조금 오래됐을 수 있어서 — 마감된 공고가 남아 있지 않게).
+    const remembered = noticeCache.get(cacheKey) ?? (!sido && hasInitial ? { notices: initial ?? [], near: null } : undefined);
     if (remembered) { setNotices(remembered.notices); setNear(remembered.near); setLoading(false); }
     else setLoading(true);
     fetch(`/api/shelter-notices?${cacheKey}`)

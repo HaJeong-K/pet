@@ -27,7 +27,7 @@ async function loadInitial(): Promise<CommunityInitial | null> {
       supabase.from("community_posts").select("id, title, nickname, created_at, board_id").eq("is_notice", true).order("created_at", { ascending: false }).limit(5),
     ]);
     const listResult = first.error ? await runList(false) : first;
-    if (listResult.error) return null;
+    if (listResult.error) throw new Error(listResult.error.message);
     const posts = listResult.data || [];
 
     // 댓글·좋아요 수는 저장된 숫자 대신 실제 개수를 셉니다(CommunityClient와 같은 보정).
@@ -49,14 +49,16 @@ async function loadInitial(): Promise<CommunityInitial | null> {
       generatedAt: Date.now(),
     };
   } catch (e) {
-    // 서버에서 못 받아도 화면은 떠야 합니다 — 브라우저가 예전처럼 직접 받습니다.
     console.error("[community] 첫 목록 준비 실패:", e);
+    // 운영 중에 화면을 새로 만들다 실패하면 오류를 내서 "직전에 만든 화면"을 계속 보여 줍니다(빈 화면으로 덮어쓰지 않음).
+    // 배포할 때(빌드)만 빈 채로 만들어 두고, 브라우저가 예전처럼 직접 받습니다.
+    if (process.env.NEXT_PHASE !== "phase-production-build") throw e;
     return null;
   }
 }
 
 export default async function CommunityPage() {
-  // 너무 오래 걸리면(4초) 기다리지 않고 빈 채로 보냅니다.
-  const initial = await Promise.race([loadInitial(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))]);
+  // 이 화면은 뒤에서 미리 만들어 두는 것이라(30초마다), 시간 제한 없이 끝까지 받아서 만듭니다.
+  const initial = await loadInitial();
   return <CommunityClient initial={initial} />;
 }

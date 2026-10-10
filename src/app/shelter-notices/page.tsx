@@ -10,7 +10,15 @@ export const revalidate = 300;
 
 // 공고를 받아 오는 코드는 "매번 새로 받기"로 되어 있어서, 여기서 5분 동안 결과를 기억해 두도록 감쌉니다.
 // (감싸지 않으면 이 화면이 방문할 때마다 서버에서 새로 만들어져 오히려 느려집니다.)
-const getNationwideNotices = unstable_cache(() => getRegionShelterNotices(null, 60), ["shelter-notices-initial-v1"], { revalidate: 300 });
+// 빈 결과(공고 서버가 잠깐 응답하지 않을 때)는 기억하지 않도록 오류로 돌립니다.
+const getNationwideNotices = unstable_cache(async () => {
+  const notices = await getRegionShelterNotices(null, 60);
+  if (notices.length === 0) throw new Error("공고를 받지 못했습니다");
+  return notices;
+}, ["shelter-notices-initial-v2"], { revalidate: 300 });
+
+// 배포할 때(빌드) 만드는 중인지 — 이때 공고를 못 받으면 빈 채로 만들어 두고, 브라우저가 예전처럼 직접 받습니다.
+const IS_BUILD = process.env.NEXT_PHASE === "phase-production-build";
 
 async function loadInitial(): Promise<ShelterNoticeLite[] | null> {
   try {
@@ -21,15 +29,19 @@ async function loadInitial(): Promise<ShelterNoticeLite[] | null> {
       breed: n.breed, imageUrl: n.imageUrl, daysLeft: n.daysLeft,
     }));
   } catch (e) {
-    // 서버에서 못 받아도 화면은 떠야 합니다 — 브라우저가 예전처럼 직접 받습니다.
     console.error("[shelter-notices] 첫 목록 준비 실패:", e);
+    // ⚠ 운영 중에 5분마다 화면을 새로 만들다가 실패한 경우: 여기서 오류를 내면 "공고가 채워진 직전 화면"을 계속
+    // 보여 줍니다. 빈 화면을 새로 만들어 덮어쓰면, 다음에 성공할 때까지 모든 방문자가 빈 화면부터 보게 됩니다
+    // (실제로 배포 직후 한 번 그렇게 됐습니다). 화면에 남은 공고가 조금 오래됐더라도 브라우저가 띄운 뒤 최신으로 바꿉니다.
+    if (!IS_BUILD) throw e;
     return null;
   }
 }
 
 export default async function ShelterNoticesPage() {
-  // 너무 오래 걸리면(4초) 기다리지 않고 빈 채로 보냅니다.
-  const initial = await Promise.race([loadInitial(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))]);
+  // 이 화면은 방문자가 기다리는 동안이 아니라 뒤에서 미리 만들어 두는 것이라, 공고 서버가 느려도 끝까지 기다립니다.
+  // (예전에는 4초가 넘으면 빈 채로 만들었는데, 그 빈 화면이 5분 동안 모든 방문자에게 나갔습니다.)
+  const initial = await loadInitial();
   // 카드 위 문구 순서를 정하는 숫자 — 화면을 새로 만들 때마다(5분마다) 바뀝니다.
   const phraseSeed = Math.floor(Date.now() / 1000);
   return <ShelterNoticesClient initial={initial} phraseSeed={phraseSeed} />;
