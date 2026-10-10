@@ -15,13 +15,14 @@
   "startUrl": "/",
   "iconUrl": "https://gachigagae.vercel.app/icon.png",
   "maskableIconUrl": "https://gachigagae.vercel.app/icon.png",
+  "monochromeIconUrl": "https://gachigagae.vercel.app/notification-badge.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "./keys/gachigagae-release.jks",
     "alias": "gachigagae"
   },
-  "appVersionName": "0.1.0",
-  "appVersionCode": 1,
+  "appVersionName": "0.1.1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://gachigagae.vercel.app/manifest.webmanifest",
@@ -39,5 +40,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "0.1.0"
+  "appVersion": "0.1.1"
 }

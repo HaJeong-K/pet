@@ -59,6 +59,15 @@ bash mobile/android/build-apk.sh
 `android/twa-manifest.json`의 `appVersionName`(예: `0.1.1`)과 `appVersionCode`(1씩 올림)를 바꾸고,
 `android/app/build.gradle`의 `versionCode`·`versionName`도 같은 값으로 맞춘 뒤 다시 빌드합니다.
 
+## 알림 아이콘
+
+상단바에 뜨는 작은 알림 아이콘은 안드로이드 규칙상 **한 가지 색 실루엣**만 됩니다(투명하지 않은 부분이 전부 흰색으로 칠해짐).
+색이 꽉 찬 그림을 넣으면 흰 동그라미로만 보여서, 투명 바탕의 핀 실루엣을 따로 만들어 씁니다.
+
+- 실루엣·컬러 아이콘은 `node mobile/icon-drafts/make-notification-icons.cjs`로 다시 만듭니다
+  (`public/notification-badge.png`, `public/notification-icon.png`, 앱의 `ic_notification_icon.png` 5종).
+- 앱이 알림을 대신 띄울 때는 앱 안의 `ic_notification_icon`을 쓰므로, 실루엣을 바꾸면 앱도 다시 빌드해 설치해야 합니다.
+
 ## 아직 없는 것
 
 - 앱 푸시 알림(구글 Firebase 연결 필요)

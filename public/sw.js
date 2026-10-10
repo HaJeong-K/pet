@@ -11,8 +11,11 @@ self.addEventListener("push", (event) => {
   const title = data.title || "같이가개";
   const options = {
     body: data.body || "",
-    icon: "/icon.png",
-    badge: "/icon.png",
+    // icon: 알림창을 내렸을 때 보이는 컬러 그림(글자 없는 핀 로고).
+    // badge: 상단바와 알림 왼쪽의 작은 아이콘 — 안드로이드는 투명하지 않은 부분을 전부 한 색으로 칠하므로,
+    //        색이 꽉 찬 그림을 넣으면 흰 동그라미로만 보입니다. 그래서 투명 바탕의 실루엣을 따로 씁니다.
+    icon: "/notification-icon.png",
+    badge: "/notification-badge.png",
     tag: data.tag || "ggk",          // 같은 종류 알림은 쌓이지 않고 최신 것으로 바뀝니다
     data: { url: data.url || "/" },
   };
