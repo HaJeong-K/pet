@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -164,7 +165,7 @@ export default function AdminKpi() {
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>불러오는 중...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
         ) : monthly.length > 0 && (
           <div style={{ background: "white", borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, whiteSpace: "nowrap" }}>

@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -727,7 +728,7 @@ export default function AdminReportsPage() {
           }}>
 
             {loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
             ) : displayReports.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background: activeFilter === "pending" ? "#fee2e2" : "#dcfce7", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>

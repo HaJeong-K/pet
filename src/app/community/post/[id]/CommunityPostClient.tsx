@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -653,7 +654,7 @@ export default function CommunityDetailPage() {
           background: "#f5f6f8",
         }}
       >
-        불러오는 중...
+        <LogoLoader size={56} />
       </div>
     );
   }

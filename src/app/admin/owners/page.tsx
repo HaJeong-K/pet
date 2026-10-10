@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -81,7 +82,7 @@ export default function AdminOwners() {
         </div>
 
         {loading && rows.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}>불러오는 중...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}><LogoLoader /></div>
         )}
         {!loading && rows.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 13, background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)" }}>

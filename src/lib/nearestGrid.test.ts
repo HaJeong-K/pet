@@ -42,4 +42,20 @@ describe("buildNearestGrid", () => {
     expect(buildNearestGrid([]).nearestKm(35, 128)).toBeNull();
     expect(buildNearestGrid([{ lat: 35, lng: 128 }]).nearestKm(NaN, 128)).toBeNull();
   });
+
+  it("거리 한도(maxKm)를 주면 한도 안에서는 같은 값, 한도 밖이면 null", () => {
+    // 공원이 빽빽한 곳(서울)을 흉내 낸 3,000곳 — 칸을 잘게 나눈 뒤에도 전부 훑는 방식과 같은지 확인합니다.
+    let seed = 7;
+    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const dense = Array.from({ length: 3000 }, () => ({ lat: 37.45 + rand() * 0.25, lng: 126.8 + rand() * 0.4 }));
+    const grid = buildNearestGrid(dense);
+    for (let i = 0; i < 300; i++) {
+      const lat = 37.3 + rand() * 0.55, lng = 126.6 + rand() * 0.8;
+      let exact = Infinity;
+      for (const p of dense) exact = Math.min(exact, distanceKm(lat, lng, p.lat, p.lng));
+      expect(grid.nearestKm(lat, lng)).toBeCloseTo(exact, 9);
+      const limited = grid.nearestKm(lat, lng, 1);
+      if (exact <= 1) expect(limited).toBeCloseTo(exact, 9); else expect(limited).toBeNull();
+    }
+  });
 });

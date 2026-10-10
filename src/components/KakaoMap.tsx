@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { buildNearestGrid } from "@/lib/nearestGrid";
+import LogoLoader from "@/components/LogoLoader";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -311,6 +312,16 @@ export default function KakaoMap() {
   // 아래 "지역 범위로 공공데이터 재요청" 효과가 이미 어느 좌표로 재요청했는지 기록해서,
   // GPS 좌표가 미세하게(수백m 이내) 흔들릴 때마다 매번 네트워크를 다시 타지 않도록 합니다.
   const regionalFetchKeyRef = useRef<string | null>(null);
+  // ⚠ 속도: 지도 그림(타일)이 화면에 처음 그려졌는지. 장소 데이터(서울은 1만 곳 이상)를 화면에 반영하는 계산이
+  // 0.5초쯤 걸리는데, 데이터가 지도보다 먼저 도착하면 그 계산이 끝날 때까지 지도 자체가 뜨지 못했습니다.
+  // 지도를 먼저 그리고 나서 장소를 올리도록, 데이터 반영 쪽이 이 값을 기다립니다(waitForMapPaint).
+  const mapPaintedRef = useRef(false);
+  const waitForMapPaint = async () => {
+    // 지도가 끝내 안 뜨는 경우(지도 엔진을 못 받음 등)에도 목록은 보여야 하므로 최대 3초만 기다립니다.
+    for (let waited = 0; waited < 3000 && !mapPaintedRef.current; waited += 40) {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+  };
   // 내 위치에서 멀리 떨어진 곳을 볼 때(지역 검색·지도 이동) 그 지역 데이터를 추가로 불러온 기준 좌표
   const viewRegionFetchRef = useRef<{ lat: number; lng: number } | null>(null);
   // 내 주변(홈) 데이터의 id — 보고 있는 지역 데이터를 바꿔 끼울 때 홈 데이터는 지우지 않기 위해 기억합니다.
@@ -774,6 +785,8 @@ export default function KakaoMap() {
       ]);
       if (cancelled) return;
       setSession(session);
+      await waitForMapPaint();
+      if (cancelled) return;
       setPlaces(placesData || []);
       if (session?.user) await createUserProfile(session.user);
 
@@ -852,6 +865,7 @@ export default function KakaoMap() {
         fetchPublicDataPlaces(geoOptions),
         fetchParks(geoOptions),
       ]);
+      await waitForMapPaint();
       if (cancelled) return;
       // ⚠ 받는 동안 내 위치가 다른 칸으로 확정됐으면(예: 저장된 위치는 대구인데 지금은 포항, 또는 기준점(서울)으로
       // 받는 중에 내 위치가 잡힘) 이 결과로 덮어쓰지 않습니다 — 내 위치 기준 데이터가 지워져 지도가 비어 보입니다.
@@ -1035,6 +1049,7 @@ export default function KakaoMap() {
         fetchPublicDataPlaces({ lat: userLocation.lat, lng: userLocation.lng }),
         fetchParks({ lat: userLocation.lat, lng: userLocation.lng }),
       ]);
+      await waitForMapPaint();
       if (cancelled) return;
       homePublicIdsRef.current = new Set(regionalPublicData.map((p: any) => p.id));
       homeParkIdsRef.current = new Set(regionalParks.map((p: any) => p.id));
@@ -1568,7 +1583,8 @@ export default function KakaoMap() {
     // 거리 계산) — 지도 로딩이 몇 초씩 멈추던 가장 큰 원인이었습니다. 공원을 격자 칸에 나눠 담아 가까운 칸만 봅니다.
     // 결과는 전부 훑는 방식과 같습니다(src/lib/nearestGrid.ts, 테스트로 확인).
     const parkGrid = buildNearestGrid(nearbyParks);
-    const nearestParkDistanceKm = (lat: number, lng: number): number | null => parkGrid.nearestKm(lat, lng);
+    // 공원 가점은 PARK_PROXIMITY_MAX_KM 안에서만 붙으므로 그 거리까지만 찾습니다(더 멀면 "없음"과 같은 0점).
+    const nearestParkDistanceKm = (lat: number, lng: number): number | null => parkGrid.nearestKm(lat, lng, RECOMMEND_WEIGHTS.PARK_PROXIMITY_MAX_KM);
 
     const distanceOf = (place: any) => {
       const lat = parseFloat(place.lat);
@@ -1921,6 +1937,23 @@ const courseMeta = (route: RouteResult) => ({
       // 바로 그 위치로 다시 잡아줍니다.
       const initial = pendingLocationRef.current ?? { lat: 37.5665, lng: 126.978 };
 
+      // ⚠ 속도("지도 먼저"): 사이트를 처음 열 때는 layout.tsx의 짧은 스크립트가 이 화면 코드보다 먼저 지도를
+      // 그려 둡니다(window.__ggkEarlyMap). 그 지도가 있으면 새로 만들지 않고 그대로 넘겨받습니다 — 지도 그림을
+      // 다시 받지 않고, 그 사이 사용자가 지도를 움직였다면 그 위치도 그대로입니다.
+      const early = (window as unknown as { __ggkEarlyMap?: { map: any; el: HTMLElement } | null }).__ggkEarlyMap;
+      if (early?.map && early.el) {
+        (window as unknown as { __ggkEarlyMap?: unknown }).__ggkEarlyMap = null;
+        early.el.removeAttribute("id");
+        early.el.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
+        container.appendChild(early.el);
+        mapRef.current = early.map;
+        mapRef.current.setZoomable(true);
+        mapRef.current.relayout();
+        mapPaintedRef.current = true;
+        setMapReady(true);
+        return;
+      }
+
       // ⚠ 예전엔 여기서 setBounds(반경 5km 상자)로 초기 확대 정도를 잡았는데, 상자가
       // 정사각형에 가까운 반면 화면(특히 데스크톱 와이드 모니터)은 가로로 훨씬 넓어서
       // 세로를 기준으로 맞추면 가로로는 10~20km 이상 보이는 "너무 넓은 지도"가
@@ -1939,6 +1972,10 @@ const courseMeta = (route: RouteResult) => ({
       mapRef.current.relayout();
       mapRef.current.setCenter(new window.kakao.maps.LatLng(initial.lat, initial.lng));
       mapRef.current.setLevel(3);
+      // 지도 그림이 처음 다 그려지면(또는 그림 서버가 느려도 0.7초 뒤에는) 장소 데이터를 올려도 된다고 알립니다.
+      const markPainted = () => { mapPaintedRef.current = true; };
+      try { window.kakao.maps.event.addListener(mapRef.current, "tilesloaded", markPainted); } catch { markPainted(); }
+      setTimeout(markPainted, 700);
       setMapReady(true);
     };
 
@@ -2786,12 +2823,7 @@ const courseMeta = (route: RouteResult) => ({
             boxShadow: "0 8px 28px rgba(0,0,0,0.12)", pointerEvents: "none",
             fontFamily: "'Noto Sans KR', sans-serif",
           }}>
-            <div style={{
-              width: 22, height: 22, borderRadius: "50%",
-              border: "2.5px solid #dbe4d5", borderTopColor: "#5C7A4A",
-              animation: "locatingSpin 0.7s linear infinite",
-            }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#555" }}>내 위치를 확인하고 있어요</span>
+            <LogoLoader size={40} label="내 위치를 확인하고 있어요" />
           </div>
         )}
 

@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { geocodeAddress } from "@/lib/geocodeAddress";
@@ -362,7 +363,7 @@ export default function AdminProposalsPage() {
           {/* ── 리스트 ── */}
           <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
             {loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>

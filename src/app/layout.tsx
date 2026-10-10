@@ -14,6 +14,9 @@ import { siteUrl } from "@/lib/siteUrl";
 // Noto Sans KR(.ggk-body, 대부분의 본문)만 씁니다. 안 쓰는 웹폰트 2종을 통째로
 // 제거해서 폰트 다운로드/파싱 비용을 없앴습니다.
 
+// 카카오맵 안내 파일 주소(지도 엔진의 시작점).
+const KAKAO_MAP_SDK = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=clusterer&autoload=false`;
+
 const siteTitle = "같이가개";
 const siteDescription = "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.";
 
@@ -67,13 +70,34 @@ export default function RootLayout({
         {/* 글꼴 파일을 받는 서버에도 미리 연결해 둡니다(글꼴이 늦게 바뀌어 보이는 시간을 줄임). */}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"
+        {/* ⚠ 속도: 글꼴 목록(CSS)을 <link rel="stylesheet">로 넣으면, 그 파일(구글 글꼴만 압축 100KB)을 다 받을
+            때까지 화면에 아무것도 그려지지 않습니다(폰에서 첫 그림이 약 1초 늦어지던 원인). 그래서 화면을 먼저
+            그리고 나서 글꼴 목록을 붙입니다 — 글자는 잠깐 기기 기본 글꼴로 보이다가 바뀝니다(안드로이드는 기본
+            글꼴이 같은 계열이라 거의 티가 나지 않습니다). 안 쓰던 글꼴(Gaegu)은 뺐습니다. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var u=["https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap","https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css"];var done=false;function add(){if(done)return;done=true;for(var i=0;i<u.length;i++){var l=document.createElement("link");l.rel="stylesheet";l.href=u[i];document.head.appendChild(l);}}if(window.requestAnimationFrame){requestAnimationFrame(function(){setTimeout(add,0);});}setTimeout(add,1500);})();`,
+          }}
         />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Gaegu:wght@700&display=swap"
+        {/* 불러오는 화면의 로고 그림 — 화면이 그려지자마자 보이도록 미리 받습니다. */}
+        <link rel="preload" as="image" href="/icons/logo_mark.png" />
+        {/* ⚠ 속도("지도 먼저"): 지도 엔진(카카오맵)을 다른 코드보다 먼저 받고, 지도 화면으로 들어온 경우에는 엔진이
+            준비되는 즉시 지도부터 그립니다 — 화면의 나머지 코드(검색·목록·버튼 등)가 준비되기를 기다리지 않습니다.
+            지난번 위치가 저장돼 있으면 그곳, 없으면 서울시청이 가운데입니다. 이렇게 먼저 만든 지도는 KakaoMap.tsx의
+            initializeMap이 그대로 넘겨받아 씁니다(window.__ggkEarlyMap). 다른 화면에서는 엔진 준비까지만 합니다.
+            libraries=clusterer 필수: 없으면 넓은 줌(레벨 7 이상)에서 묶음 마커가 통째로 안 보입니다. */}
+        {/* 지도 엔진은 "안내 파일(sdk.js) → 본체(kakao.js) → 묶음 마커(clusterer.js)"를 차례로 받는데, 본체와 묶음 마커를
+            미리 받아 두면 차례를 기다리는 시간이 없어집니다. ⚠ 아래 두 주소의 버전(4.5.28 / 1.1.4)은 카카오가 안내 파일에
+            적어 둔 값과 같아야 효과가 있습니다. 카카오가 버전을 올리면 지도는 그대로 정상 동작하고 미리 받기만 헛일이
+            되므로, 그때 이 숫자를 새 버전으로 바꾸면 됩니다(브라우저 콘솔에 "preload ... not used" 경고가 뜹니다). */}
+        <link rel="preconnect" href="https://mts.kakaocdn.net" />
+        <link rel="preload" as="script" href={KAKAO_MAP_SDK} fetchPriority="high" />
+        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/main/4.5.28/kakao.js" fetchPriority="high" />
+        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/libs/clusterer/1.1.4/clusterer.js" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var S=${JSON.stringify(KAKAO_MAP_SDK)};var isMap=location.pathname==="/";function early(){try{var m=window.kakao.maps;if(!document.body||document.getElementById("map")||window.__ggkEarlyMap)return;var lat=parseFloat(localStorage.getItem("user_lat")),lng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(lat)||isNaN(lng)){lat=37.5665;lng=126.978;}var el=document.createElement("div");el.id="ggk-early-map";el.style.cssText="position:fixed;inset:0;z-index:2";document.body.appendChild(el);var map=new m.Map(el,{center:new m.LatLng(lat,lng),level:3,scrollwheel:true,disableDoubleClickZoom:false});window.__ggkEarlyMap={map:map,el:el};}catch(e){}}var s=document.createElement("script");s.src=S;s.async=true;try{s.fetchPriority="high";}catch(e){}if(isMap){s.onload=function(){try{window.kakao.maps.load(function(){if(document.body)early();else document.addEventListener("DOMContentLoaded",early);});}catch(e){}};}document.head.appendChild(s);})();`,
+          }}
         />
       </head>
       <body
@@ -86,16 +110,10 @@ export default function RootLayout({
             beforeInteractive로 불러오면 그 전까지 페이지 자체가 상호작용 불가능 상태로
             묶여 있었습니다(첫 로딩 체감 지연의 주요 원인). afterInteractive로 바꿔서
             페이지가 먼저 뜨고 나서 곧이어 백그라운드로 불러오도록 했습니다. */}
+        {/* 공유 버튼을 눌러야 쓰이므로, 화면이 다 뜬 뒤 한가할 때 받습니다(lazyOnload) — 첫 화면과 경쟁하지 않게. */}
         <Script
           src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"
-          strategy="afterInteractive"
-        />
-        {/* libraries=clusterer 필수: 이게 없으면 window.kakao.maps.MarkerClusterer가 undefined라
-            KakaoMap.tsx가 넓은 줌(레벨 7 이상)에서 클러스터 마커를 만들다 조용히 실패해서
-            그 구간에서 마커가 통째로 안 보이는 문제가 있었습니다. */}
-        <Script
-          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=clusterer&autoload=false`}
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
         <AuthProvider>
           <AuthGuard />

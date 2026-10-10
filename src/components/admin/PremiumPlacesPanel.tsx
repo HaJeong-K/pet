@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Crown, MapPin, User, CalendarClock, Megaphone, Percent, Gift, ExternalLink } from "lucide-react";
@@ -164,7 +165,7 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
   };
   useEffect(() => { load(); }, [refreshKey]);
 
-  if (places === null) return <div style={{ textAlign: "center", padding: "60px 0", color: "#bbb", fontSize: 13 }}>불러오는 중...</div>;
+  if (places === null) return <div style={{ textAlign: "center", padding: "60px 0", color: "#bbb", fontSize: 13 }}><LogoLoader /></div>;
   const active = places.filter((p) => p.active);
   const expired = places.filter((p) => !p.active);
 

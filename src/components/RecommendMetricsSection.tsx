@@ -4,6 +4,7 @@
 // v1 = 기존 규칙 기반 추천, v2 = 신규 추천(품질·개인화·다양성·광고 분리). 롤아웃 비율은
 // 환경변수 NEXT_PUBLIC_REC_V2_ROLLOUT으로 조절합니다(experiment.ts 참고).
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Sparkles, Route as RouteIcon } from "lucide-react";
@@ -127,7 +128,7 @@ export default function RecommendMetricsSection() {
         <div style={{ ...cardStyle, fontSize: 12, color: "#8a6d2b", background: "#fffaf0" }}>{message}</div>
       )}
       {!message && loading && !rows && (
-        <div style={{ ...cardStyle, fontSize: 12, color: "#999" }}>불러오는 중...</div>
+        <div style={{ ...cardStyle, fontSize: 12, color: "#999" }}><LogoLoader /></div>
       )}
       {!message && rows && rows.length === 0 && (
         <div style={{ ...cardStyle, fontSize: 12, color: "#aaa" }}>아직 추천 노출 기록이 없습니다.</div>

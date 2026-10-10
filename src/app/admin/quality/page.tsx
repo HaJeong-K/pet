@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -79,7 +80,7 @@ export default function AdminQuality() {
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>불러오는 중...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
         ) : !report ? (
           <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>아직 점검 기록이 없어요. &quot;지금 점검&quot;을 눌러 보세요.</div>
         ) : issues.length === 0 ? (

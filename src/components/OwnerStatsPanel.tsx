@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -76,7 +77,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
     return () => { cancelled = true; };
   }, [previewPlaceId]);
 
-  if (loading) return <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "20px 0" }}>불러오는 중...</div>;
+  if (loading) return <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "20px 0" }}><LogoLoader /></div>;
   if (error || !stats) return <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "20px 0" }}>{error || "통계가 없어요."}</div>;
 
   const max = Math.max(1, ...stats.daily.map((d) => d.views));

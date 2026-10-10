@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -154,7 +155,7 @@ export default function AdminPremiumPage() {
             {activeFilter === "active" ? (
               <PremiumPlacesPanel refreshKey={placesRefresh} />
             ) : loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}>불러오는 중...</div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background:"#ffe9c2", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>

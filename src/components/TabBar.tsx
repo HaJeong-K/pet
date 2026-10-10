@@ -45,6 +45,16 @@ export default function TabBar() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // ⚠ 속도: 탭은 버튼(router.push)이라 화면 코드를 미리 받아 두지 않았습니다 — 누른 뒤에야 받기 시작해 반 박자 늦었습니다.
+  // 화면이 한가해지면 탭 화면들을 미리 받아 둬서, 누르는 순간 바로 바뀌게 합니다.
+  useEffect(() => {
+    const routes = ["/", "/community", "/shelter-notices", isLoggedIn ? "/mypage" : "/login", ...(isAdmin ? ["/admin"] : []), ...(isOwner || isAdmin ? ["/owner"] : [])];
+    const warm = () => { for (const route of routes) { try { router.prefetch(route); } catch { /* 미리 받기 실패는 무시 */ } } };
+    const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const timer = window.setTimeout(() => (idle ? idle(warm, { timeout: 3000 }) : warm()), 3000);
+    return () => window.clearTimeout(timer);
+  }, [router, isLoggedIn, isAdmin, isOwner]);
+
   // ── 탭바가 실제로 가리는 높이를 재서 --ggk-tabbar-space에 넣습니다 ──
   // 스크롤 화면들은 이 값만큼 아래 여백을 둡니다(globals.css). 숫자를 고정하지 않고 재는 이유:
   // 폰 화면 크기, 글자 크기 설정, 탭 개수, 아래 제스처 바 유무에 따라 탭바가 차지하는 높이가 달라서입니다.

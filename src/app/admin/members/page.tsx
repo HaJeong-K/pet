@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -133,7 +134,7 @@ export default function AdminMembers() {
         </div>
 
         {error && <div style={{ padding: 14, borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: 13, color: "#9a3412", marginBottom: 14 }}>{error}</div>}
-        {members === null && <div style={{ textAlign: "center", padding: "50px 0", color: "#bbb", fontSize: 13 }}>불러오는 중...</div>}
+        {members === null && <div style={{ textAlign: "center", padding: "50px 0", color: "#bbb", fontSize: 13 }}><LogoLoader /></div>}
         {members !== null && list.length === 0 && !error && (
           <div style={{ textAlign: "center", padding: "50px 0", color: "#888", fontSize: 13.5, fontWeight: 600 }}>조건에 맞는 회원이 없어요.</div>
         )}

@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
 import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
@@ -1544,7 +1545,7 @@ export default function MyPage() {
 
                 {isOwnerPreview && renderOwnerPreviewPicker((p) => openPremiumPane(p.id))}
                 {isOwnerPreview && ownerPlaceId == null ? null : premiumLoading ? (
-                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
+                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
                 ) : (
                   <>
                     {/* 현재 상태 요약 */}
@@ -1647,7 +1648,7 @@ export default function MyPage() {
 
                 {isOwnerPreview && renderOwnerPreviewPicker((p) => openOwnerPlacePane(p.id))}
                 {isOwnerPreview && ownerPlaceId == null ? null : ownerPlaceLoading ? (
-                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>불러오는 중...</div>
+                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
                 ) : ownerPlace ? (
                   <OwnerPlaceEditPanel
                     place={ownerPlace}

@@ -12,6 +12,7 @@
 // 사장님 요청이 있을 때 "대신 처리" 스위치를 켜면 가게 정보 수정과 광고 상품 신청을 대신 할 수 있습니다
 // (실수로 바꾸지 않도록 스위치를 켜야만 수정·신청 버튼이 열립니다).
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -81,7 +82,7 @@ export default function OwnerPage() {
     return () => clearTimeout(timer);
   }, [previewQuery, isPreview]);
 
-  if (state === "loading") return <Shell><div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}>불러오는 중…</div></Shell>;
+  if (state === "loading") return <Shell><div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}><LogoLoader /></div></Shell>;
 
   if (state !== "ready") {
     const message = state === "guest"
@@ -196,7 +197,7 @@ function ReviewsTab({ placeId, isPreview }: { placeId: number; isPreview: boolea
   }, [placeId, isPreview]);
 
   if (error) return <div style={{ ...card, color: "#999", fontSize: 13 }}>{error}</div>;
-  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}>불러오는 중…</div>;
+  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
   const reviews = stats.recentReviews ?? [];
   const waiting = reviews.filter((r) => !r.ownerReplied).length;
 
@@ -244,7 +245,7 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
     return () => { cancelled = true; };
   }, [placeId]);
 
-  if (loading) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}>불러오는 중…</div>;
+  if (loading) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
   if (!place) return <div style={{ ...card, color: "#999", fontSize: 13 }}>가게 정보를 찾을 수 없어요.</div>;
   const rows: [string, string | null][] = [["주소", place.address], ["영업시간", place.hours], ["휴무일", place.closed_days], ["전화번호", place.phone], ["주차", place.parking], ["입장료", place.entry_fee], ["홈페이지", place.website], ["메모", place.memo]];
   return (
@@ -433,7 +434,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
   }, [placeId, isPreview]);
 
   if (error) return <div style={{ ...card, color: "#999", fontSize: 13 }}>{error}</div>;
-  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}>불러오는 중…</div>;
+  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
 
   const l = stats.last30;
   const exposure = l.courseIncluded + (l.recommendImpressions ?? 0);

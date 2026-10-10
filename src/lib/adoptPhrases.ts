@@ -29,12 +29,24 @@ export const ADOPT_PHRASES = [
  * 화면을 열 때마다 문구 순서를 무작위로 섞어, 카드 순서(index)에 따라 하나씩 돌려줍니다.
  * 섞은 순서를 차례로 쓰기 때문에 이웃한 카드에 같은 문구가 연달아 나오지 않고,
  * 화면이 다시 그려져도(지역 변경 등) 문구가 깜빡이며 바뀌지 않습니다.
+ *
+ * seed: 서버가 화면을 미리 만들어 보내는 곳(/shelter-notices)에서는 서버가 정한 숫자를 넘깁니다. 그래야 서버가
+ * 만든 화면과 브라우저가 다시 그린 화면의 문구가 같습니다(다르면 브라우저가 화면 전체를 처음부터 다시 그립니다).
  */
-export function useAdoptPhrases(): (index: number) => string {
+export function useAdoptPhrases(seed?: number): (index: number) => string {
   const [order] = useState(() => {
     const list = [...ADOPT_PHRASES];
+    // 씨앗 숫자가 있으면 그 숫자로 정해지는 순서, 없으면 매번 다른 순서.
+    let state = (seed ?? 0) >>> 0;
+    const next = seed == null ? Math.random : () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
     for (let i = list.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(next() * (i + 1));
       [list[i], list[j]] = [list[j], list[i]];
     }
     return list;

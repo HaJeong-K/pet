@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -186,7 +187,7 @@ export default function AdminAnalytics() {
           )}
 
           {!data && loading && (
-            <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}>불러오는 중...</div>
+            <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}><LogoLoader /></div>
           )}
 
           {data && (

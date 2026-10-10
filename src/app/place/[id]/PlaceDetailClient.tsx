@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import Image from "next/image";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -950,7 +951,7 @@ export default function PlaceDetail({
 
   if (!place) {
     if (loadState === "loading") return (
-      <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}>로딩중...</div>
+      <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}><LogoLoader /></div>
     );
     const notFound = loadState === "notFound";
     return (

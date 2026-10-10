@@ -1,0 +1,991 @@
+"use client";
+
+import LogoLoader from "@/components/LogoLoader";
+import PageGuide from "@/components/PageGuide";
+import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard } from "@/lib/communityBoards";
+import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
+import { useState, useEffect, useSyncExternalStore } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import SiteFooter from "@/components/SiteFooter";
+import { useMediaQuery } from "@/lib/useMediaQuery";
+import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
+import PetIllustration from "@/components/illustrations/PetIllustration";
+import {
+  ArrowLeft, MessageCircle, Heart, Eye,
+  Pencil, Pin, LogIn, X, Search,
+  Megaphone, MapPinned, ChevronDown, Check,
+} from "lucide-react";
+
+const FONT_STYLE = `
+  * { box-sizing: border-box; }
+  .post-card { transition: box-shadow 0.18s ease, transform 0.18s ease; }
+  .post-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; transform: translateY(-2px); }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+`;
+
+
+// 말머리별 배지 색상 — 피드에서 게시글 성격을 한눈에 구분할 수 있도록
+const POST_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
+  "방문후기": { bg: "#eff6ff", color: "#2563eb" },
+  "질문":     { bg: "#fef2f2", color: "#dc2626" },
+  "정보공유": { bg: "#f0fdf4", color: "#16a34a" },
+  "산책친구": { bg: "#fdece2", color: "#c2540c" },
+  "업체소식": { bg: "#fffbeb", color: "#b45309" },
+  // 유기동물 게시판 — 급한 글(실종·목격)이 눈에 띄도록
+  "입양홍보": { bg: "#fdf2f8", color: "#be185d" },
+  "임시보호": { bg: "#f5f3ff", color: "#6d28d9" },
+  "실종":     { bg: "#fef2f2", color: "#dc2626" },
+  "목격·구조": { bg: "#fff7ed", color: "#c2410c" },
+  "입양후기": { bg: "#f0fdf4", color: "#16a34a" },
+  "나눔":     { bg: "#ecfeff", color: "#0e7490" },
+  "구해요":   { bg: "#f0f9ff", color: "#0369a1" },
+  __default:  { bg: "#f5f6f8", color: "#555" },
+};
+
+const profileColors = [
+  "#FF6B6B","#F06595","#CC5DE8","#845EF7","#5C7CFA",
+  "#339AF0","#22B8CF","#20C997","#51CF66","#94D82D",
+  "#FCC419","#FF922B",
+];
+
+const getProfileColor = (nickname: string) => {
+  if (!nickname) return "#999";
+
+  const code = nickname
+    .split("")
+    .reduce((a, c) => a + c.charCodeAt(0), 0);
+
+  return profileColors[code % profileColors.length];
+};
+
+// nowMs: "지금" 시각. 서버가 미리 만든 화면과 브라우저가 처음 그리는 화면의 글자가 같아야 해서, 처음에는
+// 서버가 화면을 만든 시각을 쓰고 브라우저가 준비된 뒤 실제 지금 시각으로 바꿉니다(CommunityClient의 nowMs).
+const formatDate = (s: string, nowMs: number) => {
+  if (!s) return "";
+
+  // 날짜는 서버(UTC)와 브라우저가 같은 값을 내도록 항상 한국 시간으로 계산합니다.
+  const d = new Date(new Date(s).getTime() + 9 * 3600000);
+
+  const diff = nowMs - new Date(s).getTime();
+
+  const min = Math.floor(diff / 60000);
+  const hr = Math.floor(diff / 3600000);
+  const day = Math.floor(diff / 86400000);
+
+  if (min < 1) return "방금 전";
+  if (min < 60) return `${min}분 전`;
+  if (hr < 24) return `${hr}시간 전`;
+  if (day < 7) return `${day}일 전`;
+
+  const yy = String(d.getUTCFullYear()).slice(2);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+
+  return `${yy}.${mm}.${dd}`;
+};
+
+/** 서버가 화면과 함께 미리 채워 보내는 첫 목록(전체 게시판 1쪽 + 공지) — src/app/community/page.tsx */
+export type CommunityInitial = { posts: any[]; totalCount: number; notices: any[]; generatedAt: number };
+const subscribeNothing = () => () => {};
+
+// ⚠ 속도: 한 번 받은 목록을 기억해 둡니다(게시판·쪽·검색어·말머리별). 다시 그 화면으로 오면 기억해 둔 목록을
+// 바로 보여 주고, 뒤에서 새로 받아 바뀐 것이 있으면 조용히 바꿉니다. 예전에는 올 때마다 빈 화면에서 다시 기다렸습니다.
+const listCache = new Map<string, { posts: any[]; totalCount: number }>();
+const DEFAULT_LIST_KEY = "all|1||all";
+
+export default function CommunityClient({ initial = null }: { initial?: CommunityInitial | null }) {
+  const router = useRouter();
+
+  const PAGE_SIZE = 15;
+  const [activeBoard, setActiveBoard] = useState("all");
+  // 첫 화면: 기억해 둔 목록(방금 보던 것)이 있으면 그것, 없으면 서버가 채워 보낸 목록.
+  const [firstList] = useState(() => listCache.get(DEFAULT_LIST_KEY) ?? (initial ? { posts: initial.posts, totalCount: initial.totalCount } : null));
+  const [notices, setNotices] = useState<any[]>(initial?.notices ?? []);
+  const [posts, setPosts] = useState<any[]>(firstList?.posts ?? []);
+  const [totalCount, setTotalCount] = useState(firstList?.totalCount ?? 0);
+  const [loading, setLoading] = useState(!firstList);
+  // 서버가 만든 화면을 이어받는 첫 그리기에서는 false, 그 뒤로는 true.
+  const hydrated = useSyncExternalStore(subscribeNothing, () => true, () => false);
+  const [mountedAt] = useState(() => Date.now());
+  const nowMs = hydrated ? mountedAt : initial?.generatedAt ?? mountedAt;
+  // 휴대폰 폭: 게시판 버튼 줄이 화면보다 길어져 글쓰기 버튼이 잘리므로, 줄은 촘촘하게 하고
+  // 글쓰기는 오른쪽 아래 떠 있는 버튼(모바일 커뮤니티 앱 공통 배치)으로 옮깁니다.
+  const isNarrow = useMediaQuery("(max-width: 720px)");
+  const [session, setSession] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedPostType, setSelectedPostType] = useState("all");
+  const [showRegionMenu, setShowRegionMenu] = useState(false);
+
+  // 300ms 디바운스
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // 말머리 필터 — 고른 게시판에서 쓸 수 있는 말머리만 보여줍니다(전체·인기는 필터 없음).
+  const postTypeOptions = ["all", ...postTypesFor(activeBoard)];
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 공지글은 게시판/페이지가 바뀌어도 거의 안 바뀌므로 별도 useEffect로 분리 —
+  // 매 페이지 전환마다 다시 불러올 필요 없이 게시판이 바뀔 때만 갱신합니다.
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("community_posts")
+      .select("id, title, nickname, created_at, board_id")
+      .eq("is_notice", true)
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        if (!cancelled) setNotices(data || []);
+      });
+    return () => { cancelled = true; };
+  }, [activeBoard]);
+
+  // ⚠ 최적화: 예전엔 게시글을 최대 500건씩 통째로(제목·본문·이미지 URL 전부 포함)
+  // 불러온 뒤 검색어/말머리/페이지를 전부 브라우저에서 배열 필터링·슬라이싱으로
+  // 처리했습니다. 게시글이 쌓일수록 페이지를 열 때마다 불필요하게 무거워지는 구조라,
+  // Supabase에 .range()로 "지금 보여줄 15건만", 검색은 .ilike()로 DB에서 직접
+  // 걸러서 요청하도록 바꿨습니다 — 매번 필요한 만큼만 주고받습니다.
+  useEffect(() => {
+    let cancelled = false;
+
+    const listKey = `${activeBoard}|${currentPage}|${debouncedSearch.trim()}|${selectedPostType}`;
+    const load = async () => {
+      // 기억해 둔 목록(또는 서버가 채워 보낸 첫 목록)이 있으면 먼저 보여 주고, 아래에서 새로 받아 바꿉니다.
+      const remembered = listCache.get(listKey) ?? (listKey === DEFAULT_LIST_KEY && firstList ? firstList : null);
+      if (remembered) {
+        setPosts(remembered.posts);
+        setTotalCount(remembered.totalCount);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+      try {
+        // 자동 검토 대기·반려 글은 목록에서 뺍니다. review_status 컬럼이 아직 없는 환경(SQL 실행 전)에서는
+        // 조회가 오류를 내므로, 그때는 조건 없이 한 번 더 조회합니다.
+        const runList = async (withReview: boolean) => {
+        let q = supabase
+          .from("community_posts")
+          .select(`
+            id, title, content, nickname, avatar_url,
+            created_at, likes, comment_count, views,
+            board_id, post_type, image_urls, deleted, is_admin_deleted
+          `, { count: "exact" })
+          .eq("is_notice", false)
+          .eq("deleted", false)
+          .eq("is_admin_deleted", false);
+        if (withReview) q = q.eq("review_status", "visible");
+
+        const isBest = activeBoard === BEST_BOARD_ID;
+        if (isBest) {
+          q = q.gte("likes", BEST_MIN_LIKES).gte("views", BEST_MIN_VIEWS);
+        } else if (activeBoard !== ALL_BOARD_ID) {
+          q = q.eq("board_id", activeBoard);
+        }
+        if (selectedPostType !== "all") {
+          q = q.eq("post_type", selectedPostType);
+        }
+
+        const term = debouncedSearch.trim();
+        if (term) {
+          // ilike 와일드카드(%, _)와 .or() 필터 구분자(,())로 쓰이는 문자는
+          // 검색어 안에 그대로 있으면 필터 문법이 깨지거나 의도와 다르게 매칭될 수
+          // 있어 이스케이프/제거합니다.
+          const escaped = term.replace(/[%_]/g, (c) => `\\${c}`).replace(/[,()]/g, " ");
+          q = q.or(`title.ilike.%${escaped}%,content.ilike.%${escaped}%`);
+        }
+
+        const from = (currentPage - 1) * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        // 인기 게시판은 좋아요 많은 순, 나머지는 최신순
+        const ordered = isBest ? q.order("likes", { ascending: false }).order("created_at", { ascending: false }) : q.order("created_at", { ascending: false });
+        return await ordered.range(from, to);
+        };
+        let listResult = await runList(true);
+        if (listResult.error) listResult = await runList(false);
+        const { data: postData, count } = listResult;
+
+        // ── 댓글 수·좋아요 수 실시간 보정 ──
+        // community_posts.comment_count/likes 컬럼은 각각 댓글 작성/삭제, 좋아요
+        // 토글 시 별도로 +1/-1 갱신하는 방식이라, 과거 어떤 경로(예전 버그, 관리자의
+        // 직접 삭제 등)에서 카운터 갱신이 누락되면 실제 개수와 어긋난 채로 남습니다.
+        // 저장된 컬럼을 그대로 믿는 대신, 실제 community_comments/community_post_likes
+        // 테이블에서 직접 세어 덮어써서 화면에는 항상 정확한 값이 보이게 합니다.
+        // (이제 페이지당 최대 15건만 대상이라 이 보정 쿼리도 훨씬 가벼워졌습니다.)
+        let commentCountMap: Record<string, number> = {};
+        let likeCountMap: Record<string, number> = {};
+        if (postData && postData.length > 0) {
+          const postIds = postData.map((p: any) => p.id);
+          const [{ data: commentRows }, { data: likeRows }] = await Promise.all([
+            supabase.from("community_comments").select("post_id").eq("deleted", false).in("post_id", postIds),
+            supabase.from("community_post_likes").select("post_id").in("post_id", postIds),
+          ]);
+          (commentRows || []).forEach((c: any) => {
+            commentCountMap[c.post_id] = (commentCountMap[c.post_id] || 0) + 1;
+          });
+          (likeRows || []).forEach((l: any) => {
+            likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1;
+          });
+        }
+        const postsWithLiveCounts = (postData || []).map((p: any) => ({
+          ...p,
+          comment_count: commentCountMap[p.id] ?? p.comment_count ?? 0,
+          likes: likeCountMap[p.id] ?? p.likes ?? 0,
+        }));
+
+        if (!cancelled) {
+          setPosts(postsWithLiveCounts);
+          setTotalCount(count ?? 0);
+          if (listCache.size > 40) listCache.clear();
+          listCache.set(listKey, { posts: postsWithLiveCounts, totalCount: count ?? 0 });
+        }
+      } catch (err) {
+        console.error(err);
+        // 새로 받기에 실패해도, 이미 보여 주고 있는 목록이 있으면 그대로 둡니다.
+        if (!cancelled && !remembered) {
+          setPosts([]);
+          setTotalCount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => { cancelled = true; };
+  }, [activeBoard, currentPage, debouncedSearch, selectedPostType]);
+
+  const getBoardLabel = (id: string) =>
+    BOARDS.find((b) => b.id === id)?.label || id;
+
+  return (
+    <>
+      <style>{FONT_STYLE}</style>
+      <PageGuide storageKey={COMMUNITY_GUIDE_KEY} steps={COMMUNITY_GUIDE_STEPS} />
+
+      {/* ── 전체 래퍼: grid로 [여백칼럼(1fr)] [본문(최대 1200px)] [여백칼럼(1fr)] 3단 구성 ──
+          좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
+          레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
+      <div
+        className="ggk-body"
+        style={{
+          minHeight: "100dvh",
+          background: "#F7F3E8",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
+          // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
+          columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
+        }}
+      >
+        <AdRailLeft />
+
+        <div
+          style={{
+            // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
+            // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
+            gridColumn: "2",
+            minWidth: 0,
+            width: "100%",
+
+            display: "flex",
+            flexDirection: "column",
+
+            height: "100dvh",
+
+            background: "#F7F3E8",
+
+            overflow: "hidden",
+
+            scrollbarWidth: "thin",
+          }}
+        >
+          {/* ── 웰컴 배너 — 페이지 최상단. 시안 .hero 스펙: solid primary, full-bleed, no radius ── */}
+          <div style={{
+            position: "relative", overflow: "hidden",
+            background: "#5C7A4A",
+            padding: "24px 40px", display: "flex", alignItems: "center",
+            justifyContent: "space-between", gap: 10,
+          }}>
+            <div>
+              <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 700, color: "white", marginBottom: 5 }}>
+                반려인들의 이야기
+              </div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.88)" }}>
+                산책 친구부터 방문 후기까지, 자유롭게 나눠보세요
+              </div>
+            </div>
+          </div>
+
+          {/* 게시판 탭: 전체/자유게시판은 바로 노출, 17개 지역은 드롭다운으로 정리해
+              한 화면에 다 펼쳐놓았을 때 생기던 시각적 잡음을 줄였습니다. */}
+          <div
+            data-guide="community-boards"
+            style={{
+              background: "white",
+              borderBottom: "1px solid #eee",
+              padding: isNarrow ? "10px 14px" : "12px 28px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: isNarrow ? "6px" : "8px",
+            }}
+          >
+            {/* 주제 게시판 — 수가 많아 옆으로 넘기는 줄에 담습니다(휴대폰·PC 공통).
+                지역 드롭다운과 글쓰기 버튼은 넘기는 줄 밖에 둬서 항상 보입니다. */}
+            <div
+              className="ggk-board-strip"
+              style={isNarrow
+                ? { display: "flex", gap: "6px", overflowX: "auto", scrollbarWidth: "none", flex: 1, minWidth: 0 }
+                : { display: "flex", gap: "6px", flexWrap: "wrap", flex: 1, minWidth: 0 }}
+            >
+              <style>{`.ggk-board-strip::-webkit-scrollbar { display: none; }`}</style>
+              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
+                const active = activeBoard === board.id;
+                const best = board.id === BEST_BOARD_ID;
+                return (
+                  <button
+                    key={board.id}
+                    onClick={() => {
+                      setActiveBoard(board.id);
+                      setCurrentPage(1);
+                      setSearchQuery("");
+                      setSelectedPostType("all");
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      border: active ? "none" : "1px solid rgba(0,0,0,0.08)",
+                      borderRadius: "10px",
+                      padding: isNarrow ? "8px 12px" : "8px 11px",
+                      background: active ? (best ? "#D9534F" : "#5C7A4A") : "#fff",
+                      color: active ? "white" : best ? "#D9534F" : "#555",
+                      fontSize: "13px",
+                      fontWeight: active || best ? 700 : 600,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {board.label}
+                  </button>
+                );
+              })}
+
+              {/* 사장님(사업자) 게시판 — 반려동물 관련 업체가 소식·이벤트를 올리는 전용 공간.
+                  일반 게시판과 성격이 달라 눈에 띄는 톤(앰버)으로 구분합니다. */}
+              <button
+                onClick={() => {
+                  setActiveBoard("business");
+                  setCurrentPage(1);
+                  setSearchQuery("");
+                  setSelectedPostType("all");
+                }}
+                style={{
+                  flexShrink: 0,
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: isNarrow ? "8px 12px" : "8px 11px",
+                  background: activeBoard === "business" ? "linear-gradient(145deg, #d97706, #b45309)" : "#fef3c7",
+                  color: activeBoard === "business" ? "white" : "#92400e",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                사장님
+              </button>
+            </div>
+
+            {/* 지역 게시판 선택 — 커스텀 드롭다운 (네이티브 select의 기본 브라우저 스타일을 걷어내고
+                앱 톤에 맞춘 팝오버로 교체). 다른 버튼들처럼 내용만큼만 폭을 차지하도록
+                flex:1/width:100% 를 제거하고, 남는 영역은 그냥 빈 공간으로 둡니다. */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              <button
+                onClick={() => setShowRegionMenu((v) => !v)}
+                className="ggk-body"
+                style={{
+                  borderRadius: "10px",
+                  padding: isNarrow ? "8px 12px" : "8px 16px",
+                  background: REGION_BOARDS.some((b) => b.id === activeBoard) ? "#5C7A4A" : "#fff",
+                  color: REGION_BOARDS.some((b) => b.id === activeBoard) ? "white" : "#555",
+                  border: REGION_BOARDS.some((b) => b.id === activeBoard) ? "none" : "1px solid rgba(0,0,0,0.08)",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                }}
+              >
+                <MapPinned size={12} />
+                {REGION_BOARDS.some((b) => b.id === activeBoard) ? getBoardLabel(activeBoard) : "지역 게시판"}
+                <ChevronDown size={12} style={{ transform: showRegionMenu ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+              </button>
+
+              {showRegionMenu && (
+                <>
+                  <div onClick={() => setShowRegionMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 59 }} />
+                  <div
+                    className="ggk-body"
+                    style={{
+                      position: "absolute", top: "calc(100% + 6px)", right: 0,
+                      width: "220px", maxHeight: "320px", overflowY: "auto",
+                      background: "white", borderRadius: "16px", zIndex: 60,
+                      border: "1px solid #eee",
+                      boxShadow: "0 10px 32px rgba(0,0,0,0.14)",
+                      padding: "6px",
+                    }}
+                  >
+                    {REGION_BOARDS.map((board) => {
+                      const isActive = activeBoard === board.id;
+                      return (
+                        <button
+                          key={board.id}
+                          onClick={() => {
+                            setActiveBoard(board.id);
+                            setCurrentPage(1);
+                            setSearchQuery("");
+                            setSelectedPostType("all");
+                            setShowRegionMenu(false);
+                          }}
+                          style={{
+                            width: "100%", textAlign: "left",
+                            padding: "9px 10px", borderRadius: "10px", border: "none",
+                            background: isActive ? "#E4EBDC" : "transparent",
+                            color: isActive ? "#48603A" : "#333",
+                            fontSize: "12px", fontWeight: isActive ? 700 : 500,
+                            cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            fontFamily: "'Noto Sans KR', sans-serif",
+                          }}
+                        >
+                          {board.label}
+                          {isActive && <Check size={12} color="#5C7A4A" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+          </div>
+
+          {/* 게시판 안내 — 무엇을 쓰는 곳인지, 지켜야 할 점을 한 줄로(게시판이 늘어도 글 성격이 섞이지 않게) */}
+          {findBoard(activeBoard)?.desc && (
+            <div style={{
+              background: "#F7F3E8", borderBottom: "1px solid #D9E4CE",
+              padding: isNarrow ? "8px 14px" : "8px 28px", fontSize: 11.5, fontWeight: 600, color: "#48603A", lineHeight: 1.5,
+            }}>
+              {findBoard(activeBoard)?.desc}
+              {activeBoard === "rescue" && (
+                <button onClick={() => router.push("/shelter-notices")} style={{ marginLeft: 8, padding: "2px 9px", borderRadius: 999, border: "1px solid #b9cbaa", background: "white", color: "#48603A", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  보호소 공고 보기
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 현재 선택된 지역 게시판 표시 (지역 선택 시에만) */}
+          {REGION_BOARDS.some((b) => b.id === activeBoard) && (
+            <div style={{
+              background: "#F7F3E8", borderBottom: "1px solid #D9E4CE",
+              padding: "8px 28px", fontSize: 11, fontWeight: 700, color: "#48603A",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              <MapPinned size={11} color="#5C7A4A" />
+              {getBoardLabel(activeBoard)} 게시판 보는 중
+            </div>
+          )}
+
+          {/* 사장님 게시판 안내 — 반려인도 자유롭게 읽되, 글 작성은 사업자 소식 위주임을 안내 */}
+          {activeBoard === "business" && (
+            <div style={{
+              background: "#fffbeb", borderBottom: "1px solid #fde68a",
+              padding: "8px 28px", fontSize: 11, fontWeight: 700, color: "#92400e",
+              display: "flex", alignItems: "center", gap: 5,
+            }}>
+              사장님 게시판 — 반려동물 관련 업체의 소식·이벤트를 만나보세요
+            </div>
+          )}
+
+          {/* 검색창 + 말머리 필터 */}
+          <div
+            style={{
+              background: "#f8f9fb",
+              borderBottom: "1px solid #e8eaed",
+              padding: "10px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "7px",
+            }}
+          >
+            {/* 텍스트 검색 + 글쓰기 — 글쓰기는 게시판 줄에 있었는데, 게시판이 늘면서 뒤쪽 게시판(건의·문의, 사장님)을
+                가려서 검색창 옆으로 옮겼습니다. 휴대폰에서는 지금처럼 화면 오른쪽 아래에 떠 있습니다. */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div
+              style={{
+                flex: 1, minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                background: "white",
+                borderRadius: "10px",
+                padding: "7px 13px",
+                border: "1px solid #e2e8f0",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+              }}
+            >
+              <Search size={13} color="#c0c4cc" style={{ flexShrink: 0 }} />
+              <input
+                placeholder="제목 또는 내용 검색"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  flex: 1,
+                  border: "none",
+                  outline: "none",
+                  fontSize: "12px",
+                  background: "transparent",
+                  fontFamily: "'Noto Sans KR', sans-serif",
+                  color: "#111",
+                  minWidth: 0,
+                }}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, display: "flex", flexShrink: 0 }}
+                >
+                  <X size={12} color="#c0c4cc" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                if (!session) {
+                  router.push("/login?redirect=/community");
+                  return;
+                }
+                router.push(`/community/write?board=${activeBoard === BEST_BOARD_ID ? "free" : activeBoard}`);
+              }}
+              aria-label="글쓰기"
+              style={{
+                ...(isNarrow
+                  ? {
+                      // 휴대폰: 하단 탭바 바로 위 오른쪽에 떠 있는 버튼
+                      position: "fixed", right: 16, bottom: "calc(96px + env(safe-area-inset-bottom))", zIndex: 997,
+                      height: 48, padding: "0 18px", fontSize: "14px",
+                      boxShadow: "0 6px 18px rgba(72,96,58,0.35)",
+                    }
+                  : { height: 36, padding: "0 16px", fontSize: "12.5px" }),
+                flexShrink: 0,
+                borderRadius: "999px",
+                border: "none",
+                background: "linear-gradient(145deg, #5C7A4A, #48603A)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "5px",
+                cursor: "pointer",
+                color: "white",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              <Pencil size={isNarrow ? 16 : 14} />
+              글쓰기
+            </button>
+            </div>
+
+            {/* 말머리 필터 버튼 — posts에 말머리가 하나라도 있을 때만 표시 */}
+            {postTypeOptions.length > 1 && (
+              <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                {postTypeOptions.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => { setSelectedPostType(type); setCurrentPage(1); }}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "999px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "'Noto Sans KR', sans-serif",
+                      whiteSpace: "nowrap",
+                      transition: "all 0.15s ease",
+                      background: selectedPostType === type
+                        ? "linear-gradient(145deg, #5C7A4A, #48603A)"
+                        : "white",
+                      color: selectedPostType === type ? "white" : "#555",
+                      boxShadow: selectedPostType === type
+                        ? "0 1px 5px rgba(0,0,0,0.2)"
+                        : "0 1px 3px rgba(0,0,0,0.07)",
+                      border: selectedPostType === type
+                        ? "none"
+                        : "1px solid #e2e8f0",
+                    }}
+                  >
+                    {type === "all" ? "전체" : `[${type}]`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {!session && (
+            <div
+              style={{
+                margin: "10px 28px 0",
+
+                padding: "10px 14px",
+
+                background: "white",
+
+                borderRadius: "12px",
+
+                border: "1px solid #e8eaed",
+
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+
+                gap: "10px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#555",
+                }}
+              >
+                로그인하면 직접 글을 작성할 수 있어요
+              </div>
+
+              <button
+                onClick={() =>
+                  router.push(
+                    "/login?redirect=/community"
+                  )
+                }
+                style={{
+                  flexShrink: 0,
+
+                  display: "flex",
+                  alignItems: "center",
+
+                  gap: "4px",
+
+                  padding: "6px 12px",
+
+                  borderRadius: "8px",
+
+                  border: "none",
+
+                  background:
+                    "linear-gradient(145deg, #5C7A4A, #48603A)",
+
+                  color: "white",
+
+                  fontSize: "11px",
+
+                  fontWeight: 700,
+
+                  cursor: "pointer",
+                }}
+              >
+                <LogIn size={11} />
+                로그인
+              </button>
+            </div>
+          )}
+
+          {/* 게시글 목록 — 시안(design_palette_preview.html)의 .layout 구성처럼
+              메인 피드(main-col)와 광고 사이드바(side-col)를 한 컨테이너 안에서
+              나란히 배치합니다 (기존엔 컨테이너 바깥 좌우에 별도 광고바가 있었습니다). */}
+          <div
+            style={{
+              flex: 1,
+              padding: "16px 28px 0px",
+              overflowY: "auto",
+              overflowX: "hidden",
+              scrollbarWidth: "thin",
+              display: "flex",
+              gap: "24px",
+              alignItems: "flex-start",
+            }}
+          >
+          <div style={{ flex: 1, minWidth: 0, minHeight: "100%", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: "1 0 auto" }}>
+            {loading ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 0",
+                  color: "#bbb",
+                  fontSize: "12px",
+                }}
+              >
+                <LogoLoader />
+              </div>
+            ) : (
+              <>
+                {(() => {
+                  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+                  return (
+                    <>
+                      {posts.length === 0 && debouncedSearch.trim() && (
+                        <div style={{ textAlign: "center", padding: "40px 0 60px", color: "#bbb", fontSize: "12px" }}>
+                          <div style={{ marginTop: 8 }}>
+                            "{debouncedSearch}"에 대한 검색 결과가 없습니다.
+                          </div>
+                        </div>
+                      )}
+                      {/* 글이 하나도 없을 때 — 게시판이 늘어 빈 게시판이 생기므로, 빈 화면 대신 안내를 보여줍니다 */}
+                      {posts.length === 0 && !debouncedSearch.trim() && (
+                        <div style={{ textAlign: "center", padding: "48px 16px 60px", color: "#9ca3af", fontSize: 13, lineHeight: 1.7 }}>
+                          {activeBoard === BEST_BOARD_ID ? (
+                            <>
+                              <div style={{ fontWeight: 700, color: "#6b7280" }}>아직 인기 글이 없어요</div>
+                              <div style={{ fontSize: 12 }}>좋아요 {BEST_MIN_LIKES}개 이상, 조회 {BEST_MIN_VIEWS}회 이상인 글이 여기에 모여요.</div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: 700, color: "#6b7280" }}>아직 글이 없어요</div>
+                              <div style={{ fontSize: 12 }}>첫 글을 남겨 보세요.</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {posts.map((post) => {
+                        const isBusiness = post.board_id === "business";
+                        const typeStyle = POST_TYPE_STYLE[post.post_type as string] || POST_TYPE_STYLE.__default;
+                        const thumb = Array.isArray(post.image_urls) && post.image_urls.length > 0 ? post.image_urls[0] : null;
+                        const extraImages = Array.isArray(post.image_urls) ? post.image_urls.length - 1 : 0;
+                        return (
+                          <div
+                            key={post.id}
+                            className="post-card"
+                            onClick={() => router.push(`/community/post/${post.id}`)}
+                            style={{
+                              background: isBusiness ? "#fffdf7" : "white",
+                              borderRadius: "16px",
+                              padding: "20px 22px",
+                              marginBottom: "14px",
+                              border: isBusiness ? "1px solid #fde68a" : "1px solid rgba(0,0,0,0.06)",
+                              borderLeft: isBusiness ? "3px solid #d97706" : "1px solid rgba(0,0,0,0.06)",
+                              cursor: "pointer",
+                              display: "flex",
+                              gap: 14,
+                            }}
+                          >
+                            {/* 아바타 — 시안처럼 개인별 색이 아닌 팔레트 고정 톤 */}
+                            <div
+                              style={{
+                                width: 40, height: 40, borderRadius: "50%",
+                                background: "#E4EBDC",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 14, fontWeight: 700, color: "#5C7A4A", overflow: "hidden", flexShrink: 0,
+                                position: "relative",
+                              }}
+                            >
+                              {post.avatar_url ? (
+                                <Image src={post.avatar_url} alt={post.nickname} fill sizes="40px" style={{ objectFit: "cover" }} />
+                              ) : (
+                                (post.nickname || "?").charAt(0)
+                              )}
+                            </div>
+
+                            {/* 콘텐츠 컬럼 — 아바타와 같은 레벨의 flex row, 내부는 다시
+                                텍스트(좌)/썸네일(우)로 나뉩니다 (이미지가 있으면 우측에 배치) */}
+                            <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 14 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                {/* 메타: 닉네임·배지·시간 한 줄 */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6, fontSize: 12, color: "#999" }}>
+                                  <span style={{ fontWeight: 700, color: "#222" }}>{post.nickname}</span>
+                                  {isBusiness && (
+                                    <span style={{ fontSize: 9, fontWeight: 800, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>
+                                      사장님
+                                    </span>
+                                  )}
+                                  {(activeBoard === ALL_BOARD_ID || activeBoard === BEST_BOARD_ID) && post.board_id && post.board_id !== "all" && !isBusiness && (
+                                    <span style={{ fontSize: 10, fontWeight: 700, background: "#f5f6f8", color: "#555", padding: "1px 8px", borderRadius: 999 }}>
+                                      {getBoardLabel(post.board_id)}
+                                    </span>
+                                  )}
+                                  <span>· {formatDate(post.created_at, nowMs)}</span>
+                                </div>
+
+                                {/* 제목 + 말머리 */}
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 5 }}>
+                                  {post.post_type && (
+                                    <span style={{ fontSize: 10, fontWeight: 800, color: typeStyle.color, background: typeStyle.bg, padding: "2px 7px", borderRadius: 6, flexShrink: 0, marginTop: 1 }}>
+                                      {post.post_type}
+                                    </span>
+                                  )}
+                                  <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 700, color: "#111", lineHeight: 1.4 }}>
+                                    {post.title}
+                                  </div>
+                                </div>
+
+                                {/* 내용 */}
+                                {post.content && (
+                                  <div
+                                    style={{
+                                      fontSize: 13, color: "#777", lineHeight: 1.6,
+                                      overflow: "hidden", display: "-webkit-box",
+                                      WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
+                                      marginBottom: 12,
+                                    }}
+                                  >
+                                    {post.content}
+                                  </div>
+                                )}
+
+                                {/* 통계 — 시안처럼 구분선 없이 */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                    <Heart size={12} color="#ff8787" />
+                                    {post.likes || 0}
+                                  </span>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                    <MessageCircle size={12} color="#a9805a" />
+                                    {post.comment_count || 0}
+                                  </span>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                    <Eye size={12} color="#bbb" />
+                                    {post.views || 0}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* 썸네일 — 게시글 출력 범위의 우측에 배치 */}
+                              {thumb && (
+                                <div style={{ position: "relative", width: 104, height: 104, borderRadius: 13, overflow: "hidden", background: "#f7f8fa", flexShrink: 0 }}>
+                                  <Image src={thumb} alt="thumbnail" fill sizes="104px" style={{ objectFit: "cover" }} />
+                                  {extraImages > 0 && (
+                                    <div style={{ position: "absolute", right: 6, bottom: 6, background: "rgba(0,0,0,0.6)", color: "white", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 999 }}>
+                                      +{extraImages}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* 페이지네이션 */}
+                      {totalPages > 1 && (
+                        <div style={{
+                          display: "flex", justifyContent: "center", alignItems: "center",
+                          gap: 4, padding: "20px 0 8px",
+                        }}>
+                          <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            style={{
+                              width: 34, height: 34, borderRadius: 12,
+                              border: "1px solid #e2e8f0",
+                              background: currentPage === 1 ? "#f8fafc" : "white",
+                              cursor: currentPage === 1 ? "default" : "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: currentPage === 1 ? "#d1d5db" : "#555",
+                              fontSize: 16, fontWeight: 500,
+                              boxShadow: currentPage === 1 ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+                            }}
+                          >‹</button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setCurrentPage(p)}
+                              style={{
+                                width: 34, height: 34, borderRadius: 12,
+                                border: p === currentPage ? "1.5px solid #555" : "1px solid #e2e8f0",
+                                background: p === currentPage ? "#444" : "white",
+                                color: p === currentPage ? "white" : "#666",
+                                cursor: "pointer", fontSize: 13,
+                                fontWeight: p === currentPage ? 700 : 500,
+                                boxShadow: p === currentPage ? "0 2px 8px rgba(0,0,0,0.18)" : "0 1px 4px rgba(0,0,0,0.04)",
+                                transition: "all 0.15s ease",
+                              }}
+                            >{p}</button>
+                          ))}
+
+                          <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            style={{
+                              width: 34, height: 34, borderRadius: 12,
+                              border: "1px solid #e2e8f0",
+                              background: currentPage === totalPages ? "#f8fafc" : "white",
+                              cursor: currentPage === totalPages ? "default" : "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              color: currentPage === totalPages ? "#d1d5db" : "#555",
+                              fontSize: 16, fontWeight: 500,
+                              boxShadow: currentPage === totalPages ? "none" : "0 1px 4px rgba(0,0,0,0.06)",
+                            }}
+                          >›</button>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+              </>
+            )}
+
+          </div>
+            {/* ── 하단 푸터 — 목록과 함께 스크롤됩니다. 예전엔 스크롤 영역 밖에 고정해 둬서 항상 화면 아래를
+                차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
+                하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
+            <div style={{
+              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -28px 0",
+              padding: "18px 28px calc(78px + 18px)", boxSizing: "border-box",
+            }}>
+              <SiteFooter />
+            </div>
+          </div>
+          </div>
+        </div>
+
+        {/* 우측 레일 — 보호소 공고 카드. 화면 비율이 1:1 이상일 때만 오른쪽 여백 칼럼의
+            정가운데에 표시됩니다. */}
+        <AdRailRight rightMode="shelter" />
+      </div>
+    </>
+  );
+}

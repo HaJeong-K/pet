@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -85,7 +86,7 @@ export default function AdminErrorsPage() {
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>불러오는 중...</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
         ) : errors.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>
             {tableMissing ? null : "기록된 오류가 없습니다."}

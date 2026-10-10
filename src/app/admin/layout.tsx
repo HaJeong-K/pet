@@ -1,5 +1,6 @@
 "use client";
 
+import LogoLoader from "@/components/LogoLoader";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/AdminAuthContext";
 
 function AdminGate({ children }: { children: React.ReactNode }) {
@@ -8,7 +9,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   if (isChecking) {
     return (
       <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}>
-        <span className="ggk-body" style={{ fontSize: 13, color: "#888" }}>권한 확인 중...</span>
+        <LogoLoader size={56} label="권한 확인 중…" />
       </div>
     );
   }
