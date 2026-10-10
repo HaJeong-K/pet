@@ -3,7 +3,8 @@ import { supabase } from "@/lib/supabase";
 import CommunityPostClient from "./CommunityPostClient";
 import { siteUrl } from "@/lib/siteUrl";
 
-const DEFAULT_IMAGE = "/icons/header_logo_final.png";
+// 사진이 없는 글을 공유했을 때 보이는 그림(사이트 기본 공유 그림과 같음)
+const DEFAULT_IMAGE = "/og-default.png";
 
 export async function generateMetadata({
   params,

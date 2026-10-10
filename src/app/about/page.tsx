@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${siteUrl}/about` },
-  openGraph: { title, description, url: `${siteUrl}/about`, siteName: "같이가개", locale: "ko_KR", type: "website", images: [{ url: "/api/og", width: 1200, height: 630 }] },
+  openGraph: { title, description, url: `${siteUrl}/about`, siteName: "같이가개", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
 const GREEN = "#5C7A4A", DARK = "#2f3a26", BEIGE = "#F7F3E8";

@@ -26,10 +26,10 @@ export const metadata: Metadata = {
     description: siteDescription,
     url: siteUrl,
     siteName: siteTitle,
-    // 공유 카드 이미지 — 가로 141px짜리 로고 대신 서버가 그린 1200×630 카드를 씁니다(src/lib/server/ogCard.tsx).
+    // 공유 그림 — 미리 만들어 둔 1200×630 그림(핀 로고 + "같이 갈 수 있는 곳, 지도에서 한눈에" + 지도 한 조각).
     images: [
       {
-        url: "/api/og",
+        url: "/og-default.png",
         width: 1200,
         height: 630,
         alt: siteTitle,
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: siteTitle,
     description: siteDescription,
-    images: ["/api/og"],
+    images: ["/og-default.png"],
   },
 };
 
