@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  blockKey, blocksForBounds, bubblesFromRows, buildCountBlocks, cellDegForLevel, countLevel, formatBubbleCount,
+  blockKey, blocksForBounds, bubblesFromPoints, bubblesFromRows, buildCountBlocks, cellDegForCloseLevel, cellDegForLevel, countLevel, formatBubbleCount,
   parseCountParams, placeCountOf, type CountFilter, type CountRow,
 } from "./tileCounts";
 
@@ -99,6 +99,20 @@ describe("구역별 장소 수(tileCounts)", () => {
     for (const [l, x, y] of [["5", "1", "1"], ["15", "1", "1"], ["8", "-1", "1"], ["8", "1.5", "1"], ["a", "1", "1"], [null, "1", "1"], ["8", "999999", "1"]] as [string | null, string | null, string | null][]) {
       expect(parseCountParams(l, x, y), `${l},${x},${y}`).toBeNull();
     }
+  });
+
+  it("가까이 볼 때: 받아 둔 장소를 화면에서 바로 구역별로 센다", () => {
+    expect(cellDegForCloseLevel(5)).toBeCloseTo(cellDegForLevel(6) / 2, 10);
+    expect(cellDegForCloseLevel(4)).toBeCloseTo(cellDegForLevel(6) / 4, 10);
+    const view = { swLat: 37.56, swLng: 126.97, neLat: 37.575, neLng: 127.015 };
+    const bubbles = bubblesFromPoints(places, parks, view, cellDegForCloseLevel(5));
+    // 화면 안: 시청 근처 6곳 + 127.01의 1곳(127.02는 화면 밖), 공원 2곳
+    expect(bubbles.reduce((s, b) => s + b.count, 0)).toBe(7);
+    expect(bubbles.reduce((s, b) => s + b.parkCount, 0)).toBe(2);
+    const big = bubbles.find((b) => b.count === 6)!;
+    expect(big.lat).toBeCloseTo(37.5668, 3);
+    // 좌표가 잘못된 항목과 화면 밖은 세지 않음
+    expect(bubblesFromPoints([{ lat: "", lng: "" }, { lat: 10, lng: 10 }], [], view, 0.01)).toEqual([]);
   });
 
   it("숫자 표기", () => {

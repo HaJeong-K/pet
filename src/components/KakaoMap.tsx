@@ -11,7 +11,7 @@ import { toHttps } from "@/lib/imageUrl";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { ensureMapTiles, fetchCountBlocks, placeTiles, parkTiles, searchPlacesByName } from "@/lib/mapData";
-import { blocksForBounds, bubblesFromRows, COUNT_MIN_LEVEL, formatBubbleCount, type CountFilter } from "@/lib/tileCounts";
+import { blocksForBounds, bubblesFromPoints, bubblesFromRows, cellDegForCloseLevel, COUNT_MIN_LEVEL, formatBubbleCount, type CountFilter } from "@/lib/tileCounts";
 import { countTilesForBounds, expandBounds, tileKey, tilesForBounds, tilesForRadius, type TileXY } from "@/lib/placeTiles";
 import { tileQuery } from "@/lib/mapTile";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -69,6 +69,12 @@ const NARROW_BREAKPOINT = "(max-width: 720px)";
  * 아래 CLUSTER_ZOOM_THRESHOLD(이름표 대신 묶음으로 바꾸는 단계)와 같은 값이어야 합니다.
  */
 const SUMMARY_MIN_LEVEL = COUNT_MIN_LEVEL;
+/**
+ * 가까이 보는 단계(이름표 단계)라도 화면 안의 장소가 이보다 많으면 이름표 대신 숫자 동그라미로 보여 줍니다.
+ * 서울 한복판은 5단계에서 이름표가 500개 넘게 그려져, 지도를 한 번 끌 때마다 PC에서도 3초쯤 멈췄습니다.
+ * 한적한 지역은 같은 단계에서도 수십 곳이라 이름표가 그대로 보입니다(이름표가 더 쓸모 있으므로 많을 때만 바꿉니다).
+ */
+const DENSE_VIEW_LIMIT = 200;
 /** 화면 범위에 더하는 여유(km) — 지도를 조금 끌어도 바로 보이게 */
 const DATA_VIEW_MARGIN_KM = 0.7;
 /** 내 위치 주변으로 항상 갖고 있는 반경(km) */
@@ -1451,6 +1457,17 @@ export default function KakaoMap() {
     });
   }, [filteredPlaces, mapBounds]);
 
+  // 가까이 보는데도 화면 안에 장소가 너무 많은지(DENSE_VIEW_LIMIT) — 이때는 이름표 대신 숫자 동그라미를 씁니다.
+  const denseView = useMemo(() => {
+    if (!mapBounds || mapLevel == null || mapLevel >= SUMMARY_MIN_LEVEL) return false;
+    let count = 0;
+    for (const place of filteredPlaces) {
+      const lat = parseFloat(place.lat), lng = parseFloat(place.lng);
+      if (lat >= mapBounds.swLat && lat <= mapBounds.neLat && lng >= mapBounds.swLng && lng <= mapBounds.neLng && ++count > DENSE_VIEW_LIMIT) return true;
+    }
+    return false;
+  }, [filteredPlaces, mapBounds, mapLevel]);
+
   // 넓게 보는 중인지 — 이때는 장소를 받지 않고 구역별 수만 동그라미로 보여 줍니다(아래 "구역별 장소 수 동그라미" 효과).
   // 풀이한 검색("대구 카페" 등)은 조건에 맞는 장소를 실제로 골라야 해서 예전 방식(장소를 받아 묶음 마커)으로 둡니다.
   const summaryView = mapLevel != null && mapLevel >= SUMMARY_MIN_LEVEL && !intentActive;
@@ -2305,6 +2322,7 @@ const courseMeta = (route: RouteResult) => ({
       const bounds = map.getBounds();
       clearDetailMarkers();
 
+      const inView: { place: any; position: any }[] = [];
       filteredPlaces.forEach((place) => {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
@@ -2312,8 +2330,12 @@ const courseMeta = (route: RouteResult) => ({
 
         const position = new window.kakao.maps.LatLng(lat, lng);
         if (!bounds.contain(position)) return; // 화면 안에 없으면 생성 안 함
-        addPlacePill(place, position);
+        inView.push({ place, position });
       });
+      // ⚠ 속도: 화면 안의 장소가 너무 많으면 이름표를 그리지 않습니다 — "구역별 장소 수 동그라미" 효과가 숫자로 보여 줍니다
+      // (이름표 수백 개를 붙였다 떼는 것이 지도를 끌 때마다 몇 초씩 멈추던 원인).
+      if (inView.length > DENSE_VIEW_LIMIT) return;
+      for (const { place, position } of inView) addPlacePill(place, position);
     };
 
     // ── 넓은 줌: 경량 Marker + MarkerClusterer
@@ -2563,6 +2585,8 @@ const courseMeta = (route: RouteResult) => ({
     };
 
     const updateParksByZoom = () => {
+      // 화면 안에 장소가 너무 많아 숫자 동그라미로 보여 주는 중이면 공원 이름표도 그리지 않습니다(공원도 동그라미로).
+      if (denseView && map.getLevel() < CLUSTER_ZOOM_THRESHOLD) { clearParkDetailMarkers(); clearParkClusterMarkers(); return; }
       if (map.getLevel() >= CLUSTER_ZOOM_THRESHOLD) {
         // 넓게 볼 때는 공원도 구역별 수 동그라미로 보여 줍니다(장소 마커와 같은 이유).
         if (!intentActive) { clearParkDetailMarkers(); clearParkClusterMarkers(); return; }
@@ -2583,7 +2607,7 @@ const courseMeta = (route: RouteResult) => ({
       clearParkDetailMarkers();
       clearParkClusterMarkers();
     };
-  }, [parks, mapParks, mapReady, parksVisible, hideMarkersForCourse, courseStopKey, intentActive]);
+  }, [parks, mapParks, mapReady, parksVisible, hideMarkersForCourse, courseStopKey, intentActive, denseView]);
 
   // ══ 구역별 장소 수 동그라미(넓게 볼 때) ══
   // 서버가 확대 단계에 맞는 크기의 구역으로 미리 세어 둔 "구역별 장소 수"를, 화면에 걸치는 묶음만큼(보통 1~4건) 받아
@@ -2602,8 +2626,9 @@ const courseMeta = (route: RouteResult) => ({
     const clear = () => { overlays.forEach((o) => o.setMap(null)); overlays = []; };
     (window as any).ggkZoomInAt = (lat: number, lng: number) => {
       const level = map.getLevel();
-      // 구 단위쯤이면 이름표가 보이는 단계로, 더 넓으면 두 단계씩 확대합니다.
-      jumpMapTo(map, new window.kakao.maps.LatLng(lat, lng), level <= SUMMARY_MIN_LEVEL + 1 ? SUMMARY_MIN_LEVEL - 1 : level - 2);
+      // 이름표 단계(가까이 보는 중)면 한 단계씩, 구 단위쯤이면 이름표가 보이는 단계로, 더 넓으면 두 단계씩 확대합니다.
+      const next = level < SUMMARY_MIN_LEVEL ? Math.max(1, level - 1) : level <= SUMMARY_MIN_LEVEL + 1 ? SUMMARY_MIN_LEVEL - 1 : level - 2;
+      jumpMapTo(map, new window.kakao.maps.LatLng(lat, lng), next);
     };
     const bubble = (lat: number, lng: number, count: number, kind: "place" | "park") => {
       const size = count < 100 ? 38 : count < 1000 ? 46 : 56;
@@ -2623,9 +2648,24 @@ const courseMeta = (route: RouteResult) => ({
       if (stopped) return;
       const mine = ++run;
       const level = map.getLevel();
-      if (hideMarkersForCourse || intentActive || level < SUMMARY_MIN_LEVEL) { clear(); return; }
+      if (hideMarkersForCourse) { clear(); return; }
       const b = map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
       const view = { swLat: sw.getLat(), swLng: sw.getLng(), neLat: ne.getLat(), neLng: ne.getLng() };
+      if (level < SUMMARY_MIN_LEVEL) {
+        // 가까이 보는 단계: 화면 안의 장소가 너무 많을 때만, 받아 둔 장소를 바로 구역별로 세어 그립니다
+        // (검색·버튼으로 걸러진 결과 그대로). 많지 않으면 이름표가 보이므로 동그라미는 지웁니다.
+        const close = bubblesFromPoints(filteredPlaces, [], view, cellDegForCloseLevel(level));
+        const total = close.reduce((sum, item) => sum + item.count, 0);
+        clear();
+        if (total <= DENSE_VIEW_LIMIT) return;
+        const withParks = parksVisible ? bubblesFromPoints(filteredPlaces, mapParks, view, cellDegForCloseLevel(level)) : close;
+        for (const item of withParks) {
+          if (item.count > 0) bubble(item.lat, item.lng, item.count, "place");
+          if (item.parkCount > 0) bubble(item.parkLat, item.parkLng, item.parkCount, "park");
+        }
+        return;
+      }
+      if (intentActive) { clear(); return; }
       const rows = await fetchCountBlocks(level, blocksForBounds(view, level));
       if (mine !== run) return; // 그 사이 지도가 또 움직였으면 최신 것만 그립니다.
       const bubbles = bubblesFromRows(rows, view, level, selectedPetZone as CountFilter, parksVisible, ownPlacePoints);
@@ -2645,7 +2685,7 @@ const courseMeta = (route: RouteResult) => ({
       window.kakao.maps.event.removeListener(map, "idle", onIdle);
       clear();
     };
-  }, [mapReady, intentActive, hideMarkersForCourse, selectedPetZone, parksVisible, ownPlacePoints]);
+  }, [mapReady, intentActive, hideMarkersForCourse, selectedPetZone, parksVisible, ownPlacePoints, filteredPlaces, mapParks]);
 
   // ── 코스 전체가 보이도록 지도 맞추기 ──
   // 코스가 패널 뒤에 숨지 않게, 패널이 가리는 쪽만큼 여백을 더 줘서 줌을 조절합니다.

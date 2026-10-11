@@ -194,3 +194,41 @@ export function parseCountParams(level: string | null, bx: string | null, by: st
   if (l < COUNT_MIN_LEVEL || l > COUNT_MAX_LEVEL) return null;
   return { level: l, bx: Number(bx), by: Number(by) };
 }
+
+// ── 가까이 볼 때(이름표 단계)인데 화면 안에 장소가 너무 많은 경우 ──
+// 이 단계에서는 장소를 이미 받아 두었으므로 서버에 묻지 않고, 받아 둔 장소를 화면에서 바로 구역별로 셉니다
+// (검색·버튼으로 걸러진 결과 그대로 셀 수 있습니다).
+
+/** 이름표 단계(COUNT_MIN_LEVEL보다 가까이)에서 쓰는 구역 크기 — 넓게 볼 때의 규칙을 그대로 이어서 한 단계마다 절반 */
+export function cellDegForCloseLevel(level: number): number {
+  return BASE_CELL_DEG * 2 ** (Math.max(1, Math.round(level)) - COUNT_MIN_LEVEL);
+}
+
+/** 좌표 목록에서 화면 범위 안의 것만 구역별로 묶어 동그라미로 만듭니다. */
+export function bubblesFromPoints(
+  places: { lat: number | string; lng: number | string }[],
+  parks: { lat: number | string; lng: number | string }[],
+  bounds: Bounds, cellDeg: number,
+): CountBubble[] {
+  type Acc = { count: number; lat: number; lng: number; parkCount: number; pLat: number; pLng: number };
+  const groups = new Map<string, Acc>();
+  const num = (v: number | string) => (typeof v === "number" ? v : parseFloat(v));
+  const add = (item: { lat: number | string; lng: number | string }, park: boolean) => {
+    const lat = num(item.lat), lng = num(item.lng);
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < bounds.swLat || lat > bounds.neLat || lng < bounds.swLng || lng > bounds.neLng) return;
+    const key = `${cellIndex(lng, cellDeg)}_${cellIndex(lat, cellDeg)}`;
+    let acc = groups.get(key);
+    if (!acc) { acc = { count: 0, lat: 0, lng: 0, parkCount: 0, pLat: 0, pLng: 0 }; groups.set(key, acc); }
+    if (park) { acc.parkCount++; acc.pLat += lat; acc.pLng += lng; } else { acc.count++; acc.lat += lat; acc.lng += lng; }
+  };
+  for (const p of places) add(p, false);
+  for (const p of parks) add(p, true);
+  const bubbles: CountBubble[] = [];
+  for (const a of groups.values()) {
+    bubbles.push({
+      count: a.count, lat: a.count ? a.lat / a.count : 0, lng: a.count ? a.lng / a.count : 0,
+      parkCount: a.parkCount, parkLat: a.parkCount ? a.pLat / a.parkCount : 0, parkLng: a.parkCount ? a.pLng / a.parkCount : 0,
+    });
+  }
+  return bubbles;
+}
