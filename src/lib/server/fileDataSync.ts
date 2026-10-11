@@ -10,14 +10,17 @@
 //  2) 식품안전나라 — 반려동물 동반출입 음식점 (foodsafetykorea.go.kr/portal/petKorea.do, 엑셀)
 //     · 갱신 주기: 내려받는 시점 기준의 최신 목록(두 달 사이 약 370곳 증가). 매주 한 번 받아서
 //       새로 생긴 곳은 추가하고, 목록에서 빠진 곳(영업 종료 등)은 지웁니다.
-//     · 원본에 좌표가 없어서 새 음식점은 주소 → 좌표 변환이 필요합니다. 공공 서비스인
-//       브이월드(국토교통부) 주소 좌표 변환을 씁니다(VWORLD_API_KEY). 키가 없으면 추가는 미루고 삭제만 반영합니다.
+//     · 원본에 좌표가 없어서, 새 음식점의 좌표는 행정안전부 지방행정 인허가 데이터에서 "같은 주소의 인허가 기록"을
+//       찾아 씁니다(src/lib/server/permitCoords.ts — 공공데이터포털 계정 키 사용). 주소 → 좌표 변환 서비스(브이월드,
+//       행정안전부 주소 좌표 API)는 결과 저장·인터넷 표시·해외 서버 이용을 막는 조건이 있어 쓰지 않습니다.
+//       못 찾은 곳은 추가를 미루고 다음 실행에서 다시 찾아봅니다.
 //
 // 안전장치: 새로 받은 목록이 기존의 절반도 안 되면(사이트 오류·형식 변경 의심) 아무것도 바꾸지 않고 실패로 알립니다.
 // 관리자가 직접 지운 장소는 "다시 넣지 않을 목록"에 기억해 두어, 다음 갱신 때 되살아나지 않게 합니다.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readXlsxRows } from "@/lib/server/xlsxRead";
+import { findPermitCoord, permitApiKey } from "@/lib/server/permitCoords";
 
 const BUCKET = "app-private";
 const STATE_FILE = "file-data-sync.json";
@@ -223,24 +226,6 @@ export async function syncCultureFile(force = false): Promise<CultureSyncResult>
 
 // ── 2) 식품안전나라 ──
 
-/** 브이월드(국토교통부) 주소 → 좌표. 못 찾으면 null. */
-async function vworldGeocode(address: string, key: string): Promise<{ lat: string; lng: string } | null> {
-  // 괄호 안 상세(층·동 이름)는 빼고 찾습니다.
-  const query = address.replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim();
-  for (const type of ["ROAD", "PARCEL"]) {
-    try {
-      const url = `https://api.vworld.kr/req/address?service=address&request=getCoord&version=2.0&crs=epsg:4326&refine=true&simple=false&format=json&type=${type}&address=${encodeURIComponent(query)}&key=${encodeURIComponent(key)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) continue;
-      const point = (await res.json())?.response?.result?.point;
-      const lat = Number(point?.y), lng = Number(point?.x);
-      // 우리나라 범위 안일 때만 받습니다.
-      if (lat > 32 && lat < 39.5 && lng > 124 && lng < 132) return { lat: String(lat), lng: String(lng) };
-    } catch { /* 다음 방식으로 */ }
-  }
-  return null;
-}
-
 export type FoodRow = { key: string; name: string; category: string; region: string; address: string };
 
 /** 엑셀 행 → 음식점 목록(이름+주소 중복 제거). */
@@ -295,17 +280,27 @@ export async function syncFoodFile(maxMs = 60_000): Promise<FoodSyncResult> {
 
   // 새로 생긴 곳 추가 — 좌표가 있어야 지도에 올릴 수 있습니다.
   const fresh = wanted.filter((r) => !existingKeys.has(`foodsafety-${r.key}`));
-  const vworldKey = process.env.VWORLD_API_KEY;
+  const permitKey = permitApiKey();
   let added = 0, geocodeFailed = 0;
-  if (vworldKey) {
+  if (permitKey) {
     const batch: Record<string, unknown>[] = [];
-    for (const r of fresh.slice(0, FOOD_GEOCODE_PER_RUN)) {
-      if (Date.now() - started > maxMs) break;
-      const coord = await vworldGeocode(r.address, vworldKey);
-      if (!coord) { geocodeFailed++; continue; }
-      batch.push({ source_key: `foodsafety-${r.key}`, name: r.name, category: r.category, region: r.region, address: r.address, lat: coord.lat, lng: coord.lng, memo: "식품안전나라 반려동물 동반출입 음식점 제공 정보" });
-      await new Promise((resolve) => setTimeout(resolve, 60));
-    }
+    // 인허가 조회 한 번이 1~2초 걸려서, 네 곳씩 동시에 찾습니다(하루 호출 한도 1만 건에 비해 충분히 적은 양).
+    // ⚠ 지난번에 못 찾은 곳이 늘 목록 앞에 있어 매번 그것부터 다시 찾느라 뒤쪽이 밀리지 않도록,
+    //    실행할 때마다 시작 위치를 바꿔 가며 훑습니다.
+    const queue = fresh.slice(0, FOOD_GEOCODE_PER_RUN);
+    const offset = queue.length ? Math.floor(Date.now() / 60_000) % queue.length : 0;
+    const ordered = [...queue.slice(offset), ...queue.slice(0, offset)];
+    let next = 0;
+    const worker = async () => {
+      while (next < ordered.length && Date.now() - started <= maxMs) {
+        const r = ordered[next++];
+        // 인허가 조회가 잠깐 실패해도(시간 초과 등) 전체를 멈추지 않고 그 가게만 다음 실행으로 미룹니다.
+        const coord = await findPermitCoord(r, permitKey).catch(() => null);
+        if (!coord) { geocodeFailed++; continue; }
+        batch.push({ source_key: `foodsafety-${r.key}`, name: r.name, category: r.category, region: r.region, address: r.address, lat: coord.lat, lng: coord.lng, memo: "식품안전나라 반려동물 동반출입 음식점 제공 정보" });
+      }
+    };
+    await Promise.all(Array.from({ length: 4 }, worker));
     for (let i = 0; i < batch.length; i += BATCH) {
       const { error } = await client.from("foodsafety_restaurants").upsert(batch.slice(i, i + BATCH), { onConflict: "source_key" });
       if (error) throw new Error(`foodsafety_restaurants 저장 실패: ${error.message}`);
@@ -316,6 +311,6 @@ export async function syncFoodFile(maxMs = 60_000): Promise<FoodSyncResult> {
   await saveState(client, { ...state, food: { checkedAt: new Date().toISOString(), total: list.length, added, removed, pending } });
   return {
     total: list.length, added, removed, pending, geocodeFailed,
-    ...(vworldKey ? {} : { note: "좌표 변환 키(VWORLD_API_KEY)가 없어 새 음식점 추가는 미뤘어요" }),
+    ...(permitKey ? {} : { note: "공공데이터포털 키(TOUR_API_KEY)가 없어 새 음식점 추가는 미뤘어요" }),
   };
 }
