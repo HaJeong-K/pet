@@ -1,6 +1,8 @@
 "use client";
 
 import LogoLoader from "@/components/LogoLoader";
+import LevelBadge from "@/components/LevelBadge";
+import MemberLevelCard from "@/components/MemberLevelCard";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
 import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
@@ -89,6 +91,8 @@ export default function MyPage() {
   const router = useRouter();
   const [session, setSession]           = useState<any>(null);
   const [userProfile, setUserProfile]   = useState<any>(null);
+  // 내 레벨(아래 "내 레벨" 카드가 받아 오면 프로필 닉네임 옆에도 배지를 붙입니다)
+  const [myLevel, setMyLevel]           = useState<number | null>(null);
   const [bookmarks, setBookmarks]       = useState<any[]>([]);
   const [myReviews, setMyReviews]       = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<"bookmarks"|"courses"|"posts"|"reviews">("bookmarks");
@@ -669,6 +673,7 @@ export default function MyPage() {
 											</span>
 										)}
 										{userProfile?.nickname}
+										<LevelBadge level={myLevel} onDark />
 									</div>
 
 									<div
@@ -868,6 +873,10 @@ export default function MyPage() {
           }}>
             <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
             <div style={{ flex: "1 0 auto" }}>
+						{/* ── 내 레벨(회원 레벨 표가 있을 때만 보입니다 — scripts/sql/member-level.sql) */}
+						<div style={{ margin: "0 -16px" }}>
+							<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} />
+						</div>
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>

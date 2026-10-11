@@ -1,6 +1,8 @@
 "use client";
 
 import LogoLoader from "@/components/LogoLoader";
+import LevelBadge from "@/components/LevelBadge";
+import { useMemberLevels } from "@/lib/useMemberLevels";
 import Image from "next/image";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -264,6 +266,8 @@ export default function PlaceDetail({
   const [replyContent, setReplyContent]   = useState("");
   const [replyPassword, setReplyPassword] = useState("");
   const [replies, setReplies]             = useState<any[]>([]);
+  // 후기·답글을 쓴 회원들의 레벨(닉네임 옆 배지)
+  const memberLevels = useMemberLevels([...reviews.map((r) => r.auth_user_id), ...replies.map((r) => r.auth_user_id)]);
 
   const [likedReplyIds, setLikedReplyIds]   = useState<Set<string>>(new Set());
   const [reportCategory, setReportCategory] = useState("");
@@ -1530,6 +1534,7 @@ export default function PlaceDetail({
                         {r.avatar_url ? <Image src={r.avatar_url} alt={r.nickname} fill sizes="24px" referrerPolicy="no-referrer" style={{ objectFit:"cover" }} /> : r.nickname?.charAt(0)}
                       </div>
                       <div className="ggk-body" style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{r.nickname}</div>
+                      <LevelBadge level={memberLevels[r.auth_user_id]} />
                       {isOwner(r) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                     </div>
                     <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
@@ -1621,6 +1626,7 @@ export default function PlaceDetail({
                             {reply.avatar_url ? <Image src={reply.avatar_url} referrerPolicy="no-referrer" alt={reply.nickname} fill sizes="20px" style={{ objectFit:"cover" }} /> : reply.nickname?.charAt(0)}
                           </div>
                           <div className="ggk-body" style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
+                          <LevelBadge level={memberLevels[reply.auth_user_id]} />
                           {reply.is_owner && (
                             <span className="ggk-body" title="이 가게의 인증된 사장님이 직접 남긴 답글이에요" style={{ display:"inline-flex", alignItems:"center", gap:"2px", fontSize:"10px", fontWeight:800, background:"#F59E0B", color:"white", padding:"1px 7px", borderRadius:"99px", whiteSpace:"nowrap" }}>
                               <Store size={10} />사장님

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
+import LevelBadge from "@/components/LevelBadge";
 import { Users, Search, Flag, ShieldCheck, Store, UserX } from "lucide-react";
 
 // ── 회원 관리 ──
@@ -15,6 +16,8 @@ import { Users, Search, Flag, ShieldCheck, Store, UserX } from "lucide-react";
 type Member = {
   authUserId: string; email: string | null; nickname: string | null; avatarUrl: string | null; createdAt: string | null;
   isAdmin: boolean; ownerStatus: string | null; ownerBusinessName: string | null;
+  /** 회원 레벨과 점수(아직 한 번도 계산되지 않은 회원은 null) */
+  level: number | null; points: number | null;
   reviews: number; replies: number; posts: number; comments: number; reported: number; reportedOpen: number; adminDeleted: number;
 };
 type Filter = "all" | "reported" | "owner" | "admin";
@@ -149,12 +152,13 @@ export default function AdminMembers() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, fontWeight: 800, color: "#222", wordBreak: "break-all" }}>{m.nickname || "(닉네임 없음)"}</span>
+                  <LevelBadge level={m.level} />
                   {m.isAdmin && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}><ShieldCheck size={10} />관리자</span>}
                   {m.ownerStatus === "verified" && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FBEEDD", color: "#A8551F" }}><Store size={10} />사장님{m.ownerBusinessName ? ` · ${m.ownerBusinessName}` : ""}</span>}
                   {m.ownerStatus === "pending" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>사장님 신청 중</span>}
                   {m.reported >= MANY_REPORTS && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEE2E2", color: "#b91c1c" }}><Flag size={10} />신고 다수</span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: "#888", marginTop: 2, wordBreak: "break-all" }}>{m.email || "이메일 없음"} · 가입 {fmtDate(m.createdAt)}</div>
+                <div style={{ fontSize: 11.5, color: "#888", marginTop: 2, wordBreak: "break-all" }}>{m.email || "이메일 없음"} · 가입 {fmtDate(m.createdAt)}{m.points != null ? ` · ${m.points.toLocaleString()}점` : ""}</div>
               </div>
             </div>
 

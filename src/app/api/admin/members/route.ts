@@ -29,11 +29,15 @@ export async function GET(req: NextRequest) {
     supabaseAdmin.from("users").select("auth_user_id, email, nickname, avatar_url, created_at, is_admin, owner_status, owner_business_name").not("auth_user_id", "is", null).order("created_at", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("reviews").select("id, auth_user_id, is_admin_deleted").not("auth_user_id", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("review_replies").select("id, auth_user_id, is_admin_deleted").not("auth_user_id", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
-    supabaseAdmin.from("community_posts").select("id, auth_user_id, is_admin_deleted").not("auth_user_id", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
+    supabaseAdmin.from("community_posts").select("id, author_auth_key, is_admin_deleted").not("author_auth_key", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("community_comments").select("id, author_auth_key, is_admin_deleted").not("author_auth_key", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("reports").select("type, target_id, board_post_id, is_resolved").neq("type", "place").order("created_at", { ascending: false }).limit(MAX_ROWS),
   ]);
   if (users.error) return NextResponse.json({ error: users.error.message }, { status: 500 });
+  // 회원 레벨(레벨 표가 아직 없으면 빈 채로 — 화면에서는 표시하지 않습니다)
+  const levelRows = await supabaseAdmin.from("member_levels").select("auth_user_id, level, points");
+  const levelOf = new Map<string, { level: number; points: number }>();
+  for (const row of levelRows.data ?? []) levelOf.set(row.auth_user_id as string, { level: row.level as number, points: row.points as number });
 
   const byUser = new Map<string, Counts>();
   const of = (uid: string | null | undefined) => {
@@ -45,7 +49,8 @@ export async function GET(req: NextRequest) {
   const author = { review: new Map<string, string>(), reply: new Map<string, string>(), post: new Map<string, string>(), comment: new Map<string, string>() };
   for (const r of reviews.data ?? []) { const c = of(r.auth_user_id); if (c) { c.reviews++; if (r.is_admin_deleted) c.adminDeleted++; author.review.set(String(r.id), r.auth_user_id); } }
   for (const r of replies.data ?? []) { const c = of(r.auth_user_id); if (c) { c.replies++; if (r.is_admin_deleted) c.adminDeleted++; author.reply.set(String(r.id), r.auth_user_id); } }
-  for (const r of posts.data ?? []) { const c = of(r.auth_user_id); if (c) { c.posts++; if (r.is_admin_deleted) c.adminDeleted++; author.post.set(String(r.id), r.auth_user_id); } }
+  // ⚠ 커뮤니티 글의 글쓴이는 author_auth_key 칸에 들어 있습니다(auth_user_id 칸은 비어 있어, 예전에는 글 수가 늘 0이었습니다).
+  for (const r of posts.data ?? []) { const c = of(r.author_auth_key); if (c) { c.posts++; if (r.is_admin_deleted) c.adminDeleted++; author.post.set(String(r.id), r.author_auth_key); } }
   for (const r of comments.data ?? []) { const c = of(r.author_auth_key); if (c) { c.comments++; if (r.is_admin_deleted) c.adminDeleted++; author.comment.set(String(r.id), r.author_auth_key); } }
 
   for (const rp of reports.data ?? []) {
@@ -71,6 +76,8 @@ export async function GET(req: NextRequest) {
     isAdmin: !!u.is_admin,
     ownerStatus: (u.owner_status as string | null) ?? null,
     ownerBusinessName: (u.owner_business_name as string | null) ?? null,
+    level: levelOf.get(u.auth_user_id as string)?.level ?? null,
+    points: levelOf.get(u.auth_user_id as string)?.points ?? null,
     ...(byUser.get(u.auth_user_id as string) ?? empty()),
   }));
   return NextResponse.json({ members });

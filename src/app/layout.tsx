@@ -4,6 +4,7 @@ import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import ErrorReporter from "@/components/ErrorReporter";
+import MemberVisitPing from "@/components/MemberVisitPing";
 import { AuthProvider } from "@/lib/AuthContext";
 import Script from "next/script";
 import { siteUrl } from "@/lib/siteUrl";
@@ -122,6 +123,8 @@ export default function RootLayout({
           <AuthGuard />
           <AnalyticsTracker />
           <ErrorReporter />
+          {/* 로그인한 회원이 들어온 날을 하루에 한 번 기록합니다(회원 레벨의 방문 조건). 화면에는 아무것도 그리지 않습니다. */}
+          <MemberVisitPing />
           {children}
           {modal}
           <TabBar />

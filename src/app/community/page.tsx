@@ -15,7 +15,7 @@ async function loadInitial(): Promise<CommunityInitial | null> {
     const runList = async (withReview: boolean) => {
       let q = supabase
         .from("community_posts")
-        .select("id, title, content, nickname, avatar_url, created_at, likes, comment_count, views, board_id, post_type, image_urls, deleted, is_admin_deleted", { count: "exact" })
+        .select("id, title, content, nickname, avatar_url, author_auth_key, created_at, likes, comment_count, views, board_id, post_type, image_urls, deleted, is_admin_deleted", { count: "exact" })
         .eq("is_notice", false)
         .eq("deleted", false)
         .eq("is_admin_deleted", false);

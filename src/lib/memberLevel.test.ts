@@ -171,8 +171,8 @@ describe("회원 레벨 — 점수", () => {
     expect(POINT_RULES.post.points).toBeGreaterThan(POINT_RULES.comment.points);
   });
 
-  it("제보 승인 1건 + 사진 후기 1건 = 65점", () => {
-    const s = scoreActivities([{ type: "tip_approved", at: day(1) }, { type: "review", at: day(1) }, { type: "review_photo", at: day(1) }]);
+  it("제보 승인 1건 + 장소 사진 1건 = 65점", () => {
+    const s = scoreActivities([{ type: "tip_approved", at: day(1) }, { type: "review", at: day(1) }, { type: "place_photo", at: day(1) }]);
     expect(s.total).toBe(65);
   });
 
@@ -198,13 +198,13 @@ describe("회원 레벨 — 점수", () => {
     expect(scoreActivities(many("admin_deleted", 5, day(2))).total).toBe(0);
   });
 
-  it("사진 후기는 3건이 지도 기여 1회다(하루 상한 안에서 인정된 것만)", () => {
-    // 사흘에 걸쳐 사진 후기 7건(하루 3·3·1) → 인정 7건 → 기여 2회
-    const spread = [...many("review_photo", 3, day(1)), ...many("review_photo", 3, day(2)), ...many("review_photo", 1, day(3))];
+  it("장소 사진은 3장이 지도 기여 1회다(하루 상한 안에서 인정된 것만)", () => {
+    // 사흘에 걸쳐 장소 사진 7장(하루 3·3·1) → 인정 7장 → 기여 2회
+    const spread = [...many("place_photo", 3, day(1)), ...many("place_photo", 3, day(2)), ...many("place_photo", 1, day(3))];
     expect(scoreActivities(spread).mapContributions).toBe(2);
-    // 하루에 30건을 몰아 써도 그날 인정되는 것은 3건 → 기여 1회
-    expect(scoreActivities(many("review_photo", 30, day(4))).mapContributions).toBe(1);
-    // 사진 없는 후기는 기여로 세지 않는다
+    // 하루에 30장을 몰아 올려도 그날 인정되는 것은 3장 → 기여 1회
+    expect(scoreActivities(many("place_photo", 30, day(4))).mapContributions).toBe(1);
+    // 후기는 지도 기여로 세지 않는다
     expect(scoreActivities(many("review", 3, day(5))).mapContributions).toBe(0);
   });
 
@@ -214,14 +214,14 @@ describe("회원 레벨 — 점수", () => {
     expect(s.total).toBe(50 + 20 + 15 + 10);
   });
 
-  it("꾸준한 기여자는 한 달쯤이면 4단계(산책대장)에 닿는다 — 주 1회 제보 승인 + 주 3회 사진 후기", () => {
+  it("꾸준한 기여자는 한 달쯤이면 4단계(산책대장)에 닿는다 — 주 1회 제보 승인 + 주 3회 장소 사진", () => {
     const month: Activity[] = [];
     const visitTimes: string[] = [];
     for (let week = 0; week < 4; week++) {
       month.push({ type: "tip_approved", at: day(1 + week * 7) });
       visitTimes.push(day(1 + week * 7));
       for (let k = 0; k < 3; k++) {
-        month.push({ type: "review", at: day(2 + week * 7 + k) }, { type: "review_photo", at: day(2 + week * 7 + k) });
+        month.push({ type: "review", at: day(2 + week * 7 + k) }, { type: "place_photo", at: day(2 + week * 7 + k) });
         visitTimes.push(day(2 + week * 7 + k));
       }
     }

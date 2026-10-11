@@ -1,6 +1,8 @@
 "use client";
 
 import LogoLoader from "@/components/LogoLoader";
+import LevelBadge from "@/components/LevelBadge";
+import { useMemberLevels } from "@/lib/useMemberLevels";
 import PageGuide from "@/components/PageGuide";
 import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard } from "@/lib/communityBoards";
 import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
@@ -131,6 +133,9 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
   const [selectedPostType, setSelectedPostType] = useState("all");
   const [showRegionMenu, setShowRegionMenu] = useState(false);
 
+  // 글쓴이들의 회원 레벨(닉네임 옆 배지)
+  const memberLevels = useMemberLevels(posts.map((p) => p.author_auth_key));
+
   // 300ms 디바운스
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -198,7 +203,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         let q = supabase
           .from("community_posts")
           .select(`
-            id, title, content, nickname, avatar_url,
+            id, title, content, nickname, avatar_url, author_auth_key,
             created_at, likes, comment_count, views,
             board_id, post_type, image_urls, deleted, is_admin_deleted
           `, { count: "exact" })
@@ -835,6 +840,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                                 {/* 메타: 닉네임·배지·시간 한 줄 */}
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6, fontSize: 12, color: "#999" }}>
                                   <span style={{ fontWeight: 700, color: "#222" }}>{post.nickname}</span>
+                                  <LevelBadge level={memberLevels[post.author_auth_key]} />
                                   {isBusiness && (
                                     <span style={{ fontSize: 9, fontWeight: 800, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>
                                       사장님

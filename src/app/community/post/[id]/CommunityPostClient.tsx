@@ -1,6 +1,8 @@
 "use client";
 
 import LogoLoader from "@/components/LogoLoader";
+import LevelBadge from "@/components/LevelBadge";
+import { useMemberLevels } from "@/lib/useMemberLevels";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -95,6 +97,8 @@ export default function CommunityDetailPage() {
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
+  // 글쓴이·댓글 쓴 사람들의 회원 레벨(닉네임 옆 배지)
+  const memberLevels = useMemberLevels([(post as any)?.author_auth_key, ...comments.map((c) => (c as any).author_auth_key)]);
   const [comment, setComment] = useState("");
   const [replyMap, setReplyMap] = useState<Record<string, string>>({});
   const [replyTarget, setReplyTarget] = useState<string | null>(null);
@@ -1060,8 +1064,9 @@ export default function CommunityDetailPage() {
                     )}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#222" }}>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#222", display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                       {post.nickname}
+                      <LevelBadge level={memberLevels[(post as any).author_auth_key]} />
                     </div>
 
                     <div
@@ -1407,6 +1412,7 @@ export default function CommunityDetailPage() {
                                 : item.nickname?.charAt(0)}
                             </div>
                             <div style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{item.nickname}</div>
+                            <LevelBadge level={memberLevels[(item as any).author_auth_key]} />
                             {isCommentOwner(item) && (
                               <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
                             )}
@@ -1533,6 +1539,7 @@ export default function CommunityDetailPage() {
                                     : reply.nickname?.charAt(0)}
                                 </div>
                                 <div style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
+                                <LevelBadge level={memberLevels[(reply as any).author_auth_key]} />
                                 {isCommentOwner(reply) && (
                                   <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
                                 )}

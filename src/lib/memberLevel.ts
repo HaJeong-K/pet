@@ -26,7 +26,7 @@ export type ActivityType =
   | "info_update_approved"// 기존 장소의 빠진 정보를 채우는 제안이 승인됨
   | "report_accepted"     // 신고가 받아들여짐(관리자가 해당 글·장소를 조치함)
   | "review"              // 장소 후기 작성
-  | "review_photo"        // 사진이 들어간 후기(후기 점수에 더해지는 가산)
+  | "place_photo"         // 장소 상세에 사진을 등록함(가게마다 사진을 올릴 수 있는 기능)
   | "post"                // 커뮤니티 글
   | "comment"             // 댓글·답글(후기 답글 포함)
   | "admin_deleted";      // 내 글·후기가 관리자에게 삭제됨(감점)
@@ -45,7 +45,7 @@ export const POINT_RULES: Record<ActivityType, PointRule> = {
   info_update_approved: { points: 20, label: "정보 추가 제안 승인" },
   report_accepted:      { points: 15, label: "신고가 받아들여짐" },
   review:               { points: 10, dailyLimit: 3, label: "후기 작성" },
-  review_photo:         { points: 5,  dailyLimit: 3, label: "사진 후기 가산" },
+  place_photo:          { points: 5,  dailyLimit: 3, label: "장소 사진 등록" },
   post:                 { points: 3,  dailyLimit: 2, label: "커뮤니티 글" },
   comment:              { points: 1,  dailyLimit: 3, label: "댓글·답글" },
   admin_deleted:        { points: -20, label: "관리자 삭제(감점)" },
@@ -57,7 +57,7 @@ export type MemberLevel = {
   name: string;
   /** 이 단계가 되는 최소 점수 */
   minPoints: number;
-  /** 이 단계가 되려면 필요한 "지도 기여" 최소 횟수(제보·정보 추가 승인 + 받아들여진 신고 + 사진 후기 3건당 1회) */
+  /** 이 단계가 되려면 필요한 "지도 기여" 최소 횟수(제보·정보 추가 승인 + 받아들여진 신고 + 장소 사진 3장당 1회) */
   minMapContributions: number;
   /** 이 단계를 유지하려면 필요한 한 달 방문 일수(달력의 한 달, 한국 시간) */
   monthlyVisits: number;
@@ -77,8 +77,8 @@ export const MEMBER_LEVELS: MemberLevel[] = [
   { level: 6, name: "명예 순찰대",   minPoints: 2000, minMapContributions: 10, monthlyVisits: 16, description: "지도를 지켜 주는 명예로운 순찰대예요.",    color: "#A8551F", background: "#FBE6CF" },
 ];
 
-/** 사진 후기 몇 건을 지도 기여 1회로 칠지 — 사진 후기도 다른 사람의 방문 결정에 도움이 되므로 포함합니다. */
-export const PHOTO_REVIEWS_PER_CONTRIBUTION = 3;
+/** 장소 사진 몇 장을 지도 기여 1회로 칠지 — 장소 사진도 다른 사람의 방문 결정에 도움이 되므로 포함합니다. */
+export const PLACE_PHOTOS_PER_CONTRIBUTION = 3;
 
 export type Activity = { type: ActivityType; at: string | number | Date };
 
@@ -91,7 +91,7 @@ function kstDay(at: string | number | Date): string {
 export type ScoreBreakdown = {
   /** 최종 점수(0 아래로 내려가지 않음) */
   total: number;
-  /** 지도 기여 횟수(제보·정보 추가 승인 + 받아들여진 신고 + 사진 후기 3건당 1회) — 높은 단계의 조건 */
+  /** 지도 기여 횟수(제보·정보 추가 승인 + 받아들여진 신고 + 장소 사진 3장당 1회) — 높은 단계의 조건 */
   mapContributions: number;
   /** 활동 종류별: 횟수 / 점수로 인정된 횟수 / 받은 점수 */
   byType: Record<ActivityType, { count: number; counted: number; points: number }>;
@@ -120,11 +120,11 @@ export function scoreActivities(activities: Activity[]): ScoreBreakdown {
   }
 
   const sum = Object.values(byType).reduce((acc, entry) => acc + entry.points, 0);
-  // 지도 기여: 승인된 제보·정보 추가, 받아들여진 신고는 1건이 1회. 사진 후기는 PHOTO_REVIEWS_PER_CONTRIBUTION건이 1회
-  // (하루 상한 안에서 점수로 인정된 사진 후기만 셉니다 — 하루에 몰아 써서 채우지 못하게).
+  // 지도 기여: 승인된 제보·정보 추가, 받아들여진 신고는 1건이 1회. 장소 사진은 PLACE_PHOTOS_PER_CONTRIBUTION장이 1회
+  // (하루 상한 안에서 점수로 인정된 사진만 셉니다 — 하루에 몰아 올려서 채우지 못하게).
   const mapContributions =
     byType.tip_approved.count + byType.info_update_approved.count + byType.report_accepted.count +
-    Math.floor(byType.review_photo.counted / PHOTO_REVIEWS_PER_CONTRIBUTION);
+    Math.floor(byType.place_photo.counted / PLACE_PHOTOS_PER_CONTRIBUTION);
   return { total: Math.max(0, sum), mapContributions, byType };
 }
 
