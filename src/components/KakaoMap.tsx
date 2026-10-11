@@ -34,7 +34,7 @@ import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
 import { parkToPlace } from "@/lib/parkPlace";
-import DemoNoticeModal, { shouldShowDemoNotice } from "@/components/DemoNoticeModal";
+import WelcomeIntro, { shouldShowWelcomeIntro } from "@/components/WelcomeIntro";
 import PageGuide from "@/components/PageGuide";
 import { saveCourse, deleteSavedCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
 import { MAP_GUIDE_KEY, MAP_GUIDE_STEPS } from "@/lib/pageGuides";
@@ -564,11 +564,12 @@ export default function KakaoMap() {
     if (menuDragY > 70) setShowMobileMenu(false);
     setMenuDragY(0);
   };
-  // 첫 접속 안내 팝업(데모 버전·의견 요청). 팝업이 떠 있는 동안에는 화면 안내를 미루고, 닫으면 이어서 시작합니다.
+  // 첫 방문 소개(서비스가 무엇을 해 주는지 네 장으로 — src/components/WelcomeIntro.tsx). 앱을 새로 열 때마다 한 번 뜨고,
+  // "다시 보지 않기"를 누르면 더 뜨지 않습니다. 떠 있는 동안에는 화면 안내를 미루고, 닫으면 이어서 시작합니다.
   const [showDemoNotice, setShowDemoNotice] = useState(false);
   const [demoNoticeChecked, setDemoNoticeChecked] = useState(false);
   useEffect(() => {
-    if (shouldShowDemoNotice()) setShowDemoNotice(true);
+    if (shouldShowWelcomeIntro()) setShowDemoNotice(true);
     setDemoNoticeChecked(true);
   }, []);
 
@@ -5176,7 +5177,7 @@ const courseMeta = (route: RouteResult) => ({
       )}
 
       {showDemoNotice && (
-        <DemoNoticeModal onClose={() => setShowDemoNotice(false)} />
+        <WelcomeIntro onClose={() => setShowDemoNotice(false)} />
       )}
 
       {/* ── 공유 모달 */}

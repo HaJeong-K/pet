@@ -1139,7 +1139,7 @@ export default function PlaceDetail({
                 <ImageOff size={26} color="#ccc" />
                 <span style={{ fontSize:"10px", color:"#bbb", textAlign:"center", lineHeight:1.4 }}>이미지를<br />추가해주세요</span>
               </div>
-              <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
+              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
                 {isUploading ? <span style={{ fontSize:"11px", color:"#aaa" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
               </button>
             </div>
@@ -1169,7 +1169,7 @@ export default function PlaceDetail({
                   </button>
                 </div>
               ))}
-              <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
+              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
                 {isUploading ? <span style={{ fontSize:"11px", color:"#aaa" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
               </button>
             </div>
