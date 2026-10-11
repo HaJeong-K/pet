@@ -12,6 +12,7 @@
 // 위함).
 
 import { expandPlace, tileQuery } from "@/lib/mapTile";
+import { placeTiles } from "@/lib/mapData";
 
 let cachedPlaces: any[] | null = null;
 // 지금 받고 있는 요청 — 같은 칸을 동시에 두 번 요청하지 않게 함께 기다립니다(예전엔 첫 화면에서 같은 요청이 두 번 나갔습니다).
@@ -26,6 +27,8 @@ export function invalidatePublicDataPlacesCache() {
   cachedPlaces = null;
   cachedKey = "";
   singleCache.clear();
+  // 지도가 칸 단위로 받아 둔 것도 비웁니다(다음에 지도가 필요한 칸을 다시 받습니다).
+  placeTiles.clear();
 }
 
 export interface FetchPublicDataOptions {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { haversineKm } from "@/lib/geo";
 import { compactPlace, DEFAULT_CENTER, TILE_CACHE_CONTROL } from "@/lib/mapTile";
+import { groupByTile, parseTileParams, tileKey } from "@/lib/placeTiles";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,20 @@ export const runtime = "nodejs";
 
 const MAX_RADIUS_KM = 50;
 
+// ── 칸 단위 응답(?tx=2539&ty=751) — 지도에 보이는 칸만 받는 새 방식(src/lib/placeTiles.ts) ──
+// 전체 목록을 한 번 칸별로 나눠 두고(가볍게 줄인 모양으로), 요청마다 그 칸 하나만 꺼내 줍니다. 예전 방식은 요청마다
+// 3만 곳 전부와 거리를 쟀습니다. 전체 목록이 새로 만들어지면(배열이 바뀌면) 다시 나눕니다.
+let tileIndex: { source: unknown[]; byTile: Map<string, Record<string, unknown>[]> } | null = null;
+function placesInTile(merged: any[], key: string): Record<string, unknown>[] {
+  if (!tileIndex || tileIndex.source !== merged) {
+    const groups = groupByTile(merged);
+    const byTile = new Map<string, Record<string, unknown>[]>();
+    for (const [k, list] of groups) byTile.set(k, list.map(compactPlace));
+    tileIndex = { source: merged, byTile };
+  }
+  return tileIndex.byTile.get(key) ?? [];
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   // ⚠ searchParams.get()은 파라미터가 없으면 null을 반환하는데, Number(null)은
@@ -34,6 +49,12 @@ export async function GET(req: NextRequest) {
   const radiusKm = Math.min(MAX_RADIUS_KM, Math.max(0.1, Number(searchParams.get("radiusKm")) || 40));
 
   const merged = await getMergedPublicDataPlaces();
+
+  // 칸 단위 요청: 그 칸에 속한 장소만. 우리나라 밖이거나 이상한 번호면 빈 목록(주소가 고정이라 CDN이 대신 응답합니다).
+  if (searchParams.has("tx") || searchParams.has("ty")) {
+    const tile = parseTileParams(searchParams.get("tx"), searchParams.get("ty"));
+    return NextResponse.json(tile ? placesInTile(merged, tileKey(tile)) : [], { headers: { "Cache-Control": TILE_CACHE_CONTROL } });
+  }
 
   // ⚠ 트래픽: 예전에는 위치 없이 부르면 전국 3만 곳(압축해도 2.4MB)을 통째로 내려줬습니다 — 위치 권한을
   // 주지 않은 첫 방문자마다 이만큼을 받았습니다. 이제는 기준점(서울시청) 주변만 내려줍니다.

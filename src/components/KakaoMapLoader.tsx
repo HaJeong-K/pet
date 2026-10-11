@@ -3,8 +3,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import KakaoMap from "@/components/KakaoMap";
 import LogoLoader from "@/components/LogoLoader";
-import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
-import { fetchParks } from "@/lib/parkPlaces";
+import { ensureMapTiles } from "@/lib/mapData";
+import { tilesForRadius } from "@/lib/placeTiles";
 
 // ⚠ 속도: 예전에는 next/dynamic으로 지도 코드를 "화면 준비가 끝난 뒤"에야 받기 시작했습니다. 그래서
 // "화면 준비 → 지도 코드 받기 → 지도 엔진 받기 → 장소 데이터 받기"를 한 줄로 차례차례 기다렸습니다(폰에서 3~4초).
@@ -14,14 +14,13 @@ import { fetchParks } from "@/lib/parkPlaces";
 // 지도는 브라우저에서만 그릴 수 있어서, 서버가 만든 첫 화면과 브라우저가 준비되기 전까지는 로고 화면을 보여 줍니다.
 
 if (typeof window !== "undefined") {
-  // 장소 데이터: 지난번 위치가 저장돼 있으면 그 동네 것을 바로 받기 시작합니다(지도 화면의 첫 요청과 같은 주소).
-  // 저장된 위치가 없는 첫 방문은 내 위치가 잡힌 뒤에 받으므로 여기서는 받지 않습니다.
+  // 장소 데이터: 지난번 위치가 저장돼 있으면 그 주변 칸을 바로 받기 시작합니다(지도 화면이 처음 받는 칸과 같습니다 —
+  // KakaoMap.tsx의 DATA_HOME_KM). 저장된 위치가 없는 첫 방문은 지도가 뜬 뒤 보이는 범위를 받으므로 여기서는 받지 않습니다.
   try {
     const lat = parseFloat(window.localStorage.getItem("user_lat") || "");
     const lng = parseFloat(window.localStorage.getItem("user_lng") || "");
     if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      void fetchPublicDataPlaces({ lat, lng });
-      void fetchParks({ lat, lng });
+      void ensureMapTiles(tilesForRadius({ lat, lng }, 1.5));
     }
   } catch { /* 저장소를 못 쓰는 환경 — 지도 화면이 평소대로 받습니다 */ }
 }

@@ -10,6 +10,10 @@ import { supabase } from "@/lib/supabase";
 import { toHttps } from "@/lib/imageUrl";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
+import { ensureMapTiles, fetchCountBlocks, placeTiles, parkTiles, searchPlacesByName } from "@/lib/mapData";
+import { blocksForBounds, bubblesFromRows, COUNT_MIN_LEVEL, formatBubbleCount, type CountFilter } from "@/lib/tileCounts";
+import { countTilesForBounds, expandBounds, tileKey, tilesForBounds, tilesForRadius, type TileXY } from "@/lib/placeTiles";
+import { tileQuery } from "@/lib/mapTile";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import {
   calculateRecommendScore, calculateRecommendBreakdownV2, rerankForDiversity, categoryKey, recommendReasons, pickDistinctReasons,
@@ -57,11 +61,29 @@ const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 // 부족해서 그대로 두면 서로 겹치거나 화면 밖으로 밀려납니다.
 const NARROW_BREAKPOINT = "(max-width: 720px)";
 
-// 보고 있는 지역 데이터 추가 로드 기준: 지도 가운데가 내 위치에서 이만큼 멀어지면 그 지역 데이터를 받고,
-// 마지막으로 받은 지점에서 이만큼 더 움직이면 다시 받습니다. 각 요청은 0.1도 칸 가운데 기준 반경 30km를 받아
-// 오고(src/lib/mapTile.ts), 내 위치 기준으로는 약 23km가 보장되므로 그보다 안쪽에서 미리 받기 시작합니다.
-const VIEW_REGION_HOME_KM = 15;
-const VIEW_REGION_REFETCH_KM = 12;
+// ── 지도 데이터를 받는 범위(칸 단위 — src/lib/placeTiles.ts) ──
+// 지도에 보이는 범위(+여유)와 내 위치 주변의 칸만 받습니다. 예전에는 내 위치 반경 30km(서울은 1만 2천여 곳)를
+// 한 번에 받아 두고, 화면이 다시 그려질 때마다 그 전부를 훑었습니다.
+/**
+ * 이 확대 단계부터(넓게 볼 때)는 장소를 하나하나 그리지 않고 "구역별 장소 수" 동그라미로 보여 줍니다(src/lib/tileCounts.ts).
+ * 아래 CLUSTER_ZOOM_THRESHOLD(이름표 대신 묶음으로 바꾸는 단계)와 같은 값이어야 합니다.
+ */
+const SUMMARY_MIN_LEVEL = COUNT_MIN_LEVEL;
+/** 화면 범위에 더하는 여유(km) — 지도를 조금 끌어도 바로 보이게 */
+const DATA_VIEW_MARGIN_KM = 0.7;
+/** 내 위치 주변으로 항상 갖고 있는 반경(km) */
+const DATA_HOME_KM = 1.5;
+/** 화면 안에 장소가 하나도 없을 때 넓혀서 찾는 반경(km) — 목록의 "반경 10km 안" 대체 표시와 같은 값 */
+const DATA_FALLBACK_KM = 10;
+/**
+ * 화면에 걸치는 칸이 이보다 많으면(지도를 넓게 축소) 칸 대신 예전 방식(반경 30km 한 번)으로 받습니다.
+ * 칸이 12개를 넘으면(대략 가로세로 15km 이상) 요청 수십 개로 나눠 받는 것보다 한 번에 받는 편이 빠릅니다.
+ */
+const DATA_MAX_VIEW_TILES = 12;
+/** 넓은 범위(반경 30km)를 이미 받아 뒀다면, 기준점이 이만큼 움직이기 전에는 다시 받지 않습니다(가운데 기준 약 23km가 보장되므로). */
+const DATA_WIDE_REUSE_KM = 12;
+/** 갖고 있는 칸의 상한 — 넘으면 지금 필요 없는 칸을 먼 것부터 버립니다(오래 돌아다녀도 불어나지 않게). */
+const DATA_MAX_TILES = 90;
 
 // 휴대폰 바텀시트: 떠 있는 하단 탭바(아래 20px + 높이 약 62px)를 피하는 여백과, 가장 낮게
 // 내렸을 때 보이는 내용 높이(손잡이 + 제목 한 줄)
@@ -332,7 +354,6 @@ export default function KakaoMap() {
   const accuracyCircleRef = useRef<any>(null);
   // 아래 "지역 범위로 공공데이터 재요청" 효과가 이미 어느 좌표로 재요청했는지 기록해서,
   // GPS 좌표가 미세하게(수백m 이내) 흔들릴 때마다 매번 네트워크를 다시 타지 않도록 합니다.
-  const regionalFetchKeyRef = useRef<string | null>(null);
   // ⚠ 속도: 지도 그림(타일)이 화면에 처음 그려졌는지. 장소 데이터(서울은 1만 곳 이상)를 화면에 반영하는 계산이
   // 0.5초쯤 걸리는데, 데이터가 지도보다 먼저 도착하면 그 계산이 끝날 때까지 지도 자체가 뜨지 못했습니다.
   // 지도를 먼저 그리고 나서 장소를 올리도록, 데이터 반영 쪽이 이 값을 기다립니다(waitForMapPaint).
@@ -343,17 +364,14 @@ export default function KakaoMap() {
       await new Promise((resolve) => setTimeout(resolve, 40));
     }
   };
-  // 내 위치에서 멀리 떨어진 곳을 볼 때(지역 검색·지도 이동) 그 지역 데이터를 추가로 불러온 기준 좌표
-  const viewRegionFetchRef = useRef<{ lat: number; lng: number } | null>(null);
-  // 내 주변(홈) 데이터의 id — 보고 있는 지역 데이터를 바꿔 끼울 때 홈 데이터는 지우지 않기 위해 기억합니다.
-  const homePublicIdsRef = useRef<Set<any>>(new Set());
-  const homeParkIdsRef = useRef<Set<any>>(new Set());
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
   // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
   // 리스트 패널(nearbyPlaces)이 고정 반경 대신 "지금 화면에 보이는 영역"을 기준으로
   // 장소를 보여주는 데 씁니다.
   const [mapBounds, setMapBounds] = useState<{ swLat: number; swLng: number; neLat: number; neLng: number } | null>(null);
+  // 지도 확대 단계(카카오맵 level — 클수록 넓게 봄). 지도가 멈출 때마다 mapBounds와 함께 갱신됩니다.
+  const [mapLevel, setMapLevel] = useState<number | null>(null);
 
   // ── 검색: 입력값 / 디바운스값 분리 (새로고침해도 마지막 검색어 유지)
   // 검색어는 모듈 메모리(lastSearchQuery)에만 기억합니다 — 커뮤니티 등 다른 탭에 갔다 돌아오면
@@ -808,7 +826,9 @@ export default function KakaoMap() {
       setSession(session);
       await waitForMapPaint();
       if (cancelled) return;
-      setPlaces(placesData || []);
+      // ⚠ 공공데이터 장소(칸 단위)가 이보다 먼저 들어와 있을 수 있습니다(다른 탭에 갔다 돌아오면 이미 받아 둔 칸이 바로
+      // 반영됩니다). 통째로 바꾸면 그게 지워져 지도가 텅 비므로, 우리 DB 장소만 바꿔 끼웁니다.
+      setPlaces((prev) => [...(placesData || []), ...prev.filter((p) => p.source === "public-data")]);
       if (session?.user) await createUserProfile(session.user);
 
       // ⚠ 찜/좋아요 인기도 집계는 지도 첫 렌더를 막지 않도록 await하지 않고 따로 흘려보냅니다
@@ -855,54 +875,7 @@ export default function KakaoMap() {
         (window as any).Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
       }
 
-      // 느린 공공데이터 3종 + 공원(parks)은 서로 무관한 별개 소스라 순차 await 대신
-      // Promise.all로 동시에 요청합니다 — 둘 다 도착하는 데 걸리는 시간이 "가장 느린
-      // 쪽 하나" 수준으로 줄어듭니다(예전엔 공공데이터 3종을 다 기다린 뒤에야 공원 fetch를
-      // 시작해서 두 대기시간이 그대로 더해졌습니다). 둘 다 기존 DB places 위에 비동기로
-      // 덧붙이는 구조라 지도 첫 렌더(위 setPlaces)는 그대로 막지 않습니다.
-      //
-      // ⚠ 최적화(지역 필터링): 캐시된 위치(localStorage, 아래 다른 useEffect가 매번
-      // 최신 GPS로 갱신)가 있으면 그 좌표 반경으로만 서버에서 걸러진 데이터를
-      // 받습니다 — 전국 21,000여 건을 매번 받던 것을 사용자 주변 수십~수백 건으로
-      // 줄이는 핵심 지점입니다. 아직 위치를 모르는 첫 방문(캐시 없음)이면 인자
-      // 없이 호출해 예전과 동일하게 전국 데이터를 받습니다(하위 호환 폴백).
-      const cachedLat = parseFloat(localStorage.getItem("user_lat") || "");
-      const cachedLng = parseFloat(localStorage.getItem("user_lng") || "");
-      const geoOptions = !isNaN(cachedLat) && !isNaN(cachedLng) ? { lat: cachedLat, lng: cachedLng } : {};
-
-      // 이 첫 요청이 어느 위치 기준인지(아래 "내 위치 기준 재요청" 효과와 같은 형식의 표시). 저장된 위치가 없으면 null.
-      const initKey = geoOptions.lat != null && geoOptions.lng != null ? `${geoOptions.lat.toFixed(1)},${geoOptions.lng.toFixed(1)}` : null;
-      // 저장된 위치가 없는 첫 방문: 위치 권한을 바로 주면 곧 내 위치가 잡히므로 잠깐(최대 2초) 기다립니다.
-      // 그 사이 내 위치 기준 요청이 시작됐으면 여기서는 받지 않습니다 — 예전엔 이때 전국 데이터를, 그다음엔
-      // 기준점(서울) 데이터를 따로 한 번 더 받았습니다.
-      if (!initKey) {
-        for (let waited = 0; waited < 2000 && !regionalFetchKeyRef.current && !cancelled; waited += 100) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
-        if (cancelled || regionalFetchKeyRef.current) return;
-      }
-
-      const [publicDataPlaces, parkPlaces] = await Promise.all([
-        fetchPublicDataPlaces(geoOptions),
-        fetchParks(geoOptions),
-      ]);
-      await waitForMapPaint();
-      if (cancelled) return;
-      // ⚠ 받는 동안 내 위치가 다른 칸으로 확정됐으면(예: 저장된 위치는 대구인데 지금은 포항, 또는 기준점(서울)으로
-      // 받는 중에 내 위치가 잡힘) 이 결과로 덮어쓰지 않습니다 — 내 위치 기준 데이터가 지워져 지도가 비어 보입니다.
-      if (regionalFetchKeyRef.current && regionalFetchKeyRef.current !== initKey) return;
-      // ⚠ 중복 렌더 버그 수정: 캐시된 위치가 있으면 이 fetch도 이미 지역 범위(geoOptions)로
-      // 걸러진 데이터를 받는데, 아래 "지역 범위로 공공데이터 재요청" 효과가 userLocation이
-      // 설정되는 즉시(이 init()과 별개로, 더 일찍) 똑같은 지역 데이터를 따로 받아 먼저
-      // setPlaces로 반영해버릴 수 있습니다. 그 뒤에 여기서 filter 없이 그냥 append하면,
-      // 같은 장소가 두 번 들어가 React key 중복 경고(place-<id> 중복)가 났습니다. 그
-      // 효과와 동일하게 기존 공공데이터부터 걷어내고 넣어서, 어느 쪽이 나중에 끝나도
-      // 항상 "교체"가 되도록(추가가 아니라) 맞춥니다.
-      // 이 데이터도 "내 주변(홈)" 데이터로 기억합니다 — 먼 지역을 보다가 돌아와도 지워지지 않게.
-      homePublicIdsRef.current = new Set(publicDataPlaces.map((p: any) => p.id));
-      homeParkIdsRef.current = new Set(parkPlaces.map((p: any) => p.id));
-      setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...publicDataPlaces]);
-      setParks(parkPlaces);
+      // 공공데이터 장소·공원은 아래 "지도 데이터 받기" 효과가 칸 단위로 받습니다(지도에 보이는 범위만).
     };
     init();
     // ⚠ 예전엔 이 콜백이 비어 있어서(auth 이벤트를 구독만 하고 아무것도 안 함), 로그인
@@ -1049,73 +1022,6 @@ export default function KakaoMap() {
     return stopWatching;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ⚠ 최적화(공공데이터 지역 재요청): 위치를 전혀 모르는 첫 방문(캐시 없음) 순간에는
-  // 위 초기 데이터 로드 효과가 fetchPublicDataPlaces()/fetchParks()를 인자 없이 불러
-  // "전국 데이터"(문화시설 등 합쳐 2만 건 이상)를 그대로 받습니다 — 그래야 "결과 없음"
-  // 화면을 보여주지 않을 수 있기 때문입니다. 하지만 그 상태로 계속 있으면 리스트 패널이
-  // 수만 개 카드를 그리려 해서 화면이 멈춘 것처럼 느려집니다. userLocation이 실제로
-  // (캐시든 방금 받은 GPS든) 확정되는 즉시, 그 좌표 반경으로 다시 요청해서 공공데이터
-  // 부분만 "전국"에서 "내 주변"으로 축소 교체합니다. DB places(source 없음)는 그대로
-  // 두고 공공데이터(source==='public-data')만 걷어내고 새 결과로 바꿔치기합니다.
-  useEffect(() => {
-    if (!userLocation) return;
-    const key = `${userLocation.lat.toFixed(1)},${userLocation.lng.toFixed(1)}`;
-    if (regionalFetchKeyRef.current === key) return;
-    regionalFetchKeyRef.current = key;
-
-    let cancelled = false;
-    (async () => {
-      const [regionalPublicData, regionalParks] = await Promise.all([
-        fetchPublicDataPlaces({ lat: userLocation.lat, lng: userLocation.lng }),
-        fetchParks({ lat: userLocation.lat, lng: userLocation.lng }),
-      ]);
-      await waitForMapPaint();
-      if (cancelled) return;
-      homePublicIdsRef.current = new Set(regionalPublicData.map((p: any) => p.id));
-      homeParkIdsRef.current = new Set(regionalParks.map((p: any) => p.id));
-      viewRegionFetchRef.current = null;
-      setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...regionalPublicData]);
-      setParks(regionalParks);
-    })();
-    return () => { cancelled = true; };
-  }, [userLocation]);
-
-  // ── 보고 있는 지역의 장소 추가 로드 ──
-  // ⚠ 공공데이터·공원은 "내 위치 반경 40km"만 받아 둡니다(전국 3만 곳을 다 받으면 느려서). 그런데
-  // 지역 검색으로 다른 도시에 가거나 지도를 끌어 먼 곳을 보면 그 지역 데이터가 없어, 지도가 텅 비고
-  // "검색 결과가 없습니다"가 떴습니다. 지도 가운데가 내 위치에서 멀어지면(홈 반경 밖) 그 지역 데이터를
-  // 추가로 받아 합칩니다. 내 주변(홈) 데이터는 AI 코스·추천이 쓰므로 그대로 둡니다.
-  useEffect(() => {
-    if (!mapBounds) return;
-    const center = { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 };
-    const farFromHome = !userLocation || getDistance(userLocation.lat, userLocation.lng, center.lat, center.lng) > VIEW_REGION_HOME_KM;
-    if (!farFromHome) return;
-    const last = viewRegionFetchRef.current;
-    if (last && getDistance(last.lat, last.lng, center.lat, center.lng) < VIEW_REGION_REFETCH_KM) return;
-
-    let cancelled = false;
-    // 지도를 끄는 동안 연달아 요청하지 않도록 잠깐 기다렸다가 받습니다.
-    const timer = setTimeout(async () => {
-      viewRegionFetchRef.current = center;
-      const [viewPublicData, viewParks] = await Promise.all([
-        fetchPublicDataPlaces({ lat: center.lat, lng: center.lng }),
-        fetchParks({ lat: center.lat, lng: center.lng }),
-      ]);
-      if (cancelled) return;
-      const homeIds = homePublicIdsRef.current;
-      const homeParkIds = homeParkIdsRef.current;
-      setPlaces((prev) => [
-        ...prev.filter((p) => p.source !== "public-data" || homeIds.has(p.id)),
-        ...viewPublicData.filter((p: any) => !homeIds.has(p.id)),
-      ]);
-      setParks((prev) => [
-        ...prev.filter((p: any) => homeParkIds.has(p.id)),
-        ...viewParks.filter((p: any) => !homeParkIds.has(p.id)),
-      ]);
-    }, 400);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [mapBounds, userLocation]);
 
   // ── 현위치 파란 점 오버레이
   useEffect(() => {
@@ -1449,6 +1355,7 @@ export default function KakaoMap() {
     // 검색어를 "어디에서 · 무엇을"로 풀이한 경우에는 filteredPlaces가 이미 걸러져 있으므로 이름 통째 검색은 하지 않습니다.
     const q = intentActive ? "" : debouncedSearch.trim().toLowerCase();
     if (!q) return [];
+    // filteredPlaces에는 화면 주변의 칸과, 서버가 이름으로 찾아 준 장소(remoteMatches — 화면 밖 포함)가 들어 있습니다.
     return [...filteredPlaces]
       .filter((p) => p.name?.toLowerCase().includes(q))
       .sort((a, b) => {
@@ -1527,6 +1434,139 @@ export default function KakaoMap() {
 
   // 목록 내용이 바뀌면 처음 분량부터 다시 그립니다.
   useEffect(() => { setListLimit(LIST_PAGE); }, [displayedPlaces]);
+
+  // ══ 지도 데이터 받기(칸 단위) ══
+  // 무엇을 받을지(dataNeed)를 지금 화면 상태에서 정하고, 아래 효과가 그만큼만 받아 places/parks에 반영합니다.
+  //  - 평소: 지도에 보이는 범위(+여유) + 내 위치 주변의 칸.
+  //  - 화면 안에 장소가 하나도 없으면: 반경 10km의 칸(목록이 "10km 안" 장소를 대신 보여 주므로).
+  //  - 넓은 범위가 필요한 때(AI 코스·추천 패널을 열었을 때, 지도를 아주 넓게 축소했을 때): 예전 방식(반경 30km 한 번).
+  //    이때만 장소가 많아지고, 패널을 닫거나 다시 확대하면 칸 데이터만 남아 가벼워집니다.
+  const inViewEmpty = useMemo(() => {
+    if (!mapBounds) return false;
+    // 화면 범위의 칸을 아직 받는 중이면 "비었다"고 보지 않습니다(처음 열 때마다 반경 10km를 받게 됩니다).
+    if (!placeTiles.has(tilesForBounds(mapBounds))) return false;
+    return !filteredPlaces.some((place) => {
+      const lat = parseFloat(place.lat), lng = parseFloat(place.lng);
+      return lat >= mapBounds.swLat && lat <= mapBounds.neLat && lng >= mapBounds.swLng && lng <= mapBounds.neLng;
+    });
+  }, [filteredPlaces, mapBounds]);
+
+  // 넓게 보는 중인지 — 이때는 장소를 받지 않고 구역별 수만 동그라미로 보여 줍니다(아래 "구역별 장소 수 동그라미" 효과).
+  // 풀이한 검색("대구 카페" 등)은 조건에 맞는 장소를 실제로 골라야 해서 예전 방식(장소를 받아 묶음 마커)으로 둡니다.
+  const summaryView = mapLevel != null && mapLevel >= SUMMARY_MIN_LEVEL && !intentActive;
+
+  const dataNeed = useMemo(() => {
+    const tiles = new Map<string, TileXY>();
+    const add = (list: TileXY[]) => { for (const tile of list) tiles.set(tileKey(tile), tile); };
+    const viewCenter = mapBounds ? { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 } : null;
+    let wide: { lat: number; lng: number } | null = null;
+
+    if (mapBounds && !summaryView) {
+      const view = expandBounds(mapBounds, DATA_VIEW_MARGIN_KM);
+      if (countTilesForBounds(view) <= DATA_MAX_VIEW_TILES) add(tilesForBounds(view));
+      else wide = viewCenter;
+    }
+    if (userLocation) add(tilesForRadius(userLocation, DATA_HOME_KM));
+    // 코스는 내 위치 우선, 추천은 검색한 곳 우선(각 계산의 기준점과 같게)
+    if (showRoutePanel && (userLocation || searchCenter)) wide = userLocation || searchCenter;
+    else if (showRecommendPanel && (searchCenter || userLocation)) wide = searchCenter || userLocation;
+
+    const focus = searchCenter || userLocation || viewCenter;
+    if (!wide && !summaryView && inViewEmpty && focus) add(tilesForRadius(focus, DATA_FALLBACK_KM));
+
+    const list = [...tiles.values()];
+    const wideKey = wide ? tileQuery(wide.lat, wide.lng) : "";
+    return { tiles: list, wide, wideKey, focus, key: `${[...tiles.keys()].sort().join(",")}|${wideKey}` };
+  }, [mapBounds, userLocation, searchCenter, showRoutePanel, showRecommendPanel, inViewEmpty, summaryView]);
+
+  // 넓은 범위(반경 30km) 데이터 — 필요할 때만 들고 있습니다.
+  const wideDataRef = useRef<{ center: { lat: number; lng: number }; places: any[]; parks: ParkPlace[] } | null>(null);
+  const [wideReadyKey, setWideReadyKey] = useState("");
+  /** 넓은 범위 데이터를 받는 중인지 — 그동안 코스·추천은 "모으는 중"으로 보여 줍니다(일부 데이터로 만든 결과가 잠깐 나왔다 바뀌지 않게). */
+  const wideLoading = !!dataNeed.wide && wideReadyKey !== dataNeed.wideKey;
+  // 이름 검색으로 서버에서 찾아온 장소(화면 밖의 가게) — 눌러서 열 수 있도록 장소 목록에 함께 넣어 둡니다.
+  const [remoteMatches, setRemoteMatches] = useState<{ query: string; list: any[] }>({ query: "", list: [] });
+  const appliedDataRef = useRef<{ tilePlaces: any[] | null; tileParks: ParkPlace[] | null; wide: unknown; remote: unknown }>({ tilePlaces: null, tileParks: null, wide: null, remote: null });
+  const dataNeedRef = useRef(dataNeed);
+  useEffect(() => { dataNeedRef.current = dataNeed; }, [dataNeed]);
+
+  /** 받아 둔 것(칸 + 넓은 범위 + 이름 검색 결과)을 places/parks에 반영합니다. 바뀐 게 없으면 아무것도 하지 않습니다. */
+  const applyMapData = useCallback(() => {
+    const tilePlaces = placeTiles.all(), tileParks = parkTiles.all();
+    const wide = wideDataRef.current, remote = remoteMatches.list;
+    const last = appliedDataRef.current;
+    if (last.tilePlaces === tilePlaces && last.tileParks === tileParks && last.wide === wide && last.remote === remote) return;
+    appliedDataRef.current = { tilePlaces, tileParks, wide, remote };
+
+    let publicList = tilePlaces, parkList = tileParks;
+    if (wide || remote.length > 0) {
+      // 여러 묶음에 같은 장소가 있을 수 있어 id로 한 번만 담습니다.
+      const byId = new Map<any, any>();
+      for (const p of tilePlaces) byId.set(p.id, p);
+      for (const p of wide?.places ?? []) if (!byId.has(p.id)) byId.set(p.id, p);
+      for (const p of remote) if (!byId.has(p.id)) byId.set(p.id, p);
+      publicList = [...byId.values()];
+    }
+    if (wide) {
+      const byId = new Map<any, ParkPlace>();
+      for (const p of tileParks) byId.set(p.id, p);
+      for (const p of wide.parks) if (!byId.has(p.id)) byId.set(p.id, p);
+      parkList = [...byId.values()];
+    }
+    setPlaces((prev) => [...prev.filter((p) => p.source !== "public-data"), ...publicList]);
+    setParks(parkList);
+  }, [remoteMatches]);
+
+  const firstDataLoadRef = useRef(true);
+  useEffect(() => {
+    if (dataNeed.tiles.length === 0 && !dataNeed.wide) return;
+    let cancelled = false;
+    // 지도를 끄는 동안 연달아 요청하지 않도록 잠깐 기다립니다(처음 한 번은 바로).
+    // 넓은 범위(1만여 곳)를 새로 받아야 할 때는 더 오래 기다립니다 — 확대·축소를 이어서 하는 동안 단계마다 받지 않게.
+    const heldWide = wideDataRef.current;
+    const needsNewWide = !!dataNeed.wide && !(heldWide && getDistance(heldWide.center.lat, heldWide.center.lng, dataNeed.wide.lat, dataNeed.wide.lng) < DATA_WIDE_REUSE_KM);
+    const panelOpen = showRoutePanel || showRecommendPanel; // 패널을 열었을 때는 기다리지 않고 바로
+    const delay = firstDataLoadRef.current ? 0 : needsNewWide && !panelOpen ? 700 : 250;
+    firstDataLoadRef.current = false;
+    const timer = setTimeout(async () => {
+      const need = dataNeed;
+      const wideCenter = need.wide;
+      const held = wideDataRef.current;
+      // 이미 받아 둔 넓은 범위가 지금 필요한 곳을 덮고 있으면(기준점이 조금만 움직였으면) 그대로 씁니다 —
+      // 지도를 넓게 축소한 채 조금씩 움직일 때마다 1만여 곳을 다시 받지 않게.
+      const wideJob = !wideCenter ? Promise.resolve(null)
+        : held && getDistance(held.center.lat, held.center.lng, wideCenter.lat, wideCenter.lng) < DATA_WIDE_REUSE_KM ? Promise.resolve(held)
+        : Promise.all([fetchPublicDataPlaces(wideCenter), fetchParks(wideCenter)]).then(([wp, wk]) => ({ center: wideCenter, places: wp, parks: wk }));
+      const [, wide] = await Promise.all([ensureMapTiles(need.tiles), wideJob]);
+      await waitForMapPaint();
+      if (cancelled) return;
+      wideDataRef.current = wide;
+      // 칸이 너무 많이 쌓였으면 지금 필요 없는 칸을 먼 것부터 버립니다.
+      if (need.focus) { placeTiles.trim(need.tiles, need.focus, DATA_MAX_TILES); parkTiles.trim(need.tiles, need.focus, DATA_MAX_TILES); }
+      applyMapData();
+      setWideReadyKey(need.wideKey);
+    }, delay);
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataNeed.key]);
+
+  // 이름 검색 결과가 바뀌면 장소 목록에 반영합니다.
+  useEffect(() => { applyMapData(); }, [applyMapData]);
+
+  // ── 가게 이름으로 전국에서 찾기 ──
+  // 받아 둔 칸(화면 주변)에 없는 가게도 찾도록 서버에 묻습니다. 풀이한 검색("우리동네 카페" 등)은 화면 범위에서 찾으므로 묻지 않습니다.
+  useEffect(() => {
+    const query = debouncedSearch.trim();
+    if (query.length < 2 || searchIntent.structured) {
+      setRemoteMatches((prev) => (prev.list.length === 0 ? prev : { query: "", list: [] }));
+      return;
+    }
+    let cancelled = false;
+    const near = userLocation || dataNeedRef.current.focus;
+    searchPlacesByName(query, near).then((list) => { if (!cancelled) setRemoteMatches({ query, list }); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, searchIntent.structured]);
   // 목록 끝 표시가 화면에 들어오면 더 그립니다.
   useEffect(() => {
     const el = listMoreRef.current;
@@ -1676,7 +1716,7 @@ export default function KakaoMap() {
     // ⚠ 속도: 추천 목록은 추천 패널에서만 씁니다. 예전에는 패널을 열지 않아도 지도가 뜰 때, 그리고 장소·위치가 바뀔
     // 때마다 주변 1만여 곳의 점수(공원까지의 거리 포함)를 계산해서 화면이 떠 있는 채로 한동안 멈칫했습니다.
     // 패널을 열 때만 계산합니다.
-    if (!showRecommendPanel) return { list: [], ad: null };
+    if (!showRecommendPanel || wideLoading) return { list: [], ad: null };
     const center = searchCenter || userLocation;
 
     // ⚠ 성능 안전장치: center(내 위치/검색 중심)가 아직 전혀 없는 상태(위치 권한 대기 중인
@@ -1818,7 +1858,7 @@ export default function KakaoMap() {
     return { list, ad: adCandidate ? { place: adCandidate.place, score: adCandidate.score } : null };
   }, [
     filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap,
-    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf, showRecommendPanel,
+    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf, showRecommendPanel, wideLoading,
   ]);
   const recommendedPlaces = recommendation.list;
   const recommendedAd = recommendation.ad;
@@ -1871,7 +1911,8 @@ export default function KakaoMap() {
   // 안 만들어질 때가 많습니다), 그래도 부족하면 30km까지 한 번 더 넓혀서 재시도합니다.
   // 같은 동네 판단(테마별 도보 반경)과 관광 중심 필수 정거장은 buildRoute(routeRecommend.ts)가 합니다.
   const routeBuild = useMemo<{ route: RouteResult | null; exhausted: boolean }>(() => {
-    if (!showRoutePanel) return { route: null, exhausted: false };
+    // 주변(반경 30km) 장소를 다 받은 뒤에 만듭니다 — 일부만 받은 채 만들면 코스가 잠깐 나왔다가 바뀝니다.
+    if (!showRoutePanel || wideLoading) return { route: null, exhausted: false };
     // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
     // 우선순위). searchCenter는 위치 권한이 없을 때만 대체로 씁니다.
     const center = userLocation || searchCenter;
@@ -1960,7 +2001,7 @@ export default function KakaoMap() {
       exhausted: true,
     };
   }, [
-    showRoutePanel, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeExcludedIds,
+    showRoutePanel, wideLoading, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeExcludedIds,
     preferenceProfile, placeSignals, affinityOf, routeIncludeVet, routeIncludePharmacy, recentViewCounts, appliedPinnedIds,
   ]);
   const currentRoute = routeBuild.route;
@@ -2155,7 +2196,7 @@ const courseMeta = (route: RouteResult) => ({
   // "일정한 km 기준보다는 줌 레벨/화면상 거리 기준이 일반적"). 카카오맵 레벨 1~5(대략
   // 시내 골목~동 단위)까지는 이름표 pill을, 레벨 6 이상(더 넓게 축소)부터는 클러스터
   // 숫자 마커를 씁니다.
-  const CLUSTER_ZOOM_THRESHOLD = 6;
+  const CLUSTER_ZOOM_THRESHOLD = SUMMARY_MIN_LEVEL;
   // MarkerClusterer 자체의 minLevel(카카오 SDK 옵션) — 위 기준으로 이미 "클러스터 모드"에
   // 들어가기로 정한 뒤에도 이 값이 그보다 크면 정작 클러스터러가 "아직 안 뭉쳐도 됨"이라
   // 판단해 낱개 마커를 그대로 그려버립니다. 클러스터러에 마커를 넘기는 시점엔 항상 바로
@@ -2329,34 +2370,50 @@ const courseMeta = (route: RouteResult) => ({
 
     const updateByZoom = () => {
       if (map.getLevel() >= CLUSTER_ZOOM_THRESHOLD) {
+        // ⚠ 속도: 넓게 볼 때는 장소를 하나하나 마커로 만들지 않습니다 — 화면 안의 1만여 곳을 마커로 만들어 묶는 데
+        // PC에서도 수십 초씩 화면이 멈췄습니다. 대신 "구역별 장소 수 동그라미" 효과가 숫자만 그립니다.
+        // 풀이한 검색 중에는 걸러진 장소를 보여 줘야 하므로 예전처럼 묶음 마커를 씁니다.
+        if (!intentActive) { clearDetailMarkers(); clearClusterMarkers(); return; }
         renderClusterMarkers();
       } else {
         renderDetailMarkers();
       }
     };
 
-    // 지도를 드래그하거나 확대/축소해서 화면이 다시 안정되면(idle) 리스트 패널이
-    // 참고할 현재 화면 경계도 함께 갱신합니다 — 리스트가 "지금 보고 있는 지도 영역"을
-    // 따라가도록 하기 위함입니다.
+    updateByZoom();
+
+    // ⚠ 마커를 지우고 새로 그리는 일은 지도의 "멈춤(idle)" 처리가 끝난 뒤로 미룹니다(setTimeout 0).
+    // 마커(오버레이)를 붙였다 떼면 카카오 지도 내부의 idle 처리 목록이 바뀌는데, 그게 idle을 처리하는 도중에 일어나면
+    // 뒤 순서의 처리가 건너뛰어졌습니다 — 지도를 끌어도 목록이 그대로이거나(화면 범위 갱신이 빠짐) 숫자 동그라미가
+    // 안 바뀌는 원인이었습니다. (화면 범위 갱신은 아래 별도 효과가 맡습니다.)
+    let alive = true;
+    const onIdle = () => { setTimeout(() => { if (alive) updateByZoom(); }, 0); };
+    window.kakao.maps.event.addListener(map, "idle", onIdle);
+    return () => {
+      alive = false;
+      window.kakao.maps.event.removeListener(map, "idle", onIdle);
+      clearDetailMarkers();
+      clearClusterMarkers();
+    };
+  }, [filteredPlaces, mapReady, hideMarkersForCourse, courseStopKey, places, intentActive]);
+
+  // ── 지도가 멈출 때마다 화면 범위·확대 단계를 기억합니다(목록, 데이터 받기, 숫자 동그라미가 모두 이 값을 따릅니다) ──
+  // 지도가 준비될 때 한 번만 붙입니다. 예전에는 위 마커 효과 안에서 마커 그리기 다음 순서로 붙여서, 마커가 다시
+  // 그려지는 순간에는 이 갱신이 건너뛰어졌습니다(지도를 끌었는데 목록이 그대로인 문제).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
     const updateBounds = () => {
       const bounds = map.getBounds();
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
       setMapBounds({ swLat: sw.getLat(), swLng: sw.getLng(), neLat: ne.getLat(), neLng: ne.getLng() });
+      setMapLevel(map.getLevel());
     };
-
-    updateByZoom();
     updateBounds();
-
-    window.kakao.maps.event.addListener(map, "idle", updateByZoom);
     window.kakao.maps.event.addListener(map, "idle", updateBounds);
-    return () => {
-      window.kakao.maps.event.removeListener(map, "idle", updateByZoom);
-      window.kakao.maps.event.removeListener(map, "idle", updateBounds);
-      clearDetailMarkers();
-      clearClusterMarkers();
-    };
-  }, [filteredPlaces, mapReady, hideMarkersForCourse, courseStopKey, places]);
+    return () => window.kakao.maps.event.removeListener(map, "idle", updateBounds);
+  }, [mapReady]);
 
   // ── 공원 마커 (places와 완전히 별도 레이어) ──
   // ⚠ 공원은 "장소"가 아니라 리뷰/신고/상세페이지 구조가 없어서, 클릭해도 상세 모달을
@@ -2507,6 +2564,8 @@ const courseMeta = (route: RouteResult) => ({
 
     const updateParksByZoom = () => {
       if (map.getLevel() >= CLUSTER_ZOOM_THRESHOLD) {
+        // 넓게 볼 때는 공원도 구역별 수 동그라미로 보여 줍니다(장소 마커와 같은 이유).
+        if (!intentActive) { clearParkDetailMarkers(); clearParkClusterMarkers(); return; }
         renderParkClusterMarkers();
       } else {
         renderParkDetailMarkers();
@@ -2514,13 +2573,79 @@ const courseMeta = (route: RouteResult) => ({
     };
 
     updateParksByZoom();
-    window.kakao.maps.event.addListener(map, "idle", updateParksByZoom);
+    // 장소 마커와 같은 이유로, 다시 그리기는 지도의 idle 처리가 끝난 뒤에 합니다.
+    let alive = true;
+    const onIdle = () => { setTimeout(() => { if (alive) updateParksByZoom(); }, 0); };
+    window.kakao.maps.event.addListener(map, "idle", onIdle);
     return () => {
-      window.kakao.maps.event.removeListener(map, "idle", updateParksByZoom);
+      alive = false;
+      window.kakao.maps.event.removeListener(map, "idle", onIdle);
       clearParkDetailMarkers();
       clearParkClusterMarkers();
     };
-  }, [parks, mapParks, mapReady, parksVisible, hideMarkersForCourse, courseStopKey]);
+  }, [parks, mapParks, mapReady, parksVisible, hideMarkersForCourse, courseStopKey, intentActive]);
+
+  // ══ 구역별 장소 수 동그라미(넓게 볼 때) ══
+  // 서버가 확대 단계에 맞는 크기의 구역으로 미리 세어 둔 "구역별 장소 수"를, 화면에 걸치는 묶음만큼(보통 1~4건) 받아
+  // 동그라미로 그립니다. 그리는 것은 동그라미 수십 개뿐이라 장소가 몇만 곳이어도 걸리는 시간이 같습니다.
+  // 동그라미를 누르면 그 자리로 확대합니다. 지도 위쪽 버튼(실내·야외·동물병원 등)과 공원 버튼도 숫자에 반영됩니다.
+  // 우리 DB에 직접 등록된 장소는 서버 집계에 없어 따로 더합니다.
+  const ownPlacePoints = useMemo(
+    () => baseFilteredPlaces.filter((p) => p.source !== "public-data").map((p) => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lng) })),
+    [baseFilteredPlaces]
+  );
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
+    const map = mapRef.current;
+    let overlays: any[] = [];
+    let run = 0;
+    const clear = () => { overlays.forEach((o) => o.setMap(null)); overlays = []; };
+    (window as any).ggkZoomInAt = (lat: number, lng: number) => {
+      const level = map.getLevel();
+      // 구 단위쯤이면 이름표가 보이는 단계로, 더 넓으면 두 단계씩 확대합니다.
+      jumpMapTo(map, new window.kakao.maps.LatLng(lat, lng), level <= SUMMARY_MIN_LEVEL + 1 ? SUMMARY_MIN_LEVEL - 1 : level - 2);
+    };
+    const bubble = (lat: number, lng: number, count: number, kind: "place" | "park") => {
+      const size = count < 100 ? 38 : count < 1000 ? 46 : 56;
+      const color = kind === "place"
+        ? (count < 100 ? "rgba(76,110,245,0.88)" : count < 1000 ? "rgba(59,90,220,0.9)" : "rgba(37,70,190,0.92)")
+        : "rgba(76,140,74,0.88)";
+      const overlay = new window.kakao.maps.CustomOverlay({
+        position: new window.kakao.maps.LatLng(lat, lng),
+        content: `<div data-count-bubble="${kind}" onclick="window.ggkZoomInAt(${lat},${lng})" style="width:${kind === "place" ? size : size - 10}px;height:${kind === "place" ? size : size - 10}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${count >= 1000 ? 13 : 12}px;font-weight:700;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.22);border:2px solid rgba(255,255,255,0.85);cursor:pointer;user-select:none;">${formatBubbleCount(count)}</div>`,
+        yAnchor: 0.5, xAnchor: 0.5, zIndex: kind === "place" ? 4 : 3,
+      });
+      overlay.setMap(map);
+      overlays.push(overlay);
+    };
+    let stopped = false;
+    const render = async () => {
+      if (stopped) return;
+      const mine = ++run;
+      const level = map.getLevel();
+      if (hideMarkersForCourse || intentActive || level < SUMMARY_MIN_LEVEL) { clear(); return; }
+      const b = map.getBounds(), sw = b.getSouthWest(), ne = b.getNorthEast();
+      const view = { swLat: sw.getLat(), swLng: sw.getLng(), neLat: ne.getLat(), neLng: ne.getLng() };
+      const rows = await fetchCountBlocks(level, blocksForBounds(view, level));
+      if (mine !== run) return; // 그 사이 지도가 또 움직였으면 최신 것만 그립니다.
+      const bubbles = bubblesFromRows(rows, view, level, selectedPetZone as CountFilter, parksVisible, ownPlacePoints);
+      clear();
+      for (const item of bubbles) {
+        if (item.count > 0) bubble(item.lat, item.lng, item.count, "place");
+        if (item.parkCount > 0) bubble(item.parkLat, item.parkLng, item.parkCount, "park");
+      }
+    };
+    render();
+    // 다시 그리기는 지도의 idle 처리가 끝난 뒤에 합니다(위 마커 효과의 설명 참고).
+    const onIdle = () => { setTimeout(render, 0); };
+    window.kakao.maps.event.addListener(map, "idle", onIdle);
+    return () => {
+      stopped = true;
+      run++;
+      window.kakao.maps.event.removeListener(map, "idle", onIdle);
+      clear();
+    };
+  }, [mapReady, intentActive, hideMarkersForCourse, selectedPetZone, parksVisible, ownPlacePoints]);
 
   // ── 코스 전체가 보이도록 지도 맞추기 ──
   // 코스가 패널 뒤에 숨지 않게, 패널이 가리는 쪽만큼 여백을 더 줘서 줌을 조절합니다.
@@ -2962,7 +3087,7 @@ const courseMeta = (route: RouteResult) => ({
       {/* ⚠ height: 100vh를 주면 휴대폰에서 주소창 높이만큼 화면보다 길어져, 지도 아래쪽에 붙은
           내 위치·공유 버튼이 바텀시트 뒤로 숨었습니다. inset:0만으로 실제 보이는 화면에 맞춥니다. */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
-        <div id="map" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+        <div id="map" data-level={mapLevel ?? undefined} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
 
         {/* 위치 확인 중 오버레이 — 캐시된 위치가 없는 첫 방문자만 잠깐 뜹니다.
             이게 없으면 GPS가 확인되기 전 임시로 그려진(서울 기준) 화면을 보다가
@@ -3908,7 +4033,12 @@ const courseMeta = (route: RouteResult) => ({
             scrollbarWidth: "thin",
           }}
         >
-          {displayedPlaces.length === 0 && (
+          {summaryView && (
+            <div data-summary-hint style={{ margin: "2px 2px 8px", padding: "8px 10px", borderRadius: 10, background: "#EEF3E8", color: "#48603A", fontSize: 11, fontWeight: 600, lineHeight: 1.5 }}>
+              넓게 보는 중이에요. 지도의 숫자를 누르거나 확대하면 그 지역의 장소가 모두 나와요.
+            </div>
+          )}
+          {displayedPlaces.length === 0 && !summaryView && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
               color: "#bbb", fontSize: "11px", lineHeight: 1.8,
@@ -4304,7 +4434,7 @@ const courseMeta = (route: RouteResult) => ({
           >
             {recommendedPlaces.length === 0 && !recommendedAd && (
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
-                추천할 장소가 없습니다
+                {wideLoading ? <LogoLoader label="주변 장소를 모으는 중…" /> : "추천할 장소가 없습니다"}
               </div>
             )}
             {/* 광고 슬롯 — 프리미엄 업장은 추천 순위에 섞지 않고 여기 한 칸에만, "광고"로
@@ -4712,7 +4842,9 @@ const courseMeta = (route: RouteResult) => ({
           >
             {!displayRoute && (
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
-                {!(userLocation || searchCenter)
+                {wideLoading
+                  ? <LogoLoader label="주변 장소를 모으는 중…" />
+                  : !(userLocation || searchCenter)
                   ? "위치 정보를 확인하는 중입니다"
                   : routeTheme === "attraction"
                     ? "근처 5km 안에 반려동물과 갈 수 있는 관광지가 없어 관광 코스를 만들 수 없어요"
