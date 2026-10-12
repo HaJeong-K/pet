@@ -39,7 +39,40 @@ const VARIANT_LABEL: Record<string, string> = {
   v1: "v1 · 기존 규칙",
   v2: "v2 · 신규 추천",
   unknown: "그룹 미기록",
+  all: "",
 };
+
+const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
+
+/**
+ * 그룹별 집계를 하나로 합칩니다.
+ * 지금은 모든 방문자가 같은 추천(v2)을 쓰므로 그룹을 나눠 볼 이유가 없습니다 — "그룹 미기록"(그룹 표시 없이 남은 기록)과
+ * "v2"가 따로 보여 헷갈리기만 했습니다. 기존 규칙(v1)과 비교 실험을 켰을 때만 그룹별로 나눠 보여 줍니다.
+ */
+function mergeVariants(rows: VariantMetrics[]): VariantMetrics {
+  const sum = (pick: (r: VariantMetrics) => number) => rows.reduce((s, r) => s + pick(r), 0);
+  const impressions = sum((r) => r.rec.impressions), clicks = sum((r) => r.rec.clicks);
+  const adImpressions = sum((r) => r.rec.adImpressions), adClicks = sum((r) => r.rec.adClicks);
+  const bookmarkConversions = sum((r) => r.rec.bookmarkConversions);
+  const positions = new Map<number, number>();
+  for (const r of rows) for (const p of r.rec.positionClicks) positions.set(p.pos, (positions.get(p.pos) || 0) + p.clicks);
+  const courseImpressions = sum((r) => r.course.impressions), regenerates = sum((r) => r.course.regenerates), starts = sum((r) => r.course.starts);
+  return {
+    variant: "all",
+    rec: {
+      impressions, users: sum((r) => r.rec.users), clicks, ctr: pct(clicks, impressions),
+      adImpressions, adClicks, adCtr: pct(adClicks, adImpressions),
+      bookmarkConversions, bookmarkConversionRate: pct(bookmarkConversions, clicks),
+      positionClicks: [...positions.entries()].sort((a, b) => a[0] - b[0]).map(([pos, c]) => ({ pos, clicks: c })),
+    },
+    course: {
+      impressions: courseImpressions, users: sum((r) => r.course.users), regenerates, regenerateRate: pct(regenerates, courseImpressions),
+      stopClicks: sum((r) => r.course.stopClicks), starts, startRate: pct(starts, courseImpressions),
+      // 그룹별 비율을 코스 노출 수로 가중 평균
+      tmapShare: courseImpressions > 0 ? Math.round(sum((r) => r.course.tmapShare * r.course.impressions) / courseImpressions * 10) / 10 : 0,
+    },
+  };
+}
 
 const cardStyle: React.CSSProperties = {
   background: "white",
@@ -97,7 +130,10 @@ export default function RecommendMetricsSection() {
           setRows(null);
           return;
         }
-        setRows(json.byVariant);
+        // 기존 규칙(v1) 기록이 있을 때만(비교 실험 중) 그룹별로, 아니면 하나로 합쳐 보여 줍니다.
+        const list: VariantMetrics[] = json.byVariant || [];
+        const comparing = list.some((r) => r.variant === "v1" && (r.rec.impressions > 0 || r.course.impressions > 0));
+        setRows(comparing || list.length <= 1 ? list : [mergeVariants(list)]);
       } catch {
         if (!cancelled) setMessage("추천 성과를 불러오지 못했습니다.");
       } finally {
@@ -113,7 +149,7 @@ export default function RecommendMetricsSection() {
     <div style={{ marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 }}>
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
-          추천 성과 (A/B 그룹별)
+          추천 성과{rows && rows.length > 1 ? " (비교 실험 그룹별)" : ""}
         </div>
         <select
           value={days}
@@ -138,9 +174,11 @@ export default function RecommendMetricsSection() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 330px), 1fr))", gap: 16 }}>
           {rows.map((r) => (
             <div key={r.variant} style={cardStyle}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#48603A", marginBottom: 12 }}>
-                {VARIANT_LABEL[r.variant] ?? r.variant}
-              </div>
+              {rows.length > 1 && (
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#48603A", marginBottom: 12 }}>
+                  {VARIANT_LABEL[r.variant] ?? r.variant}
+                </div>
+              )}
 
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 8 }}>
                 <Sparkles size={13} color="#5C7A4A" /> 추천 장소

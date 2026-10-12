@@ -48,6 +48,9 @@ export default function AdminQuality() {
   useEffect(() => { load(); }, []);
 
   const issues = (report?.issues || []).filter((i) => filter === "all" || i.kind === filter);
+  // 장소별 문제 건수(점검한 장소 목록에서 "정상 / 문제 n건"으로 보여 줍니다)
+  const issueCountByPlace = new Map<number, number>();
+  for (const i of report?.issues || []) issueCountByPlace.set(i.placeId, (issueCountByPlace.get(i.placeId) || 0) + 1);
 
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
@@ -100,6 +103,48 @@ export default function AdminQuality() {
                 <span style={{ marginLeft: "auto", fontSize: 11, color: "#aaa", flexShrink: 0 }}>#{i.placeId}</span>
               </a>
             ))}
+          </div>
+        )}
+
+        {/* 점검한 장소 내역 — 무엇을 점검했는지 바로 볼 수 있게 합니다. */}
+        {report && !loading && (
+          <div style={{ marginTop: 22 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#222", marginBottom: 4 }}>점검한 장소 {report.placesChecked}곳</div>
+            <div style={{ fontSize: 11.5, color: "#888", lineHeight: 1.6, marginBottom: 10, wordBreak: "keep-all" }}>
+              직접 등록했거나 제보로 들어온 장소만 점검해요. 지도에 보이는 공공데이터 장소(관광공사·식품안전나라 등)는 원본 기관 데이터라 여기서 고칠 수 없어 대상에서 빠져요.
+            </div>
+            {!report.checkedPlaces ? (
+              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#888" }}>
+                이 점검 기록에는 장소 내역이 없어요. &quot;지금 점검&quot;을 한 번 누르면 내역이 보여요.
+              </div>
+            ) : report.checkedPlaces.length === 0 ? (
+              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#888" }}>아직 직접 등록·제보된 장소가 없어요.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {report.checkedPlaces.map((p) => {
+                  const bad = issueCountByPlace.get(p.id) || 0;
+                  return (
+                    <a key={p.id} href={`/place/${p.id}`} target="_blank" rel="noopener noreferrer" style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "white",
+                      border: "1px solid #eee", textDecoration: "none", color: "inherit",
+                    }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, flexShrink: 0, background: bad ? "#fee2e2" : "#EEF3E8", color: bad ? "#b91c1c" : "#48603A" }}>
+                        {bad ? `문제 ${bad}건` : "정상"}
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                        <div style={{ fontSize: 11.5, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.address || "주소 없음"}</div>
+                      </div>
+                      <span style={{ fontSize: 11.5, color: "#666", flexShrink: 0 }}>사진 {p.photos}장</span>
+                      <span style={{ fontSize: 11, color: "#aaa", flexShrink: 0 }}>#{p.id}</span>
+                    </a>
+                  );
+                })}
+                {report.placesChecked > report.checkedPlaces.length && (
+                  <div style={{ fontSize: 11.5, color: "#888", textAlign: "center", padding: 6 }}>처음 {report.checkedPlaces.length}곳만 보여요.</div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

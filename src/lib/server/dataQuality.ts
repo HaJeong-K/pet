@@ -17,6 +17,7 @@ const MAX_IMAGE_CHECKS = 400;
 const IMAGE_TIMEOUT_MS = 5000;
 const IMAGE_CONCURRENCY = 8;
 const DEFAULT_IMAGE = "/images/default-place.png";
+const CHECKED_LIST_MAX = 500;
 
 export type QualityIssue = {
   kind: "coords" | "duplicate" | "broken_image" | "missing_info";
@@ -25,12 +26,17 @@ export type QualityIssue = {
   detail: string;
 };
 
+/** 점검한 장소 한 곳(관리자 화면의 "점검한 장소" 목록용) */
+export type CheckedPlace = { id: number; name: string; address: string; photos: number };
+
 export type QualityReport = {
   checkedAt: string;
   placesChecked: number;
   imagesChecked: number;
   counts: Record<QualityIssue["kind"], number>;
   issues: QualityIssue[];
+  /** 점검한 장소 목록(최대 CHECKED_LIST_MAX곳). 예전 점검 기록에는 없습니다. */
+  checkedPlaces?: CheckedPlace[];
 };
 
 function admin() {
@@ -149,6 +155,12 @@ export async function runDataQualityCheck(): Promise<QualityReport> {
     imagesChecked: targets.length,
     counts,
     issues,
+    checkedPlaces: places.slice(0, CHECKED_LIST_MAX).map((p) => ({
+      id: p.id,
+      name: p.name || `장소 ${p.id}`,
+      address: String(p.address || ""),
+      photos: targets.filter((t) => t.placeId === p.id).length,
+    })),
   };
 
   await client.storage.createBucket(BUCKET, { public: false }).catch(() => {});
