@@ -132,6 +132,7 @@ function FieldRow({
 /* ══════════════════════════════════════════
    메인 컴포넌트
 ══════════════════════════════════════════ */
+import { AdminPager, BulkBar, SelectBox, usePaged, useSelection, type BulkAction } from "@/components/admin/AdminListTools";
 export default function AdminProposalsPage() {
   const [proposals,     setProposals]     = useState<any[]>([]);
   const [loading,       setLoading]       = useState(false);
@@ -312,6 +313,32 @@ export default function AdminProposalsPage() {
     activeFilter === "on_hold"  ? onHoldList   :
     activeFilter === "deleted"  ? deletedList  : approvedList;
 
+  // 한 쪽에 보여 줄 양을 나누고(탭을 바꾸면 첫 쪽으로), 여러 건을 한꺼번에 처리할 수 있게 합니다.
+  // 승인은 내용·좌표를 한 건씩 확인해야 해서 일괄 처리에 넣지 않았습니다. 삭제는 '삭제됨' 탭에 보관되어 되살릴 수 있습니다.
+  const pager = usePaged(displayList, activeFilter);
+  const selection = useSelection<number>(pager.items.map((p) => p.id));
+  const setStatus = async (id: number, patch: { status: string; is_resolved?: boolean }) => {
+    const { error } = await supabase.from("proposals").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+    setProposals((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+  const toTrash: BulkAction<number> = { label: "삭제", danger: true, run: (id) => setStatus(id, { status: "deleted", is_resolved: true }), confirmText: (n) => `고른 ${n}건을 삭제할까요?\n'삭제됨' 탭에 보관되고, 거기서 되살릴 수 있어요.` };
+  const bulkActions: BulkAction<number>[] =
+    activeFilter === "pending" ? [{ label: "보류", run: (id) => setStatus(id, { status: "on_hold" }) }, toTrash] :
+    activeFilter === "on_hold" ? [toTrash] :
+    activeFilter === "deleted" ? [
+      { label: "되살리기", run: (id) => setStatus(id, { status: "pending", is_resolved: false }) },
+      {
+        label: "완전 삭제", danger: true,
+        confirmText: (n) => `고른 ${n}건을 완전히 삭제할까요?\n되돌릴 수 없어요.`,
+        run: async (id) => {
+          const { error } = await supabase.from("proposals").delete().eq("id", id);
+          if (error) throw new Error(error.message);
+          setProposals((prev) => prev.filter((p) => p.id !== id));
+        },
+      },
+    ] : [];
+
   return (
     <>
       <style>{STYLES}</style>
@@ -376,7 +403,9 @@ export default function AdminProposalsPage() {
                 </div>
               </div>
             ) : (
-              displayList.map((tip) => {
+              <>
+              <BulkBar selection={selection} actions={bulkActions} />
+              {pager.items.map((tip) => {
                 const reporter = getReporterDisplay(tip);
                 const isOnHold = tip.status === "on_hold";
 
@@ -389,6 +418,12 @@ export default function AdminProposalsPage() {
                     }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
                   }}>
+                    {/* 여러 건 한꺼번에 처리할 때 고르는 칸(카드를 눌러 이동하는 동작과 겹치지 않게 따로 둠) */}
+                    {bulkActions.length > 0 && (
+                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#888", cursor:"default" }}>
+                        <SelectBox selection={selection} id={tip.id} /> 선택
+                      </div>
+                    )}
                     {/* 카드 헤더 */}
                     <div style={{
                       padding:"11px 16px",
@@ -696,7 +731,9 @@ export default function AdminProposalsPage() {
                     </div>
                   </div>
                 );
-              })
+              })}
+              <AdminPager pager={pager} />
+              </>
             )}
           </div>
         </div>

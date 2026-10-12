@@ -33,6 +33,7 @@ const formatDate = (s: string) => {
 
 type ActiveFilter = "active" | "pending" | "approved" | "rejected";
 
+import { AdminPager, usePaged } from "@/components/admin/AdminListTools";
 export default function AdminPremiumPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [placeNames, setPlaceNames] = useState<Record<number, string>>({});
@@ -102,6 +103,8 @@ export default function AdminPremiumPage() {
     activeFilter === "pending"  ? pendingList  :
     activeFilter === "approved" ? approvedList : rejectedList;
 
+  const pager = usePaged(displayList, activeFilter);
+
   return (
     <>
       <style>{STYLES}</style>
@@ -167,7 +170,7 @@ export default function AdminPremiumPage() {
                 </div>
               </div>
             ) : (
-              displayList.map((req) => (
+              <>{pager.items.map((req) => (
                 <div key={req.id} className="premium-card" style={{
                   background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
                   border:`1.5px solid ${req.status === "pending" ? "#f3d9a4" : req.status === "approved" ? "#bbf7d0" : "#fecaca"}`,
@@ -269,7 +272,7 @@ export default function AdminPremiumPage() {
                     )}
                   </div>
                 </div>
-              ))
+              ))}<AdminPager pager={pager} /></>
             )}
           </div>
         </div>

@@ -26,8 +26,9 @@ const all = files(SRC).map((path) => ({ path: rel(path), text: readFileSync(path
 const PAGES_UNDER_TABBAR = [
   "app/admin/page.tsx", "app/admin/reports/page.tsx", "app/admin/tips/page.tsx", "app/admin/review/page.tsx",
   "app/admin/owners/page.tsx", "app/admin/premium/page.tsx", "app/admin/analytics/page.tsx", "app/admin/kpi/page.tsx",
-  "app/admin/quality/page.tsx", "app/admin/errors/page.tsx", "app/admin/members/page.tsx",
+  "app/admin/quality/page.tsx", "app/admin/errors/page.tsx", "app/admin/members/page.tsx", "app/admin/support/page.tsx",
   "app/owner/page.tsx", "app/shelter-notices/ShelterNoticesClient.tsx",
+  "app/shelter-notices/support/page.tsx", "app/shelter-notices/support/[id]/page.tsx",
 ];
 
 describe("하단 탭바 가림 방지", () => {

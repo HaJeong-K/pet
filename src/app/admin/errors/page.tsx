@@ -33,6 +33,7 @@ interface ClientError {
   created_at: string;
 }
 
+import { AdminPager, BulkBar, SelectBox, usePaged, useSelection } from "@/components/admin/AdminListTools";
 export default function AdminErrorsPage() {
   const [errors, setErrors] = useState<ClientError[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +67,9 @@ export default function AdminErrorsPage() {
     setErrors((prev) => prev.filter((e) => e.id !== id));
   };
 
+  const pager = usePaged(errors);
+  const selection = useSelection(pager.items.map((e) => e.id));
+
   return (
     <div className="ggk-body" style={{ minHeight: "100dvh", background: "#F7F3E8" }}>
       <AdminNav active="errors" onRefresh={fetchErrors} />
@@ -93,7 +97,8 @@ export default function AdminErrorsPage() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {errors.map((e) => (
+            <BulkBar selection={selection} actions={[{ label: "삭제", danger: true, run: handleDelete }]} />
+            {pager.items.map((e) => (
               <div
                 key={e.id}
                 style={{
@@ -102,6 +107,7 @@ export default function AdminErrorsPage() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                  <div style={{ paddingTop: 2 }}><SelectBox selection={selection} id={e.id} /></div>
                   <div style={{ minWidth: 0, flex: 1, cursor: "pointer" }} onClick={() => setExpandedId(expandedId === e.id ? null : e.id)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#fee2e2", color: "#dc2626" }}>
@@ -132,6 +138,7 @@ export default function AdminErrorsPage() {
                 </div>
               </div>
             ))}
+            <AdminPager pager={pager} />
           </div>
         )}
       </div>

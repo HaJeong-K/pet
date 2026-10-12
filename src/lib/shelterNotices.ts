@@ -56,6 +56,7 @@ async function getSessionCookie(): Promise<string> {
 }
 
 // animal.go.kr 검색조건의 시도 코드 매핑(짧은 이름 기준). 2026년 기준 전남·광주는 통합 코드 사용.
+// 코드는 공고 API의 시도 조회(sido_v2) 결과와 맞춥니다(2026-10 확인 — 강원·전북은 특별자치도 코드로 바뀜).
 export const SIDO_CODE_MAP: Record<string, string> = {
   "서울": "6110000",
   "부산": "6260000",
@@ -65,16 +66,18 @@ export const SIDO_CODE_MAP: Record<string, string> = {
   "대전": "6300000",
   "울산": "6310000",
   "경기": "6410000",
-  "강원": "6420000",
+  "강원": "6530000",
   "충북": "6430000",
   "충남": "6440000",
-  "전북": "6450000",
+  "전북": "6540000",
   "경북": "6470000",
   "경남": "6480000",
   "제주": "6500000",
-  "전남": "6130000",
-  "광주": "6130000",
+  "전남광주": "6130000",
 };
+
+/** 화면의 지역 선택에 쓰는 시·도 목록 — 지금 행정구역 그대로, 가나다순(게시판·보호소 화면과 같은 분류) */
+export const SIDO_LIST = Object.keys(SIDO_CODE_MAP).sort((a, b) => a.localeCompare(b, "ko"));
 
 // 카카오 coord2regioncode의 region_1depth_name은 "부산광역시", "경상남도", "제주특별자치도"처럼
 // 정식 전체 명칭을 내려줍니다(짧은 이름이 아닙니다 — 예전에 이 파일 주석이 잘못 적혀 있었고,
@@ -100,8 +103,12 @@ const REGION_FULLNAME_TO_SHORT: Record<string, string> = {
   "경상남도": "경남",
   "제주도": "제주",
   "제주특별자치도": "제주",
-  "전라남도": "전남",
-  "광주광역시": "광주",
+  // 전남·광주는 통합되어 한 지역입니다. 예전 이름(기기에 기억해 둔 지역, 알림 구독에 남은 값)도 같은 지역으로 읽습니다.
+  "전남광주통합특별시": "전남광주",
+  "전라남도": "전남광주",
+  "광주광역시": "전남광주",
+  "전남": "전남광주",
+  "광주": "전남광주",
 };
 
 /** 카카오가 내려주는 시/도 전체 명칭을 SIDO_CODE_MAP이 쓰는 짧은 이름으로 정규화합니다.
@@ -205,7 +212,7 @@ function toHttpsUrl(url: string): string {
   return url.startsWith("http://") ? "https://" + url.slice("http://".length) : url;
 }
 
-function parseOpenApiItems(items: any[]): ShelterNotice[] {
+export function parseOpenApiItems(items: any[]): ShelterNotice[] {
   const notices: ShelterNotice[] = [];
   for (const it of items) {
     const desertionNo = String(it.desertionNo ?? "").trim();

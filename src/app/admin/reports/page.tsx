@@ -142,6 +142,7 @@ let hasResolutionColumn = false;
 const resolvedAs = (resolution: "accepted" | "dismissed") =>
   hasResolutionColumn ? { is_resolved: true, resolution, resolved_at: new Date().toISOString() } : { is_resolved: true };
 
+import { AdminPager, BulkBar, SelectBox, usePaged, useSelection, type BulkAction } from "@/components/admin/AdminListTools";
 export default function AdminReportsPage() {
   const router = useRouter();
   const [reports,    setReports]    = useState<any[]>([]);
@@ -614,6 +615,24 @@ export default function AdminReportsPage() {
     return group ? group.match(r) : true;
   });
 
+  // 한 쪽에 보여 줄 양을 나누고(탭·분류를 바꾸면 첫 쪽으로), 여러 건을 한꺼번에 처리할 수 있게 합니다.
+  //  · 미처리: "신고 닫기" — 글·장소는 그대로 두고 신고만 닫음(한 건씩 누르는 "문제없음"과 같은 처리).
+  //    글이나 장소를 지우는 처리는 내용을 보고 판단해야 해서 한 건씩만 합니다.
+  //  · 처리완료: "기록 삭제" — 신고 기록을 완전히 지움(되돌릴 수 없음).
+  const pager = usePaged(displayReports, `${activeFilter}|${activeGroup}`);
+  const selection = useSelection<number>(pager.items.map((r) => r.id));
+  const bulkActions: BulkAction<number>[] = activeFilter === "pending"
+    ? [{ label: "신고 닫기", run: handleResolve, confirmText: (n) => `고른 ${n}건의 신고를 닫을까요?\n글·장소는 그대로 두고 신고만 '처리완료'로 옮겨요.` }]
+    : [{
+        label: "기록 삭제", danger: true,
+        confirmText: (n) => `고른 ${n}건의 신고 기록을 완전히 삭제할까요?\n되돌릴 수 없어요.`,
+        run: async (id) => {
+          const { error } = await supabase.from("reports").delete().eq("id", id);
+          if (error) throw new Error(error.message);
+          setResolvedReports((prev) => prev.filter((r) => r.id !== id));
+        },
+      }];
+
   return (
     <>
       <style>{STYLES}</style>
@@ -744,7 +763,9 @@ export default function AdminReportsPage() {
                 </div>
               </div>
             ) : (
-              displayReports.map((report) => {
+              <>
+              <BulkBar selection={selection} actions={bulkActions} />
+              {pager.items.map((report) => {
                 const catStyle = CATEGORY_COLOR[report.report_category] || { bg:"#f5f6f8", color:"#666" };
                 return (
                   <div
@@ -782,6 +803,12 @@ export default function AdminReportsPage() {
                       opacity: activeFilter === "done" ? 0.82 : 1,
                     }}
                   >
+                    {/* 여러 건 한꺼번에 처리할 때 고르는 칸(카드를 눌러 이동하는 동작과 겹치지 않게 따로 둠) */}
+                    {bulkActions.length > 0 && (
+                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#888", cursor:"default" }}>
+                        <SelectBox selection={selection} id={report.id} /> 선택
+                      </div>
+                    )}
                     {/* 카드 헤더 */}
                     <div style={{
                       padding:"10px 14px",
@@ -1144,7 +1171,9 @@ export default function AdminReportsPage() {
                     </div>
                   </div>
                 );
-              })
+              })}
+              <AdminPager pager={pager} />
+              </>
             )}
           </div>
         </div>

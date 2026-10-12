@@ -28,30 +28,10 @@ import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 
-const BOARD_LABEL: Record<string, string> = {
-  all: "전체",
-  free: "자유게시판",
-  seoul: "서울",
-  gyeonggi: "경기",
-  incheon: "인천",
-  gangwon: "강원",
-  chungbuk: "충북",
-  daejeon: "대전",
-  chungnam: "충남",
-  gyeongbuk: "경북",
-  daegu: "대구",
-  ulsan: "울산",
-  gyeongnam: "경남",
-  busan: "부산",
-  jeonbuk: "전북",
-  jeonnam: "전남",
-  gwangju: "광주",
-  jeju: "제주",
-};
 // 이 시간 안에 로딩이 끝나지 않으면 흰 화면 대신 "다시 불러오기" 안내를 보여줍니다.
 const MYPAGE_STALL_MS = 8000;
 
-const getBoardLabel = (id: string) => BOARD_LABEL[id] || id;
+const getBoardLabel = (id: string) => boardLabel(id);
 
 const PET_ZONE_LABEL: Record<string, string> = {
   indoor: "실내 가능",

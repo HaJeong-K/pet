@@ -2473,6 +2473,7 @@ const courseMeta = (route: RouteResult) => ({
               onclick="window.selectPlace(${place.id})"
               style="
                 background:white;
+                color:#222;
                 border-radius:999px;
                 padding:5px 10px;
                 font-size:11px;

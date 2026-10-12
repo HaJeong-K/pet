@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
 import PageGuide from "@/components/PageGuide";
-import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard } from "@/lib/communityBoards";
+import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard, boardIdsFor } from "@/lib/communityBoards";
 import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
@@ -216,7 +216,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         if (isBest) {
           q = q.gte("likes", BEST_MIN_LIKES).gte("views", BEST_MIN_VIEWS);
         } else if (activeBoard !== ALL_BOARD_ID) {
-          q = q.eq("board_id", activeBoard);
+          q = q.in("board_id", boardIdsFor(activeBoard)); // 합쳐지기 전 게시판(광주 → 전남광주)의 글도 함께
         }
         if (selectedPostType !== "all") {
           q = q.eq("post_type", selectedPostType);

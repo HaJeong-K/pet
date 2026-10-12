@@ -42,6 +42,7 @@ async function call(method: "GET" | "POST", body?: unknown) {
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString("ko-KR", { year: "numeric", month: "numeric", day: "numeric" }) : "-");
 const activity = (m: Member) => m.reviews + m.replies + m.posts + m.comments;
 
+import { AdminPager, usePaged } from "@/components/admin/AdminListTools";
 export default function AdminMembers() {
   const router = useRouter();
   const [members, setMembers] = useState<Member[] | null>(null);
@@ -106,6 +107,9 @@ export default function AdminMembers() {
     </div>
   );
 
+  // 한 쪽에 보여 줄 양을 나눕니다(필터·검색·정렬을 바꾸면 첫 쪽으로).
+  const pager = usePaged(list, `${filter}|${sort}|${query}`);
+
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
       <AdminNav active="members" onRefresh={load} />
@@ -142,7 +146,7 @@ export default function AdminMembers() {
           <div style={{ textAlign: "center", padding: "50px 0", color: "#888", fontSize: 13.5, fontWeight: 600 }}>조건에 맞는 회원이 없어요.</div>
         )}
 
-        {list.map((m) => (
+        {pager.items.map((m) => (
           <div key={m.authUserId} style={{ background: "white", borderRadius: 16, border: `1px solid ${m.reported >= MANY_REPORTS ? "#FECACA" : "#eee"}`, padding: "14px 16px", marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#E4EBDC", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -188,6 +192,7 @@ export default function AdminMembers() {
             )}
           </div>
         ))}
+        <AdminPager pager={pager} />
       </div>
     </div>
   );

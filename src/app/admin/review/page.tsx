@@ -27,6 +27,8 @@ async function call(method: "GET" | "POST", body?: unknown) {
 
 const fmt = (s: string) => new Date(s).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
+import { AdminPager, BulkBar, SelectBox, usePaged, useSelection } from "@/components/admin/AdminListTools";
+
 export default function AdminReview() {
   const [data, setData] = useState<{ ready: boolean; pending: Post[]; rejected: Post[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +49,15 @@ export default function AdminReview() {
     finally { setBusyId(null); }
   };
 
+  // 한 쪽에 보여 줄 양을 나누고, 검토 대기 글은 여러 건을 한꺼번에 게시·반려할 수 있습니다.
+  const pendingPager = usePaged(data?.pending ?? []);
+  const rejectedPager = usePaged(data?.rejected ?? []);
+  const selection = useSelection(pendingPager.items.map((p) => p.id));
+
   const renderPost = (post: Post, pending: boolean) => (
     <div key={post.id} style={{ background: "white", borderRadius: 16, border: `1px solid ${pending ? "#FDE68A" : "#eee"}`, padding: "15px 16px", marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5, color: "#888" }}>
+        {pending && <SelectBox selection={selection} id={post.id} label={`"${post.title}" 선택`} />}
         <span style={{ padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A", fontWeight: 700 }}>{boardLabel(post.board_id)}</span>
         {post.post_type && <span style={{ fontWeight: 700 }}>[{post.post_type}]</span>}
         <span>{post.nickname}</span>
@@ -102,12 +110,24 @@ export default function AdminReview() {
         {data?.ready && data.pending.length === 0 && (
           <div style={{ textAlign: "center", padding: "50px 0", color: "#5C7A4A", fontSize: 14, fontWeight: 700 }}>검토할 글이 없어요 👍</div>
         )}
-        {data?.pending.map((p) => renderPost(p, true))}
+        {data?.ready && (
+          <BulkBar
+            selection={selection}
+            onDone={load}
+            actions={[
+              { label: "게시", run: (id) => call("POST", { postId: id, action: "approve" }) },
+              { label: "반려", danger: true, run: (id) => call("POST", { postId: id, action: "reject" }), confirmText: (n) => `고른 ${n}건을 반려할까요? 공개되지 않고 작성자에게만 '반려됨'으로 보여요.` },
+            ]}
+          />
+        )}
+        {pendingPager.items.map((p) => renderPost(p, true))}
+        <AdminPager pager={pendingPager} />
 
         {data?.ready && data.rejected.length > 0 && (
           <>
             <div style={{ fontSize: 13, fontWeight: 800, color: "#777", margin: "26px 0 10px" }}>최근 반려한 글</div>
-            {data.rejected.map((p) => renderPost(p, false))}
+            {rejectedPager.items.map((p) => renderPost(p, false))}
+            <AdminPager pager={rejectedPager} />
           </>
         )}
       </div>

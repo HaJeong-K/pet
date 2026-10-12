@@ -23,24 +23,37 @@ export const TOPIC_BOARDS: Board[] = [
   { id: "suggest", label: "건의·문의", desc: "서비스에 바라는 점, 불편한 점, 잘못된 장소 정보를 알려 주세요." },
 ];
 
+/**
+ * 지역 게시판 — 지금의 시·도 행정구역 그대로, 가나다순(보호소·후원 화면의 지역 선택과 같은 분류·같은 순서).
+ * 전남과 광주는 통합되어 한 게시판("전남광주")이고, 세종을 따로 둡니다.
+ * ⚠ id는 글에 저장되는 값이라 바꾸지 않습니다. 통합 전의 "gwangju" 글은 LEGACY_BOARD_IDS로 "전남광주"에 이어 붙입니다.
+ */
 export const REGION_BOARDS: Board[] = [
-  { id: "seoul", label: "서울" },
-  { id: "gyeonggi", label: "경기" },
-  { id: "incheon", label: "인천" },
   { id: "gangwon", label: "강원" },
-  { id: "chungbuk", label: "충북" },
-  { id: "daejeon", label: "대전" },
-  { id: "chungnam", label: "충남" },
+  { id: "gyeonggi", label: "경기" },
+  { id: "gyeongnam", label: "경남" },
   { id: "gyeongbuk", label: "경북" },
   { id: "daegu", label: "대구" },
-  { id: "ulsan", label: "울산" },
-  { id: "gyeongnam", label: "경남" },
+  { id: "daejeon", label: "대전" },
   { id: "busan", label: "부산" },
+  { id: "seoul", label: "서울" },
+  { id: "sejong", label: "세종" },
+  { id: "ulsan", label: "울산" },
+  { id: "incheon", label: "인천" },
+  { id: "jeonnam", label: "전남광주" },
   { id: "jeonbuk", label: "전북" },
-  { id: "jeonnam", label: "전남" },
-  { id: "gwangju", label: "광주" },
   { id: "jeju", label: "제주" },
+  { id: "chungnam", label: "충남" },
+  { id: "chungbuk", label: "충북" },
 ];
+
+/** 예전 게시판 id → 지금 게시판 id(행정구역이 합쳐진 곳) */
+export const LEGACY_BOARD_IDS: Record<string, string> = { gwangju: "jeonnam" };
+
+/** 그 게시판의 글을 찾을 때 함께 봐야 하는 id들(지금 id + 합쳐지기 전 id) */
+export function boardIdsFor(boardId: string): string[] {
+  return [boardId, ...Object.keys(LEGACY_BOARD_IDS).filter((old) => LEGACY_BOARD_IDS[old] === boardId)];
+}
 
 /** 글을 모아 보기만 하는 가상 게시판(여기에 직접 글을 쓰지는 않음) */
 export const ALL_BOARD_ID = "all";
@@ -86,7 +99,10 @@ export function postTypesFor(boardId: string | null | undefined): string[] {
   return REGION_BOARDS.some((b) => b.id === boardId) ? REGION_POST_TYPES : [];
 }
 
-export const findBoard = (id: string | null | undefined): Board | undefined => BOARDS.find((b) => b.id === id);
+export const findBoard = (id: string | null | undefined): Board | undefined => {
+  const current = id && LEGACY_BOARD_IDS[id] ? LEGACY_BOARD_IDS[id] : id;
+  return BOARDS.find((b) => b.id === current);
+};
 
 /** 게시판 id → 이름(모르는 id는 그대로 보여줍니다) */
 export const boardLabel = (id: string | null | undefined): string => findBoard(id)?.label || id || "커뮤니티";

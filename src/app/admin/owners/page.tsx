@@ -24,6 +24,7 @@ type OwnerRow = {
   created_at: string;
 };
 
+import { AdminPager, usePaged } from "@/components/admin/AdminListTools";
 export default function AdminOwners() {
   const [rows, setRows] = useState<OwnerRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +73,8 @@ export default function AdminOwners() {
     setRows((prev) => prev.filter((r) => r.auth_user_id !== userId));
   };
 
+  const pager = usePaged(rows);
+
   return (
     <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="owners" onRefresh={fetchOwners} />
@@ -91,7 +94,7 @@ export default function AdminOwners() {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {rows.map((r) => (
+          {pager.items.map((r) => (
             <div key={r.auth_user_id} style={{
               background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)",
               padding: "16px 18px", display: "flex", alignItems: "flex-start", gap: 16,
@@ -158,6 +161,7 @@ export default function AdminOwners() {
               </div>
             </div>
           ))}
+          <AdminPager pager={pager} />
         </div>
         </div>
       </div>

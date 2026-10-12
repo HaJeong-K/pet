@@ -15,7 +15,7 @@ import LevelBadge from "@/components/LevelBadge";
 
 const CONTACT_EMAIL = "infoker12@naver.com";
 /** "다시 보지 않기"를 눌렀는지(기기에 계속 남음). 소개 내용을 크게 바꾸면 끝의 숫자를 올립니다. */
-const NEVER_KEY = "ggk_intro_never_v1";
+const NEVER_KEY = "ggk_intro_never_v2";
 /** 이번 방문에서 이미 봤는지(앱·탭을 닫으면 지워짐) */
 const SESSION_KEY = "ggk_intro_seen";
 

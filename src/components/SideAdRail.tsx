@@ -268,17 +268,12 @@ export function AdRailRight({
     <>
       {RAIL_STYLE_TAG}
       <div className="ggk-side-ad-rail" style={railBase}>
-        <div
-          className="ggk-logo"
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            color: "#D9534F",
-            padding: "0 2px",
-            textAlign: "center",
-          }}
-        >
-          사지말고 입양하세요
+        {/* 머리 띠 — 입양 화면과 같은 갈색 바탕·흰 글씨(예전의 빨간 글씨 한 줄을 대신함) */}
+        <div style={{ position: "relative", overflow: "hidden", flexShrink: 0, borderRadius: 14, background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "11px 12px 12px", textAlign: "center", wordBreak: "keep-all" }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: "#F3E6D4", letterSpacing: "0.4px" }}>가족을 기다리는 아이들</div>
+          <div className="ggk-logo" style={{ marginTop: 3, fontSize: 14.5, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.2px" }}>
+            사지 말고, <span style={{ color: "#F6C89A" }}>입양하세요</span>
+          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, minHeight: 0 }}>
           {notices.length > 0 ? (
