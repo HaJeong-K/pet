@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, PawPrint, Phone } from "lucide-react";
+import { ChevronLeft, PawPrint, Phone } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "@/components/ShelterNoticeCard";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
@@ -49,21 +49,12 @@ export default function ShelterDetailPage() {
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ width: "100%", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 20px", background: "white", borderBottom: "1px solid #eee", position: "sticky", top: 0, zIndex: 5 }}>
-          <button onClick={() => router.back()} aria-label="뒤로" style={{ border: "none", background: "#f5f6f8", borderRadius: "50%", width: 34, height: 34, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <ArrowLeft size={17} color="#555" />
+        {/* 위쪽 이동 줄 — 흰 막대·뒤로 가기 대신, 갈색 띠 위에 이동 버튼만 둡니다(아래 머리 띠와 이어져 보이게 같은 색). */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "16px clamp(20px, 4vw, 40px) 0", background: "#7A5236" }}>
+          <button onClick={() => router.push("/shelter-notices/support")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+            <ChevronLeft size={14} /> 보호소 목록
           </button>
-          <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#2F2A24", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {shelter?.name ?? "보호센터"}
-          </div>
-          {/* 입양 화면의 "보호소·후원" 버튼과 같은 자리 — 뒤로 가기를 여러 번 누르지 않고 공고 목록으로 바로 갑니다 */}
-          <button
-            onClick={() => router.push("/shelter-notices")}
-            style={{
-              flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 999,
-              border: "1px solid #E4DCC8", background: "#F7F3E8", color: "#6F4A2E", fontSize: 12.5, fontWeight: 800, cursor: "pointer",
-            }}
-          >
+          <button onClick={() => router.push("/shelter-notices")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
             <PawPrint size={14} /> 입양 공고
           </button>
         </div>
@@ -79,7 +70,7 @@ export default function ShelterDetailPage() {
           <>
             {/* 머리 띠 — 넓은 화면에서는 왼쪽에 이름·안내, 오른쪽에 숫자·전화를 나란히 두고(숫자 칸과 버튼이 화면 끝까지
                 늘어나지 않게), 폰에서는 위아래로 쌓습니다. */}
-            <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "24px clamp(20px, 4vw, 40px) 26px", wordBreak: "keep-all" }}>
+            <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(180deg, #7A5236 0%, #5E3F29 100%)", padding: "24px clamp(20px, 4vw, 40px) 26px", wordBreak: "keep-all" }}>
               <PawPrint aria-hidden="true" size={170} color="rgba(255,255,255,0.06)" style={{ position: "absolute", left: "38%", bottom: -48, transform: "rotate(-14deg)" }} />
               <div style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 32px" }}>
                 <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 520 }}>
