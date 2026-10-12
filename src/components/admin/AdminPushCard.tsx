@@ -127,7 +127,7 @@ export default function AdminPushCard() {
     try {
       note(`① 알림 권한: ${Notification.permission}`);
       const reg = await navigator.serviceWorker.ready;
-      await reg.showNotification("🔔 화면 알림 시험", { body: "이 알림이 보이면 폰의 알림 표시는 정상이에요.", icon: "/icon.png", badge: "/icon.png", tag: `local-${Date.now()}`, silent: true });
+      await reg.showNotification("🔔 화면 알림 시험", { body: "이 알림이 보이면 폰의 알림 표시는 정상이에요.", icon: "/icon.png", badge: "/notification-badge.png", tag: `local-${Date.now()}`, silent: true });
       const shown = await reg.getNotifications();
       note(`② 화면 표시 요청 성공 — 지금 떠 있는 알림 ${shown.length}개 (상단바를 내려 확인해 주세요)`);
     } catch (e) {

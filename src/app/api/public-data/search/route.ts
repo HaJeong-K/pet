@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { haversineKm } from "@/lib/geo";
+import { nameMatchesQuery } from "@/lib/searchIntent";
 import { compactPlace, DEFAULT_CENTER } from "@/lib/mapTile";
 import { clientIp, createRateLimiter } from "@/lib/server/rateLimit";
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   const merged = await getMergedPublicDataPlaces();
   const matches: { place: any; dist: number }[] = [];
   for (const p of merged) {
-    if (typeof p.name !== "string" || !p.name.toLowerCase().includes(q)) continue;
+    if (typeof p.name !== "string" || !nameMatchesQuery(p.name, q)) continue;
     const pLat = parseFloat(p.lat), pLng = parseFloat(p.lng);
     if (isNaN(pLat) || isNaN(pLng)) continue;
     matches.push({ place: p, dist: haversineKm(lat, lng, pLat, pLng) });

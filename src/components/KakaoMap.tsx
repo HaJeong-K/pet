@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { buildNearestGrid } from "@/lib/nearestGrid";
 import LogoLoader from "@/components/LogoLoader";
-import { parseSearchIntent, describeIntent, looksLikeRegion, SIDO } from "@/lib/searchIntent";
+import { parseSearchIntent, describeIntent, looksLikeRegion, looksLikeLandmark, nameMatchesQuery, SIDO } from "@/lib/searchIntent";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
@@ -75,6 +75,18 @@ const SUMMARY_MIN_LEVEL = COUNT_MIN_LEVEL;
  * 한적한 지역은 같은 단계에서도 수십 곳이라 이름표가 그대로 보입니다(이름표가 더 쓸모 있으므로 많을 때만 바꿉니다).
  */
 const DENSE_VIEW_LIMIT = 200;
+/** 이름표를 한 번에(화면 한 장에) 몇 개씩 붙일지 — 한꺼번에 붙이면 그동안 화면이 멈춥니다 */
+const PILL_CHUNK = 10;
+/** "우리동네·내주변·근처" 검색이 보여 주는 반경(km) — 중심은 내 위치, "경북대 근처"는 그곳 */
+const NEAR_ZONE_KM = 2;
+/** 그 안에 하나도 없을 때 넓혀 보는 반경(km) */
+const NEAR_ZONE_WIDE_KM = 5;
+/** "우리동네"에서 읍·면·동을 확인해 볼 후보 수(내 위치에서 가까운 순) */
+const DONG_MAX_CANDIDATES = 149;
+/** 범위 안에 없어 가장 가까운 곳을 대신 보여 줄 때의 개수 */
+const FAR_MATCH_COUNT = 10;
+/** 이름으로 찾은 가장 가까운 곳이 이보다 멀면 목록 위에 "가까운 곳이 없어요" 안내를 붙입니다(km) */
+const FAR_NOTICE_KM = 5;
 /** 화면 범위에 더하는 여유(km) — 지도를 조금 끌어도 바로 보이게 */
 const DATA_VIEW_MARGIN_KM = 0.7;
 /** 내 위치 주변으로 항상 갖고 있는 반경(km) */
@@ -281,6 +293,17 @@ const findRegion = async (query: string): Promise<{ lat: number; lng: number; le
   return null;
 };
 
+/** 학교·역·시장 같은 곳 이름을 좌표로 바꿉니다("경북대 근처 카페"의 "경북대"). 지도 이동에만 씁니다. */
+const findLandmark = async (query: string): Promise<{ lat: number; lng: number } | null> => {
+  try {
+    const res = await fetch(`/api/kakao/local?type=keyword&query=${encodeURIComponent(query.trim())}`);
+    if (!res.ok) return null;
+    return (await res.json()).result ?? null;
+  } catch {
+    return null;
+  }
+};
+
 const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -326,6 +349,11 @@ export default function KakaoMap() {
   // ── 공원 마커: places와 완전히 별도 레이어라 refs/클러스터러도 따로 둡니다
   // (places 마커 로직을 건드리지 않고 독립적으로 켜고 끌 수 있도록).
   const parkMarkerMapRef = useRef<Map<number, any>>(new Map());
+  // 이름표를 나눠 그리는 작업의 번호 — 새로 그리기가 시작되면 올려서, 앞서 예약한 나머지 그리기를 멈춥니다.
+  const pillJobRef = useRef(0);
+  const parkPillJobRef = useRef(0);
+  /** 이름표에 적힌 이름(장소 정보가 바뀌었는지 확인용) */
+  const pillNameRef = useRef<Map<number, string>>(new Map());
   const parkClustererRef = useRef<any>(null);
   const parkClusterMarkersRef = useRef<any[]>([]);
   const [selectedPark, setSelectedPark] = useState<ParkPlace | null>(null);
@@ -1131,11 +1159,13 @@ export default function KakaoMap() {
   // (가게 이름 → 없으면 지역 이름) 동작합니다.
   const searchIntent = useMemo(() => parseSearchIntent(debouncedSearch), [debouncedSearch]);
   // 아는 낱말을 빼고 남은 말(rest)이 지역인지 가게 이름인지 확인한 결과. 확인은 아래 "지도 이동" 효과가 합니다.
-  const [intentRest, setIntentRest] = useState<{ query: string; where: string | null; keyword: string | null } | null>(null);
+  const [intentRest, setIntentRest] = useState<{ query: string; where: string | null; keyword: string | null; anchorId?: string | null } | null>(null);
   const intentRestNow = intentRest && intentRest.query === debouncedSearch.trim() ? intentRest : null;
   // "우리동네 OO"의 OO는 지역일 리 없으니 바로 가게 이름으로 봅니다.
   const intentKeyword = !searchIntent.structured ? null : searchIntent.nearMe ? (searchIntent.rest || null) : intentRestNow?.keyword ?? null;
   const intentWhere = searchIntent.structured && !searchIntent.nearMe ? intentRestNow?.where ?? null : null;
+  /** "올리브영 경북대점 근처 카페"처럼 우리 지도의 특정 가게를 기준으로 삼았을 때 그 가게의 id */
+  const anchorId = searchIntent.structured && searchIntent.around ? intentRestNow?.anchorId ?? null : null;
 
   /** 요즘 많이 찾는 정도 — HOT 배지 기준(최근 30일 조회수)과 찜·좋아요를 합친 값. "핫플" 검색의 기준·정렬에 씁니다. */
   const heatOf = useCallback((id: string | number, isPark = false) => {
@@ -1145,7 +1175,19 @@ export default function KakaoMap() {
     return { views, liked, hot: views >= CARD_BADGE.HOT_VIEW_MIN || liked > 0 };
   }, [recentViewCounts, popularityMap]);
 
-  const intentPlaces = useMemo(() => {
+  // ── "근처" 검색의 범위 ──
+  // "우리동네 카페"·"내주변 카페"는 내 위치, "경북대 근처 카페"는 찾은 곳(searchCenter)을 중심으로 반경 NEAR_ZONE_KM 안만 보여 줍니다.
+  // 지도를 다른 데로 옮겨도 이 범위 밖의 마커는 뜨지 않고, 목록도 화면이 아니라 중심에서 가까운 순으로 고정됩니다.
+  // 그 안에 하나도 없으면(한적한 지역) NEAR_ZONE_WIDE_KM까지 넓혀 가장 가까운 곳들을 보여 줍니다.
+  const zoneCenter = useMemo(() => {
+    if (!searchIntent.structured) return null;
+    if (searchIntent.nearMe) return userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null;
+    if (searchIntent.around && intentWhere && searchCenter) return { lat: searchCenter.lat, lng: searchCenter.lng };
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchIntent, userLocation?.lat, userLocation?.lng, intentWhere, searchCenter?.lat, searchCenter?.lng]);
+
+  const intentMatches = useMemo(() => {
     if (!searchIntent.structured) return null;
     // 종류를 말했으면(카페·동물병원 등) 위쪽 실내/야외 버튼과 상관없이 그 종류에서 찾습니다. 공원만 찾으면 장소는 비웁니다.
     let list: any[];
@@ -1168,37 +1210,128 @@ export default function KakaoMap() {
     if (searchIntent.badge === "hot") list = list.filter((p) => heatOf(p.id).hot);
     if (intentKeyword) {
       const q = intentKeyword.toLowerCase();
-      list = list.filter((p) => p.name?.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q) || p.address?.toLowerCase().includes(q));
+      list = list.filter((p) => nameMatchesQuery(p.name, q) || p.category?.toLowerCase().includes(q) || p.address?.toLowerCase().includes(q));
     }
     return list;
   }, [searchIntent, places, baseFilteredPlaces, heatOf, intentKeyword]);
+
+  /** 공원도 같은 조건으로 거릅니다(범위 적용 전) */
+  const intentParkMatches = useMemo(() => {
+    let list = parks;
+    if (searchIntent.badge === "hot") list = list.filter((park) => heatOf(park.id, true).hot);
+    if (intentKeyword) { const q = intentKeyword.toLowerCase(); list = list.filter((park) => park.name?.toLowerCase().includes(q) || park.address?.toLowerCase().includes(q)); }
+    return list;
+  }, [parks, searchIntent, heatOf, intentKeyword]);
+
+  // ── "우리동네": 내 위치와 읍·면·동이 같은 곳만 ──
+  // 후보(조건에 맞는 장소·공원 중 내 위치에서 가까운 것들)의 좌표를 서버에 보내 읍·면·동을 받아 옵니다
+  // (/api/kakao/local?type=dongs — 맨 앞에 내 위치를 넣어 내 동네 이름도 함께 받음). 못 받으면 반경 방식으로 돌아갑니다.
+  const neighborhoodMode = searchIntent.structured && searchIntent.nearMe && searchIntent.saidNeighborhood && !!zoneCenter;
+  const dongCandidates = useMemo(() => {
+    if (!neighborhoodMode || !zoneCenter || !intentMatches) return null;
+    const near = (list: any[], isPark: boolean) => list
+      .map((item) => ({ key: (isPark ? "park-" : "") + item.id, lat: parseFloat(item.lat), lng: parseFloat(item.lng) }))
+      .filter((c) => !isNaN(c.lat) && !isNaN(c.lng))
+      .map((c) => ({ ...c, dist: getDistance(zoneCenter.lat, zoneCenter.lng, c.lat, c.lng) }))
+      .filter((c) => c.dist <= NEAR_ZONE_WIDE_KM);
+    const parksWanted = searchIntent.parks || (searchIntent.categories.length === 0 && searchIntent.badge !== "new" && !searchIntent.zone && !searchIntent.largeDog);
+    const list = [...near(intentMatches, false), ...(parksWanted ? near(intentParkMatches, true) : [])].sort((a, b) => a.dist - b.dist).slice(0, DONG_MAX_CANDIDATES);
+    return { list, key: `${zoneCenter.lat.toFixed(4)},${zoneCenter.lng.toFixed(4)}|${list.map((c) => c.key).join(",")}` };
+  }, [neighborhoodMode, zoneCenter, intentMatches, intentParkMatches, searchIntent]);
+  const [dongResult, setDongResult] = useState<{ key: string; name: string; keys: Set<string> } | null>(null);
+  useEffect(() => {
+    if (!dongCandidates || !zoneCenter) return;
+    if (dongResult?.key === dongCandidates.key) return;
+    let cancelled = false;
+    const { list, key } = dongCandidates;
+    const pts = [zoneCenter, ...list].map((c) => `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`).join(";");
+    fetch(`/api/kakao/local?type=dongs&pts=${pts}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled) return;
+        const names: string[] = body?.result ?? [];
+        const mine = names[0] || "";
+        const keys = new Set<string>();
+        if (mine) list.forEach((c, i) => { if (names[i + 1] === mine) keys.add(c.key); });
+        setDongResult({ key, name: mine, keys });
+      })
+      .catch(() => { if (!cancelled) setDongResult({ key, name: "", keys: new Set() }); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dongCandidates?.key]);
+  const dongNow = dongCandidates && dongResult?.key === dongCandidates.key ? dongResult : null;
+  /** 우리 동네(읍·면·동)를 확인하는 중 */
+  const zonePending = neighborhoodMode && !!dongCandidates && !dongNow;
+
+  // 범위 적용. 순서: (우리동네) 같은 읍·면·동 → (그 밖) 반경 2km → 5km → 이름으로 찾는 중이면 가장 가까운 곳.
+  const { intentPlaces, zoneParks, zoneKm, zoneName, farKm } = useMemo(() => {
+    type Out = { intentPlaces: any[] | null; zoneParks: ParkPlace[] | null; zoneKm: number | null; zoneName: string | null; farKm: number | null };
+    if (!intentMatches || !zoneCenter) return { intentPlaces: intentMatches, zoneParks: null, zoneKm: null, zoneName: null, farKm: null } as Out;
+    const distOf = (item: { lat: any; lng: any }) => getDistance(zoneCenter.lat, zoneCenter.lng, parseFloat(item.lat), parseFloat(item.lng));
+    const within = <T extends { lat: any; lng: any }>(list: T[], km: number) => list.filter((item) => { const d = distOf(item); return !isNaN(d) && d <= km; });
+    const parkList = intentParkMatches as ParkPlace[];
+    let out: Out;
+    if (zonePending) return { intentPlaces: [], zoneParks: [], zoneKm: null, zoneName: null, farKm: null } as Out;
+    if (neighborhoodMode && dongNow?.name) {
+      const dongLabel = dongNow.name.split(" ").pop() || dongNow.name;
+      out = { intentPlaces: intentMatches.filter((p) => dongNow.keys.has(String(p.id))), zoneParks: parkList.filter((p) => dongNow.keys.has("park-" + p.id)), zoneKm: null, zoneName: dongLabel, farKm: null };
+    } else {
+      // 2km 안을 먼저 보고, 하나도 없으면 5km까지 넓힙니다(그 이상은 넓히지 않음). 넓혔을 때는 목록 위에 안내가 붙습니다.
+      const steps = [NEAR_ZONE_KM, NEAR_ZONE_WIDE_KM];
+      // 장소를 찾는 검색이면 장소가, 공원만 찾는 검색이면 공원이 있어야 "있다"고 봅니다.
+      const parksOnly = searchIntent.parks && searchIntent.categories.length === 0;
+      let km = steps[0];
+      let inPlaces = within(intentMatches, km), inParks = within(parkList, km);
+      for (const step of steps.slice(1)) {
+        if (parksOnly ? inParks.length > 0 : inPlaces.length > 0) break;
+        const nextPlaces = within(intentMatches, step), nextParks = within(parkList, step);
+        // 넓혀도 없으면 "5km 안에 없음"으로 보여 줍니다.
+        km = step; inPlaces = nextPlaces; inParks = nextParks;
+      }
+      // 기준이 된 가게도 지도·목록 맨 앞에 함께 보여 줍니다(어디 근처인지 알 수 있게).
+      if (anchorId) {
+        const anchorPlace = places.find((p) => String(p.id) === anchorId);
+        if (anchorPlace) inPlaces = [anchorPlace, ...inPlaces.filter((p) => String(p.id) !== anchorId)];
+      }
+      out = { intentPlaces: inPlaces, zoneParks: inParks, zoneKm: km, zoneName: null, farKm: null };
+    }
+    // 가게 이름으로 찾는데("우리동네 스타벅스") 범위 안에 없으면, 가장 가까운 곳들을 대신 보여 줍니다(목록 위에 안내).
+    const nothing = (out.intentPlaces?.length ?? 0) === 0 && (out.zoneParks?.length ?? 0) === 0;
+    if (nothing && intentKeyword && intentMatches.length > 0) {
+      const nearest = intentMatches.map((place) => ({ place, d: distOf(place) })).filter((e) => !isNaN(e.d)).sort((a, b) => a.d - b.d).slice(0, FAR_MATCH_COUNT);
+      if (nearest.length > 0) out = { ...out, intentPlaces: nearest.map((e) => e.place), zoneParks: [], farKm: nearest[0].d };
+    }
+    return out;
+  }, [intentMatches, intentParkMatches, zoneCenter, searchIntent, neighborhoodMode, dongNow, zonePending, intentKeyword, anchorId, places]);
 
   // ⚠ "스타벅스커피", "카페베네"처럼 가게 이름에 종류 낱말이 붙어 있어 풀이가 엉뚱하게 된 경우: 풀이한 결과는 없는데
   // 이름 그대로 찾으면 있는 곳이 있으면 예전 방식(이름 검색)으로 돌아갑니다. "우리동네"·"핫플"·"새장소"를 쓴
   // 검색은 결과가 없어도 그대로 "없음"을 보여 줍니다(다른 뜻으로 바꾸지 않음).
   const intentActive = useMemo(() => {
     if (!intentPlaces) return false;
-    if (intentPlaces.length > 0 || searchIntent.nearMe || searchIntent.badge || searchIntent.parks) return true;
+    if (intentPlaces.length > 0 || searchIntent.nearMe || searchIntent.around || searchIntent.badge || searchIntent.parks) return true;
     const q = debouncedSearch.trim().toLowerCase();
-    return !baseFilteredPlaces.some((p) => p.name?.toLowerCase().includes(q));
+    return !baseFilteredPlaces.some((p) => nameMatchesQuery(p.name, q));
   }, [intentPlaces, searchIntent, debouncedSearch, baseFilteredPlaces]);
 
-  const filteredPlaces = intentActive && intentPlaces ? intentPlaces : baseFilteredPlaces;
+  // 가게 이름으로 찾는 중("올리브영")이면 지도에도 그 이름의 장소만 보여 줍니다(목록과 같게).
+  // 이름이 맞는 곳이 하나도 없으면 지역 이름 검색("대구 중구")일 수 있으니 평소처럼 전부 보여 줍니다.
+  const nameQuery = intentActive ? "" : debouncedSearch.trim().toLowerCase();
+  const nameMatches = useMemo(() => (nameQuery ? baseFilteredPlaces.filter((p) => nameMatchesQuery(p.name, nameQuery)) : null), [nameQuery, baseFilteredPlaces]);
+  const nameFiltering = !!nameMatches && nameMatches.length > 0;
+  const filteredPlaces = intentActive && intentPlaces ? intentPlaces : nameFiltering ? nameMatches! : baseFilteredPlaces;
+  const nameParks = useMemo(() => (nameFiltering ? parks.filter((park) => nameMatchesQuery(park.name, nameQuery)) : null), [nameFiltering, parks, nameQuery]);
 
   // 공원: 평소에는 공원 버튼(showParks)대로. 검색 풀이 중에는 — "공원"을 찾으면 버튼이 꺼져 있어도 보여 주고,
   // 다른 종류·새장소·실내외·대형견을 찾으면 숨기고, "핫플"이면 많이 본 공원만, 이름을 함께 썼으면 그 이름의 공원만.
   const parksVisible = !intentActive ? showParks
     : searchIntent.parks ? true
     : showParks && searchIntent.categories.length === 0 && searchIntent.badge !== "new" && !searchIntent.zone && !searchIntent.largeDog;
-  const mapParks = useMemo(() => {
-    if (!intentActive) return parks;
-    let list = parks;
-    if (searchIntent.badge === "hot") list = list.filter((park) => heatOf(park.id, true).hot);
-    if (intentKeyword) { const q = intentKeyword.toLowerCase(); list = list.filter((park) => park.name?.toLowerCase().includes(q) || park.address?.toLowerCase().includes(q)); }
-    return list;
-  }, [intentActive, parks, searchIntent, heatOf, intentKeyword]);
+  const mapParks = !intentActive ? nameParks ?? parks : zoneParks ?? intentParkMatches;
+  /** 지금 "근처" 범위로 좁혀 보여 주는 중인지(중심·반경) */
+  const zone = useMemo(() => (intentActive && zoneCenter ? { center: zoneCenter, km: zoneKm } : null), [intentActive, zoneCenter, zoneKm]);
   /** 목록 위에 보여 줄 검색 풀이 한 줄. 예: "우리동네 · HOT" */
-  const intentLabel = intentActive ? describeIntent(searchIntent, intentWhere, intentKeyword) : "";
+  const intentLabel = intentActive ? describeIntent(searchIntent, zoneName ?? intentWhere, intentKeyword) + (zone?.km && farKm == null ? ` · ${zone.km}km 안` : "") : "";
 
   // ── 리스트 패널 전용: 지도를 드래그/확대·축소하면 "지금 화면에 보이는 영역"(mapBounds)
   // 기준으로 갱신됩니다. 지도가 아직 준비되지 않은 아주 짧은 초기 순간에만 예전처럼
@@ -1219,6 +1352,9 @@ export default function KakaoMap() {
         .map((place) => ({ place, dist: getDistance(center.lat, center.lng, parseFloat(place.lat), parseFloat(place.lng)) }))
         .sort((a, b) => a.dist - b.dist)
         .map((entry) => entry.place);
+
+    // "근처" 검색 중: 지도를 어디로 옮기든 범위 안의 장소 전체를 중심에서 가까운 순으로 고정해 보여 줍니다.
+    if (zone) return sortByDistance(filteredPlaces, zone.center).slice(0, MAX_LIST_ITEMS);
 
     if (!mapBounds) {
       const center = searchCenter || userLocation;
@@ -1276,7 +1412,7 @@ export default function KakaoMap() {
 
     const sorted = sortByDistance(inView, sortCenter);
     return inView.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
-  }, [filteredPlaces, userLocation, searchCenter, mapBounds]);
+  }, [filteredPlaces, userLocation, searchCenter, mapBounds, zone]);
 
   // ── 리스트 카드 배지("TOP n") 순위 — "지역 내 인기 장소"는 지금 화면(또는 반경)에
   // 걸린 장소들(nearbyPlaces) 중 찜+좋아요 점수(recommend.ts의 popularityBonus와 동일한
@@ -1308,19 +1444,19 @@ export default function KakaoMap() {
   const getCardBadge = (place: any, isPark: boolean): { label: string; color: string } | null => {
     if (!isPark) {
       const rank = topPopularityRanks.get(place.id);
-      if (rank) return { label: `TOP ${rank}`, color: "#FFD24C" };
+      if (rank) return { label: `TOP ${rank}`, color: "#B4690E" };
 
       const createdAtMs = place.created_at ? new Date(place.created_at).getTime() : NaN;
       if (!Number.isNaN(createdAtMs)) {
         const days = (Date.now() - createdAtMs) / (1000 * 60 * 60 * 24);
         if (days >= 0 && days <= RECOMMEND_WEIGHTS.NEW_PLACE_WINDOW_DAYS) {
-          return { label: "NEW", color: "#5CC8FF" };
+          return { label: "NEW", color: "#1E78D2" };
         }
       }
     }
 
     const viewCount = recentViewCounts.get(isPark ? `park-${place.id}` : String(place.id)) ?? 0;
-    if (viewCount >= CARD_BADGE.HOT_VIEW_MIN) return { label: "HOT", color: "#FF7A5C" };
+    if (viewCount >= CARD_BADGE.HOT_VIEW_MIN) return { label: "HOT", color: "#E5392B" };
 
     return null;
   };
@@ -1332,6 +1468,7 @@ export default function KakaoMap() {
   const nearbyParks = useMemo(() => {
     const parks = mapParks; // 검색 풀이 중에는 걸러진 공원만
     if (!parksVisible) return [];
+    if (zone) return mapParks; // "근처" 검색 중에는 범위 안의 공원 전체(화면과 무관)
     if (!mapBounds) {
       const center = searchCenter || userLocation;
       if (!center) return [];
@@ -1353,7 +1490,7 @@ export default function KakaoMap() {
         lng <= mapBounds.neLng
       );
     });
-  }, [mapParks, parksVisible, mapBounds, userLocation, searchCenter]);
+  }, [mapParks, parksVisible, mapBounds, userLocation, searchCenter, zone]);
 
   // ── 가게명 검색 결과: 검색어가 가게명에 일부라도 포함되면 매칭하고, 실제 위치
   // 기준으로 가까운 순으로 정렬합니다. 반경 5km 제한 없이(찾는 가게가 멀리 있어도
@@ -1364,7 +1501,7 @@ export default function KakaoMap() {
     if (!q) return [];
     // filteredPlaces에는 화면 주변의 칸과, 서버가 이름으로 찾아 준 장소(remoteMatches — 화면 밖 포함)가 들어 있습니다.
     return [...filteredPlaces]
-      .filter((p) => p.name?.toLowerCase().includes(q))
+      .filter((p) => nameMatchesQuery(p.name, q))
       .sort((a, b) => {
         if (!userLocation) return 0;
         const distA = getDistance(userLocation.lat, userLocation.lng, parseFloat(a.lat), parseFloat(a.lng));
@@ -1415,6 +1552,7 @@ export default function KakaoMap() {
     if (nearbyParks.length === 0) return nearbyPlaces;
 
     const center =
+      zone?.center ||
       searchCenter ||
       userLocation ||
       (mapBounds
@@ -1428,7 +1566,39 @@ export default function KakaoMap() {
       .sort((a, b) => a.dist - b.dist)
       .map((entry) => entry.item);
     return sorted.length <= MAX_LIST_ITEMS ? sorted : sorted.slice(0, MAX_LIST_ITEMS);
-  }, [debouncedSearch, nameSearchResults, nearbyPlaces, nearbyParks, searchCenter, userLocation, mapBounds]);
+  }, [debouncedSearch, nameSearchResults, nearbyPlaces, nearbyParks, searchCenter, userLocation, mapBounds, zone]);
+
+  // ── 목록 위 한 줄 안내: 가까이에 없어 범위를 넓혔거나 먼 곳을 보여 줄 때 ──
+  const displayedCount = displayedPlacesByDistance.length;
+  const searchNotice = useMemo(() => {
+    const fmt = (km: number) => (km < 1 ? `${Math.max(10, Math.round(km * 100) * 10)}m` : `${km < 10 ? km.toFixed(1) : Math.round(km)}km`);
+    // 받침이 있으면 "이", 없으면 "가"
+    const iGa = (word: string) => { const code = word.charCodeAt(word.length - 1); return code >= 0xac00 && code <= 0xd7a3 ? ((code - 0xac00) % 28 ? "이" : "가") : "이(가)"; };
+    if (intentActive && farKm != null && intentKeyword) {
+      return `${zoneName ? `${zoneName}에는` : `${NEAR_ZONE_WIDE_KM}km 안에는`} "${intentKeyword}"${iGa(intentKeyword)} 없어요. 가장 가까운 곳(${fmt(farKm)})을 보여 드려요.`;
+    }
+    // 2km 안에 없어 5km까지 넓혀 찾았을 때
+    if (zone?.km === NEAR_ZONE_WIDE_KM && farKm == null && displayedCount > 0) {
+      return `근방 ${NEAR_ZONE_KM}km 안에는 해당하는 장소가 없어, ${NEAR_ZONE_WIDE_KM}km 안에서 찾은 곳을 보여 드려요.`;
+    }
+    const q = debouncedSearch.trim();
+    if (!intentActive && q && nameSearchResults.length > 0 && userLocation) {
+      const first = nameSearchResults[0];
+      const d = getDistance(userLocation.lat, userLocation.lng, parseFloat(first.lat), parseFloat(first.lng));
+      if (!isNaN(d) && d > FAR_NOTICE_KM) return `${FAR_NOTICE_KM}km 안에는 "${q}"${iGa(q)} 없어요. 가장 가까운 곳(${fmt(d)})을 보여 드려요.`;
+    }
+    return "";
+  }, [intentActive, farKm, intentKeyword, zoneName, debouncedSearch, nameSearchResults, userLocation, zone, displayedCount]);
+
+  // 범위 안에 없어 가장 가까운 곳을 보여 줄 때는 지도도 그곳으로 옮깁니다.
+  const farTargetId = intentActive && farKm != null && intentPlaces?.[0] ? String(intentPlaces[0].id) : "";
+  useEffect(() => {
+    if (!farTargetId || !mapRef.current || !mapReady) return;
+    const target = intentPlaces?.[0];
+    const lat = parseFloat(target?.lat), lng = parseFloat(target?.lng);
+    if (!isNaN(lat) && !isNaN(lng)) jumpMapTo(mapRef.current, new window.kakao.maps.LatLng(lat, lng), 5);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farTargetId, mapReady]);
 
   // "핫플" 검색은 가까운 순이 아니라 많이 찾는 순(최근 조회수 → 찜·좋아요)으로 보여 줍니다.
   const displayedPlaces = useMemo(() => {
@@ -1479,7 +1649,8 @@ export default function KakaoMap() {
     const viewCenter = mapBounds ? { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 } : null;
     let wide: { lat: number; lng: number } | null = null;
 
-    if (mapBounds && !summaryView) {
+    if (zoneCenter) add(tilesForRadius(zoneCenter, NEAR_ZONE_WIDE_KM));
+    if (mapBounds && !summaryView && !zoneCenter) {
       const view = expandBounds(mapBounds, DATA_VIEW_MARGIN_KM);
       if (countTilesForBounds(view) <= DATA_MAX_VIEW_TILES) add(tilesForBounds(view));
       else wide = viewCenter;
@@ -1490,12 +1661,12 @@ export default function KakaoMap() {
     else if (showRecommendPanel && (searchCenter || userLocation)) wide = searchCenter || userLocation;
 
     const focus = searchCenter || userLocation || viewCenter;
-    if (!wide && !summaryView && inViewEmpty && focus) add(tilesForRadius(focus, DATA_FALLBACK_KM));
+    if (!wide && !summaryView && !zoneCenter && inViewEmpty && focus) add(tilesForRadius(focus, DATA_FALLBACK_KM));
 
     const list = [...tiles.values()];
     const wideKey = wide ? tileQuery(wide.lat, wide.lng) : "";
     return { tiles: list, wide, wideKey, focus, key: `${[...tiles.keys()].sort().join(",")}|${wideKey}` };
-  }, [mapBounds, userLocation, searchCenter, showRoutePanel, showRecommendPanel, inViewEmpty, summaryView]);
+  }, [mapBounds, userLocation, searchCenter, showRoutePanel, showRecommendPanel, inViewEmpty, summaryView, zoneCenter]);
 
   // 넓은 범위(반경 30km) 데이터 — 필요할 때만 들고 있습니다.
   const wideDataRef = useRef<{ center: { lat: number; lng: number }; places: any[]; parks: ParkPlace[] } | null>(null);
@@ -1574,8 +1745,8 @@ export default function KakaoMap() {
   // ── 가게 이름으로 전국에서 찾기 ──
   // 받아 둔 칸(화면 주변)에 없는 가게도 찾도록 서버에 묻습니다. 풀이한 검색("우리동네 카페" 등)은 화면 범위에서 찾으므로 묻지 않습니다.
   useEffect(() => {
-    const query = debouncedSearch.trim();
-    if (query.length < 2 || searchIntent.structured) {
+    const query = !searchIntent.structured ? debouncedSearch.trim() : searchIntent.nearMe ? searchIntent.rest : "";
+    if (query.length < 2) {
       setRemoteMatches((prev) => (prev.list.length === 0 ? prev : { query: "", list: [] }));
       return;
     }
@@ -1584,7 +1755,7 @@ export default function KakaoMap() {
     searchPlacesByName(query, near).then((list) => { if (!cancelled) setRemoteMatches({ query, list }); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, searchIntent.structured]);
+  }, [debouncedSearch, searchIntent.structured, searchIntent.nearMe, searchIntent.rest]);
   // 목록 끝 표시가 화면에 들어오면 더 그립니다.
   useEffect(() => {
     const el = listMoreRef.current;
@@ -1637,19 +1808,42 @@ export default function KakaoMap() {
         const tokens = searchIntent.rest.split(" ");
         let found: { lat: number; lng: number; level: number } | null = null;
         let where: string | null = null, keyword: string | null = searchIntent.rest;
-        for (let n = tokens.length; n >= 1 && !found; n--) {
+        // "경북대", "서울역"처럼 학교·역으로 보이는 이름은 지역 이름으로 물어보지 않습니다(헛된 조회 여러 번을 아낌).
+        const skipRegion = looksLikeLandmark(searchIntent.rest) && !looksLikeRegion(searchIntent.rest);
+        let anchor: string | null = null;
+        // 곳 이름(가게·학교·역 등)을 좌표로: 학교·역처럼 생긴 이름은 바로 찾고, 그 밖의 이름("올리브영 경북대점 근처")은
+        // 우리 지도에 있는 가게 중 내 위치에서 가장 가까운 곳을 먼저 찾습니다.
+        const findSpot = async () => {
+          let spot: { lat: number; lng: number } | null = null;
+          if (!looksLikeLandmark(searchIntent.rest)) {
+            const base = userLocation || dataNeedRef.current.focus;
+            const own = (await searchPlacesByName(searchIntent.rest, base))
+              .map((place) => ({ id: String(place.id), lat: parseFloat(place.lat), lng: parseFloat(place.lng) }))
+              .filter((c) => !isNaN(c.lat) && !isNaN(c.lng))
+              .map((c) => ({ ...c, d: base ? getDistance(base.lat, base.lng, c.lat, c.lng) : 0 }))
+              .sort((a, b) => a.d - b.d)[0];
+            if (own) { spot = { lat: own.lat, lng: own.lng }; anchor = own.id; }
+          }
+          if (!spot) spot = await findLandmark(searchIntent.rest);
+          if (spot) { found = { ...spot, level: anchor ? 4 : 5 }; where = searchIntent.rest; keyword = null; }
+        };
+        // "○○ 근처"인데 지역 이름처럼 안 보이면 가게·곳 이름부터 찾습니다(지역 조회를 여러 번 헛돌지 않게).
+        if (searchIntent.around && !looksLikeRegion(searchIntent.rest)) await findSpot();
+        for (let n = skipRegion || found ? 0 : tokens.length; n >= 1 && !found; n--) {
           const head = tokens.slice(0, n).join(" ");
           // 여러 낱말인데 지역 이름처럼 안 보이면("대구 올리브영") 물어보지 않고 넘어갑니다 — 헛된 조회로 결과가 늦어지지 않게.
           if (n > 1 && !looksLikeRegion(head)) continue;
           found = await findRegion(head);
           if (found) { where = head; keyword = tokens.slice(n).join(" ") || null; }
         }
+        // 지역 이름이 아니면 곳 이름(학교·역·시장 등)인지 봅니다 — "경북대 근처 카페", "서울역 앞 식당", "경북대 카페".
+        if (!found && (searchIntent.around || looksLikeLandmark(searchIntent.rest))) await findSpot();
         if (debouncedSearchRef.current.trim() !== query) return; // 그 사이 검색어가 바뀌었으면 버립니다.
         if (found && mapRef.current) {
           jumpMapTo(mapRef.current, new window.kakao.maps.LatLng(found.lat, found.lng), found.level);
           setSearchCenter({ lat: found.lat, lng: found.lng });
         }
-        setIntentRest({ query, where, keyword });
+        setIntentRest({ query, where, keyword, anchorId: anchor });
       })();
       return;
     }
@@ -2253,8 +2447,10 @@ const courseMeta = (route: RouteResult) => ({
     }
 
     const clearDetailMarkers = () => {
+      pillJobRef.current++;
       markerMapRef.current.forEach((overlay) => overlay.setMap(null));
       markerMapRef.current.clear();
+      pillNameRef.current.clear();
     };
 
     const clearClusterMarkers = () => {
@@ -2298,6 +2494,7 @@ const courseMeta = (route: RouteResult) => ({
 
         overlay.setMap(map);
         markerMapRef.current.set(place.id, overlay);
+        pillNameRef.current.set(place.id, place.name);
     };
 
     // 코스 집중 모드: 코스에 속한 장소의 원래 마커만 줌 레벨과 무관하게 그립니다(클러스터로
@@ -2320,23 +2517,50 @@ const courseMeta = (route: RouteResult) => ({
     const renderDetailMarkers = () => {
       clearClusterMarkers();
 
+      // ⚠ 속도(확대·축소·끌기 때의 버벅임): 예전에는 지도가 멈출 때마다 이름표를 전부 지우고 다시 만들었습니다.
+      // 이름표 하나를 붙일 때마다 브라우저가 화면 배치를 다시 계산해서, 이름표가 100개쯤이면 느린 폰에서 1초 가까이 멈췄습니다.
+      // 이제는 ① 이미 그려진 이름표는 그대로 두고 ② 화면에서 나간 것만 떼고 ③ 새로 들어온 것만, 그것도 한 번에
+      // PILL_CHUNK개씩 화면 한 장마다 나눠 붙입니다.
       const bounds = map.getBounds();
-      clearDetailMarkers();
+      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+      const minLat = sw.getLat(), maxLat = ne.getLat(), minLng = sw.getLng(), maxLng = ne.getLng();
 
-      const inView: { place: any; position: any }[] = [];
-      filteredPlaces.forEach((place) => {
+      const inView: { place: any; lat: number; lng: number }[] = [];
+      for (const place of filteredPlaces) {
         const lat = parseFloat(place.lat);
         const lng = parseFloat(place.lng);
-        if (isNaN(lat) || isNaN(lng)) return;
-
-        const position = new window.kakao.maps.LatLng(lat, lng);
-        if (!bounds.contain(position)) return; // 화면 안에 없으면 생성 안 함
-        inView.push({ place, position });
-      });
+        if (isNaN(lat) || isNaN(lng)) continue;
+        if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) continue; // 화면 안에 없으면 생성 안 함
+        inView.push({ place, lat, lng });
+      }
       // ⚠ 속도: 화면 안의 장소가 너무 많으면 이름표를 그리지 않습니다 — "구역별 장소 수 동그라미" 효과가 숫자로 보여 줍니다
       // (이름표 수백 개를 붙였다 떼는 것이 지도를 끌 때마다 몇 초씩 멈추던 원인).
-      if (inView.length > DENSE_VIEW_LIMIT) return;
-      for (const { place, position } of inView) addPlacePill(place, position);
+      if (inView.length > DENSE_VIEW_LIMIT) { clearDetailMarkers(); return; }
+
+      const job = ++pillJobRef.current;
+      const wanted = new Map<any, { place: any; lat: number; lng: number }>();
+      for (const item of inView) wanted.set(item.place.id, item);
+      // 화면에서 나갔거나 이름이 바뀐 이름표는 뗍니다.
+      markerMapRef.current.forEach((overlay, id) => {
+        const item = wanted.get(id);
+        if (item && pillNameRef.current.get(id) === item.place.name) return;
+        overlay.setMap(null);
+        markerMapRef.current.delete(id);
+        pillNameRef.current.delete(id);
+      });
+      // 새로 들어온 것만 나눠서 붙입니다.
+      const todo = inView.filter((item) => !markerMapRef.current.has(item.place.id));
+      let index = 0;
+      const addChunk = () => {
+        if (pillJobRef.current !== job) return; // 그 사이 다시 그리기가 시작됨
+        const end = Math.min(todo.length, index + PILL_CHUNK);
+        for (; index < end; index++) {
+          const { place, lat, lng } = todo[index];
+          addPlacePill(place, new window.kakao.maps.LatLng(lat, lng));
+        }
+        if (index < todo.length) requestAnimationFrame(addChunk);
+      };
+      addChunk();
     };
 
     // ── 넓은 줌: 경량 Marker + MarkerClusterer
@@ -2415,7 +2639,8 @@ const courseMeta = (route: RouteResult) => ({
     return () => {
       alive = false;
       window.kakao.maps.event.removeListener(map, "idle", onIdle);
-      clearDetailMarkers();
+      // 이름표는 여기서 지우지 않습니다 — 다음 실행이 바뀐 것만 떼고 붙입니다(전부 지웠다 다시 만들면 그만큼 멈춤).
+      pillJobRef.current++;
       clearClusterMarkers();
     };
   }, [filteredPlaces, mapReady, hideMarkersForCourse, courseStopKey, places, intentActive]);
@@ -2448,6 +2673,7 @@ const courseMeta = (route: RouteResult) => ({
     const map = mapRef.current;
 
     const clearParkDetailMarkers = () => {
+      parkPillJobRef.current++;
       parkMarkerMapRef.current.forEach((overlay) => overlay.setMap(null));
       parkMarkerMapRef.current.clear();
     };
@@ -2532,17 +2758,33 @@ const courseMeta = (route: RouteResult) => ({
 
     const renderParkDetailMarkers = () => {
       clearParkClusterMarkers();
+      // 장소 이름표와 같은 방식: 그려진 것은 두고, 나간 것만 떼고, 새로 들어온 것만 나눠 붙입니다.
       const bounds = map.getBounds();
-      clearParkDetailMarkers();
-
-      mapParks.forEach((park) => {
+      const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+      const minLat = sw.getLat(), maxLat = ne.getLat(), minLng = sw.getLng(), maxLng = ne.getLng();
+      const wanted = new Map<any, { park: any; lat: number; lng: number }>();
+      for (const park of mapParks) {
         const lat = parseFloat(park.lat);
         const lng = parseFloat(park.lng);
-        if (isNaN(lat) || isNaN(lng)) return;
-        const position = new window.kakao.maps.LatLng(lat, lng);
-        if (!bounds.contain(position)) return;
-        addParkPill(park, position);
+        if (isNaN(lat) || isNaN(lng)) continue;
+        if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) continue;
+        wanted.set(park.id, { park, lat, lng });
+      }
+      const job = ++parkPillJobRef.current;
+      parkMarkerMapRef.current.forEach((overlay, id) => {
+        if (wanted.has(id)) return;
+        overlay.setMap(null);
+        parkMarkerMapRef.current.delete(id);
       });
+      const todo = [...wanted.values()].filter((item) => !parkMarkerMapRef.current.has(item.park.id));
+      let index = 0;
+      const addChunk = () => {
+        if (parkPillJobRef.current !== job) return;
+        const end = Math.min(todo.length, index + PILL_CHUNK);
+        for (; index < end; index++) addParkPill(todo[index].park, new window.kakao.maps.LatLng(todo[index].lat, todo[index].lng));
+        if (index < todo.length) requestAnimationFrame(addChunk);
+      };
+      addChunk();
     };
 
     const renderParkClusterMarkers = () => {
@@ -2605,10 +2847,21 @@ const courseMeta = (route: RouteResult) => ({
     return () => {
       alive = false;
       window.kakao.maps.event.removeListener(map, "idle", onIdle);
-      clearParkDetailMarkers();
+      // 장소 이름표와 같은 이유로 여기서 전부 지우지 않습니다(다음 실행이 바뀐 것만 맞춤).
+      parkPillJobRef.current++;
       clearParkClusterMarkers();
     };
   }, [parks, mapParks, mapReady, parksVisible, hideMarkersForCourse, courseStopKey, intentActive, denseView]);
+
+  // 지도 화면을 떠날 때 남아 있는 이름표를 모두 뗍니다(위 두 효과는 다시 돌 때 지우지 않으므로 여기서 한 번).
+  useEffect(() => {
+    const placePills = markerMapRef.current, parkPills = parkMarkerMapRef.current, names = pillNameRef.current;
+    return () => {
+      pillJobRef.current++; parkPillJobRef.current++;
+      placePills.forEach((overlay) => overlay.setMap(null)); placePills.clear(); names.clear();
+      parkPills.forEach((overlay) => overlay.setMap(null)); parkPills.clear();
+    };
+  }, []);
 
   // ══ 구역별 장소 수 동그라미(넓게 볼 때) ══
   // 서버가 확대 단계에 맞는 크기의 구역으로 미리 세어 둔 "구역별 장소 수"를, 화면에 걸치는 묶음만큼(보통 1~4건) 받아
@@ -4079,6 +4332,11 @@ const courseMeta = (route: RouteResult) => ({
               넓게 보는 중이에요. 지도의 숫자를 누르거나 확대하면 그 지역의 장소가 모두 나와요.
             </div>
           )}
+          {searchNotice && (
+            <div data-search-notice style={{ margin: "2px 2px 8px", padding: "8px 10px", borderRadius: 10, background: "#FFF6DB", color: "#6B4A00", fontSize: 11, fontWeight: 600, lineHeight: 1.5, wordBreak: "keep-all" }}>
+              {searchNotice}
+            </div>
+          )}
           {displayedPlaces.length === 0 && !summaryView && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
@@ -4087,8 +4345,8 @@ const courseMeta = (route: RouteResult) => ({
             }}>
               <Search size={22} color="#ddd" />
               <div style={{ whiteSpace: "pre-line" }}>
-                {intentLabel
-                  ? `${intentLabel}\n조건에 맞는 장소가 아직 없어요${searchIntent.badge === "hot" ? "\n(HOT은 최근 30일 동안 많이 본 장소에 붙어요)" : searchIntent.badge === "new" ? `\n(NEW는 등록한 지 ${RECOMMEND_WEIGHTS.NEW_PLACE_WINDOW_DAYS}일 안의 장소에 붙어요)` : ""}${searchIntent.nearMe && !userLocation ? "\n내 위치를 아직 몰라 지금 화면에서 찾았어요" : ""}`
+                {zonePending ? "우리 동네를 확인하는 중…" : intentLabel
+                  ? `${intentLabel}\n${zone?.km ? `근방 ${zone.km}km 안에 ` : ""}조건에 맞는 장소가 아직 없어요${searchIntent.badge === "hot" ? "\n(HOT은 최근 30일 동안 많이 본 장소에 붙어요)" : searchIntent.badge === "new" ? `\n(NEW는 등록한 지 ${RECOMMEND_WEIGHTS.NEW_PLACE_WINDOW_DAYS}일 안의 장소에 붙어요)` : ""}${searchIntent.nearMe && !userLocation ? "\n내 위치를 아직 몰라 지금 화면에서 찾았어요" : ""}`
                   : searchQuery ? `"${searchQuery}"\n검색 결과가 없습니다` : "이 화면에 보이는 장소가 없습니다"}
               </div>
             </div>
@@ -4159,9 +4417,9 @@ const courseMeta = (route: RouteResult) => ({
                       <span
                         style={{
                           position: "absolute", top: "6px", right: "6px",
-                          padding: "2px 7px", borderRadius: "6px",
+                          padding: "2px 8px", borderRadius: "999px",
                           fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.2px",
-                          background: "rgba(0,0,0,0.72)", color: badge.color,
+                          background: "rgba(255,255,255,0.96)", color: badge.color, boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
                           lineHeight: 1.4,
                         }}
                       >

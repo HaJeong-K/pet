@@ -1414,22 +1414,7 @@ export default function MyPage() {
                 </div>
 
                 <div style={{ padding:"0 14px 18px" }}>
-                  {/* 인증된 사장님만 보이는 진입점 — 마이페이지 설정 안에서 바로 수정합니다
-                      (place/[id]/page.tsx의 OwnerPlaceEditPanel을 그대로 재사용하되,
-                      더 이상 상세페이지로 이동시키지 않고 이 설정 패널 안에서 엽니다). */}
-                  {/* 사장님 기능(가게 정보·통계·광고 상품·후기 답글)은 사장님 페이지(/owner)로 옮겼습니다 —
-                      인증된 사장님은 하단 "사장님" 탭으로도 바로 들어갈 수 있습니다. */}
-                  {(isVerifiedOwner || isOwnerPreview) && (
-                    <button
-                      className="setting-row"
-                      onClick={() => { closeSettings(); router.push("/owner"); }}
-                      style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 12px", borderRadius:10, border:"1px solid #FDE68A", background:"#FFFBEB", cursor:"pointer", marginBottom:7 }}
-                    >
-                      <div style={{ width:30, height:30, borderRadius:8, background:"#FEF3C7", display:"flex", alignItems:"center", justifyContent:"center" }}><Store size={14} color="#B45309"/></div>
-                      <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:700, color:"#78350F" }}>사장님 페이지{isOwnerPreview && <span style={{ marginLeft:6, fontSize:10, fontWeight:700, color:"#7c3aed" }}>관리자 미리보기</span>}</div>
-                      <ChevronRight size={14} color="#D6A656"/>
-                    </button>
-                  )}
+                  {/* 사장님 기능(가게 정보·통계·광고 상품·후기 답글)은 하단 "사장님" 탭(/owner)에서 봅니다 — 여기 있던 바로가기는 뺐습니다. */}
 
                   {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장님 형식이 고정되므로
                       닉네임 변경 메뉴 자체를 숨깁니다. */}

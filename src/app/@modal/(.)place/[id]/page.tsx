@@ -48,6 +48,8 @@ export default function ModalPage() {
 
   const [placeName, setPlaceName] = useState<string>("");
   const [placeAddress, setPlaceAddress] = useState<string>("");
+  // 지금 등록돼 있는 정보 — "빠진 정보 제보하기"에서 비어 있는 항목을 먼저 보여 주는 데 씁니다(못 불러오면 null).
+  const [placeInfo, setPlaceInfo] = useState<Record<string, any> | null>(null);
   // 카카오톡 공유 카드에 쓸 실제 장소 사진(https만, 기본 이미지는 제외) — 없으면 서버가 그린 장소 카드를 씁니다.
   const [placePhoto, setPlacePhoto] = useState<string | null>(null);
   const pickSharePhoto = (url: unknown) =>
@@ -58,13 +60,14 @@ export default function ModalPage() {
     (async () => {
       const { data } = await supabase
         .from("places")
-        .select("name, address, image_url")
+        .select("*")
         .eq("id", placeId)
         .single();
       if (cancelled) return;
       if (data?.name) {
         setPlaceName(data.name);
         setPlaceAddress(data.address || "");
+        setPlaceInfo(data);
         pickSharePhoto(data.image_url);
         return;
       }
@@ -78,6 +81,7 @@ export default function ModalPage() {
       if (found) {
         setPlaceName(found.name || "");
         setPlaceAddress(found.address || "");
+        setPlaceInfo(found);
         pickSharePhoto(found.image_url);
       }
     })();
@@ -155,6 +159,17 @@ export default function ModalPage() {
     tipHours.trim() || tipLargeDog || tipPhone.trim() ||
     tipWebsite.trim() || tipClosedDays.trim() || tipParking.trim() ||
     tipEntryFee.trim() || tipMemo.trim();
+
+  // 제보 항목 — 지금 비어 있는 항목(empty)을 폼 위쪽에 먼저 보여 줍니다. 정보를 못 불러왔으면 원래 순서 그대로.
+  const currentOf = (key: string) => { const v = placeInfo?.[key]; return typeof v === "string" ? v.trim() : v == null ? "" : String(v); };
+  const tipFields = [
+    { key: "hours", label: "영업시간", value: tipHours, onChange: setTipHours, placeholder: "예: 매일 10:00 - 21:00" },
+    { key: "phone", label: "전화번호", value: tipPhone, onChange: setTipPhone, placeholder: "예: 051-123-4567" },
+    { key: "website", label: "홈페이지", value: tipWebsite, onChange: setTipWebsite, placeholder: "예: https://..." },
+    { key: "closed_days", label: "휴무일", value: tipClosedDays, onChange: setTipClosedDays, placeholder: "예: 매주 월요일" },
+    { key: "parking", label: "주차", value: tipParking, onChange: setTipParking, placeholder: "예: 건물 내 주차장 이용 가능" },
+    { key: "entry_fee", label: "입장료", value: tipEntryFee, onChange: setTipEntryFee, placeholder: "예: 무료 / 1인 5,000원" },
+  ].map((f) => ({ ...f, current: currentOf(f.key), empty: !!placeInfo && !currentOf(f.key) }));
 
   /* ── 공유 핸들러 ── */
   const handleCopyLink = async () => {
@@ -495,7 +510,7 @@ export default function ModalPage() {
                         <div style={{ width: 28, height: 28, borderRadius: 8, background: "#eef6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           <MapPinPlus size={13} color="#2563eb" />
                         </div>
-                        <span>장소 제보하기</span>
+                        <span>빠진 정보 제보하기</span>
                       </button>
 
                       {/* 관리자 전용 — 장소 자체 삭제. 일반 회원에게는 보이지 않습니다. */}
@@ -861,7 +876,7 @@ export default function ModalPage() {
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: "#eef6ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <MapPinPlus size={15} color="#2563eb" />
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>장소 제보하기</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>빠진 정보 제보하기</div>
               </div>
               <button onClick={closeTip} style={{ border: "none", background: "#f0f2f5", borderRadius: "50%", width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <X size={14} color="#666" />
@@ -879,17 +894,23 @@ export default function ModalPage() {
               }}>
                 <Info size={14} color="#2563eb" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div style={{ fontSize: 11, color: "#1e3a8a", lineHeight: 1.7 }}>
-                  이 장소에 빠져있거나 잘못된 정보를 알려주세요.<br />
-                  아는 항목만 채워 제출하시면 검토 후 반영됩니다.
+                  {placeInfo && tipFields.some((f) => f.empty)
+                    ? <>아직 비어 있는 정보를 위쪽에 모았어요.<br />아는 항목만 채워 주시면 검토 후 반영돼요.</>
+                    : <>이 장소에 빠져 있거나 잘못된 정보를 알려 주세요.<br />아는 항목만 채워 주시면 검토 후 반영돼요.</>}
                 </div>
               </div>
 
               {/* 입력 필드들 */}
               <div style={{ display: "flex", flexDirection: "column", gap: 13, marginBottom: 20 }}>
-                <TipField label="영업시간" value={tipHours} onChange={setTipHours} placeholder="예: 매일 10:00 - 21:00" />
+                {tipFields.filter((f) => f.empty).map((f) => (
+                  <TipField key={f.label} label={f.label} value={f.value} onChange={f.onChange} placeholder={f.placeholder} current={f.current} known={!!placeInfo} />
+                ))}
 
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>대형견 동반 가능 여부</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
+                    대형견 동반 가능 여부
+                    {placeInfo && placeInfo.large_dog == null && <span style={TIP_EMPTY_BADGE}>비어 있음</span>}
+                  </div>
                   <div style={{ display: "flex", gap: 7 }}>
                     {([["yes", "가능"], ["no", "불가능"]] as const).map(([val, label]) => (
                       <button
@@ -910,11 +931,9 @@ export default function ModalPage() {
                   </div>
                 </div>
 
-                <TipField label="전화번호" value={tipPhone} onChange={setTipPhone} placeholder="예: 051-123-4567" />
-                <TipField label="홈페이지" value={tipWebsite} onChange={setTipWebsite} placeholder="예: https://..." />
-                <TipField label="휴무일" value={tipClosedDays} onChange={setTipClosedDays} placeholder="예: 매주 월요일" />
-                <TipField label="주차" value={tipParking} onChange={setTipParking} placeholder="예: 건물 내 주차장 이용 가능" />
-                <TipField label="입장료" value={tipEntryFee} onChange={setTipEntryFee} placeholder="예: 무료 / 1인 5,000원" />
+                {tipFields.filter((f) => !f.empty).map((f) => (
+                  <TipField key={f.label} label={f.label} value={f.value} onChange={f.onChange} placeholder={f.placeholder} current={f.current} known={!!placeInfo} />
+                ))}
 
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>기타 메모</div>
@@ -977,14 +996,24 @@ export default function ModalPage() {
 }
 
 /* 제보 폼의 한 줄짜리 텍스트 입력 필드 (라벨 + input) */
+const TIP_EMPTY_BADGE = { padding: "1px 7px", borderRadius: 999, background: "#FFF1E0", color: "#B4532A", fontSize: 10, fontWeight: 800 } as const;
+
 function TipField({
-  label, value, onChange, placeholder,
+  label, value, onChange, placeholder, current, known,
 }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+  /** 지금 등록돼 있는 값(없으면 빈 글자) */
+  current?: string;
+  /** 지금 값을 불러왔는지 — 불러왔을 때만 "비어 있음"·"지금: …"을 보여 줍니다 */
+  known?: boolean;
 }) {
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+        <span style={{ flexShrink: 0 }}>{label}</span>
+        {known && !current && <span style={TIP_EMPTY_BADGE}>비어 있음</span>}
+        {known && current && <span style={{ minWidth: 0, fontSize: 10.5, fontWeight: 500, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>지금: {current}</span>}
+      </div>
       <input
         type="text"
         value={value}

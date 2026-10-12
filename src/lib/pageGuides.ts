@@ -44,11 +44,11 @@ export const ADOPT_GUIDE_STEPS: GuideStep[] = [
   { selector: '[data-guide="adopt-list"] a', title: "공고 카드", text: "마감이 임박한 순서예요. 누르면 보호소 연락처와 입양·임시보호 문의 방법을 볼 수 있어요." },
 ];
 
-export const MYPAGE_GUIDE_KEY = "ggk_guide_mypage_v2";
+export const MYPAGE_GUIDE_KEY = "ggk_guide_mypage_v3";
 export const MYPAGE_GUIDE_STEPS: GuideStep[] = [
   { selector: '[data-guide="mypage-tabs"]', title: "내 활동", text: "찜한 장소, 저장한 코스, 커뮤니티에 쓴 글, 내가 쓴 댓글을 모아 볼 수 있어요." },
   { selector: '[data-member-level-card]', title: "내 레벨", text: "방문·제보·후기·장소 사진 등록으로 점수가 쌓여요.\n다음 레벨까지 얼마나 남았는지 여기서 볼 수 있어요." },
-  { selector: '[data-guide="mypage-settings"]', title: "설정", text: "닉네임·프로필 변경, 로그아웃, 회원 탈퇴는 여기서 해요.\n사장님은 가게 정보와 통계도 여기서 볼 수 있어요." },
+  { selector: '[data-guide="mypage-settings"]', title: "설정", text: "닉네임·프로필 변경, 로그아웃, 회원 탈퇴는 여기서 해요." },
 ];
 
 export const PLACE_GUIDE_KEY = "ggk_guide_place_v2";

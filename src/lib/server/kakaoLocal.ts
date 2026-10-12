@@ -44,10 +44,23 @@ export async function kakaoAddressSearch(query: string): Promise<{ lat: number; 
   return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
 }
 
-/** 좌표 → 행정구역(시/도, 시/군/구). 결과가 없으면 null */
-export async function kakaoCoordToRegion(lat: number, lng: number): Promise<{ sido: string; sigungu: string } | null> {
-  const data = await kakaoGet(`/geo/coord2regioncode.json?x=${lng}&y=${lat}`);
+/** 곳 이름(학교·역·시장 등) → 좌표. 지도를 그곳으로 옮기는 데만 쓰고 저장하지 않습니다. 결과가 없으면 null */
+export async function kakaoKeywordSearch(query: string): Promise<{ lat: number; lng: number } | null> {
+  const data = await kakaoGet(`/search/keyword.json?query=${encodeURIComponent(query)}&size=1`);
   const doc = data?.documents?.[0];
   if (!doc) return null;
-  return { sido: doc.region_1depth_name || "", sigungu: doc.region_2depth_name || "" };
+  const lat = parseFloat(doc.y);
+  const lng = parseFloat(doc.x);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
+/** 좌표 → 행정구역(시/도, 시/군/구, 읍·면·동). dong은 행정동(읍·면 지역은 읍·면 이름) 기준. 결과가 없으면 null */
+export async function kakaoCoordToRegion(lat: number, lng: number): Promise<{ sido: string; sigungu: string; dong: string } | null> {
+  const data = await kakaoGet(`/geo/coord2regioncode.json?x=${lng}&y=${lat}`);
+  const docs: any[] = data?.documents ?? [];
+  const doc = docs[0];
+  if (!doc) return null;
+  // 행정동(H)을 우선 — "우리동네"를 주민센터 단위의 동네로 봅니다. 없으면 법정동(B).
+  const admin = docs.find((d) => d.region_type === "H") ?? doc;
+  return { sido: doc.region_1depth_name || "", sigungu: doc.region_2depth_name || "", dong: admin.region_3depth_name || "" };
 }

@@ -7,6 +7,7 @@
 //   "대구 삼덕동 카페"     → 대구 삼덕동에서 · 카페
 //   "성수 핫플"            → 성수(지역인지 가게 이름인지는 지도 화면이 확인)에서 · HOT 장소
 //   "우리동네 스타벅스"    → 내 주변에서 · 이름에 "스타벅스"가 들어간 곳
+//   "경북대 근처 카페"     → 경북대(지역·학교·역 같은 곳 이름) 근처에서 · 카페
 //
 // 여기서는 글자만 풀어냅니다(브라우저·서버 어디서나 쓸 수 있고 테스트하기 쉽게). 지역 이름을 실제 좌표로 바꾸거나
 // 장소를 걸러 내는 일은 KakaoMap.tsx가 합니다.
@@ -22,6 +23,10 @@ export type SearchIntent = {
   structured: boolean;
   /** "우리동네", "내 주변", "근처"처럼 내 위치를 가리키는 말이 있었는지 */
   nearMe: boolean;
+  /** 내 위치를 가리킨 말이 "우리동네"·"동네"였는지(화면에 "우리동네"라고 보여 줄지). 아니면 "내 주변" */
+  saidNeighborhood: boolean;
+  /** "경북대 근처", "서울역 앞"처럼 rest가 가리키는 곳의 근처를 찾는지(내 위치가 아님) */
+  around: boolean;
   badge: SearchBadge | null;
   /** 찾는 종류(화면에 보여 줄 이름). 없으면 null */
   categoryLabel: string | null;
@@ -44,14 +49,23 @@ export const SIDO = ["서울", "부산", "대구", "인천", "광주", "대전",
 // 띄어 쓴 낱말 하나가 아래 말과 "똑같을 때" 그 뜻으로 봅니다. 붙여 쓴 말("우리동네핫플", "대구카페")은 아래
 // splitCompound가 앞뒤로 잘라서 다시 봅니다. 한 글자짜리("핫", "새")는 다른 말의 일부일 수 있어(핫도그, 새우)
 // 따로 띄어 썼을 때만 인정합니다.
-const NEAR_ME = ["우리동네", "동네", "내주변", "주변", "근처", "내근처", "이근처", "여기", "가까운", "내위치", "현위치", "집근처", "집앞"];
+// 언제나 "내 위치"를 뜻하는 말
+const NEAR_ME = ["우리동네", "동네", "내주변", "내근처", "이근처", "여기", "내위치", "현위치", "집근처", "집앞", "우리집", "집주변"];
+/** 그중 화면에 "우리동네"라고 보여 줄 말(나머지는 "내 주변") */
+const NEIGHBORHOOD = ["우리동네", "동네"];
+// 앞말에 따라 뜻이 달라지는 말 — 앞에 곳 이름이 있으면 "그곳 근처"("경북대 근처 카페"), 없으면 "내 근처"("근처 카페")
+const AROUND = ["주변", "근처", "근방", "인근", "부근", "가까운", "가까이", "가까운곳", "주위", "일대", "쪽", "앞", "옆", "뒤", "건너편", "맞은편"];
+/** 곳 이름 뒤에 붙여 쓰는 말 — "경북대앞", "서울역쪽", "경북대에서"처럼 붙어 있으면 떼어 냅니다 */
+const AROUND_SUFFIXES = ["건너편", "맞은편", "앞", "옆", "쪽", "뒤"];
+// ("에"·"의"는 "아뜰리에"처럼 이름의 일부일 수 있어 떼지 않습니다)
+const PARTICLE_SUFFIXES = ["에서"];
 const HOT = ["핫플", "핫플레이스", "핫한", "핫한곳", "핫", "hot", "인기", "인기있는", "인기장소", "요즘뜨는", "뜨는", "많이찾는", "인기많은"];
 const NEW = ["새장소", "새로운", "새로생긴", "신규", "신상", "new", "뉴", "최근등록", "새", "새가게", "새로운곳", "신규장소"];
 const INDOOR = ["실내", "실내가능", "실내동반"];
 const OUTDOOR = ["야외", "실외", "테라스", "야외가능", "마당"];
 const LARGE_DOG = ["대형견", "대형견가능", "큰개", "큰강아지"];
 /** 뜻이 없어 버리는 말 */
-const FILLER = ["추천", "장소", "가게", "곳", "어디", "찾아줘", "알려줘", "보여줘", "있는", "가능한", "가능", "반려동물", "반려견", "애견", "강아지", "고양이", "동반", "펫", "갈만한", "가볼만한", "갈곳", "좋은", "의", "에", "에서", "근방"];
+const FILLER = ["추천", "장소", "가게", "곳", "어디", "찾아줘", "알려줘", "보여줘", "있는", "가능한", "가능", "반려동물", "반려견", "애견", "강아지", "고양이", "동반", "펫", "갈만한", "가볼만한", "갈곳", "좋은", "의", "에", "에서", "있는곳", "되는", "되는곳", "데", "데리고", "같이", "함께", "갈", "가는", "쪽에", "좀"];
 
 type CategoryRule = { label: string; words: string[]; categories: string[]; parks?: boolean };
 const CATEGORY_RULES: CategoryRule[] = [
@@ -70,13 +84,14 @@ const CATEGORY_RULES: CategoryRule[] = [
 ];
 
 type Meaning =
-  | { kind: "near" } | { kind: "hot" } | { kind: "new" } | { kind: "indoor" } | { kind: "outdoor" }
+  | { kind: "near" } | { kind: "around" } | { kind: "hot" } | { kind: "new" } | { kind: "indoor" } | { kind: "outdoor" }
   | { kind: "largeDog" } | { kind: "filler" } | { kind: "category"; rule: CategoryRule };
 
 const DICTIONARY = new Map<string, Meaning>();
 const add = (words: string[], meaning: Meaning) => { for (const w of words) DICTIONARY.set(w, meaning); };
 add(FILLER, { kind: "filler" });
 add(NEAR_ME, { kind: "near" });
+add(AROUND, { kind: "around" });
 add(HOT, { kind: "hot" });
 add(NEW, { kind: "new" });
 add(INDOOR, { kind: "indoor" });
@@ -87,7 +102,7 @@ for (const rule of CATEGORY_RULES) add(rule.words, { kind: "category", rule });
 /** 붙여 쓴 말을 자를 때 쓸 낱말(2글자 이상만 — 한 글자는 다른 말의 일부일 가능성이 큽니다). 긴 말부터 맞춰 봅니다. */
 const COMPOUND_WORDS = [...DICTIONARY.keys()].filter((w) => w.length >= 2).sort((a, b) => b.length - a.length);
 /** "내 주변", "우리 동네"처럼 띄어 써도 한 낱말로 봐야 하는 말 */
-const JOIN_PAIRS: [string, string][] = [["우리", "동네"], ["내", "주변"], ["내", "근처"], ["이", "근처"], ["내", "위치"], ["집", "근처"], ["집", "앞"], ["새", "장소"], ["새", "가게"], ["요즘", "뜨는"], ["새로", "생긴"], ["많이", "찾는"], ["최근", "등록"], ["핫", "플"]];
+const JOIN_PAIRS: [string, string][] = [["우리", "동네"], ["내", "주변"], ["내", "근처"], ["이", "근처"], ["내", "위치"], ["집", "근처"], ["집", "앞"], ["우리", "집"], ["집", "주변"], ["현", "위치"], ["가까운", "곳"], ["새", "장소"], ["새", "가게"], ["요즘", "뜨는"], ["새로", "생긴"], ["많이", "찾는"], ["최근", "등록"], ["핫", "플"]];
 
 /**
  * 붙여 쓴 낱말 하나를 앞·뒤에서 아는 말로 잘라 냅니다.
@@ -120,7 +135,7 @@ export function looksLikeRegion(text: string): boolean {
 }
 
 export function parseSearchIntent(query: string): SearchIntent {
-  const intent: SearchIntent = { structured: false, nearMe: false, badge: null, categoryLabel: null, categories: [], parks: false, zone: null, largeDog: false, rest: "", restLooksRegion: false };
+  const intent: SearchIntent = { structured: false, nearMe: false, saidNeighborhood: false, around: false, badge: null, categoryLabel: null, categories: [], parks: false, zone: null, largeDog: false, rest: "", restLooksRegion: false };
   const raw = query.trim().toLowerCase().replace(/[,.!?~·]+/g, " ").split(/\s+/).filter(Boolean);
   if (raw.length === 0) return intent;
 
@@ -134,10 +149,23 @@ export function parseSearchIntent(query: string): SearchIntent {
   const rest: string[] = [];
   for (const token of joined.flatMap(splitCompound)) {
     const meaning = DICTIONARY.get(token);
-    if (!meaning) { rest.push(token); continue; }
+    if (!meaning) {
+      // "경북대앞", "서울역쪽"처럼 곳 이름에 붙여 쓴 말은 떼고 "그곳 근처"로 봅니다. "경북대에서"의 조사도 뗍니다.
+      const aroundSuffix = AROUND_SUFFIXES.find((suf) => token.length >= suf.length + 2 && token.endsWith(suf));
+      const particle = PARTICLE_SUFFIXES.find((suf) => token.length >= suf.length + 2 && token.endsWith(suf));
+      if (aroundSuffix) { rest.push(token.slice(0, -aroundSuffix.length)); intent.around = true; intent.structured = true; }
+      else if (particle && rest.length === 0) rest.push(token.slice(0, -particle.length));
+      else rest.push(token);
+      continue;
+    }
     switch (meaning.kind) {
       case "filler": break;
-      case "near": intent.nearMe = true; intent.structured = true; break;
+      case "near": intent.nearMe = true; intent.structured = true; if (NEIGHBORHOOD.includes(token)) intent.saidNeighborhood = true; break;
+      case "around":
+        // 앞에 곳 이름이 있으면 그곳 근처, 없으면 내 근처
+        if (rest.length > 0) intent.around = true; else intent.nearMe = true;
+        intent.structured = true;
+        break;
       case "hot": intent.badge = "hot"; intent.structured = true; break;
       case "new": intent.badge = "new"; intent.structured = true; break;
       case "indoor": intent.zone = "indoor"; intent.structured = true; break;
@@ -151,6 +179,8 @@ export function parseSearchIntent(query: string): SearchIntent {
         break;
     }
   }
+  // "우리동네"처럼 내 위치를 분명히 말했으면 내 위치가 우선입니다("우리동네 스타벅스 근처" 등).
+  if (intent.nearMe) intent.around = false;
   intent.rest = rest.join(" ");
   intent.restLooksRegion = looksLikeRegion(intent.rest);
   // "대구 올리브영", "수성구 스타벅스"처럼 아는 낱말은 없지만 "지역 이름 + 다른 말"인 경우도 풀이합니다
@@ -159,11 +189,29 @@ export function parseSearchIntent(query: string): SearchIntent {
   return intent;
 }
 
-/** 화면에 보여 줄 한 줄 설명. 예: "우리동네 · HOT", "대구 삼덕동 · 카페" */
+/**
+ * 가게 이름이 검색어와 맞는지 — 띄어쓰기와 낱말 순서에 상관없이, 검색어의 낱말이 이름에 모두 들어 있으면 맞는 것으로 봅니다.
+ * 예: "올리브영 경북대점"·"올리브영경북대"·"경북대 올리브영" 모두 "올리브영 경북대점"과 맞음.
+ */
+export function nameMatchesQuery(name: string | null | undefined, query: string): boolean {
+  if (!name) return false;
+  const target = name.toLowerCase().replace(/\s+/g, "");
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return tokens.length > 0 && tokens.every((token) => target.includes(token));
+}
+
+/** 지역 이름은 아니지만 "곳"을 가리키는 이름처럼 보이는지 — 학교·역·시장처럼 끝나는 말("경북대", "서울역", "서문시장") */
+export function looksLikeLandmark(text: string): boolean {
+  const t = text.trim();
+  return t.length >= 3 && /(대|대학|대학교|캠퍼스|역|터미널|공항|시장|해수욕장|해변|호수|저수지|유원지|타워|광장|거리|마을|항|사거리|오거리|삼거리|아울렛|백화점|휴게소|수목원|전망대|해안|계곡|폭포|단지|신도시|병원|공원|IC|ic)$/.test(t);
+}
+
+/** 화면에 보여 줄 한 줄 설명. 예: "우리동네 · HOT", "대구 삼덕동 · 카페", "경북대 근처 · 카페" */
 export function describeIntent(intent: SearchIntent, where: string | null, keyword: string | null): string {
   const parts: string[] = [];
-  if (where) parts.push(where);
-  else if (intent.nearMe) parts.push("우리동네");
+  // "우리동네"는 검색어에 그 말을 썼을 때만 씁니다. "근처 카페"·"내주변 카페"는 "내 주변".
+  if (where) parts.push(intent.around ? `${where} 근처` : where);
+  else if (intent.nearMe) parts.push(intent.saidNeighborhood ? "우리동네" : "내 주변");
   if (intent.badge === "hot") parts.push("HOT");
   if (intent.badge === "new") parts.push("NEW");
   if (intent.categoryLabel) parts.push(intent.categoryLabel);

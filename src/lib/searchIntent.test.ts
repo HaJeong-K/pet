@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeIntent, looksLikeRegion, parseSearchIntent } from "./searchIntent";
+import { describeIntent, looksLikeRegion, parseSearchIntent, looksLikeLandmark, nameMatchesQuery } from "./searchIntent";
 
 describe("검색어 풀이(searchIntent)", () => {
   it("우리동네 핫플 / 새장소", () => {
@@ -77,5 +77,44 @@ describe("검색어 풀이(searchIntent)", () => {
     expect(describeIntent(parseSearchIntent("우리동네 핫플"), null, null)).toBe("우리동네 · HOT");
     expect(describeIntent(parseSearchIntent("대구 삼덕동 카페"), "대구 삼덕동", null)).toBe("대구 삼덕동 · 카페");
     expect(describeIntent(parseSearchIntent("우리동네 스타벅스"), null, "스타벅스")).toBe('우리동네 · "스타벅스"');
+  });
+
+  it("곳 이름 + 근처·앞·주변은 내 위치가 아니라 그곳 근처", () => {
+    for (const q of ["경북대 근처 카페", "경북대근처 카페", "경북대 주변 카페", "경북대 인근 카페", "경북대 앞 카페", "경북대앞 카페", "경북대쪽 카페", "경북대에서 가까운 카페", "경북대 부근 커피"]) {
+      expect(parseSearchIntent(q), q).toMatchObject({ structured: true, nearMe: false, around: true, categoryLabel: "카페", rest: "경북대" });
+    }
+    expect(parseSearchIntent("서울역 근처 동물병원")).toMatchObject({ around: true, nearMe: false, rest: "서울역", categories: ["동물병원"] });
+    expect(parseSearchIntent("삼덕동 근처 핫플")).toMatchObject({ around: true, nearMe: false, badge: "hot", rest: "삼덕동", restLooksRegion: true });
+    expect(parseSearchIntent("스타벅스 근처")).toMatchObject({ structured: true, around: true, nearMe: false, rest: "스타벅스" });
+    // 앞에 곳 이름이 없으면 내 근처
+    expect(parseSearchIntent("근처 카페")).toMatchObject({ nearMe: true, around: false, rest: "" });
+    expect(parseSearchIntent("카페 근처")).toMatchObject({ nearMe: true, around: false, rest: "" });
+    // "우리동네"를 분명히 썼으면 내 위치
+    expect(parseSearchIntent("우리동네 스타벅스 근처")).toMatchObject({ nearMe: true, around: false, rest: "스타벅스" });
+    // 이름의 일부인 글자는 떼지 않는다
+    expect(parseSearchIntent("아뜰리에 카페").rest).toBe("아뜰리에");
+  });
+
+  it("'우리동네' 표시는 그 말을 썼을 때만", () => {
+    expect(describeIntent(parseSearchIntent("우리동네 카페"), null, null)).toBe("우리동네 · 카페");
+    expect(describeIntent(parseSearchIntent("동네 핫플"), null, null)).toBe("우리동네 · HOT");
+    expect(describeIntent(parseSearchIntent("근처 카페"), null, null)).toBe("내 주변 · 카페");
+    expect(describeIntent(parseSearchIntent("내주변 카페"), null, null)).toBe("내 주변 · 카페");
+    expect(describeIntent(parseSearchIntent("경북대 근처 카페"), "경북대", null)).toBe("경북대 근처 · 카페");
+    // 곳을 못 찾았을 때도 '우리동네'라고 하지 않는다
+    expect(describeIntent(parseSearchIntent("경북대 근처 카페"), null, "경북대")).toBe('카페 · "경북대"');
+    expect(looksLikeLandmark("경북대")).toBe(true);
+    expect(looksLikeLandmark("서울역")).toBe(true);
+    expect(looksLikeLandmark("스타벅스")).toBe(false);
+  });
+
+  it("가게 이름은 띄어쓰기·낱말 순서에 상관없이 맞춘다", () => {
+    for (const q of ["올리브영 경북대점", "올리브영경북대점", "올리브영 경북대", "경북대 올리브영", "올리브영"]) {
+      expect(nameMatchesQuery("올리브영 경북대점", q), q).toBe(true);
+    }
+    expect(nameMatchesQuery("올리브영 대구대현점", "올리브영 경북대점")).toBe(false);
+    expect(nameMatchesQuery("올리브영 경북대점", "")).toBe(false);
+    expect(nameMatchesQuery(null, "올리브영")).toBe(false);
+    expect(parseSearchIntent("올리브영 경북대점 근처 카페")).toMatchObject({ around: true, nearMe: false, rest: "올리브영 경북대점", categoryLabel: "카페" });
   });
 });
