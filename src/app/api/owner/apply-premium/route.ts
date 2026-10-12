@@ -31,18 +31,13 @@ export async function POST(req: NextRequest) {
       .single();
 
     const body = await req.json().catch(() => ({}));
-    // 관리자는 사장님 요청에 따라 대신 신청할 수 있습니다(요청 바디의 placeId로 대상 업장 지정).
-    // 사장님 본인은 placeId를 보내도 무시하고 항상 본인 업장으로만 신청됩니다.
+    // 프리미엄 신청은 인증된 사장님 본인만 할 수 있습니다 — 돈이 오가는 계약이라 관리자도 대신 신청할 수 없습니다.
+    // 대상 업장은 항상 본인 업장으로 고정합니다(요청 바디의 placeId는 보지 않음).
     const isOwner = profile?.owner_status === "verified" && !!profile?.owner_place_id;
-    const adminPlaceId = !isOwner && profile?.is_admin && Number(body?.placeId) > 0 ? Number(body.placeId) : null;
-    if (!isOwner && adminPlaceId == null) {
-      return NextResponse.json({ error: "인증된 사장님 계정이 아니거나 연결된 업장이 없습니다" }, { status: 403 });
+    if (!isOwner) {
+      return NextResponse.json({ error: "프리미엄 신청은 인증된 사장님 본인 계정에서만 할 수 있어요" }, { status: 403 });
     }
-    const targetPlaceId = isOwner ? profile!.owner_place_id : adminPlaceId;
-    if (adminPlaceId != null) {
-      const { data: target } = await supabaseAdmin.from("places").select("id").eq("id", adminPlaceId).maybeSingle();
-      if (!target) return NextResponse.json({ error: "장소를 찾을 수 없습니다" }, { status: 404 });
-    }
+    const targetPlaceId = profile!.owner_place_id;
 
     // 이미 처리 대기 중인 신청이 있으면 중복 신청을 막습니다.
     const { data: existingPending } = await supabaseAdmin
@@ -58,8 +53,7 @@ export async function POST(req: NextRequest) {
     const months = Number(body?.months) > 0 ? Math.min(Math.floor(Number(body.months)), 12) : 1;
     const payerName = typeof body?.payerName === "string" ? body.payerName.slice(0, 40) : null;
     const rawMemo = typeof body?.memo === "string" ? body.memo.slice(0, 480) : "";
-    // 관리자가 대신 신청한 건은 기록에 남깁니다.
-    const memo = adminPlaceId != null ? `[관리자 대리 신청] ${rawMemo}`.trim() : rawMemo || null;
+    const memo = rawMemo || null;
 
     const { error } = await supabaseAdmin.from("premium_requests").insert([
       {

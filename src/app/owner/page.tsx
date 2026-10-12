@@ -9,8 +9,10 @@
 //   · 광고 상품 — 프리미엄 요금 안내와 신청(결제 연동 전: 신청 → 입금 안내 → 관리자 승인)
 //   · 성과 보고서 — 최근 30일 요약(인쇄·PDF 저장)
 // 관리자는 등록 장소를 골라 사장님과 똑같은 화면을 모두 볼 수 있습니다. 평소에는 보기만 하고,
-// 사장님 요청이 있을 때 "대신 처리" 스위치를 켜면 가게 정보 수정과 광고 상품 신청을 대신 할 수 있습니다
-// (실수로 바꾸지 않도록 스위치를 켜야만 수정·신청 버튼이 열립니다).
+// 사장님 요청이 있을 때 "대신 처리" 스위치를 켜면 가게 정보 수정을 대신 할 수 있습니다
+// (실수로 바꾸지 않도록 스위치를 켜야만 수정 버튼이 열립니다).
+// ⚠ 프리미엄(광고 상품) 신청은 돈이 오가는 계약이라 관리자가 대신 할 수 없습니다 — 사장님 본인 계정으로만 신청됩니다
+// (서버 /api/owner/apply-premium도 관리자 대리 신청을 받지 않습니다).
 
 import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useMemo, useState } from "react";
@@ -134,7 +136,7 @@ export default function OwnerPage() {
               <input type="checkbox" checked={actForOwner} onChange={(e) => setActForOwner(e.target.checked)} style={{ marginTop: 3 }} />
               <span style={{ fontSize: 12.5, lineHeight: 1.6, color: actForOwner ? "#991b1b" : "#555" }}>
                 <b>사장님 요청으로 대신 처리하기</b><br />
-                켜면 이 가게의 정보 수정과 광고 상품 신청을 대신 할 수 있어요. 꺼 두면 보기만 해요.
+                켜면 이 가게의 정보 수정을 대신 할 수 있어요. 꺼 두면 보기만 해요. (프리미엄 신청은 사장님 본인만 할 수 있어요.)
               </span>
             </label>
           )}
@@ -301,7 +303,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
   const pending = latest?.status === "pending";
 
   const apply = async () => {
-    if (busy || !canAct || !agree) return;
+    if (busy || isPreview || !canAct || !agree) return; // 관리자 미리보기에서는 신청할 수 없습니다
     setBusy(true);
     setMessage(null);
     try {
@@ -310,8 +312,8 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
       const res = await fetch("/api/owner/apply-premium", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        // 관리자가 대신 신청할 때만 대상 업장을 함께 보냅니다(사장님 본인은 서버가 본인 업장으로 고정).
-        body: JSON.stringify({ months, payerName, memo, ...(isPreview ? { placeId } : {}) }),
+        // 대상 업장은 서버가 로그인한 사장님의 업장으로 고정합니다.
+        body: JSON.stringify({ months, payerName, memo }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setMessage({ ok: false, text: json.error || "신청하지 못했어요." }); return; }
@@ -403,17 +405,22 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
                 {q.total < q.listTotal && <span style={{ fontSize: 12.5, color: "#aaa", textDecoration: "line-through" }}>{won(q.listTotal)}</span>}
               </div>
             </div>
+            {isPreview ? (
+              <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e4e8", fontSize: 12.5, color: "#555", lineHeight: 1.7 }}>
+                <b>관리자 미리보기</b> — 프리미엄 신청은 사장님 본인 계정에서만 할 수 있어요. 여기서는 요금과 기간만 확인할 수 있어요.
+              </div>
+            ) : (<>
             <input value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="입금자명(유료 기간이 있을 때 입금 확인용)" style={inputStyle} />
             <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="세금계산서·현금영수증 등 요청 사항(선택)" style={{ ...inputStyle, minHeight: 64, resize: "vertical" }} />
             <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginTop: 10, fontSize: 12.5, color: "#555", lineHeight: 1.6, cursor: "pointer" }}>
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
-              <span>{isPreview ? "사장님에게 위 요금과 기간을 안내했고, 사장님 요청에 따라 대신 신청해요." : "위 요금과 기간을 확인했고, 유료 기간의 금액은 안내받은 계좌로 입금한 뒤 적용된다는 점에 동의해요."}</span>
+              <span>위 요금과 기간을 확인했고, 유료 기간의 금액은 안내받은 계좌로 입금한 뒤 적용된다는 점에 동의해요.</span>
             </label>
             {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
             <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#d6d3c9" : "#B45309", color: "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
-              {busy ? "신청 중…" : !canAct ? "보기 전용 — 대신 신청하려면 위 스위치를 켜 주세요" : isPreview ? `사장님 대신 ${months}개월 신청하기` : `${months}개월 신청하기`}
+              {busy ? "신청 중…" : `${months}개월 신청하기`}
             </button>
-            {isPreview && canAct && <div style={{ fontSize: 11.5, color: "#991b1b", marginTop: 6, lineHeight: 1.6 }}>대신 신청한 건은 관리자 → 프리미엄 화면에서 입금 확인 후 승인해야 적용돼요.</div>}
+            </>)}
             <div style={{ fontSize: 11.5, color: "#999", marginTop: 8, lineHeight: 1.6 }}>카드 결제는 준비 중이에요. 지금은 신청 후 계좌 입금으로 진행하고, 세금계산서·현금영수증을 발행해 드려요.</div>
           </>
         )}
