@@ -51,21 +51,18 @@ export default function ShelterSupportPage() {
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ width: "100%", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
-        {/* 위쪽 이동 줄 — 흰 막대·뒤로 가기 대신, 갈색 띠 위에 이동 버튼만 둡니다(아래 머리 띠와 이어져 보이게 같은 색). */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "16px clamp(20px, 4vw, 40px) 0", background: "#7A5236" }}>
-          <button onClick={() => router.push("/shelter-notices")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
-            <PawPrint size={14} /> 입양 공고
-          </button>
-        </div>
-
         {/* 머리 띠 — 입양 화면과 같은 틀(갈색 바탕·흰 글씨). 오른쪽에는 지금 수치를 작게 보여 줍니다. */}
-        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(180deg, #7A5236 0%, #5E3F29 100%)", padding: "22px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
+        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
           <HeartHandshake aria-hidden="true" size={160} color="rgba(255,255,255,0.06)" style={{ position: "absolute", right: -20, bottom: -44, transform: "rotate(-10deg)" }} />
+          {/* 첫 줄: 작은 이름표와 이동 버튼을 같은 줄에(입양 화면의 머리 띠와 같은 구조) */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <span style={{ display: "inline-block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#F3E6D4", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>보호센터 문의 · 후원 창구</span>
+            <button onClick={() => router.push("/shelter-notices")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+              <PawPrint size={14} /> 입양 공고
+            </button>
+          </div>
           <div style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "16px 32px" }}>
             <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 560 }}>
-              <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#F3E6D4", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>
-                보호센터 문의 · 후원 창구
-              </span>
               <div className="ggk-logo" style={{ marginTop: 10, fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>
                 입양이 어렵다면, <span style={{ color: "#F6C89A", display: "inline-block" }}>함께 도울 수 있어요</span>
               </div>
