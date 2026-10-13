@@ -5505,14 +5505,16 @@ const courseMeta = (route: RouteResult) => ({
             className="ggk-body"
             style={{
               position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              width: "min(460px, 92vw)", background: "white", borderRadius: "24px",
-              padding: "28px", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
+              width: "min(520px, 92vw)", background: "white", borderRadius: "24px",
+              // 안쪽 여백과 스크롤은 OwnerUpgradeForm이 맡습니다 — 스크롤 막대가 입력칸 옆이 아니라 창 가장자리에 붙도록.
+              padding: 0, overflow: "hidden", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
               zIndex: 100000,
             }}
           >
             <button
               onClick={() => setShowOwnerRegisterModal(false)}
-              style={{ position: "absolute", top: 18, right: 18, width: 36, height: 36, borderRadius: "50%", border: "none", background: "#f3f4f6", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
+              aria-label="닫기"
+              style={{ position: "absolute", top: 16, right: 16, zIndex: 2, width: 36, height: 36, borderRadius: "50%", border: "none", background: "#f3f4f6", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
             >
               ✕
             </button>

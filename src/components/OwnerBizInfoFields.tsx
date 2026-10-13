@@ -97,8 +97,8 @@ export default function OwnerBizInfoFields({
   const dateDigits = onlyDigits(info.openDate);
   return (
     <div style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333", marginBottom: 4 }}>사업자 정보 (국세청 자동 확인)</div>
-      <p style={{ fontSize: 11.5, color: "#666", marginBottom: 8, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222", marginBottom: 8 }}>사업자 정보 (국세청 자동 확인)</div>
+      <p style={{ fontSize: 12.5, color: "#666", marginBottom: 10, lineHeight: 1.65, wordBreak: "keep-all" }}>
         {ocrStatus === "reading"
           ? "사업자등록증을 읽고 있어요… 잠시만 기다려 주세요."
           : ocrStatus === "done"

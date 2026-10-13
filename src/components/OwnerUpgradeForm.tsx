@@ -214,25 +214,29 @@ export default function OwnerUpgradeForm({
   };
 
   return (
-    <div style={{ maxHeight: "82vh", overflowY: "auto", paddingRight: 2 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>사장님으로 전환하기</h1>
-      <p style={{ fontSize: 12.5, color: "#555", marginBottom: 20, lineHeight: 1.5 }}>
-        현재 계정을 유지한 채로 사장님 계정으로 전환합니다. 사업자등록증 대조가 확인되면
-        즉시, 확인이 안 되면 관리자 승인 후 인증 배지·본인 업장 정보 수정·사장님 게시판
-        글쓰기 권한이 주어집니다. 전환 시 닉네임은 <strong>[지역명]가게명_사장님</strong> 형식으로
-        바뀝니다.
-      </p>
+    // 화면 높이 안에서 이 칸 전체가 스크롤됩니다(창 가장자리까지 차지해서 스크롤 막대가 오른쪽 끝에 붙음).
+    // 글은 낱말 단위로 줄을 바꾸고(keep-all), 문장마다 줄을 나눠 폰에서도 읽기 쉽게 합니다. 내용·기능은 그대로입니다.
+    <div style={{ maxHeight: "calc(100dvh - 40px)", overflowY: "auto", padding: "clamp(24px, 5vw, 30px) clamp(20px, 5vw, 32px) clamp(22px, 5vw, 28px)", boxSizing: "border-box", wordBreak: "keep-all" }}>
+      <h1 style={{ fontSize: 21, fontWeight: 800, marginBottom: 12, paddingRight: 44, lineHeight: 1.3 }}>사장님으로 전환하기</h1>
+      <div style={{ fontSize: 13, color: "#555", marginBottom: 20, lineHeight: 1.65, display: "grid", gap: 6 }}>
+        <p style={{ margin: 0 }}>현재 계정을 유지한 채로 사장님 계정으로 전환합니다.</p>
+        <p style={{ margin: 0 }}>
+          사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후
+          인증 배지·본인 업장 정보 수정·사장님 게시판 글쓰기 권한이 주어집니다.
+        </p>
+        <p style={{ margin: 0 }}>전환 시 닉네임은 <strong>[지역명]가게명_사장님</strong> 형식으로 바뀝니다.</p>
+      </div>
 
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333", marginBottom: 6 }}>사업장 주소</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222", marginBottom: 8 }}>사업장 주소</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
         <input
           readOnly
           placeholder="주소 검색 버튼을 눌러 도로명주소를 찾아주세요"
           value={roadAddress}
-          style={{ ...inputStyle, marginBottom: 0, flex: 1, background: "#f7f8f9", color: roadAddress ? "#333" : "#999", cursor: "pointer" }}
+          style={{ ...inputStyle, marginBottom: 0, flex: "999 1 260px", minWidth: 0, background: "#f7f8f9", color: roadAddress ? "#333" : "#999", cursor: "pointer", textOverflow: "ellipsis" }}
           onClick={openAddressSearch}
         />
-        <button type="button" onClick={openAddressSearch} style={{ ...searchBtnStyle, width: 96, gap: 6, fontSize: 12.5, fontWeight: 700 }}>
+        <button type="button" onClick={openAddressSearch} style={{ ...searchBtnStyle, width: "auto", flex: "1 0 110px", minHeight: 46, gap: 6, fontSize: 13, fontWeight: 700 }}>
           <MapPin size={14} />주소 검색
         </button>
       </div>
@@ -240,18 +244,18 @@ export default function OwnerUpgradeForm({
         <div style={{ fontSize: 12, color: "#48603A", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <input
           placeholder="가게명"
           value={businessName}
           onChange={(e) => setBusinessName(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+          style={{ ...inputStyle, marginBottom: 0, flex: "1 1 220px", minWidth: 0 }}
         />
         <input
           placeholder="상세주소 (건물, 층, 호수 등)"
           value={addressDetail}
           onChange={(e) => setAddressDetail(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
+          style={{ ...inputStyle, marginBottom: 0, flex: "1 1 220px", minWidth: 0 }}
         />
       </div>
 
@@ -265,9 +269,9 @@ export default function OwnerUpgradeForm({
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333", marginBottom: 6 }}>사업자등록증 업로드 (필수)</div>
-      <p style={{ fontSize: 11.5, color: "#666", marginBottom: 10, lineHeight: 1.5 }}>
-        업로드한 사업자등록증의 상호명·주소가 입력하신 정보와 자동으로 대조됩니다.
+      <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222", marginBottom: 8 }}>사업자등록증 업로드 (필수)</div>
+      <p style={{ fontSize: 12.5, color: "#666", marginBottom: 12, lineHeight: 1.65 }}>
+        업로드한 사업자등록증의 상호명·주소가 입력하신 정보와 자동으로 대조됩니다.<br />
         일치하면 즉시 전환 승인, 일치하지 않으면 관리자 확인 후 승인됩니다.
       </p>
       <label
@@ -294,7 +298,7 @@ export default function OwnerUpgradeForm({
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333", marginBottom: 6 }}>
+      <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222", marginBottom: 8 }}>
         지도에 이미 등록된 내 업장 연결 (선택)
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -332,18 +336,18 @@ export default function OwnerUpgradeForm({
           ))}
         </div>
       )}
-      <p style={{ fontSize: 11, color: "#777", marginBottom: 18, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 12, color: "#777", marginBottom: 18, lineHeight: 1.65 }}>
         검색해도 안 나오면 전환 후 마이페이지에서 &apos;제보하기&apos;로 신규 등록을 요청해주세요.
       </p>
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#333", cursor: "pointer", marginBottom: 14 }}>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, fontSize: 12.5, color: "#333", cursor: "pointer", marginBottom: 14, lineHeight: 1.65 }}>
         <button
           type="button"
           onClick={() => setAgreedPrivacy((v) => !v)}
           style={{
-            width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+            width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 2,
             border: `1.5px solid ${agreedPrivacy ? "#5C7A4A" : "#ccc"}`,
             background: agreedPrivacy ? "#5C7A4A" : "white",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
