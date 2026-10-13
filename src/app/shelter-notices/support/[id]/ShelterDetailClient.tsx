@@ -94,9 +94,10 @@ export default function ShelterDetailClient({ id, initial }: { id: string; initi
                   </button>
                 </div>
               </div>
-              <div style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 32px" }}>
+              {/* 둘째 줄은 첫 줄(이름표·이동 버튼)과 띄웁니다 — 오른쪽 숫자 칸이 버튼에 붙지 않게 */}
+          <div style={{ position: "relative", marginTop: 16, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 32px" }}>
                 <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 520 }}>
-                  <div className="ggk-logo" style={{ marginTop: 10, fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>{shelter.name}</div>
+                  <div className="ggk-logo" style={{ fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>{shelter.name}</div>
                   <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>
                     입양·임시보호·봉사·물품 후원은 방문 전에 전화로 먼저 문의해 주세요. 운영 시간과 방문 방법은 보호센터마다 달라요.
                   </div>

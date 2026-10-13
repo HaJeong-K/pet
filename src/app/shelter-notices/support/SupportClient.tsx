@@ -81,9 +81,10 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
               <PawPrint size={14} /> 입양 공고
             </button>
           </div>
-          <div style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "16px 32px" }}>
+          {/* 둘째 줄은 첫 줄(이름표·이동 버튼)과 띄웁니다 — 오른쪽 숫자 칸이 버튼에 붙지 않게 */}
+          <div style={{ position: "relative", marginTop: 16, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "16px 32px" }}>
             <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 560 }}>
-              <div className="ggk-logo" style={{ marginTop: 10, fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>
+              <div className="ggk-logo" style={{ fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>
                 입양이 어렵다면, <span style={{ color: "#F6C89A", display: "inline-block" }}>함께 도울 수 있어요</span>
               </div>
               <div style={{ marginTop: 7, fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.65 }}>
