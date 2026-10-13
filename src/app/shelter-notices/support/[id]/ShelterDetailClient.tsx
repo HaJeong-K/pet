@@ -26,14 +26,14 @@ const matches = (n: Notice, pick: Choice) =>
 const shortSido = (sido: string) =>
   sido.replace(/통합특별시|특별자치도|특별자치시|특별시|광역시/g, "").replace(/^(충청|전라|경상)(북|남)도$/, (_, a: string, b: string) => a[0] + b).replace(/도$/, "") || sido;
 
-export default function ShelterDetailClient({ id, initial }: { id: string; initial: { shelter: Shelter; notices: Notice[] } | "missing" | null }) {
+export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: string; initial: { shelter: Shelter; notices: Notice[] } | "missing" | null; /** 카드 위 문구 순서를 정하는 숫자 — 서버와 브라우저가 같은 문구를 그리도록 서버가 정해 줍니다 */ phraseSeed: number }) {
   const router = useRouter();
   // 서버가 채워 보낸 내용으로 바로 시작합니다. 서버가 못 채웠을 때(null)만 화면이 뜬 뒤에 받아 옵니다.
   const [data, setData] = useState<{ shelter: Shelter; notices: Notice[] } | null>(initial && initial !== "missing" ? initial : null);
   // 숫자 칸을 누르면 그 조건의 공고만 봅니다(다시 누르거나 "보호 중"을 누르면 전체).
   const [pick, setPick] = useState<Choice>("all");
   const [state, setState] = useState<"loading" | "ready" | "missing" | "failed">(initial === "missing" ? "missing" : initial ? "ready" : "loading");
-  const adoptPhrase = useAdoptPhrases();
+  const adoptPhrase = useAdoptPhrases(phraseSeed);
 
   useEffect(() => {
     if (!id || initial) return;

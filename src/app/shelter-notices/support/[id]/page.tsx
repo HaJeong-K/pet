@@ -11,5 +11,7 @@ export default async function ShelterDetailPage({ params }: { params: Promise<{ 
   const id = decodeURIComponent((await params).id).slice(0, 80);
   const found = await getShelterWithNotices(id).catch(() => undefined);
   // undefined = 서버가 확인하지 못함(브라우저가 다시 받아 봄), null = 그런 보호센터가 없음
-  return <ShelterDetailClient id={id} initial={found === undefined ? null : found ?? "missing"} />;
+  // 카드 위 문구 순서를 정하는 숫자 — 화면을 새로 만들 때마다 바뀝니다(서버와 브라우저가 같은 값을 써야 화면이 어긋나지 않음).
+  const phraseSeed = Math.floor(Date.now() / 1000);
+  return <ShelterDetailClient id={id} initial={found === undefined ? null : found ?? "missing"} phraseSeed={phraseSeed} />;
 }

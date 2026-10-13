@@ -75,6 +75,10 @@ const SUMMARY_MIN_LEVEL = COUNT_MIN_LEVEL;
  * 한적한 지역은 같은 단계에서도 수십 곳이라 이름표가 그대로 보입니다(이름표가 더 쓸모 있으므로 많을 때만 바꿉니다).
  */
 const DENSE_VIEW_LIMIT = 200;
+/** 프리미엄 업장을 목록 맨 위에 보여 주는 범위 — 보고 있는 곳(지도 중심)이나 내 위치에서 이 거리(km) 안 */
+const PREMIUM_AREA_KM = 3;
+/** 프리미엄 업장을 AI 코스에 넣는 범위 — 출발지에서 이 거리(km) 안(걸어서 다녀올 만한 곳만) */
+const PREMIUM_COURSE_KM = 2;
 /** 이름표를 한 번에(화면 한 장에) 몇 개씩 붙일지 — 한꺼번에 붙이면 그동안 화면이 멈춥니다 */
 const PILL_CHUNK = 10;
 /** "우리동네·내주변·근처" 검색이 보여 주는 반경(km) — 중심은 내 위치, "경북대 근처"는 그곳 */
@@ -1514,10 +1518,24 @@ export default function KakaoMap() {
   // 정렬됨)에 활성 프리미엄 업장이 있으면 가까운 순으로 최대 3곳만 보여줍니다. 전국 아무
   // 프리미엄 업장이나 노출하면 무관한 지역 광고가 떠서 리스트 신뢰도만 떨어뜨리므로,
   // 지금 보고 있는 지역 근처에 없으면 섹션 자체를 렌더링하지 않습니다.
-  const pinnedPremiumPlaces = useMemo(
-    () => nearbyPlaces.filter((p) => isPlacePremiumNow(p)).slice(0, 3),
-    [nearbyPlaces]
-  );
+  // ⚠ 예전에는 "지금 화면 안의 목록"에 프리미엄 업장이 걸렸을 때만 보였습니다. 그래서 지도를 조금만 옮기거나 필터·검색을
+  // 쓰면 사라졌습니다(광고 상품의 "목록 상단 노출"이 지켜지지 않음). 이제는 필터·검색과 상관없이, 보고 있는 곳(지도 중심)이나
+  // 내 위치에서 PREMIUM_AREA_KM 안에 있는 프리미엄 업장을 가까운 순으로 항상 보여 줍니다.
+  const pinnedPremiumPlaces = useMemo(() => {
+    const viewCenter = mapBounds ? { lat: (mapBounds.swLat + mapBounds.neLat) / 2, lng: (mapBounds.swLng + mapBounds.neLng) / 2 } : null;
+    const centers = [viewCenter, userLocation].filter(Boolean) as { lat: number; lng: number }[];
+    if (centers.length === 0) return [];
+    return places
+      .filter((p) => isPlacePremiumNow(p))
+      .map((p) => {
+        const lat = parseFloat(p.lat), lng = parseFloat(p.lng);
+        return { p, d: isNaN(lat) || isNaN(lng) ? Infinity : Math.min(...centers.map((c) => getDistance(c.lat, c.lng, lat, lng))) };
+      })
+      .filter((e) => e.d <= PREMIUM_AREA_KM)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 3)
+      .map((e) => e.p);
+  }, [places, mapBounds, userLocation]);
 
   // ── 신규 장소 패널(showRecentPanel)에 쓸 "최근 등록순 상위 10개"입니다.
   // ⚠ 최적화: 예전엔 이 정렬([...places].sort(...).slice(0,10))이 JSX 안에 그대로
@@ -2200,7 +2218,15 @@ export default function KakaoMap() {
         };
       });
 
-    const medicalOptions = { includeVet: routeIncludeVet, includePharmacy: routeIncludePharmacy, pinnedIds: appliedPinnedIds };
+    // 프리미엄(광고) 업장: 출발지에서 PREMIUM_COURSE_KM 안에 있으면 가장 가까운 한 곳을 코스에 넣습니다(광고 상품의 "AI 코스 노출").
+    const sponsoredIds = nearbyWithPopularity
+      .filter((place) => isPlacePremiumNow(place))
+      .map((place) => ({ id: place.id, d: getDistance(center.lat, center.lng, Number(place.lat), Number(place.lng)) }))
+      .filter((e) => e.d <= PREMIUM_COURSE_KM)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 1)
+      .map((e) => e.id);
+    const medicalOptions = { includeVet: routeIncludeVet, includePharmacy: routeIncludePharmacy, pinnedIds: appliedPinnedIds, sponsoredIds };
     const buildOptions = { excludeIds: routeExcludedIds, ...medicalOptions };
     // "다른 코스 보기"로 제외 목록이 쌓였는데 그걸로는 더 이상 코스를 못 만들면(대안
     // 소진), 처음 추천으로 자연스럽게 되돌아갑니다 — 빈 화면보다 낫다는 판단입니다.

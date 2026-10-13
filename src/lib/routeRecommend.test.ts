@@ -267,6 +267,20 @@ describe("buildRoute", () => {
       const route = buildRoute([...pool, far], CENTER, "walk", 4, { pinnedIds: [399] })!;
       expect(route.stops.map((s) => s.place.id)).toContain(399);
     });
+
+    it("프리미엄(광고) 업장은 코스에 자리를 잡되, 고정 표시는 붙지 않는다", () => {
+      const without = buildRoute(pool, CENTER, "walk", 4)!;
+      const outside = pool.find((p) => !without.stops.some((s) => s.place.id === p.id))!;
+      const route = buildRoute(pool, CENTER, "walk", 4, { sponsoredIds: [outside.id] })!;
+      const stop = route.stops.find((s) => s.place.id === outside.id);
+      expect(stop).toBeTruthy();
+      expect(stop?.pinned).toBeUndefined();
+    });
+
+    it("사용자가 뺀 프리미엄 업장은 다시 넣지 않는다", () => {
+      const route = buildRoute(pool, CENTER, "walk", 4, { sponsoredIds: [305], excludeIds: [305] })!;
+      expect(route.stops.map((s) => s.place.id)).not.toContain(305);
+    });
   });
 
   it("모든 정거장의 친화도는 0~100 사이다", () => {

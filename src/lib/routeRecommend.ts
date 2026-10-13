@@ -513,6 +513,12 @@ export interface BuildRouteOptions {
   includePharmacy?: boolean;
   /** 사용자가 핀으로 고정한 장소 id — 반경·필터·excludeIds와 무관하게 항상 코스에 넣습니다. */
   pinnedIds?: Iterable<string | number>;
+  /**
+   * 프리미엄(광고) 업장 id — 코스에 자리를 하나 잡아 넣습니다(사용자가 고정한 곳처럼 반경·필터와 무관).
+   * 어느 업장을 넣을지(출발지에서 가까운 곳만, 한 곳만)는 부르는 쪽이 정해서 넘깁니다.
+   * 사용자가 "다른 코스 보기"로 뺀 곳(excludeIds)은 넣지 않습니다 — 광고라도 싫다는 곳을 다시 밀어 넣지 않습니다.
+   */
+  sponsoredIds?: Iterable<string | number>;
 }
 
 export function buildRoute(
@@ -566,8 +572,13 @@ function buildRouteWithin(
 
   // 사용자가 고정한 장소: 반경·실내·운영시간 필터와 무관하게 후보에 넣습니다(사용자가 직접 고른 곳).
   const pinnedIdSet = new Set<string | number>(options?.pinnedIds ?? []);
+  // 프리미엄(광고) 업장: 사용자가 뺀 곳은 제외하고, 고정한 곳과 같은 방식으로 자리를 잡습니다(고정한 곳이 먼저).
+  const excludedByUser = new Set<string | number>(options?.excludeIds ?? []);
+  const sponsoredIdSet = new Set<string | number>([...(options?.sponsoredIds ?? [])].filter((id) => !excludedByUser.has(id) && !pinnedIdSet.has(id)));
+  const reservedIdSet = new Set<string | number>([...pinnedIdSet, ...sponsoredIdSet]);
   const pinnedPlaces = candidates
-    .filter((p) => pinnedIdSet.has(p.id) && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng)))
+    .filter((p) => reservedIdSet.has(p.id) && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng)))
+    .sort((a, b) => Number(sponsoredIdSet.has(a.id)) - Number(sponsoredIdSet.has(b.id)))
     .slice(0, maxStops);
   for (const p of pinnedPlaces) if (!pool.some((q) => q.id === p.id)) pool.push(p);
 
