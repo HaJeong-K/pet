@@ -9,6 +9,9 @@
 // 동물을 버리려는 사람이 가까운 보호소를 찾기 쉬워집니다. 여기서는 지역(시·군·구)과 전화만 보여 줍니다.
 // (입양하러 찾아가야 하는 공고 상세 화면에는 주소가 그대로 있습니다.)
 
+import { gunzipSync, gzipSync } from "node:zlib";
+import { after } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { parseOpenApiItems, type ShelterNotice } from "@/lib/shelterNotices";
 
 const API_URL = "https://apis.data.go.kr/1543061/abandonmentPublicService_v2/abandonmentPublic_v2";
@@ -18,6 +21,8 @@ const MAX_PAGES = 8;
 const LOOKBACK_DAYS = 20;
 const FETCH_TIMEOUT_MS = 15000;
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const SNAPSHOT_BUCKET = "public-data-cache";
+const SNAPSHOT_PATH = "shelter-directory-v1.json.gz";
 /** 마감이 이 날수 이하로 남으면 "마감 임박" */
 export const URGENT_DAYS = 3;
 
@@ -45,12 +50,48 @@ export type ShelterNoticeBrief = Pick<ShelterNotice, "desertionNo" | "noticeNumb
 };
 
 type Built = { list: ShelterEntry[]; notices: Map<string, ShelterNoticeBrief[]> };
+type Cached = Built & { at: number };
 
-let cache: ({ at: number } & Built) | null = null;
-let pending: Promise<Built> | null = null;
+let cache: Cached | null = null;
+let refreshing: Promise<Cached | null> | null = null;
+let loading: Promise<Cached> | null = null;
 
 function encodeKey(key: string): string {
   return /%[0-9A-Fa-f]{2}/.test(key) ? key : encodeURIComponent(key);
+}
+
+// ── 묶은 결과 보관(Supabase Storage) ──
+// 공고 4,500여 건을 받아 묶는 데 6~8초가 걸립니다. 예전에는 서버가 새로 뜰 때마다(메모리가 비어 있을 때마다) 이 일을
+// 방문자가 기다리는 동안 했습니다. 이제는 묶은 결과를 파일로 보관해 두고 0.3초 안팎에 읽어 옵니다.
+// 오래됐으면(1시간) 일단 그 결과를 보여 주고, 응답을 보낸 뒤에 새로 만들어 바꿔 둡니다.
+// 정부 공공데이터라 보관해 두고 쓰는 데 제약이 없습니다(주소는 여전히 담지 않습니다).
+function storage() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+}
+
+async function readSnapshot(): Promise<Cached | null> {
+  try {
+    const { data, error } = await storage().storage.from(SNAPSHOT_BUCKET).download(SNAPSHOT_PATH);
+    if (error || !data) return null;
+    const json = JSON.parse(gunzipSync(Buffer.from(await data.arrayBuffer())).toString("utf8"));
+    if (!Array.isArray(json?.list) || json.list.length === 0) return null;
+    return { at: Number(json.builtAt) || 0, list: json.list, notices: new Map(Object.entries(json.notices ?? {})) as Map<string, ShelterNoticeBrief[]> };
+  } catch (e) {
+    console.error("[shelterDirectory] 보관해 둔 목록을 읽지 못했습니다:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+async function writeSnapshot(built: Cached): Promise<void> {
+  try {
+    const client = storage();
+    await client.storage.createBucket(SNAPSHOT_BUCKET, { public: false }).catch(() => {});
+    const body = gzipSync(Buffer.from(JSON.stringify({ builtAt: built.at, list: built.list, notices: Object.fromEntries(built.notices) })));
+    const { error } = await client.storage.from(SNAPSHOT_BUCKET).upload(SNAPSHOT_PATH, body, { upsert: true, contentType: "application/gzip" });
+    if (error) console.error("[shelterDirectory] 목록을 보관하지 못했습니다:", error.message);
+  } catch (e) {
+    console.error("[shelterDirectory] 목록을 보관하지 못했습니다:", e instanceof Error ? e.message : e);
+  }
 }
 
 async function build(): Promise<Built> {
@@ -99,15 +140,47 @@ async function build(): Promise<Built> {
   return { list, notices };
 }
 
-async function load(): Promise<Built> {
-  if (cache && Date.now() - cache.at < CACHE_TTL_MS) return cache;
-  if (!pending) {
-    pending = build()
-      .then((built) => { if (built.list.length > 0) cache = { at: Date.now(), ...built }; return built; })
-      .catch((e) => { console.error("[shelterDirectory] 목록을 만들지 못했습니다:", e instanceof Error ? e.message : e); return cache ?? { list: [], notices: new Map() }; })
-      .finally(() => { pending = null; });
+/** 새로 만들어 메모리와 저장소에 반영합니다(동시에 여러 번 돌지 않게 한 번만). 실패하면 null */
+function refresh(): Promise<Cached | null> {
+  if (!refreshing) {
+    refreshing = build()
+      .then(async (built) => {
+        if (built.list.length === 0) return null;
+        const next: Cached = { at: Date.now(), ...built };
+        cache = next;
+        await writeSnapshot(next);
+        return next;
+      })
+      .catch((e) => { console.error("[shelterDirectory] 목록을 만들지 못했습니다:", e instanceof Error ? e.message : e); return null; })
+      .finally(() => { refreshing = null; });
   }
-  return pending;
+  return refreshing;
+}
+
+/** 응답을 보낸 뒤에 새로 만듭니다(방문자를 기다리게 하지 않음) */
+function refreshLater() {
+  try { after(() => refresh()); } catch { void refresh(); }
+}
+
+async function load(): Promise<Cached> {
+  const fresh = (c: Cached) => Date.now() - c.at < CACHE_TTL_MS;
+  if (cache) {
+    if (!fresh(cache)) refreshLater(); // 오래됐어도 일단 보여 주고 뒤에서 새로
+    return cache;
+  }
+  if (!loading) {
+    loading = (async () => {
+      const saved = await readSnapshot();
+      if (saved) {
+        cache = saved;
+        if (!fresh(saved)) refreshLater();
+        return saved;
+      }
+      // 보관해 둔 것이 아예 없을 때(처음 한 번)만 기다리며 만듭니다.
+      return (await refresh()) ?? { at: 0, list: [], notices: new Map() };
+    })().finally(() => { loading = null; });
+  }
+  return loading;
 }
 
 /** 전국 보호소 목록. 1시간 동안 기억하고, 새로 받기에 실패하면 직전 목록을 그대로 돌려줍니다. */

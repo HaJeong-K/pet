@@ -17,6 +17,10 @@ import { getPrioritizedShelterNotices, getRegionShelterNotices, getNearbyShelter
 // GET /api/shelter-notices?region=경북&sub=포항시 남구&lat=36.01&lng=129.34
 //   sub(시·군·구) 또는 lat·lng를 함께 보내면 "내 시·군·구 공고 먼저, 4건이 안 되면 가장 가까운
 //   시·군·구 공고를 더하는" 위치 기반 순서로 돌려주고, near에 어떤 지역이 포함됐는지 알려줍니다.
+// 같은 지역 요청은 2분 동안 CDN이 대신 응답하고, 그 뒤 1시간은 예전 응답을 먼저 주면서 뒤에서 새로 받습니다.
+// (공고는 하루 단위로 바뀌는 자료라 몇 분 늦어도 문제가 없습니다. 실패한 응답은 기억하지 않습니다.)
+const CACHE_OK = { "Cache-Control": "public, max-age=60, s-maxage=120, stale-while-revalidate=3600" };
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const region = searchParams.get("region");
@@ -37,7 +41,7 @@ export async function GET(req: NextRequest) {
       const result = full
         ? await getRegionNoticesWithNearby(region, area, limit)
         : await getNearbyShelterNotices(area, limit, offset);
-      return NextResponse.json(result);
+      return NextResponse.json(result, { headers: result.notices.length > 0 ? CACHE_OK : undefined });
     } catch (e) {
       console.error("[/api/shelter-notices] nearby failed:", e);
       return NextResponse.json({ notices: [], error: "fetch_failed" }, { status: 200 });
@@ -48,7 +52,7 @@ export async function GET(req: NextRequest) {
     const notices = full
       ? await getRegionShelterNotices(region, limit)
       : await getPrioritizedShelterNotices(region, limit, offset);
-    return NextResponse.json({ notices });
+    return NextResponse.json({ notices }, { headers: notices.length > 0 ? CACHE_OK : undefined });
   } catch (e) {
     console.error("[/api/shelter-notices] failed:", e);
     return NextResponse.json({ notices: [], error: "fetch_failed" }, { status: 200 });

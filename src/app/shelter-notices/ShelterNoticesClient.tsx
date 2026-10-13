@@ -49,6 +49,25 @@ type NearInfo = { ownSub: string | null; ownCount: number; subs: string[] } | nu
 const noticeCache = new Map<string, { notices: ShelterNoticeLite[]; near: NearInfo }>();
 
 /** initial: 서버가 화면과 함께 미리 채워 보내는 전국 공고(마감임박순) — src/app/shelter-notices/page.tsx */
+// ── 지난번에 본 목록 기억(기기에 보관) ──
+// 탭을 다시 열거나 새로고침했을 때 내 지역 공고를 기다리지 않고 바로 보여 주기 위함입니다. 보여 준 뒤 뒤에서 최신으로 바꿉니다.
+// 가장 최근에 본 한 가지 조건(지역)만, 30분까지만 기억합니다.
+const SAVED_KEY = "ggk_adopt_last_v1";
+const SAVED_TTL_MS = 30 * 60 * 1000;
+type SavedNotices = { notices: ShelterNoticeLite[]; near: { ownSub: string | null; ownCount: number; subs: string[] } | null };
+function readSavedNotices(cacheKey: string): SavedNotices | undefined {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SAVED_KEY) || "null");
+    if (!saved || saved.key !== cacheKey || Date.now() - saved.at > SAVED_TTL_MS || !Array.isArray(saved.notices)) return undefined;
+    return { notices: saved.notices, near: saved.near ?? null };
+  } catch {
+    return undefined;
+  }
+}
+function saveNotices(cacheKey: string, value: SavedNotices) {
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify({ key: cacheKey, at: Date.now(), ...value })); } catch { /* 저장 공간이 없으면 넘어갑니다 */ }
+}
+
 export default function ShelterNoticesClient({ initial = null, phraseSeed }: { initial?: ShelterNoticeLite[] | null; phraseSeed?: number }) {
   const router = useRouter();
   const userArea = useUserArea();
@@ -101,7 +120,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
     // 기억해 둔 목록이 있으면 먼저 보여 주고, 없으면 지금 보이는 목록을 흐리게 둔 채 새 목록을 기다립니다.
     // 전국 공고는 서버가 화면에 채워 보낸 것(initial)을 먼저 보여 주고, 뒤에서 최신으로 바꿉니다
     // (서버가 만들어 둔 화면이 조금 오래됐을 수 있어서 — 마감된 공고가 남아 있지 않게).
-    const remembered = noticeCache.get(cacheKey) ?? (!sido && hasInitial ? { notices: initial ?? [], near: null } : undefined);
+    const remembered = noticeCache.get(cacheKey) ?? readSavedNotices(cacheKey) ?? (!sido && hasInitial ? { notices: initial ?? [], near: null } : undefined);
     if (remembered) { setNotices(remembered.notices); setNear(remembered.near); setLoading(false); }
     else setLoading(true);
     fetch(`/api/shelter-notices?${cacheKey}`)
@@ -112,6 +131,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
         setNotices(next.notices); setNear(next.near);
         if (noticeCache.size > 30) noticeCache.clear();
         noticeCache.set(cacheKey, next);
+        if (next.notices.length > 0) saveNotices(cacheKey, next);
       })
       .catch(() => { if (!cancelled && !remembered) { setNotices([]); setNear(null); } })
       .finally(() => { if (!cancelled) setLoading(false); });
