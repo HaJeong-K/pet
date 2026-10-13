@@ -155,7 +155,7 @@ export default function ShelterSupportPage() {
                           <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>{[shortSido(s.sido), s.sigungu].filter(Boolean).join(" ")}</div>
                           <div style={{ fontSize: 12, color: "#5d574e", marginTop: 5, fontWeight: 600 }}>
                             {s.protecting > 0
-                              ? <>보호 중 <b style={{ color: "#7A5236" }}>{s.protecting}마리</b>{[s.dogs > 0 && ` · 강아지 ${s.dogs}`, s.cats > 0 && ` · 고양이 ${s.cats}`, s.others > 0 && ` · 그 밖 ${s.others}`].filter(Boolean).join("")}</>
+                              ? <>보호 중 <b style={{ color: "#7A5236" }}>{s.protecting}마리</b>{[s.dogs > 0 && ` · 강아지 ${s.dogs}`, s.cats > 0 && ` · 고양이 ${s.cats}`, s.others > 0 && ` · 기타 ${s.others}`].filter(Boolean).join("")}</>
                               : <span style={{ color: "#aaa" }}>지금 보호 중인 공고 없음</span>}
                           </div>
                         </div>

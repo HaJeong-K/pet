@@ -14,12 +14,13 @@ type Shelter = { id: string; name: string; sido: string; sigungu: string; tel: s
 
 // 숫자 칸 — 폰에서는 한 줄을 나눠 쓰고, 넓은 화면에서는 STAT_MAX_WIDTH까지만 커집니다(가로로 길게 늘어지지 않게).
 const STAT_MAX_WIDTH = 104;
-const stat = (label: string, value: number, accent = false) => (
-  <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: STAT_MAX_WIDTH, padding: "11px 6px", borderRadius: 14, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.10)", textAlign: "center" }}>
-    <div className="ggk-logo" style={{ fontSize: 20, fontWeight: 800, color: accent ? "#F6C89A" : "white", lineHeight: 1.2 }}>{value}</div>
-    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.78)", marginTop: 3 }}>{label}</div>
-  </div>
-);
+/** 마감이 이 날수 이하로 남으면 "마감 임박"(서버 shelterDirectory.ts의 URGENT_DAYS와 같은 값) */
+const URGENT_DAYS = 3;
+type Notice = ShelterNoticeLite & { kind?: "dog" | "cat" | "other" };
+type Choice = "all" | "dog" | "cat" | "other" | "urgent";
+const PICK_LABEL: Record<Choice, string> = { all: "보호 중", dog: "강아지", cat: "고양이", other: "기타", urgent: "마감 임박" };
+const matches = (n: Notice, pick: Choice) =>
+  pick === "all" ? true : pick === "urgent" ? n.daysLeft <= URGENT_DAYS : (n.kind ?? "other") === pick;
 
 /** "강원특별자치도" → "강원"처럼 짧게(이동 버튼과 한 줄에 들어가게) */
 const shortSido = (sido: string) =>
@@ -29,7 +30,9 @@ export default function ShelterDetailPage() {
   const router = useRouter();
   const params = useParams();
   const id = String(params?.id ?? "");
-  const [data, setData] = useState<{ shelter: Shelter; notices: ShelterNoticeLite[] } | null>(null);
+  const [data, setData] = useState<{ shelter: Shelter; notices: Notice[] } | null>(null);
+  // 숫자 칸을 누르면 그 조건의 공고만 봅니다(다시 누르거나 "보호 중"을 누르면 전체).
+  const [pick, setPick] = useState<Choice>("all");
   const [state, setState] = useState<"loading" | "ready" | "missing" | "failed">("loading");
   const adoptPhrase = useAdoptPhrases();
 
@@ -49,6 +52,7 @@ export default function ShelterDetailPage() {
   }, [id]);
 
   const shelter = data?.shelter;
+  const shown = (data?.notices ?? []).filter((n) => matches(n, pick));
 
   return (
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -99,11 +103,26 @@ export default function ShelterDetailPage() {
                 </div>
                 <div style={{ flex: "0 1 440px", minWidth: "min(100%, 260px)", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", gap: 8 }}>
-                    {stat("보호 중", shelter.protecting)}
-                    {stat("강아지", shelter.dogs)}
-                    {stat("고양이", shelter.cats)}
-                    {shelter.others > 0 && stat("그 밖", shelter.others)}
-                    {stat("마감 임박", shelter.urgent, true)}
+                    {([["all", shelter.protecting], ["dog", shelter.dogs], ["cat", shelter.cats], ["other", shelter.others], ["urgent", shelter.urgent]] as [Choice, number][])
+                      .filter(([key, value]) => key !== "other" || value > 0)
+                      .map(([key, value]) => {
+                        const active = pick === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => setPick(active ? "all" : key)}
+                            aria-pressed={active}
+                            aria-label={`${PICK_LABEL[key]} ${value}마리만 보기`}
+                            style={{
+                              flex: "1 1 0", minWidth: 0, maxWidth: STAT_MAX_WIDTH, padding: "11px 6px", borderRadius: 14, textAlign: "center", cursor: "pointer", fontFamily: "inherit",
+                              background: active ? "white" : "rgba(255,255,255,0.12)", border: active ? "1px solid white" : "1px solid rgba(255,255,255,0.10)",
+                            }}
+                          >
+                            <div className="ggk-logo" style={{ fontSize: 20, fontWeight: 800, color: active ? "#5E3F29" : key === "urgent" ? "#F6C89A" : "white", lineHeight: 1.2 }}>{value}</div>
+                            <div style={{ fontSize: 10.5, color: active ? "#7A5236" : "rgba(255,255,255,0.78)", marginTop: 3, fontWeight: active ? 800 : 400 }}>{PICK_LABEL[key]}</div>
+                          </button>
+                        );
+                      })}
                   </div>
                   {shelter.tel && (
                     <a href={`tel:${shelter.tel.replace(/[^\d+]/g, "")}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 18px", borderRadius: 12, background: "white", color: "#5E3F29", fontSize: 14, fontWeight: 800, textDecoration: "none", boxShadow: "0 4px 14px rgba(0,0,0,0.16)" }}>
@@ -115,13 +134,13 @@ export default function ShelterDetailPage() {
             </div>
 
             <div style={{ padding: "18px 20px var(--ggk-tabbar-space)" }}>
-              <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222", marginBottom: 4 }}>가족을 기다리는 아이들 {data.notices.length}마리</div>
+              <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222", marginBottom: 4 }}>{pick === "all" ? "가족을 기다리는 아이들" : pick === "urgent" ? "마감이 임박한 아이들" : `가족을 기다리는 ${pick === "other" ? "기타 동물" : PICK_LABEL[pick]}`} {shown.length}마리</div>
               <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>마감이 임박한 순서예요. 누르면 자세한 공고를 볼 수 있어요.</div>
-              {data.notices.length === 0 ? (
+              {shown.length === 0 ? (
                 <div style={{ padding: 30, borderRadius: 14, background: "white", border: "1px solid #eee", textAlign: "center", fontSize: 13, color: "#888" }}>지금 보호 중인 공고가 없어요.</div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
-                  {data.notices.map((n, i) => (
+                  {shown.map((n, i) => (
                     <div key={n.desertionNo} style={{ height: 230, display: "flex", flexDirection: "column" }}>
                       <ShelterNoticeCard notice={n} phrase={adoptPhrase(i)} />
                     </div>

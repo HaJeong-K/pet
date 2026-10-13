@@ -19,7 +19,7 @@ const LOOKBACK_DAYS = 20;
 const FETCH_TIMEOUT_MS = 15000;
 const CACHE_TTL_MS = 60 * 60 * 1000;
 /** 마감이 이 날수 이하로 남으면 "마감 임박" */
-const URGENT_DAYS = 3;
+export const URGENT_DAYS = 3;
 
 export type ShelterEntry = {
   id: string;
@@ -39,7 +39,10 @@ export type ShelterEntry = {
 };
 
 /** 목록 카드에 필요한 공고 값(ShelterNoticeCard와 같은 모양) */
-export type ShelterNoticeBrief = Pick<ShelterNotice, "desertionNo" | "noticeNumber" | "region" | "subRegion" | "breed" | "imageUrl" | "daysLeft">;
+export type ShelterNoticeBrief = Pick<ShelterNotice, "desertionNo" | "noticeNumber" | "region" | "subRegion" | "breed" | "imageUrl" | "daysLeft"> & {
+  /** 종류 — 보호센터 화면에서 골라 보는 데 씁니다 */
+  kind: "dog" | "cat" | "other";
+};
 
 type Built = { list: ShelterEntry[]; notices: Map<string, ShelterNoticeBrief[]> };
 
@@ -82,10 +85,11 @@ async function build(): Promise<Built> {
       const notice = parseOpenApiItems([it])[0];
       if (!notice || notice.daysLeft < 0) continue;
       entry.protecting++;
-      const kind = String(it.upKindNm ?? "");
-      if (kind === "개") entry.dogs++; else if (kind === "고양이") entry.cats++; else entry.others++;
+      const kindName = String(it.upKindNm ?? "");
+      const kind: ShelterNoticeBrief["kind"] = kindName === "개" ? "dog" : kindName === "고양이" ? "cat" : "other";
+      if (kind === "dog") entry.dogs++; else if (kind === "cat") entry.cats++; else entry.others++;
       if (notice.daysLeft <= URGENT_DAYS) entry.urgent++;
-      const brief: ShelterNoticeBrief = { desertionNo: notice.desertionNo, noticeNumber: notice.noticeNumber, region: notice.region, subRegion: notice.subRegion, breed: notice.breed, imageUrl: notice.imageUrl, daysLeft: notice.daysLeft };
+      const brief: ShelterNoticeBrief = { desertionNo: notice.desertionNo, noticeNumber: notice.noticeNumber, region: notice.region, subRegion: notice.subRegion, breed: notice.breed, imageUrl: notice.imageUrl, daysLeft: notice.daysLeft, kind };
       notices.set(id, [...(notices.get(id) ?? []), brief]);
     }
     if (items.length < PAGE_SIZE) break;
