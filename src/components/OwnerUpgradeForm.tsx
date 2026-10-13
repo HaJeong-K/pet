@@ -214,11 +214,11 @@ export default function OwnerUpgradeForm({
   };
 
   return (
-    // 화면 높이 안에서 이 칸 전체가 스크롤됩니다(창 가장자리까지 차지해서 스크롤 막대가 오른쪽 끝에 붙음).
+    // 제목은 위에 고정하고 그 아래 칸만 스크롤됩니다 — 스크롤 막대가 닫기 버튼 옆(창 맨 위)이 아니라 제목 아래에서 시작합니다.
     // 글은 낱말 단위로 줄을 바꾸고(keep-all), 문장마다 줄을 나눠 폰에서도 읽기 쉽게 합니다. 내용·기능은 그대로입니다.
-    // 스크롤 칸을 창 위·아래·오른쪽에서 조금 띄워, 스크롤 막대가 둥근 모서리와 닫기 버튼에 붙지 않고 살짝 안쪽에서 시작하게 합니다.
-    <div style={{ maxHeight: "calc(100dvh - 40px - 36px)", overflowY: "auto", margin: "18px 6px 18px 0", padding: "clamp(6px, 2vw, 12px) clamp(14px, 4vw, 26px) clamp(4px, 2vw, 10px) clamp(20px, 5vw, 32px)", boxSizing: "border-box", wordBreak: "keep-all", scrollbarWidth: "thin", scrollbarColor: "rgba(0,0,0,0.16) transparent" }}>
-      <h1 style={{ fontSize: 21, fontWeight: 800, marginBottom: 12, paddingRight: 44, lineHeight: 1.3 }}>사장님으로 전환하기</h1>
+    <div style={{ maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column", wordBreak: "keep-all" }}>
+      <h1 style={{ flexShrink: 0, fontSize: 21, fontWeight: 800, margin: 0, padding: "clamp(24px, 5vw, 30px) 64px 12px clamp(20px, 5vw, 32px)", lineHeight: 1.3 }}>사장님으로 전환하기</h1>
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "2px clamp(20px, 5vw, 32px) clamp(22px, 5vw, 28px)", boxSizing: "border-box" }}>
       <div style={{ fontSize: 13, color: "#555", marginBottom: 20, lineHeight: 1.65, display: "grid", gap: 6 }}>
         <p style={{ margin: 0 }}>현재 계정을 유지한 채로 사장님 계정으로 전환합니다.</p>
         <p style={{ margin: 0 }}>
@@ -371,6 +371,7 @@ export default function OwnerUpgradeForm({
         {submitPhase === "idle" && "사장님으로 전환하기"}
       </button>
 
+      </div>
       {showPrivacyModal && <PrivacyModal onClose={() => setShowPrivacyModal(false)} />}
     </div>
   );
