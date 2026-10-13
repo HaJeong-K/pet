@@ -25,6 +25,9 @@ const chip = (active: boolean): React.CSSProperties => ({
 const shortSido = (sido: string) =>
   sido.replace(/통합특별시|특별자치도|특별자치시|특별시|광역시/g, "").replace(/^(충청|전라|경상)(북|남)도$/, (_, a: string, b: string) => a[0] + b).replace(/도$/, "") || sido;
 
+/** 처음에 바로 그리는 보호센터 수(나머지는 화면이 뜬 직후 이어서) */
+const FIRST_BATCH = 30;
+
 export default function SupportClient({ initialShelters, initialOrgs }: { initialShelters: Shelter[] | null; initialOrgs: Org[] }) {
   const router = useRouter();
   // 서버가 채워 보낸 목록으로 바로 시작합니다. 서버가 못 채웠을 때(null)만 화면이 뜬 뒤에 받아 옵니다.
@@ -33,6 +36,13 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
   const [failed, setFailed] = useState(false);
   const [sido, setSido] = useState<string>("");
   const [query, setQuery] = useState("");
+  // 화면을 빨리 띄우려고 처음에는 앞쪽 FIRST_BATCH곳만 그리고, 화면이 뜬 직후 나머지를 이어서 그립니다.
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setShowAll(true), 60);
+    router.prefetch("/shelter-notices"); // "입양 공고" 버튼을 누르면 바로 넘어가게 미리 받아 둡니다
+    return () => clearTimeout(id);
+  }, [router]);
 
   useEffect(() => {
     if (initialShelters) return;
@@ -153,7 +163,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                   ))}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: 10 }}>
-                  {shown.map((s) => (
+                  {(showAll ? shown : shown.slice(0, FIRST_BATCH)).map((s) => (
                     <div key={s.id} style={{ ...card, padding: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                       {/* 누르면 이 보호센터의 공고만 모아 봅니다 */}
                       <button onPointerDown={() => router.prefetch(`/shelter-notices/support/${encodeURIComponent(s.id)}`)} onClick={() => router.push(`/shelter-notices/support/${encodeURIComponent(s.id)}`)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 14px 11px", border: "none", background: "transparent", textAlign: "left", cursor: "pointer", fontFamily: "inherit", width: "100%" }}>

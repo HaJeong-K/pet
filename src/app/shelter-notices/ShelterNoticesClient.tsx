@@ -86,6 +86,9 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
   const [notices, setNotices] = useState<ShelterNoticeLite[]>(initial ?? []);
   const [loading, setLoading] = useState(!hasInitial);
 
+  // "보호소·후원" 화면을 미리 받아 둡니다 — 버튼을 누르면 기다리지 않고 바로 넘어가게.
+  useEffect(() => { router.prefetch("/shelter-notices/support"); }, [router]);
+
   // 알림을 눌러 들어온 경우(?region=대구)에는 그 지역을 먼저 보여줍니다.
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("region");
