@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronRight, ExternalLink, HeartHandshake, PawPrint, Phone, Search } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import { SIDO_LIST } from "@/lib/shelterNotices";
 
 type Shelter = { id: string; name: string; sido: string; sigungu: string; tel: string; protecting: number; dogs: number; cats: number; others: number; urgent: number };
 type Org = { id: string; name: string; description: string; url: string };
@@ -41,10 +42,16 @@ export default function ShelterSupportPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const sidos = useMemo(() => [...new Set((shelters || []).map((s) => s.sido).filter(Boolean))], [shelters]);
+  // 시·도는 흔히 나열하는 순서(서울·부산·…·제주)로 — 입양 화면·게시판과 같은 순서(SIDO_LIST)
+  const sidoRank = (sido: string) => { const i = SIDO_LIST.indexOf(shortSido(sido)); return i < 0 ? SIDO_LIST.length : i; };
+  const sidos = useMemo(() => [...new Set((shelters || []).map((s) => s.sido).filter(Boolean))].sort((a, b) => sidoRank(a) - sidoRank(b)), [shelters]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown = useMemo(() => {
     const q = query.trim().replace(/\s+/g, "");
-    return (shelters || []).filter((s) => (!sido || s.sido === sido) && (!q || (s.name + s.sido + s.sigungu).replace(/\s+/g, "").includes(q)));
+    return (shelters || [])
+      .filter((s) => (!sido || s.sido === sido) && (!q || (s.name + s.sido + s.sigungu).replace(/\s+/g, "").includes(q)))
+      .map((s, i) => ({ s, i }))
+      .sort((a, b) => sidoRank(a.s.sido) - sidoRank(b.s.sido) || a.i - b.i) // 같은 시·도 안에서는 받은 순서(시·군·구, 이름순) 그대로
+      .map((entry) => entry.s);
   }, [shelters, sido, query]);
   const totalProtecting = useMemo(() => (shelters || []).reduce((sum, s) => sum + s.protecting, 0), [shelters]);
 

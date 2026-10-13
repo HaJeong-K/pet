@@ -24,27 +24,27 @@ export const TOPIC_BOARDS: Board[] = [
 ];
 
 /**
- * 지역 게시판 — 지금의 시·도 행정구역 그대로, 가나다순(보호소·후원 화면의 지역 선택과 같은 분류·같은 순서).
+ * 지역 게시판 — 지금의 시·도 행정구역 그대로, 흔히 나열하는 순서(특별시·광역시 → 도 → 제주. 입양·보호소 화면의 SIDO_LIST와 같은 순서).
  * 전남과 광주는 통합되어 한 게시판("전남광주")이고, 세종을 따로 둡니다.
  * ⚠ id는 글에 저장되는 값이라 바꾸지 않습니다. 통합 전의 "gwangju" 글은 LEGACY_BOARD_IDS로 "전남광주"에 이어 붙입니다.
  */
 export const REGION_BOARDS: Board[] = [
-  { id: "gangwon", label: "강원" },
-  { id: "gyeonggi", label: "경기" },
-  { id: "gyeongnam", label: "경남" },
-  { id: "gyeongbuk", label: "경북" },
-  { id: "daegu", label: "대구" },
-  { id: "daejeon", label: "대전" },
-  { id: "busan", label: "부산" },
   { id: "seoul", label: "서울" },
-  { id: "sejong", label: "세종" },
-  { id: "ulsan", label: "울산" },
+  { id: "busan", label: "부산" },
+  { id: "daegu", label: "대구" },
   { id: "incheon", label: "인천" },
   { id: "jeonnam", label: "전남광주" },
-  { id: "jeonbuk", label: "전북" },
-  { id: "jeju", label: "제주" },
-  { id: "chungnam", label: "충남" },
+  { id: "daejeon", label: "대전" },
+  { id: "ulsan", label: "울산" },
+  { id: "sejong", label: "세종" },
+  { id: "gyeonggi", label: "경기" },
+  { id: "gangwon", label: "강원" },
   { id: "chungbuk", label: "충북" },
+  { id: "chungnam", label: "충남" },
+  { id: "jeonbuk", label: "전북" },
+  { id: "gyeongbuk", label: "경북" },
+  { id: "gyeongnam", label: "경남" },
+  { id: "jeju", label: "제주" },
 ];
 
 /** 예전 게시판 id → 지금 게시판 id(행정구역이 합쳐진 곳) */
