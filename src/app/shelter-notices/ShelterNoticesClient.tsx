@@ -204,7 +204,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
             시·도를 고르면 시·군·구까지 골라 볼 수 있어요. 고르지 않으면 전국 공고가 보여요.
           </p>
           <div data-guide="adopt-alert"><ShelterAlertToggle region={sido} /></div>
-          <div data-guide="adopt-regions" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+          <div data-guide="adopt-regions" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10 /* 가로 스크롤 막대가 버튼에 붙지 않게 */ }}>
             <button
               onClick={() => selectSido("")}
               style={chipStyle(sido === "")}
@@ -223,7 +223,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
           </div>
           {/* ── 시·군·구 선택(시·도를 골랐을 때만) ── */}
           {sido && !loading && (subRegions.length > 1 || nearAvailable) && (
-            <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 4px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 10px", alignItems: "center" }}>
               <span style={{ flexShrink: 0, fontSize: 11, color: "#999", fontWeight: 700, marginRight: 2 }}>{sido}</span>
               {nearAvailable && (
                 <button onClick={() => selectSub(NEAR)} style={chipStyle(activeSub === NEAR, true)}>
