@@ -218,7 +218,8 @@ export default function OwnerUpgradeForm({
     // 글은 낱말 단위로 줄을 바꾸고(keep-all), 문장마다 줄을 나눠 폰에서도 읽기 쉽게 합니다. 내용·기능은 그대로입니다.
     <div style={{ maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column", wordBreak: "keep-all" }}>
       <h1 style={{ flexShrink: 0, fontSize: 21, fontWeight: 800, margin: 0, padding: "clamp(24px, 5vw, 30px) 64px 12px clamp(20px, 5vw, 32px)", lineHeight: 1.3 }}>사장님으로 전환하기</h1>
-      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", padding: "2px clamp(20px, 5vw, 32px) clamp(22px, 5vw, 28px)", boxSizing: "border-box" }}>
+      {/* 아래쪽도 창 끝에서 띄워, 스크롤 막대가 위(제목 아래)와 비슷한 간격을 두고 끝나게 합니다 */}
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", marginBottom: "clamp(24px, 5vw, 30px)", padding: "2px clamp(20px, 5vw, 32px) 4px", boxSizing: "border-box" }}>
       <div style={{ fontSize: 13, color: "#555", marginBottom: 20, lineHeight: 1.65, display: "grid", gap: 6 }}>
         <p style={{ margin: 0 }}>현재 계정을 유지한 채로 사장님 계정으로 전환합니다.</p>
         <p style={{ margin: 0 }}>
