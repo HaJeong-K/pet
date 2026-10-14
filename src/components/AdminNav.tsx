@@ -88,13 +88,21 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
         display: "flex", justifyContent: "center",
       }}
     >
+      {/* 탭이 13개라 한 줄에 다 안 들어가면 뒤쪽 탭이 가려져 보이지 않았습니다.
+          넓은 화면(PC·태블릿)에서는 탭 줄을 화면 폭 가까이 넓히고 모자라면 다음 줄로 넘겨 전부 보이게 하고,
+          휴대폰에서는 예전처럼 옆으로 밀어 봅니다(여러 줄이 되면 화면을 너무 많이 차지해서). */}
+      <style>{`
+        .ggk-admin-tabs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+        .ggk-admin-tabs::-webkit-scrollbar { display: none; }
+        @media (min-width: 768px) { .ggk-admin-tabs { flex-wrap: wrap; overflow-x: visible; } }
+      `}</style>
       <div
         style={{
-          width: "100%", maxWidth: "1200px", boxSizing: "border-box",
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "10px clamp(14px, 4vw, 28px)",
+          width: "100%", maxWidth: "1640px", boxSizing: "border-box",
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6, padding: "10px clamp(14px, 2.4vw, 28px)",
         }}
       >
-        <div ref={rowRef} onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }} style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", minWidth: 0 }}>
+        <div ref={rowRef} className="ggk-admin-tabs" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
           {TABS.map((tab) => {
             const isActive = tab.key === active;
             const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : tab.key === "review" ? counts.review : tab.key === "inquiries" ? counts.inquiries : 0;

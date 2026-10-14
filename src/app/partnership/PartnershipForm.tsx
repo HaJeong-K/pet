@@ -42,7 +42,7 @@ export default function PartnershipForm() {
 
   if (done) {
     return (
-      <div style={{ marginTop: 12, background: "white", borderRadius: 16, border: "1px solid #bbf7d0", padding: "26px 18px", textAlign: "center" }}>
+      <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #bbf7d0", padding: "34px 18px", textAlign: "center", scrollMarginTop: 70 }}>
         <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#15803D" }}>문의를 잘 받았어요</div>
         <div style={{ marginTop: 8, fontSize: 13, color: "#555", lineHeight: 1.7 }}>적어 주신 연락처로 답을 드릴게요. 보통 영업일 기준 2~3일 안에 연락드려요.</div>
       </div>
@@ -50,9 +50,8 @@ export default function PartnershipForm() {
   }
 
   return (
-    <div id="inquiry" style={{ marginTop: 12, background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "18px 16px" }}>
-      <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>문의하기</div>
-      <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
+    <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #ece6d6", padding: "clamp(18px, 4vw, 28px)", boxShadow: "0 8px 28px rgba(60,50,20,0.06)", scrollMarginTop: 70 }}>
+      <div style={{ display: "grid", gap: 14 }}>
         <div>
           <span style={label}>문의 종류</span>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
@@ -70,7 +69,7 @@ export default function PartnershipForm() {
         <label><span style={label}>답을 받을 연락처</span><input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} maxLength={100} placeholder="이메일 주소 또는 전화번호" style={input} /></label>
         <label>
           <span style={label}>문의 내용 <span style={{ fontWeight: 600, color: "#aaa" }}>{form.message.length}/{INQUIRY_MESSAGE_MAX}</span></span>
-          <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} maxLength={INQUIRY_MESSAGE_MAX} rows={6} placeholder="알리고 싶은 가게·브랜드, 원하는 지역과 기간, 예산 등을 적어 주시면 더 빨리 안내해 드릴 수 있어요." style={{ ...input, resize: "vertical", lineHeight: 1.6 }} />
+          <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} maxLength={INQUIRY_MESSAGE_MAX} rows={6} placeholder="알리고 싶은 가게·브랜드·상품, 원하는 방식(배너·체험 행사 등), 지역과 기간, 예산을 적어 주시면 더 빨리 안내해 드릴 수 있어요." style={{ ...input, resize: "vertical", lineHeight: 1.6 }} />
         </label>
         {/* 사람에게는 보이지 않는 칸(자동 입력 걸러 내기용) */}
         <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />

@@ -1,12 +1,32 @@
 import { describe, it, expect } from "vitest";
-import { buildReservationLines, canChangeStatus, cleanProduct, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
+import { buildReservationLines, canChangeStatus, cleanProduct, groupProducts, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
 import { normalizePlan, planAtLeast, PLAN_MONTHLY_PRICE, quote } from "./ownerPlans";
 import { BANNER_ROTATE_MS, bannerRegionOf, bannerSource, isInSigungu, pickLocalAds, rotateByTime, type AdPlace, type BannerPerk } from "./localAds";
 import { adjustExpiry } from "./premiumPeriod";
 
 describe("상품 입력값", () => {
   it("이름 앞뒤 공백을 다듬고 그대로 받는다", () => {
-    expect(cleanProduct({ name: "  수제  육포 ", price: 5000 })).toEqual({ product: { name: "수제 육포", description: null, price: 5000, is_active: true } });
+    expect(cleanProduct({ name: "  수제  육포 ", price: 5000 })).toEqual({ product: {
+      name: "수제 육포", description: null, price: 5000, is_active: true,
+      category: null, imageUrl: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, is_featured: false, sold_out: false,
+    } });
+  });
+  it("자세한 정보는 모두 선택 — 적은 것만 남기고, 장난감처럼 비워 둬도 된다", () => {
+    const food = cleanProduct({ name: "육포", price: 5000, category: " 수제 간식 ", unit: "100g", ingredients: "닭가슴살 100%", allergy: "닭고기", origin: "국내산", caution: "냉장 보관", is_featured: true, imageUrl: "https://x.test/a.jpg" });
+    expect(food).toMatchObject({ product: { category: "수제 간식", unit: "100g", ingredients: "닭가슴살 100%", allergy: "닭고기", origin: "국내산", caution: "냉장 보관", is_featured: true, imageUrl: "https://x.test/a.jpg" } });
+    const toy = cleanProduct({ name: "삑삑이 공", price: 3000, category: "장난감", ingredients: "  ", allergy: "" });
+    expect(toy).toMatchObject({ product: { category: "장난감", ingredients: null, allergy: null, sold_out: false } });
+  });
+  it("가격을 비워 두거나 사진 주소가 이상하면 거절한다", () => {
+    expect(cleanProduct({ name: "간식", price: "" })).toHaveProperty("error");
+    expect(cleanProduct({ name: "간식", price: 1000, imageUrl: "javascript:alert(1)" })).toHaveProperty("error");
+  });
+  it("손님 화면에서는 대표 상품 먼저, 그다음 분류별로 묶는다(분류 없는 것은 맨 뒤 '기타')", () => {
+    const groups = groupProducts([
+      { id: 1, category: "장난감" }, { id: 2, category: null }, { id: 3, category: "수제 간식", is_featured: true }, { id: 4, category: "장난감" }, { id: 5, category: "수제 간식" },
+    ]);
+    expect(groups.map((g) => [g.title, g.items.map((p) => p.id)])).toEqual([["대표 상품", [3]], ["장난감", [1, 4]], ["수제 간식", [5]], ["기타", [2]]]);
+    expect(groupProducts([{ id: 1, category: null }, { id: 2, category: null }]).map((g) => g.title)).toEqual(["상품"]);
   });
   it("이름이 없거나 가격이 이상하면 거절한다", () => {
     expect(cleanProduct({ name: " ", price: 1000 })).toHaveProperty("error");
@@ -42,6 +62,7 @@ describe("예약 내역 만들기", () => {
     { id: 1, name: "육포", price: 5000, is_active: true },
     { id: 2, name: "케이크", price: 12000, is_active: true },
     { id: 3, name: "품절 간식", price: 1000, is_active: false },
+    { id: 4, name: "다 팔린 케이크", price: 9000, is_active: true, sold_out: true },
   ];
   it("이름과 가격은 손님이 보낸 값이 아니라 가게가 올린 값으로 채운다", () => {
     const built = buildReservationLines([{ productId: 1, qty: 2, price: 1, name: "가짜" }, { productId: 2, qty: 1 }], products);
@@ -54,6 +75,7 @@ describe("예약 내역 만들기", () => {
   it("꺼 둔 상품·없는 상품·이상한 수량은 거절한다", () => {
     expect(buildReservationLines([], products)).toHaveProperty("error");
     expect(buildReservationLines([{ productId: 3, qty: 1 }], products)).toHaveProperty("error");
+    expect(buildReservationLines([{ productId: 4, qty: 1 }], products)).toHaveProperty("error");
     expect(buildReservationLines([{ productId: 99, qty: 1 }], products)).toHaveProperty("error");
     expect(buildReservationLines([{ productId: 1, qty: 0 }], products)).toHaveProperty("error");
     expect(buildReservationLines([{ productId: 1, qty: RESERVATION_QTY_MAX + 1 }], products)).toHaveProperty("error");

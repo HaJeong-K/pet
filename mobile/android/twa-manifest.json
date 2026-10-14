@@ -4,8 +4,8 @@
   "name": "같이가개",
   "launcherName": "같이가개",
   "display": "standalone",
-  "themeColor": "#5C7A4A",
-  "themeColorDark": "#48603A",
+  "themeColor": "#FFFFFF",
+  "themeColorDark": "#FFFFFF",
   "navigationColor": "#F7F3E8",
   "navigationColorDark": "#F7F3E8",
   "navigationDividerColor": "#F7F3E8",
@@ -21,8 +21,8 @@
     "path": "./keys/gachigagae-release.jks",
     "alias": "gachigagae"
   },
-  "appVersionName": "0.1.4",
-  "appVersionCode": 5,
+  "appVersionName": "0.1.5",
+  "appVersionCode": 6,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://gachigagae.vercel.app/manifest.webmanifest",
@@ -40,5 +40,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "0.1.4"
+  "appVersion": "0.1.5"
 }

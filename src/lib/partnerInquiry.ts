@@ -3,8 +3,8 @@
 // 사이트 아래 "광고·제휴 문의"의 입력 규칙(화면과 서버가 같이 씁니다).
 
 export const INQUIRY_KINDS = [
-  { id: "ad", label: "광고 문의", hint: "배너 광고, 브랜드·상품 홍보, 지역 캠페인" },
-  { id: "partner", label: "제휴 문의", hint: "서비스 연동, 공동 행사, 콘텐츠·데이터 제휴" },
+  { id: "ad", label: "광고 문의", hint: "동네 배너 광고, 사료·간식·용품 브랜드·상품 홍보, 지역 캠페인" },
+  { id: "partner", label: "제휴 문의", hint: "브랜드 협업(체험·샘플 행사 등), 기관·서비스 연계, 공동 행사, 데이터 제휴" },
   { id: "etc", label: "기타", hint: "그 밖의 제안" },
 ] as const;
 export type InquiryKind = (typeof INQUIRY_KINDS)[number]["id"];
@@ -31,3 +31,19 @@ export function cleanInquiry(raw: unknown): { inquiry: InquiryInput } | { error:
   if (message.length < INQUIRY_MESSAGE_MIN) return { error: `문의 내용을 ${INQUIRY_MESSAGE_MIN}자 이상 적어 주세요.` };
   return { inquiry: { kind, name, company: text(r.company, 60) || null, contact, message } };
 }
+
+// ── 관리자가 문의를 관리하는 처리 상태 ──
+export const INQUIRY_STATUSES = [
+  { id: "new", label: "접수", bg: "#FEF3C7", color: "#92400E" },
+  { id: "discuss", label: "협의 필요", bg: "#DBEAFE", color: "#1D4ED8" },
+  { id: "progress", label: "진행 중", bg: "#f3f0ff", color: "#7c3aed" },
+  { id: "done", label: "완료", bg: "#DCFCE7", color: "#15803D" },
+  { id: "rejected", label: "반려", bg: "#FEE2E2", color: "#B91C1C" },
+] as const;
+export type InquiryStatus = (typeof INQUIRY_STATUSES)[number]["id"];
+export const isInquiryStatus = (v: unknown): v is InquiryStatus => INQUIRY_STATUSES.some((s) => s.id === v);
+export const inquiryStatus = (id: string) => INQUIRY_STATUSES.find((s) => s.id === id) ?? INQUIRY_STATUSES[0];
+/** 더 손댈 일이 없는 상태(완료·반려) — 이 상태가 된 지 1년이 지나면 지웁니다 */
+export const isClosedInquiry = (id: string) => id === "done" || id === "rejected";
+/** 관리자 메모 글자 수 한도 */
+export const INQUIRY_NOTE_MAX = 2000;

@@ -13,7 +13,8 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     orientation: "portrait",
     background_color: "#F7F3E8",
-    theme_color: "#5C7A4A",
+    // 휴대폰 상단바(시계·배터리 줄) 색 — 초록으로 물들이지 않고 흰색으로 둡니다.
+    theme_color: "#FFFFFF",
     lang: "ko",
     icons: [
       { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" },

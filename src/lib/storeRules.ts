@@ -16,7 +16,35 @@ export const RESERVATION_QTY_MAX = 30;
 /** 며칠 뒤까지 예약할 수 있는지 */
 export const PICKUP_MAX_DAYS = 14;
 
-export type ProductInput = { name: string; description: string | null; price: number; is_active: boolean };
+/** 자세한 정보 칸(모두 선택)의 글자 수 한도 */
+export const PRODUCT_CATEGORY_MAX = 20;
+export const PRODUCT_UNIT_MAX = 40;
+export const PRODUCT_DETAIL_MAX = 300;
+/** 분류를 고를 때 보여 주는 예시 — 직접 적어도 됩니다 */
+export const PRODUCT_CATEGORY_SUGGESTIONS = ["수제 간식", "사료·영양제", "케이크·특식", "장난감", "의류·액세서리", "산책 용품", "위생·미용 용품", "미용·서비스"];
+
+export type ProductInput = {
+  name: string; description: string | null; price: number; is_active: boolean;
+  // ── 아래는 모두 선택 — 장난감처럼 해당 없는 상품은 비워 둡니다 ──
+  /** 분류(손님 화면에서 묶어 보여 줌) */
+  category: string | null;
+  /** 상품 사진 주소 */
+  imageUrl: string | null;
+  /** 용량·크기·구성(예: 100g, S·M·L, 3개입) */
+  unit: string | null;
+  /** 재료(먹는 것)·소재(용품) */
+  ingredients: string | null;
+  /** 알레르기 정보 */
+  allergy: string | null;
+  /** 원산지·제조 */
+  origin: string | null;
+  /** 주의사항·보관 방법·급여 대상 */
+  caution: string | null;
+  /** 대표 상품 */
+  is_featured: boolean;
+  /** 품절 — 손님에게 보이지만 예약은 받지 않음 */
+  sold_out: boolean;
+};
 
 /** 상품 입력값을 다듬습니다. 문제가 있으면 이유를 돌려줍니다. */
 export function cleanProduct(raw: unknown): { product: ProductInput } | { error: string } {
@@ -25,10 +53,41 @@ export function cleanProduct(raw: unknown): { product: ProductInput } | { error:
   if (!name) return { error: "상품 이름을 적어 주세요." };
   if (name.length > PRODUCT_NAME_MAX) return { error: `상품 이름은 ${PRODUCT_NAME_MAX}자까지예요.` };
   const price = Number(r.price);
-  if (!Number.isFinite(price) || price < 0 || !Number.isInteger(price)) return { error: "가격은 0 이상의 숫자로 적어 주세요." };
+  if (r.price === "" || r.price == null || !Number.isFinite(price) || price < 0 || !Number.isInteger(price)) return { error: "가격은 0 이상의 숫자로 적어 주세요." };
   if (price > PRODUCT_PRICE_MAX) return { error: "가격이 너무 커요. 다시 확인해 주세요." };
-  const description = typeof r.description === "string" && r.description.trim() ? r.description.trim().slice(0, PRODUCT_DESC_MAX) : null;
-  return { product: { name, description, price, is_active: r.is_active !== false } };
+  const text = (value: unknown, max: number) => (typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null);
+  // 사진 주소는 화면에서는 imageUrl, 표에서는 image_url — 둘 다 받습니다.
+  const imageUrl = text(r.imageUrl ?? r.image_url, 500);
+  if (imageUrl && !/^https:\/\/[^\s"'<>]+$/.test(imageUrl)) return { error: "사진 주소가 올바르지 않아요. 사진을 다시 올려 주세요." };
+  return {
+    product: {
+      name, price,
+      description: text(r.description, PRODUCT_DESC_MAX),
+      is_active: r.is_active !== false,
+      category: text(r.category, PRODUCT_CATEGORY_MAX),
+      imageUrl,
+      unit: text(r.unit, PRODUCT_UNIT_MAX),
+      ingredients: text(r.ingredients, PRODUCT_DETAIL_MAX),
+      allergy: text(r.allergy, PRODUCT_DETAIL_MAX),
+      origin: text(r.origin, PRODUCT_DETAIL_MAX),
+      caution: text(r.caution, PRODUCT_DETAIL_MAX),
+      is_featured: r.is_featured === true,
+      sold_out: r.sold_out === true,
+    },
+  };
+}
+
+/**
+ * 손님 화면에 보여 줄 순서 — 대표 상품 먼저, 그다음 분류별로 묶어서(분류 없는 것은 "기타"로 맨 뒤). 같은 묶음 안에서는 사장님이 정한 순서.
+ */
+export function groupProducts<T extends { category?: string | null; is_featured?: boolean | null }>(products: T[]): { title: string; items: T[] }[] {
+  const groups: { title: string; items: T[] }[] = [];
+  const featured = products.filter((p) => p.is_featured);
+  if (featured.length > 0) groups.push({ title: "대표 상품", items: featured });
+  const rest = products.filter((p) => !p.is_featured);
+  const titles = [...new Set(rest.map((p) => p.category || ""))].sort((a, b) => Number(a === "") - Number(b === ""));
+  for (const title of titles) groups.push({ title: title || (groups.length > 0 || titles.length > 1 ? "기타" : "상품"), items: rest.filter((p) => (p.category || "") === title) });
+  return groups;
 }
 
 export type ReservationStatus = "requested" | "accepted" | "ready" | "completed" | "rejected" | "cancelled";
@@ -76,7 +135,7 @@ export type ReservationLine = { productId: number; name: string; price: number; 
  */
 export function buildReservationLines(
   picked: unknown,
-  products: { id: number; name: string; price: number; is_active: boolean }[],
+  products: { id: number; name: string; price: number; is_active: boolean; sold_out?: boolean | null }[],
 ): { lines: ReservationLine[]; total: number } | { error: string } {
   if (!Array.isArray(picked) || picked.length === 0) return { error: "예약할 상품을 골라 주세요." };
   if (picked.length > RESERVATION_LINES_MAX) return { error: `한 번에 ${RESERVATION_LINES_MAX}가지까지 예약할 수 있어요.` };
@@ -92,6 +151,7 @@ export function buildReservationLines(
   for (const [productId, qty] of merged) {
     const product = byId.get(productId);
     if (!product || !product.is_active) return { error: "지금은 예약할 수 없는 상품이 들어 있어요. 화면을 새로 고쳐 주세요." };
+    if (product.sold_out) return { error: `"${product.name}"은(는) 품절이에요. 빼고 다시 예약해 주세요.` };
     if (qty > RESERVATION_QTY_MAX) return { error: `상품 하나는 ${RESERVATION_QTY_MAX}개까지 예약할 수 있어요.` };
     lines.push({ productId, name: product.name, price: product.price, qty });
   }

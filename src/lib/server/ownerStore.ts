@@ -63,19 +63,36 @@ export async function storeEnabled(placeId: number): Promise<boolean> {
   return planAtLeast(await activePlanOf(placeId), "store");
 }
 
-export type ProductRow = { id: number; place_id: number; name: string; description: string | null; price: number; is_active: boolean; sort_order: number };
-const PRODUCT_COLUMNS = "id, place_id, name, description, price, is_active, sort_order";
+export type ProductRow = {
+  id: number; place_id: number; name: string; description: string | null; price: number; is_active: boolean; sort_order: number;
+  // 자세한 칸(scripts/sql/owner-products-detail.sql) — 칸이 아직 없으면 비어 있는 값으로 채워 돌려줍니다
+  category: string | null; image_url: string | null; unit: string | null; ingredients: string | null; allergy: string | null;
+  origin: string | null; caution: string | null; is_featured: boolean; sold_out: boolean;
+};
+export const PRODUCT_BASE_COLUMNS = "id, place_id, name, description, price, is_active, sort_order";
+export const PRODUCT_COLUMNS = `${PRODUCT_BASE_COLUMNS}, category, image_url, unit, ingredients, allergy, origin, caution, is_featured, sold_out`;
+const EMPTY_DETAIL = { category: null, image_url: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, is_featured: false, sold_out: false };
 
-/** 가게의 상품 목록. ready=false면 표가 아직 없음 */
-export async function listProducts(placeId: number, onlyActive: boolean): Promise<{ ready: boolean; products: ProductRow[] }> {
-  let q = db.from("owner_products").select(PRODUCT_COLUMNS).eq("place_id", placeId).order("sort_order").order("id");
-  if (onlyActive) q = q.eq("is_active", true);
-  const { data, error } = await q;
-  if (error) {
-    if (isMissingSchema(error)) return { ready: false, products: [] };
-    throw new Error(error.message);
+/**
+ * 가게의 상품 목록(사장님이 정한 순서).
+ *   ready=false       : 상품 표가 아직 없음(owner-store.sql 실행 전)
+ *   detailReady=false : 사진·재료 같은 자세한 칸이 아직 없음(owner-products-detail.sql 실행 전) — 기본 칸만으로 동작
+ */
+export async function listProducts(placeId: number, onlyActive: boolean): Promise<{ ready: boolean; detailReady: boolean; products: ProductRow[] }> {
+  const run = (columns: string) => {
+    let q = db.from("owner_products").select(columns).eq("place_id", placeId).order("sort_order").order("id");
+    if (onlyActive) q = q.eq("is_active", true);
+    return q;
+  };
+  const full = await run(PRODUCT_COLUMNS);
+  if (!full.error) return { ready: true, detailReady: true, products: (full.data ?? []) as unknown as ProductRow[] };
+  if (!isMissingSchema(full.error)) throw new Error(full.error.message);
+  const base = await run(PRODUCT_BASE_COLUMNS);
+  if (base.error) {
+    if (isMissingSchema(base.error)) return { ready: false, detailReady: false, products: [] };
+    throw new Error(base.error.message);
   }
-  return { ready: true, products: (data ?? []) as ProductRow[] };
+  return { ready: true, detailReady: false, products: ((base.data ?? []) as unknown as ProductRow[]).map((p) => ({ ...EMPTY_DETAIL, ...p })) };
 }
 
 export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at";

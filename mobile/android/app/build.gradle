@@ -26,8 +26,8 @@ def twaManifest = [
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: '같이가개', // The application name.
     launcherName: '같이가개', // The name shown on the Android Launcher.
-    themeColor: '#5C7A4A', // The color used for the status bar.
-    themeColorDark: '#48603A', // The color used for the dark status bar.
+    themeColor: '#FFFFFF', // The color used for the status bar.
+    themeColorDark: '#FFFFFF', // The color used for the dark status bar.
     navigationColor: '#F7F3E8', // The color used for the navigation bar.
     navigationColorDark: '#F7F3E8', // The color used for the dark navbar.
     navigationDividerColor: '#F7F3E8', // The navbar divider color.
@@ -57,8 +57,8 @@ android {
         applicationId "kr.gachigagae.app"
         minSdkVersion 21
         targetSdkVersion 36
-        versionCode 5
-        versionName "0.1.4"
+        versionCode 6
+        versionName "0.1.5"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name

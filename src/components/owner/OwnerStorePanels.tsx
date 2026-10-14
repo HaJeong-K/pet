@@ -7,19 +7,17 @@
 // 결제는 받지 않습니다 — 손님은 가게에서 결제합니다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Package, Pencil, Phone, Plus, Trash2, X } from "lucide-react";
+import { Check, Phone, X } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
 import OwnerAlertCard from "@/components/owner/OwnerAlertCard";
 import { playBark } from "@/lib/ownerAlertSound";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { isOpenStatus, ownerNextStatuses, PRODUCT_DESC_MAX, PRODUCT_NAME_MAX, STATUS_LABEL, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
+import { isOpenStatus, ownerNextStatuses, STATUS_LABEL, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
 
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
-const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit" };
 const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
 
-type Product = { id: number; name: string; description: string | null; price: number; is_active: boolean };
 type Reservation = {
   id: number; customer_name: string; customer_phone: string; items: ReservationLine[]; total: number;
   pickup_at: string | null; memo: string | null; status: ReservationStatus; owner_note: string | null; created_at: string;
@@ -63,103 +61,8 @@ function PlanNotice({ onGoAds }: { onGoAds: () => void }) {
   );
 }
 
-/* ── 상품 ── */
-export function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { placeId: number; isPreview: boolean; canAct: boolean; onGoAds: () => void }) {
-  const [state, setState] = useState<{ ready: boolean; enabled: boolean; products: Product[] } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Product | "new" | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", price: "" });
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    try { setState(await call(withPlace("/api/owner/products", placeId, isPreview), "GET")); setError(null); }
-    catch (e) { setError(e instanceof Error ? e.message : "불러오지 못했어요."); }
-  }, [placeId, isPreview]);
-  useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, [load]);
-
-  const open = (target: Product | "new") => {
-    setEditing(target);
-    setForm(target === "new" ? { name: "", description: "", price: "" } : { name: target.name, description: target.description ?? "", price: String(target.price) });
-    setError(null);
-  };
-  const save = async () => {
-    if (!editing || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const payload = { name: form.name, description: form.description, price: Number(form.price.replace(/[^\d]/g, "")) };
-      if (editing === "new") await call(withPlace("/api/owner/products", placeId, isPreview), "POST", payload);
-      else await call(withPlace("/api/owner/products", placeId, isPreview), "PATCH", { id: editing.id, ...payload });
-      setEditing(null);
-      await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "저장하지 못했어요."); }
-    finally { setBusy(false); }
-  };
-  const toggle = async (product: Product) => {
-    try { await call(withPlace("/api/owner/products", placeId, isPreview), "PATCH", { id: product.id, is_active: !product.is_active }); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : "바꾸지 못했어요."); }
-  };
-  const remove = async (product: Product) => {
-    if (!window.confirm(`"${product.name}"을(를) 삭제할까요?`)) return;
-    try { await call(withPlace("/api/owner/products", placeId, isPreview, `id=${product.id}`), "DELETE"); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : "삭제하지 못했어요."); }
-  };
-
-  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#999" }}>{error}</span> : <LogoLoader />}</div>;
-  if (!state.ready) return <NotReady isPreview={isPreview} />;
-
-  return (
-    <div style={{ display: "grid", gap: 12 }}>
-      {!state.enabled && <PlanNotice onGoAds={onGoAds} />}
-      <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>우리 가게 상품 {state.products.length}개</div>
-          {canAct && <button onClick={() => open("new")} style={{ ...primaryButton(false), marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}><Plus size={14} />상품 추가</button>}
-        </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.6 }}>
-          가게 상세 화면에 진열되고, 손님이 예약 포장을 요청할 수 있어요. 결제는 가게에서 받아요(건당 수수료 없음).
-        </div>
-        {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
-        {error && !editing && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-
-        {editing && (
-          <div style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#F7F3E8", display: "grid", gap: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#444" }}>{editing === "new" ? "새 상품" : "상품 수정"}</div>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="상품 이름 (예: 수제 닭가슴살 육포 100g)" maxLength={PRODUCT_NAME_MAX} style={input} />
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="설명 (선택) — 재료, 용량, 알레르기 정보 등" maxLength={PRODUCT_DESC_MAX} style={{ ...input, minHeight: 64, resize: "vertical" }} />
-            <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value.replace(/[^\d]/g, "") })} placeholder="가격 (원)" inputMode="numeric" style={input} />
-            {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setEditing(null)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #ddd", background: "white", fontSize: 13, fontWeight: 700, color: "#666", cursor: "pointer" }}>취소</button>
-              <button onClick={save} disabled={busy || !form.name.trim() || form.price === ""} style={{ ...primaryButton(busy || !form.name.trim() || form.price === ""), flex: 2 }}>{busy ? "저장 중…" : "저장"}</button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {state.products.length === 0 && !editing && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>아직 올린 상품이 없어요.</div>}
-          {state.products.map((p) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: p.is_active ? "white" : "#fafafa", opacity: p.is_active ? 1 : 0.7 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Package size={16} color="#B45309" /></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#222", wordBreak: "break-word" }}>{p.name}{!p.is_active && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 800, color: "#999" }}>판매 중지</span>}</div>
-                {p.description && <div style={{ fontSize: 12, color: "#888", marginTop: 2, lineHeight: 1.5, wordBreak: "break-word" }}>{p.description}</div>}
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#B45309", marginTop: 3 }}>{won(p.price)}</div>
-              </div>
-              {canAct && (
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => toggle(p)} title={p.is_active ? "판매 중지" : "다시 판매"} style={{ padding: "7px 9px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: "#555", cursor: "pointer" }}>{p.is_active ? "중지" : "판매"}</button>
-                  <button onClick={() => open(p)} aria-label={`${p.name} 수정`} style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e4e8", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Pencil size={13} color="#666" /></button>
-                  <button onClick={() => remove(p)} aria-label={`${p.name} 삭제`} style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid #f3c7c5", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Trash2 size={13} color="#b42318" /></button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+/* ── 상품 ── 자세한 상품 올리기 화면은 OwnerProductsTab.tsx */
+export { default as ProductsTab } from "@/components/owner/OwnerProductsTab";
 
 /* ── 예약 ── */
 const STATUS_STYLE: Record<ReservationStatus, { bg: string; color: string }> = {
