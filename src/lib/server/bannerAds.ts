@@ -8,7 +8,7 @@ import {
   BANNER_SLOTS_ON_SCREEN, chooseBannerPool,
   type BannerPerk, type BannerTier, type BannerViewer, type GeoAdPlace,
 } from "@/lib/localAds";
-import type { BannerFontId } from "@/lib/bannerCreative";
+import { bannerAddress, type BannerFontId } from "@/lib/bannerCreative";
 
 const BASE_COLUMNS = "id, name, category, image_url, address, lat, lng, is_premium, premium_expires_at";
 
@@ -32,6 +32,8 @@ export async function loadBannerCandidates(): Promise<{ places: GeoAdPlace[]; pe
 /** 화면에 그릴 배너 한 장 — 사장님이 만든 내용이 있으면 그것, 없으면 가게 이름과 사진으로 */
 export type BannerCard = {
   id: number; name: string; category: string | null;
+  /** 가게 이름 옆에 적는 짧은 주소 */
+  address: string | null;
   image: string | null; headline: string; body: string | null; font: BannerFontId;
   /** 사장님이 직접 만든 배너인지(아니면 기본 모양) */
   custom: boolean;
@@ -68,7 +70,7 @@ export async function serveBanners(viewer: BannerViewer, slots: number): Promise
     if (!place) return null;
     const creative = creativeOf.get(id);
     return {
-      id, name: place.name, category: place.category,
+      id, name: place.name, category: place.category, address: bannerAddress(place.address),
       image: creative?.image_url || place.image_url || null,
       headline: creative?.headline || place.name,
       body: creative ? creative.body : "우리 동네 반려동물 동반 가게",

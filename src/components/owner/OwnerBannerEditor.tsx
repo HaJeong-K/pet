@@ -1,6 +1,6 @@
 "use client";
 
-// 사장님 센터 "광고" 화면의 "배너 광고 만들기".
+// 사장님 센터의 "배너 광고" 메뉴 — 배너 광고를 내는 가게('동네 대표' 요금제 · 관리자가 켜 준 배너 혜택)에만 보입니다.
 //   · 큰 문구·작은 문구·사진·글꼴을 고르면 바로 아래 미리보기에 실제 광고와 같은 모양으로 보입니다(PC 양옆 칸 / 휴대폰 한 줄).
 //   · "배너 저장"을 누르면 그 내용이 광고 칸에 자동으로 나갑니다(배너가 나가는 요금제·혜택일 때).
 //   · 저장은 2주에 한 번 — 미리보기는 몇 번이든 됩니다. 잘못 저장했으면 관리자에게 한도 변경을 요청할 수 있습니다.
@@ -19,7 +19,7 @@ import {
 type ChangeRequest = { id: number; reason: string; status: "pending" | "approved" | "rejected"; admin_note: string | null; created_at: string };
 type Loaded = {
   ready: boolean;
-  place?: { name: string; image: string | null; region: string };
+  place?: { name: string; image: string | null; region: string; address?: string | null };
   live?: boolean;
   banner?: { headline: string; body: string | null; imageUrl: string | null; font: BannerFontId; changedAt: string; hidden: boolean; hiddenReason: string | null } | null;
   allowance?: ChangeAllowance;
@@ -82,7 +82,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
   const dirty = !saved || saved.headline !== form.headline.trim() || (saved.body ?? "") !== form.body.trim() || saved.imageUrl !== form.imageUrl || saved.font !== form.font;
   // 관리자가 대신 고칠 때는 한도를 따지지 않습니다.
   const canSave = canAct && (isPreview || allowance.allowed) && form.headline.trim() !== "" && dirty && busy === "";
-  const preview = { name: data.place?.name ?? "우리 가게", headline: form.headline.trim() || "여기에 큰 문구가 보여요", body: form.body.trim() || null, image: form.imageUrl || data.place?.image || null, font: form.font };
+  const preview = { name: data.place?.name ?? "우리 가게", address: data.place?.address ?? null, headline: form.headline.trim() || "여기에 큰 문구가 보여요", body: form.body.trim() || null, image: form.imageUrl || data.place?.image || null, font: form.font };
   const pendingRequest = (data.requests ?? []).find((r) => r.status === "pending");
 
   const upload = async (file: File | undefined) => {

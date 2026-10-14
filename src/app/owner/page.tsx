@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package,
+  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone,
 } from "lucide-react";
 import { ProductsTab, ReservationsTab } from "@/components/owner/OwnerStorePanels";
 import OwnerBannerEditor from "@/components/owner/OwnerBannerEditor";
@@ -36,6 +36,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof Store }[] = [
   { key: "dashboard", label: "대시보드", Icon: BarChart3 },
   { key: "reservations", label: "예약", Icon: ClipboardList },
   { key: "products", label: "상품", Icon: Package },
+  { key: "banner", label: "배너 광고", Icon: Megaphone },
   { key: "reviews", label: "후기·답글", Icon: MessageCircle },
   { key: "place", label: "가게 정보", Icon: Pencil },
   { key: "ads", label: "광고 상품", Icon: Crown },
@@ -54,6 +55,8 @@ export default function OwnerPage() {
   const setTab = setOwnerTab;
   // 확인을 기다리는 예약 수(메뉴에 숫자로 표시)
   const [waitingReservations, setWaitingReservations] = useState(0);
+  // 이 가게가 배너 광고를 내는 가게인지('동네 대표' 요금제 · 관리자가 켜 준 배너 혜택) — 그럴 때만 "배너" 메뉴를 보여 줍니다.
+  const [bannerPlaceId, setBannerPlaceId] = useState<number | null>(null);
   // 관리자 미리보기용으로 고른 장소
   const [preview, setPreview] = useState<{ id: number; name: string } | null>(null);
   const [previewQuery, setPreviewQuery] = useState("");
@@ -81,6 +84,21 @@ export default function OwnerPage() {
   const isVerifiedOwner = profile?.owner_status === "verified" && profile?.owner_place_id != null;
   const isPreview = !isVerifiedOwner && !!profile?.is_admin;
   const placeId: number | null = isVerifiedOwner ? Number(profile.owner_place_id) : preview?.id ?? null;
+
+  // 배너 광고를 내는 가게인지 확인(가게가 바뀔 때마다). 확인한 가게 번호를 기억해 두어, 다른 가게로 바꾸는 순간에는 메뉴가 바로 사라집니다.
+  useEffect(() => {
+    if (placeId == null) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`/api/owner/banner${isPreview ? `?placeId=${placeId}` : ""}`, { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null);
+      const json = res && res.ok ? await res.json().catch(() => null) : null;
+      if (!cancelled) setBannerPlaceId(json?.ready && json.live ? placeId : null);
+    })();
+    return () => { cancelled = true; };
+  }, [placeId, isPreview]);
+  const hasBanner = placeId != null && bannerPlaceId === placeId;
 
   // 관리자 미리보기: 장소 이름으로 검색
   useEffect(() => {
@@ -154,9 +172,9 @@ export default function OwnerPage() {
         </div>
       )}
 
-      {/* 탭 */}
+      {/* 탭 — "배너"는 배너 광고를 내는 가게('동네 대표' 요금제)에만 보입니다 */}
       <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", margin: "14px 0 12px" }}>
-        {TABS.map(({ key, label, Icon }) => (
+        {TABS.filter(({ key }) => key !== "banner" || hasBanner).map(({ key, label, Icon }) => (
           <button key={key} onClick={() => setTab(key)} aria-current={tab === key ? "page" : undefined} style={{
             flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 11,
             border: tab === key ? "none" : "1px solid #e8e2d2", background: tab === key ? "#B45309" : "white", color: tab === key ? "white" : "#555",
@@ -179,7 +197,9 @@ export default function OwnerPage() {
           {tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
           {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
           {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {tab === "ads" && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+          {tab === "banner" && hasBanner && <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+          {/* 배너를 내지 않는 가게가 #banner 주소로 들어오면 요금제 화면을 보여 줍니다 */}
+          {(tab === "ads" || (tab === "banner" && !hasBanner)) && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "report" && <ReportTab placeId={placeId} isPreview={isPreview} />}
         </>
       )}
@@ -394,9 +414,6 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
           );
         })}
       </div>
-
-      {/* 배너 광고 만들기 — 문구·사진·글꼴을 고르고 미리보기로 확인(동네 대표 요금제에서 노출) */}
-      <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={canAct} />
 
       {/* 단계 요금 안내 */}
       <div style={card}>

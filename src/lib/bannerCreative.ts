@@ -39,6 +39,16 @@ export function bannerFontsUrl(ids: (string | null | undefined)[]): string | nul
   return families.length ? `https://fonts.googleapis.com/css2?${families.map((f) => `family=${f}`).join("&")}&display=swap` : null;
 }
 
+/**
+ * 배너에 가게 이름 옆에 적는 짧은 주소 — 맨 앞의 시·도는 빼고(같은 동네 사람에게 주로 보이므로) 나머지를 씁니다.
+ * 예: "대구광역시 달서구 공원순환로 36" → "달서구 공원순환로 36". 한 단어뿐이면 그대로.
+ */
+export function bannerAddress(address: string | null | undefined): string | null {
+  const parts = (address ?? "").replace(/\(.*?\)/g, "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  return (parts.length > 2 ? parts.slice(1) : parts).join(" ");
+}
+
 export type BannerCreative = { headline: string; body: string | null; imageUrl: string | null; font: BannerFontId };
 
 /** 입력값을 다듬습니다. 문제가 있으면 이유를 돌려줍니다. */

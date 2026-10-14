@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/server/requireAdmin";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { loadBannerCandidates } from "@/lib/server/bannerAds";
 import { bannerRegionOf, bannerSource } from "@/lib/localAds";
-import { changeAllowance } from "@/lib/bannerCreative";
+import { bannerAddress, changeAllowance } from "@/lib/bannerCreative";
 
 // 관리자 전용: 배너 광고 관리
 //   GET  → ① 사장님이 보낸 "2주 한도 변경 요청" ② 가게별 배너 내용(문구·사진·글꼴)과 노출 여부·노출 횟수
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       const place = placeOf.get(Number(b.place_id));
       const active = places.find((p) => Number(p.id) === Number(b.place_id));
       return {
-        placeId: Number(b.place_id), placeName: place?.name ?? `장소 #${b.place_id}`, region: bannerRegionOf(place?.address), placeImage: place?.image_url ?? null,
+        placeId: Number(b.place_id), placeName: place?.name ?? `장소 #${b.place_id}`, region: bannerRegionOf(place?.address), address: bannerAddress(place?.address), placeImage: place?.image_url ?? null,
         headline: b.headline, body: b.body, imageUrl: b.image_url, font: b.font, changedAt: b.changed_at,
         extraChanges: b.extra_changes, hidden: b.hidden, hiddenReason: b.hidden_reason,
         live: !!active && bannerSource(active, perks.get(Number(b.place_id))) !== null,

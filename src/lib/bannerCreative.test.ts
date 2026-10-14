@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { BANNER_CHANGE_DAYS, BANNER_FONTS, BANNER_HEADLINE_MAX, bannerFont, bannerFontsUrl, changeAllowance, cleanBannerCreative } from "./bannerCreative";
+import { BANNER_CHANGE_DAYS, BANNER_FONTS, BANNER_HEADLINE_MAX, bannerAddress, bannerFont, bannerFontsUrl, changeAllowance, cleanBannerCreative } from "./bannerCreative";
 import { ADJACENT_KM, chooseBannerPool, type BannerPerk, type GeoAdPlace } from "./localAds";
 import { addInterest, type InterestPoint } from "./interestRegions";
 import { cleanInquiry } from "./partnerInquiry";
@@ -24,6 +24,15 @@ describe("배너 내용", () => {
     expect(bannerFont("없는글꼴").id).toBe("gothic");
     expect(bannerFontsUrl(["gothic", "logo"])).toBe(null);
     expect(bannerFontsUrl(["pen", "pen", "round"])).toBe("https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Jua&display=swap");
+  });
+});
+
+describe("배너에 적는 주소", () => {
+  it("시·도는 빼고 짧게 적는다", () => {
+    expect(bannerAddress("대구광역시 달서구 공원순환로 36")).toBe("달서구 공원순환로 36");
+    expect(bannerAddress("경북 포항시 남구 대잠동 1 (대잠동)")).toBe("포항시 남구 대잠동 1");
+    expect(bannerAddress("세종시 한누리대로")).toBe("세종시 한누리대로");
+    expect(bannerAddress("")).toBe(null);
   });
 });
 

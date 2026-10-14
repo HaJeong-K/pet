@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, isMissingSchema, ownerContext } from "@/lib/server/ownerStore";
 import { bannerSource, bannerRegionOf, type BannerPerk } from "@/lib/localAds";
-import { changeAllowance, cleanBannerCreative } from "@/lib/bannerCreative";
+import { bannerAddress, changeAllowance, cleanBannerCreative } from "@/lib/bannerCreative";
 import { notifyAdmin } from "@/lib/server/notify";
 import { createRateLimiter } from "@/lib/server/rateLimit";
 
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ready: true,
-    place: { name: place.name, image: place.image_url, region: bannerRegionOf(place.address) },
+    place: { name: place.name, image: place.image_url, region: bannerRegionOf(place.address), address: bannerAddress(place.address) },
     /** 지금 배너가 실제로 나가는 상태인지('동네 대표' 요금제이거나 관리자 혜택) — 아니어도 미리 만들어 둘 수 있습니다 */
     live: bannerSource(place, perk) !== null,
     banner: banner ? { headline: banner.headline, body: banner.body, imageUrl: banner.image_url, font: banner.font, changedAt: banner.changed_at, hidden: banner.hidden, hiddenReason: banner.hidden_reason } : null,

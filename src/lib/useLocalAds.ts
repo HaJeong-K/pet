@@ -12,7 +12,7 @@ import { readInterests } from "@/lib/interestRegions";
 import type { BannerFontId } from "@/lib/bannerCreative";
 
 export type LocalAd = {
-  id: number; name: string; category: string | null;
+  id: number; name: string; category: string | null; address?: string | null;
   image: string | null; headline: string; body: string | null; font: BannerFontId; custom: boolean;
 };
 

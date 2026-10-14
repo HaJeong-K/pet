@@ -14,7 +14,7 @@ import { bannerFont } from "@/lib/bannerCreative";
 
 type Request = { id: number; place_id: number; placeName: string; reason: string; status: "pending" | "approved" | "rejected"; admin_note: string | null; created_at: string; processed_at: string | null; processed_by: string | null };
 type Banner = {
-  placeId: number; placeName: string; region: string; placeImage: string | null;
+  placeId: number; placeName: string; region: string; address: string | null; placeImage: string | null;
   headline: string; body: string | null; imageUrl: string | null; font: BannerFontId; changedAt: string;
   extraChanges: number; hidden: boolean; hiddenReason: string | null; live: boolean; allowance: ChangeAllowance; serves: number;
 };
@@ -101,7 +101,7 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
       <div style={{ ...title, marginTop: 22 }}>가게별 배너 {data.banners.length}곳</div>
       {data.banners.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#999" }}>아직 배너를 만든 가게가 없어요. 사장님 화면의 &ldquo;광고&rdquo;에서 문구·사진·글꼴을 골라 만들 수 있어요.</div>}
       {data.banners.map((b) => {
-        const view = { name: b.placeName, headline: b.headline, body: b.body, image: b.imageUrl || b.placeImage, font: b.font };
+        const view = { name: b.placeName, address: b.address, headline: b.headline, body: b.body, image: b.imageUrl || b.placeImage, font: b.font };
         return (
           <div key={b.placeId} style={{ ...card, opacity: b.hidden ? 0.8 : 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
