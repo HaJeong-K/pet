@@ -12,7 +12,7 @@ const fail = (error: string, status: number) => NextResponse.json({ error }, { s
 const allow = createRateLimiter({ windowMs: 60 * 60_000, max: 3 });
 
 export async function POST(req: NextRequest) {
-  if (!allow(clientIp(req))) return fail("문의를 너무 자주 보냈어요. 잠시 후 다시 시도해 주세요.", 429);
+  if (!allow(clientIp(req))) return fail("문의가 연속으로 접수되었습니다. 잠시 후 다시 시도해 주세요.", 429);
   const body = await req.json().catch(() => null);
   // 사람에게는 보이지 않는 칸 — 채워져 있으면 자동 입력으로 보고 받은 척만 합니다.
   if (typeof body?.website === "string" && body.website.trim()) return NextResponse.json({ ok: true });
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const { error } = await db.from("partner_inquiries").insert([{ ...inquiry, auth_user_id: user?.id ?? null }]);
   if (error) {
     console.error("[/api/partnership] 저장 실패:", error.message);
-    return fail(isMissingSchema(error) ? "문의 접수를 준비하고 있어요. 아래 이메일로 보내 주세요." : "문의를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.", isMissingSchema(error) ? 503 : 500);
+    return fail(isMissingSchema(error) ? "문의 접수를 준비 중입니다. 아래 이메일로 보내 주시기 바랍니다." : "문의를 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.", isMissingSchema(error) ? 503 : 500);
   }
   await notifyAdmin({
     title: `📮 ${inquiryKindLabel(inquiry.kind)}가 들어왔어요`,

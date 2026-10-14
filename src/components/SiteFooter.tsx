@@ -154,7 +154,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
         • <strong>가게 예약(포장) 시:</strong> 예약자 이름, 연락받을 전화번호, 예약 내역 — 예약한 가게의 사장님에게 전달됩니다<br />
         • <strong>사장님이 새 예약 알림을 켠 경우:</strong> 알림 수신 주소(푸시 구독 정보)<br />
         • <strong>사장님이 배너 광고를 만든 경우:</strong> 광고 문구, 광고 사진<br />
-        • <strong>광고·제휴 문의 시:</strong> 담당자 이름, 회사·가게 이름, 연락처(이메일 또는 전화번호), 문의 내용
+        • <strong>광고·제휴 문의 시:</strong> 담당자명, 회사명, 연락처(이메일 또는 전화번호), 문의 내용
       </FooterSection>
 
       <FooterSection title="3. 개인정보의 보유 및 이용 기간">

@@ -173,7 +173,13 @@ export default function OwnerPage() {
       )}
 
       {/* 탭 — "배너"는 배너 광고를 내는 가게('동네 대표' 요금제)에만 보입니다 */}
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", margin: "14px 0 12px" }}>
+      <style>{`
+        /* 넓은 화면에서는 메뉴가 가려지지 않게 다음 줄로 넘기고, 휴대폰에서는 옆으로 밀어 봅니다 */
+        .owner-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 14px 0 12px; }
+        .owner-tabs::-webkit-scrollbar { display: none; }
+        @media (min-width: 768px) { .owner-tabs { flex-wrap: wrap; overflow-x: visible; } }
+      `}</style>
+      <div className="owner-tabs owner-no-print">
         {TABS.filter(({ key }) => key !== "banner" || hasBanner).map(({ key, label, Icon }) => (
           <button key={key} onClick={() => setTab(key)} aria-current={tab === key ? "page" : undefined} style={{
             flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 11,
@@ -218,7 +224,8 @@ function Shell({ children }: { children: React.ReactNode }) {
           .owner-no-print, [data-guide="tabbar"] { display: none !important; }
         }
       `}</style>
-      <div style={{ width: "100%", maxWidth: 760, margin: "0 auto", padding: "0 16px var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>
+      {/* 폭 1040px — 메뉴가 8개(배너 광고 포함)까지 늘어 760px에서는 메뉴 줄과 배너 미리보기가 좁았습니다 */}
+      <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>
     </div>
   );
 }
