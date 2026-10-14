@@ -13,6 +13,8 @@ import { getRememberedPlace, isPublicDataPlaceId } from "@/lib/placeCache";
 const PLACE_FETCH_TIMEOUT_MS = 12_000;
 import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
+import PlaceStoreSection from "@/components/PlaceStoreSection";
+import { rememberInterest } from "@/lib/interestRegions";
 import {
   calculateAffinityBreakdown,
   getAffinityTier,
@@ -586,6 +588,8 @@ export default function PlaceDetail({
       region: extractRegion(place.address),
       subRegion: extractSubRegion(place.address),
     });
+    // 둘러본 곳의 위치를 "관심 지역"으로 이 기기에만 기억합니다(내 동네에 배너 가게가 없을 때 그 근처 가게를 보여 주는 데 씀).
+    rememberInterest(place.lat, place.lng, "place");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place?.id]);
 
@@ -1459,6 +1463,9 @@ export default function PlaceDetail({
             </div>
           </div>
         )}
+
+        {/* 상품 · 예약 포장 — '프리미엄 스토어' 이상인 가게에 상품이 있을 때만 보입니다(직접 등록된 장소만) */}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && <PlaceStoreSection placeId={placeId} isLoggedIn={isLoggedIn} />}
 
         {/* 댓글 헤더 */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"18px", marginBottom:"8px" }}>

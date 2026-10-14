@@ -27,6 +27,7 @@ import OwnerStatsPanel from "@/components/OwnerStatsPanel";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
+import LocalAdStrip from "@/components/LocalAdStrip";
 
 // 이 시간 안에 로딩이 끝나지 않으면 흰 화면 대신 "다시 불러오기" 안내를 보여줍니다.
 const MYPAGE_STALL_MS = 8000;
@@ -565,6 +566,9 @@ export default function MyPage() {
               <div className="ggk-logo" style={{ fontSize:"15px", fontWeight:800, color:"#111" }}>마이페이지</div>
             </div>
           </div>
+
+          {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
+          <LocalAdStrip />
 
           {/* ── 프로필 히어로 배너 — 시안 .mypage-hero 스펙: solid primary, full-bleed, no radius ── */}
 					<div

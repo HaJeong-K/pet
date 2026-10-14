@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 //           (이미 프리미엄이 진행 중인 장소를 연장 승인하는 경우, 기존 만료일이 아직
 //            남아있으면 그 시점부터 이어서 연장합니다 — 남은 기간을 날리지 않기 위함)
 // reject  → premium_requests.status만 rejected로 변경(places는 건드리지 않음)
+import { normalizePlan, PLAN_NAME } from "@/lib/ownerPlans";
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     const { data: reqRow, error: reqError } = await supabaseAdmin
       .from("premium_requests")
-      .select("id, place_id, months, status")
+      .select("id, place_id, months, status, plan")
       .eq("id", requestId)
       .single();
     if (reqError || !reqRow) {
@@ -74,10 +75,17 @@ export async function POST(req: NextRequest) {
     const base = currentExpiry > now ? currentExpiry : now;
     const newExpiry = new Date(base + reqRow.months * 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const { error: placeUpdateError } = await supabaseAdmin
+    // 신청한 요금제 단계(프리미엄 / 프리미엄 스토어 / 동네 대표)도 함께 적용합니다.
+    // premium_plan 칸이 아직 없으면(scripts/sql/owner-store.sql 실행 전) 예전처럼 프리미엄 여부만 켭니다.
+    const plan = normalizePlan(reqRow.plan);
+    let { error: placeUpdateError } = await supabaseAdmin
       .from("places")
-      .update({ is_premium: true, premium_expires_at: newExpiry })
+      .update({ is_premium: true, premium_expires_at: newExpiry, premium_plan: plan })
       .eq("id", reqRow.place_id);
+    if (placeUpdateError && /premium_plan|schema cache|does not exist/i.test(placeUpdateError.message)) {
+      if (plan !== "premium") return NextResponse.json({ error: "이 요금제를 적용하려면 scripts/sql/owner-store.sql을 먼저 실행해야 해요." }, { status: 503 });
+      ({ error: placeUpdateError } = await supabaseAdmin.from("places").update({ is_premium: true, premium_expires_at: newExpiry }).eq("id", reqRow.place_id));
+    }
     if (placeUpdateError) return NextResponse.json({ error: placeUpdateError.message }, { status: 500 });
 
     const { error: reqUpdateError } = await supabaseAdmin
@@ -85,6 +93,10 @@ export async function POST(req: NextRequest) {
       .update({ status: "approved", admin_note: adminNote, processed_at: new Date().toISOString(), processed_by: user.email || user.id })
       .eq("id", requestId);
     if (reqUpdateError) return NextResponse.json({ error: reqUpdateError.message }, { status: 500 });
+    // 변경 기록(표가 없으면 건너뜀)
+    try {
+      await supabaseAdmin.from("premium_changes").insert([{ place_id: reqRow.place_id, action: "approve", detail: `${PLAN_NAME[plan]} ${reqRow.months}개월 신청 승인 → 만료 ${newExpiry.slice(0, 10)}`, changed_by: user.email || user.id }]);
+    } catch { /* 기록 실패는 무시 */ }
 
     return NextResponse.json({ success: true, premiumExpiresAt: newExpiry });
   } catch (e) {

@@ -4,6 +4,7 @@
 // 인증된 사장님 전용 화면. 예전에는 마이페이지 "설정" 안에 흩어져 있던 가게 정보 수정·통계·프리미엄 신청을
 // 한곳에 모으고, 고객 후기 답글 관리와 성과 보고서를 더했습니다. 하단 탭의 "사장님"으로 들어옵니다.
 //   · 대시보드 — 조회·찜·길찾기·전화 등 성과 지표(OwnerStatsPanel)
+//   · 예약 · 상품 — 상품 등록과 예약 포장 관리(components/owner/OwnerStorePanels.tsx, '프리미엄 스토어' 이상)
 //   · 후기·답글 — 내 가게 후기와 사장님 답글 여부, 답글 달러 가기
 //   · 가게 정보 — 영업시간·동반 조건 등 직접 수정(OwnerPlaceEditPanel)
 //   · 광고 상품 — 프리미엄 요금 안내와 신청(결제 연동 전: 신청 → 입금 안내 → 관리자 승인)
@@ -15,20 +16,26 @@
 // (서버 /api/owner/apply-premium도 관리자 대리 신청을 받지 않습니다).
 
 import LogoLoader from "@/components/LogoLoader";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search,
+  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package,
 } from "lucide-react";
+import { ProductsTab, ReservationsTab } from "@/components/owner/OwnerStorePanels";
+import OwnerBannerEditor from "@/components/owner/OwnerBannerEditor";
+import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab, type OwnerTabKey } from "@/lib/ownerTab";
 import OwnerStatsPanel, { fetchOwnerStats, type OwnerStats } from "@/components/OwnerStatsPanel";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
-import { OWNER_PLANS, PROMO_STEPS, PREMIUM_MONTHLY_PRICE, quote, won } from "@/lib/ownerPlans";
+import { OWNER_PLANS, PROMO_STEPS, PLAN_MONTHLY_PRICE, PLAN_NAME, normalizePlan, quote, won, type PaidPlanId } from "@/lib/ownerPlans";
 import { isPlacePremiumNow } from "@/lib/premium";
 
-type TabKey = "dashboard" | "reviews" | "place" | "ads" | "report";
+// 사장님 센터의 메뉴. 자주 쓰는 것(대시보드·예약·상품·광고)은 아래 탭바(TabBar.tsx)에도 있습니다.
+type TabKey = OwnerTabKey;
 const TABS: { key: TabKey; label: string; Icon: typeof Store }[] = [
   { key: "dashboard", label: "대시보드", Icon: BarChart3 },
+  { key: "reservations", label: "예약", Icon: ClipboardList },
+  { key: "products", label: "상품", Icon: Package },
   { key: "reviews", label: "후기·답글", Icon: MessageCircle },
   { key: "place", label: "가게 정보", Icon: Pencil },
   { key: "ads", label: "광고 상품", Icon: Crown },
@@ -42,7 +49,11 @@ export default function OwnerPage() {
   const router = useRouter();
   const [state, setState] = useState<"loading" | "guest" | "none" | "pending" | "ready">("loading");
   const [profile, setProfile] = useState<any>(null);
-  const [tab, setTab] = useState<TabKey>("dashboard");
+  // 지금 보는 메뉴 — 아래 탭바와 같이 쓰고, 주소 끝의 #이름과 맞춰 둡니다(src/lib/ownerTab.ts).
+  const tab = useSyncExternalStore(subscribeOwnerTab, getOwnerTab, getOwnerTabOnServer);
+  const setTab = setOwnerTab;
+  // 확인을 기다리는 예약 수(메뉴에 숫자로 표시)
+  const [waitingReservations, setWaitingReservations] = useState(0);
   // 관리자 미리보기용으로 고른 장소
   const [preview, setPreview] = useState<{ id: number; name: string } | null>(null);
   const [previewQuery, setPreviewQuery] = useState("");
@@ -136,7 +147,7 @@ export default function OwnerPage() {
               <input type="checkbox" checked={actForOwner} onChange={(e) => setActForOwner(e.target.checked)} style={{ marginTop: 3 }} />
               <span style={{ fontSize: 12.5, lineHeight: 1.6, color: actForOwner ? "#991b1b" : "#555" }}>
                 <b>사장님 요청으로 대신 처리하기</b><br />
-                켜면 이 가게의 정보 수정을 대신 할 수 있어요. 꺼 두면 보기만 해요. (프리미엄 신청은 사장님 본인만 할 수 있어요.)
+                켜면 이 가게의 정보 수정과 상품·예약 처리를 대신 할 수 있어요. 꺼 두면 보기만 해요. (프리미엄 신청은 사장님 본인만 할 수 있어요.)
               </span>
             </label>
           )}
@@ -152,6 +163,9 @@ export default function OwnerPage() {
             fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
           }}>
             <Icon size={14} />{label}
+            {key === "reservations" && waitingReservations > 0 && (
+              <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{waitingReservations}</span>
+            )}
           </button>
         ))}
       </div>
@@ -161,6 +175,8 @@ export default function OwnerPage() {
       ) : (
         <>
           {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
+          {tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
+          {tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
           {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
           {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "ads" && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
@@ -269,7 +285,7 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
             <OwnerPlaceEditPanel place={place} onUpdated={(fields) => setPlace((prev: any) => ({ ...prev, ...fields }))} />
           </>
         )
-        : <div style={{ fontSize: 12, color: "#999" }}>보기 전용이에요. 대신 수정하려면 위의 "사장님 요청으로 대신 처리하기"를 켜 주세요.</div>}
+        : <div style={{ fontSize: 12, color: "#999" }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
     </div>
   );
 }
@@ -280,6 +296,10 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
   const [latest, setLatest] = useState<any>(null);
   const [usedMonths, setUsedMonths] = useState(0);
   const [months, setMonths] = useState(3);
+  // 신청할 요금제 단계(프리미엄 / 프리미엄 스토어 / 동네 대표) — 요금제 카드를 눌러 고릅니다.
+  const [planId, setPlanId] = useState<PaidPlanId>("premium");
+  // 지금 이용 중인 단계(가게에 적용된 값)
+  const [currentPlan, setCurrentPlan] = useState<PaidPlanId>("premium");
   const [payerName, setPayerName] = useState("");
   const [memo, setMemo] = useState("");
   const [agree, setAgree] = useState(false);
@@ -293,13 +313,17 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
     ]);
     setPlace(p || null);
     setLatest(reqs?.[0] ?? null);
+    // 요금제 단계 칸(premium_plan)은 나중에 생긴 칸이라 따로 읽습니다 — 아직 없으면 '프리미엄'으로 둡니다.
+    const { data: planRow, error: planError } = await supabase.from("places").select("premium_plan").eq("id", placeId).maybeSingle();
+    if (!planError) { const plan = normalizePlan((planRow as { premium_plan?: string | null } | null)?.premium_plan); setCurrentPlan(plan); setPlanId(plan); }
     // 지금까지 승인된 개월 수 — 할인 구간(첫 달 무료·2~3개월째 반값)을 이어서 계산하는 데 씁니다.
     setUsedMonths((reqs || []).filter((r: any) => r.status === "approved").reduce((sum: number, r: any) => sum + (Number(r.months) || 0), 0));
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [placeId]);
 
   const active = isPlacePremiumNow(place);
-  const q = useMemo(() => quote(months, usedMonths), [months, usedMonths]);
+  const monthlyPrice = PLAN_MONTHLY_PRICE[planId];
+  const q = useMemo(() => quote(months, usedMonths, monthlyPrice), [months, usedMonths, monthlyPrice]);
   const pending = latest?.status === "pending";
 
   const apply = async () => {
@@ -313,7 +337,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         // 대상 업장은 서버가 로그인한 사장님의 업장으로 고정합니다.
-        body: JSON.stringify({ months, payerName, memo }),
+        body: JSON.stringify({ months, payerName, memo, plan: planId }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) { setMessage({ ok: false, text: json.error || "신청하지 못했어요." }); return; }
@@ -330,7 +354,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
       <div style={{ ...card, background: active ? "#FFFBEB" : "white", borderColor: active ? "#FDE68A" : "#ece6d6" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Crown size={18} color={active ? "#B45309" : "#bbb"} />
-          <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>{active ? "프리미엄 이용 중" : "지금은 기본 요금제예요"}</div>
+          <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>{active ? `${PLAN_NAME[currentPlan]} 이용 중` : "지금은 기본 요금제예요"}</div>
         </div>
         <div style={{ fontSize: 12.5, color: "#777", marginTop: 5, lineHeight: 1.6 }}>
           {active ? `${fmtDate(place.premium_expires_at)}까지 적용돼요. 끝나기 전에 미리 알려 드리고, 자동으로 결제되지 않아요.` : "프리미엄을 신청하면 추천 목록과 AI 코스에서 우리 가게가 먼저 보여요."}
@@ -340,12 +364,22 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
       {/* 요금제 비교 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
         {OWNER_PLANS.map((plan) => {
-          const premium = plan.id === "premium";
+          const premium = plan.id !== "basic"; // 유료 단계
+          const selected = plan.id === planId;
           return (
-            <div key={plan.id} style={{ ...card, borderColor: premium ? "#F59E0B" : "#ece6d6", borderWidth: premium ? 2 : 1 }}>
+            <div
+              key={plan.id}
+              role={premium ? "button" : undefined}
+              tabIndex={premium ? 0 : undefined}
+              aria-pressed={premium ? selected : undefined}
+              onClick={() => { if (plan.id !== "basic") setPlanId(plan.id); }}
+              onKeyDown={(e) => { if (plan.id !== "basic" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setPlanId(plan.id); } }}
+              style={{ ...card, cursor: premium ? "pointer" : "default", borderColor: selected ? "#B45309" : premium ? "#F5D48A" : "#ece6d6", borderWidth: selected ? 2 : 1, background: selected ? "#FFFBEB" : "white" }}
+            >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: premium ? "#B45309" : "#333" }}>{plan.name}</div>
                 {premium && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#F59E0B", color: "white" }}>첫 달 무료</span>}
+                {selected && <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#B45309", color: "white" }}>선택됨</span>}
               </div>
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{plan.tagline}</div>
               <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222", marginTop: 10 }}>
@@ -361,14 +395,17 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
         })}
       </div>
 
+      {/* 배너 광고 만들기 — 문구·사진·글꼴을 고르고 미리보기로 확인(동네 대표 요금제에서 노출) */}
+      <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={canAct} />
+
       {/* 단계 요금 안내 */}
       <div style={card}>
-        <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>시범 운영 요금 — 부담 없이 먼저 써 보세요</div>
+        <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{PLAN_NAME[planId]} · 시범 운영 요금 — 부담 없이 먼저 써 보세요</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
           {PROMO_STEPS.map((s) => (
             <div key={s.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8", border: "1px solid #ece6d6" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#7a6a3a" }}>{s.label}</div>
-              <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{s.discount === 1 ? "0원" : `월 ${won(Math.floor((PREMIUM_MONTHLY_PRICE * (1 - s.discount)) / 100) * 100)}`}</div>
+              <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{s.discount === 1 ? "0원" : `월 ${won(Math.floor((monthlyPrice * (1 - s.discount)) / 100) * 100)}`}</div>
             </div>
           ))}
         </div>
@@ -381,7 +418,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
 
       {/* 신청 */}
       <div style={card}>
-        <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{usedMonths > 0 ? "프리미엄 연장 신청" : "프리미엄 신청"}</div>
+        <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{PLAN_NAME[planId]} {usedMonths > 0 ? "연장 신청" : "신청"}</div>
         {pending ? (
           <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "#EFF6FF", color: "#1d4ed8", fontSize: 13, lineHeight: 1.6 }}>
             {latest.months}개월 신청이 접수돼 확인 중이에요({fmtDate(latest.requested_at)} 신청).

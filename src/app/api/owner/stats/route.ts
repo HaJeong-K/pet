@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
     { count: courseIncluded30 },
     { count: recImpressions30 },
     directions30, calls30, website30,
+    bannerViews30, bannerClicks30,
     { data: reviewRows },
   ] = await Promise.all([
     supabaseAdmin.from("places").select("name").eq("id", placeIdNum).maybeSingle(),
@@ -73,6 +74,9 @@ export async function GET(req: NextRequest) {
     countEvents("place_directions", placeId, since30),
     countEvents("place_call", placeId, since30),
     countEvents("place_website", placeId, since30),
+    // 배너 광고(동네 대표 요금제·배너 혜택)가 보인 횟수와 눌린 횟수
+    countEvents("banner_view", placeId, since30),
+    countEvents("banner_click", placeId, since30),
     // 후기 관리용: 최근 후기와 사장님 답글 여부(작성자를 알 수 있는 값은 내려주지 않음)
     supabaseAdmin.from("reviews").select("id, nickname, content, created_at, likes").eq("place_id", placeIdNum).eq("deleted", false).eq("is_admin_deleted", false).order("created_at", { ascending: false }).limit(30),
   ]);
@@ -112,6 +116,8 @@ export async function GET(req: NextRequest) {
       directions: directions30,
       calls: calls30,
       website: website30,
+      bannerViews: bannerViews30,
+      bannerClicks: bannerClicks30,
     },
     recentReviews: (reviewRows || []).map((r) => ({ ...r, ownerReplied: repliedIds.has(String(r.id)) })),
   });

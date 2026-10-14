@@ -2,11 +2,11 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { Crown } from "lucide-react";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "./ShelterNoticeCard";
 import { useUserArea, type UserArea } from "@/lib/useUserRegion";
-import { supabase } from "@/lib/supabase";
+import { RAIL_MEDIA, trackBannerClick, trackBannerView, useLocalAds, type LocalAd } from "@/lib/useLocalAds";
+import BannerCreativeView from "@/components/BannerCreativeView";
 import { openPlaceDetail } from "@/lib/openPlace";
 
 // ── 좌우 사이드 레일 ──
@@ -44,68 +44,20 @@ const RAIL_BOTTOM_GAP_VH = 1;
 const SHELTER_FULL_LIST_URL = "/shelter-notices";
 
 
-// ── 좌측(+우측 ad 모드) 레일의 실제 수익 메커니즘: 사장님이 마이페이지에서 프리미엄을
-// 신청하고 관리자가 승인하면 places.is_premium=true가 되고, 이 훅이 그 장소들을 가져와
-// "광고" 플레이스홀더 대신 실제로 노출합니다. 아직 프리미엄 고객이 하나도 없는 기간에는
-// (신청 자체가 없으면) 기존처럼 빈 "광고" 플레이스홀더로 자연스럽게 폴백됩니다.
-function usePremiumAdPlaces(enabled: boolean) {
-  const [places, setPlaces] = useState<any[]>([]);
-  const [loaded, setLoaded] = useState(false);
+// ── 광고 칸에 들어가는 가게: 배너 광고를 내는 가게('동네 대표' 요금제·배너 혜택) ──
+// 내 시·군·구 → 근처 → 최근에 찾아본 지역 → 전국 무작위 순으로 고르고, 여러 곳이면 노출 횟수를 똑같이 나눕니다
+// (src/lib/useLocalAds.ts · /api/ads/local). 내보낼 가게가 없으면 빈 "광고" 자리로 둡니다.
+// 휴대폰처럼 이 칸이 안 보이는 화면에서는 한 줄 배너(LocalAdStrip)가 대신 보여 줍니다.
+const usePremiumAdPlaces = useLocalAds;
 
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    supabase
-      .from("places")
-      .select("id, name, category, image_url, is_premium, premium_expires_at")
-      .eq("is_premium", true)
-      .gt("premium_expires_at", new Date().toISOString())
-      .then(({ data }) => {
-        if (cancelled) return;
-        // 여러 프리미엄 업장이 있을 때 특정 업장만 계속 상단에 노출되지 않도록 매 로드마다 섞습니다.
-        const shuffled = [...(data || [])].sort(() => Math.random() - 0.5);
-        setPlaces(shuffled);
-        setLoaded(true);
-      });
-    return () => { cancelled = true; };
-  }, [enabled]);
-
-  return { places, loaded };
-}
-
-function PremiumAdCard({ place }: { place: any }) {
+function PremiumAdCard({ place }: { place: LocalAd }) {
   const router = useRouter();
-  return (
-    <div
-      onClick={() => openPlaceDetail(router, place)}
-      style={{
-        flex: 1, minHeight: 0, borderRadius: "16px", overflow: "hidden", cursor: "pointer",
-        position: "relative", display: "flex", flexDirection: "column",
-        border: "1px solid rgba(212,162,76,0.35)",
-        background: place.image_url ? `url(${place.image_url}) center/cover no-repeat` : "linear-gradient(145deg,#fff8ec,#ffe9c2)",
-      }}
-    >
-      <div style={{
-        position: "absolute", top: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3,
-        padding: "2px 7px", borderRadius: 999, fontSize: 9, fontWeight: 800,
-        background: "linear-gradient(135deg,#F0D28A,#D4A24C)", color: "#5C4106",
-      }}>
-        <Crown size={8} />AD
-      </div>
-      <div style={{
-        marginTop: "auto", padding: "8px 8px 7px",
-        background: place.image_url ? "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0))" : "transparent",
-      }}>
-        <div style={{
-          fontSize: 11, fontWeight: 800, lineHeight: 1.3,
-          color: place.image_url ? "white" : "#5C4106",
-          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-        }}>
-          {place.name}
-        </div>
-      </div>
-    </div>
-  );
+  // 광고 칸이 실제로 보이는 넓은 화면에서만 노출로 셉니다(좁은 화면에서는 이 칸이 숨겨져 있습니다).
+  useEffect(() => {
+    if (window.matchMedia(RAIL_MEDIA).matches) trackBannerView(place, "rail");
+  }, [place]);
+  // 사장님이 만든 문구·사진·글꼴 그대로 그립니다(미리보기와 같은 그림 — BannerCreativeView).
+  return <BannerCreativeView banner={place} shape="rail" onClick={() => { trackBannerClick(place, "rail"); openPlaceDetail(router, place); }} />;
 }
 
 function useShelterNotices(area: UserArea, enabled: boolean, offset: number) {
@@ -211,9 +163,9 @@ export function AdRailLeft() {
       <div className="ggk-side-ad-rail" style={railBase}>
         {slots.map((p, i) =>
           p ? (
-            <PremiumAdCard key={p.id} place={p} />
+            <PremiumAdCard key={`ad-${i}`} place={p} />
           ) : (
-            <div key={i} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
+            <div key={`ad-${i}`} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
               <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{loaded ? "광고" : ""}</span>
             </div>
           )
@@ -252,9 +204,9 @@ export function AdRailRight({
         <div className="ggk-side-ad-rail" style={railBase}>
           {slots.map((p, i) =>
             p ? (
-              <PremiumAdCard key={p.id} place={p} />
+              <PremiumAdCard key={`ad-${i}`} place={p} />
             ) : (
-              <div key={i} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
+              <div key={`ad-${i}`} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
                 <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{adLoaded ? "광고" : ""}</span>
               </div>
             )

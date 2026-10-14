@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import PremiumPlacesPanel from "@/components/admin/PremiumPlacesPanel";
+import BannerAdminPanel from "@/components/admin/BannerAdminPanel";
 import {
   Crown, MapPin, Clock, AlertCircle, CheckCircle, XCircle,
-  User, MessageCircle, CalendarClock,
+  User, MessageCircle, CalendarClock, Megaphone,
 } from "lucide-react";
 
 // 사장님이 마이페이지에서 신청한 프리미엄 등록(premium_requests)을 관리자가
@@ -31,9 +32,10 @@ const formatDate = (s: string) => {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
 };
 
-type ActiveFilter = "active" | "pending" | "approved" | "rejected";
+type ActiveFilter = "active" | "banners" | "pending" | "approved" | "rejected";
 
 import { AdminPager, usePaged } from "@/components/admin/AdminListTools";
+import { normalizePlan, PLAN_NAME } from "@/lib/ownerPlans";
 export default function AdminPremiumPage() {
   const [requests, setRequests] = useState<any[]>([]);
   const [placeNames, setPlaceNames] = useState<Record<number, string>>({});
@@ -43,10 +45,13 @@ export default function AdminPremiumPage() {
 
   // "이용 중 가게" 탭을 다시 불러오게 하는 번호(새로고침 버튼·승인 직후에 올립니다)
   const [placesRefresh, setPlacesRefresh] = useState(0);
+  // 배너 한도 변경 요청 중 아직 처리하지 않은 수("배너 관리" 탭의 숫자)
+  const [bannerPending, setBannerPending] = useState(0);
 
   useEffect(() => {
     // 대시보드의 "프리미엄 가게" 카드에서 넘어오면(?tab=active) 이용 중 가게 탭을 먼저 엽니다.
-    if (new URLSearchParams(window.location.search).get("tab") === "active") setActiveFilter("active");
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted === "active" || wanted === "banners") setActiveFilter(wanted);
     fetchRequests();
   }, []);
 
@@ -117,6 +122,7 @@ export default function AdminPremiumPage() {
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
               {([
                 { key:"active",   label:"이용 중 가게", count: null, icon: <Crown size={13}/>, activeColor:"#B8860B", activeBg:"#ffe9c2" },
+                { key:"banners",  label:"배너 관리", count: bannerPending, icon: <Megaphone size={13}/>, activeColor:"#7c3aed", activeBg:"#f3f0ff" },
                 { key:"pending",  label:"심사 대기", count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#B8860B", activeBg:"#ffe9c2" },
                 { key:"approved", label:"승인 완료", count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
                 { key:"rejected", label:"거절",       count: rejectedList.length, icon: <XCircle size={13}/>,     activeColor:"#ef4444", activeBg:"#fee2e2" },
@@ -157,6 +163,8 @@ export default function AdminPremiumPage() {
           <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
             {activeFilter === "active" ? (
               <PremiumPlacesPanel refreshKey={placesRefresh} />
+            ) : activeFilter === "banners" ? (
+              <BannerAdminPanel refreshKey={placesRefresh} onCount={setBannerPending} />
             ) : loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
@@ -209,7 +217,7 @@ export default function AdminPremiumPage() {
 
                     <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
                       <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
-                        <CalendarClock size={11} color="#5C7A4A"/>{req.months}개월 신청
+                        <CalendarClock size={11} color="#5C7A4A"/>{PLAN_NAME[normalizePlan(req.plan)]} · {req.months}개월 신청
                       </span>
                       {req.payer_name && (
                         <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>

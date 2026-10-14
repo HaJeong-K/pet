@@ -150,13 +150,18 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
         • <strong>새 공고 알림을 켠 경우:</strong> 브라우저 알림 수신 주소(푸시 구독 정보), 알림을 받을 지역<br />
         • <strong>코스를 저장한 경우:</strong> 저장한 코스의 장소 목록<br />
         • <strong>사장님 광고 상품 신청 시:</strong> 신청 기간, 입금자명, 요청 메모<br />
-        • <strong>오류 발생 시:</strong> 오류 내용, 발생한 화면, 브라우저 종류(원인 파악용)
+        • <strong>오류 발생 시:</strong> 오류 내용, 발생한 화면, 브라우저 종류(원인 파악용)<br />
+        • <strong>가게 예약(포장) 시:</strong> 예약자 이름, 연락받을 전화번호, 예약 내역 — 예약한 가게의 사장님에게 전달됩니다<br />
+        • <strong>사장님이 새 예약 알림을 켠 경우:</strong> 알림 수신 주소(푸시 구독 정보)<br />
+        • <strong>사장님이 배너 광고를 만든 경우:</strong> 광고 문구, 광고 사진<br />
+        • <strong>광고·제휴 문의 시:</strong> 담당자 이름, 회사·가게 이름, 연락처(이메일 또는 전화번호), 문의 내용
       </FooterSection>
 
       <FooterSection title="3. 개인정보의 보유 및 이용 기간">
         • 회원 탈퇴 시 지체 없이 삭제(단, 관계 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관)<br />
         • 사업자등록증 이미지 등 사장님 인증 자료는 인증 심사 및 사후 확인 목적으로 사장님 계정 활동 기간 동안 보관<br />
         • 알림 수신 정보는 알림을 끄거나 탈퇴하면 삭제, 오류 기록은 90일 후 삭제<br />
+        • 광고·제휴 문의는 답변을 마친 뒤 1년간 보관 후 삭제<br />
         • 데이터 복구를 위한 백업본은 최대 14일간 보관 후 삭제<br />
         • 서비스 이용 관련 분쟁 발생 시 분쟁 해결 시까지 보관
       </FooterSection>
@@ -182,7 +187,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       </FooterSection>
 
       <FooterSection title="7. 쿠키 및 브라우저 저장소 운용">
-        서비스는 로그인 상태 유지, 비회원 식별, 최근 확인한 지역(시/도·시/군/구) 기억, 안내 화면을 다시 띄우지 않기 위한 설정 저장을 위해 쿠키 및 브라우저 로컬 저장소(localStorage)를 사용합니다. 브라우저 설정을 통해 저장을 거부할 수 있으나, 일부 서비스(리뷰 작성 등) 이용이 제한될 수 있습니다.
+        서비스는 로그인 상태 유지, 비회원 식별, 최근 확인한 지역(시/도·시/군/구) 기억, 안내 화면을 다시 띄우지 않기 위한 설정 저장을 위해 쿠키 및 브라우저 로컬 저장소(localStorage)를 사용합니다. 또한 최근에 검색하거나 둘러본 장소의 대략적인 위치(약 1km 단위, 최근 8곳, 30일)를 이용자의 기기에만 저장하며, 이는 이용자의 지역에 광고 가게가 없을 때 관심 지역 근처의 가게 광고를 고르는 데에만 쓰이고 서버에 저장하지 않습니다. 브라우저 설정을 통해 저장을 거부할 수 있으나, 일부 서비스(리뷰 작성 등) 이용이 제한될 수 있습니다.
       </FooterSection>
 
       <FooterSection title="8. 개인정보 보호 책임자">
@@ -353,6 +358,10 @@ export default function SiteFooter() {
           <button onClick={() => setShowPolicy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
             커뮤니티 운영정책
           </button>
+          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <a href="/partnership" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
+            광고·제휴 문의
+          </a>
           <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
           <button onClick={() => setShowContact(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
             <Mail size={11} color="#6b7280" />

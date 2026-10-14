@@ -13,6 +13,7 @@ import Image from "next/image";
 import SiteFooter from "@/components/SiteFooter";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
+import LocalAdStrip from "@/components/LocalAdStrip";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
   ArrowLeft, MessageCircle, Heart, Eye,
@@ -352,6 +353,9 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
               </div>
             </div>
           </div>
+
+          {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
+          <LocalAdStrip />
 
           {/* 게시판 탭: 전체/자유게시판은 바로 노출, 17개 지역은 드롭다운으로 정리해
               한 화면에 다 펼쳐놓았을 때 생기던 시각적 잡음을 줄였습니다. */}

@@ -7,8 +7,11 @@
 // 요금 구조(단계 인상 프로모션): 첫 달 무료 → 2~3개월째 반값 → 4개월째부터 정가.
 // 무료·할인 기간이 끝나기 전에 미리 알리고, 자동으로 결제하지 않습니다(연장은 매번 신청·동의).
 
+/** 돈을 내는 요금제 단계 — 위 단계는 아래 단계의 혜택을 모두 포함합니다(프리미엄 < 프리미엄 스토어 < 동네 대표) */
+export type PaidPlanId = "premium" | "store" | "local";
+
 export type OwnerPlan = {
-  id: "basic" | "premium";
+  id: "basic" | PaidPlanId;
   name: string;
   tagline: string;
   /** 정가(월, 부가세 포함). 0이면 무료 */
@@ -18,6 +21,10 @@ export type OwnerPlan = {
 
 /** 프리미엄 정가(월, 부가세 포함) */
 export const PREMIUM_MONTHLY_PRICE = 19_800;
+/** 프리미엄 스토어(상품·예약 포장) 정가 — 시범 운영 제안가 */
+export const STORE_MONTHLY_PRICE = 33_000;
+/** 동네 대표(배너 포함) 정가 — 시범 운영 제안가 */
+export const LOCAL_MONTHLY_PRICE = 55_000;
 
 export const OWNER_PLANS: OwnerPlan[] = [
   {
@@ -33,14 +40,56 @@ export const OWNER_PLANS: OwnerPlan[] = [
     tagline: "더 많은 보호자에게 먼저 보이게",
     monthlyPrice: PREMIUM_MONTHLY_PRICE,
     features: [
-      "추천 장소 목록 상단 노출 + 프리미엄 배지",
-      "AI 추천 코스에 우선 포함",
-      "커뮤니티·마이페이지 옆 광고 영역 노출",
+      "주변 장소 목록 맨 위 노출 + 프리미엄 배지",
+      "AI 추천 코스에 정거장으로 포함",
       "월간 성과 보고서(노출·클릭·길찾기·코스 포함 횟수)",
       "기본 기능 전체 포함",
     ],
   },
+  {
+    id: "store",
+    name: "프리미엄 스토어",
+    tagline: "우리 가게 상품을 올리고 예약 포장을 받아요",
+    monthlyPrice: STORE_MONTHLY_PRICE,
+    features: [
+      "상품 등록(이름·설명·가격)과 가게 상세에 상품 진열",
+      "예약 포장 받기 — 손님이 미리 예약하고 가게에서 결제",
+      "예약 관리 화면(확정·준비 완료·수령 완료)",
+      "건당 수수료 없음(월 요금만)",
+      "프리미엄 혜택 전체 포함",
+    ],
+  },
+  {
+    id: "local",
+    name: "동네 대표",
+    tagline: "우리 동네 보호자에게 배너로 먼저 보여요",
+    monthlyPrice: LOCAL_MONTHLY_PRICE,
+    features: [
+      "커뮤니티·마이페이지 배너에 우리 가게 노출(같은 시·군·구 사용자에게)",
+      "추천 장소 광고 칸 우선",
+      "문구·사진·글꼴을 직접 골라 배너 만들기",
+      "프리미엄 스토어 혜택 전체 포함",
+    ],
+  },
 ];
+
+/** 요금제 단계별 정가(월, 부가세 포함) */
+export const PLAN_MONTHLY_PRICE: Record<PaidPlanId, number> = {
+  premium: PREMIUM_MONTHLY_PRICE,
+  store: STORE_MONTHLY_PRICE,
+  local: LOCAL_MONTHLY_PRICE,
+};
+export const PLAN_NAME: Record<PaidPlanId, string> = { premium: "프리미엄", store: "프리미엄 스토어", local: "동네 대표" };
+const PLAN_RANK: Record<PaidPlanId, number> = { premium: 1, store: 2, local: 3 };
+
+/** 저장된 값(예전의 'basic'·빈 값 포함)을 지금의 단계 이름으로 — 모르는 값은 가장 낮은 '프리미엄'으로 봅니다 */
+export function normalizePlan(raw: unknown): PaidPlanId {
+  return raw === "store" || raw === "local" ? raw : "premium";
+}
+/** 그 단계가 필요한 단계 이상인지(예: 상품·예약은 'store' 이상) */
+export function planAtLeast(plan: PaidPlanId | null | undefined, needed: PaidPlanId): boolean {
+  return !!plan && PLAN_RANK[plan] >= PLAN_RANK[needed];
+}
 
 /** 이용 개월 차(1부터)별 할인율 — 첫 달 무료, 2~3개월째 50%, 이후 정가 */
 export const PROMO_STEPS: { fromMonth: number; toMonth: number | null; discount: number; label: string }[] = [

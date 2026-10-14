@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown } from "lucide-react";
+import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab } from "@/lib/ownerTab";
 import { supabase } from "@/lib/supabase";
+import { playBark } from "@/lib/ownerAlertSound";
 
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
+  // 사장님 센터에서 지금 보는 메뉴(아래의 화면 숨김 판단보다 먼저 불러야 합니다 — 훅은 항상 같은 순서로)
+  const ownerTab = useSyncExternalStore(subscribeOwnerTab, getOwnerTab, getOwnerTabOnServer);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -44,6 +48,39 @@ export default function TabBar() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── 새 예약 알림: 인증된 사장님에게, 확인을 기다리는 예약 수를 "사장님"·"예약" 탭에 숫자로 보여 줍니다 ──
+  // 1분마다, 그리고 다른 창에서 돌아올 때 다시 셉니다. 사장님 센터의 예약 화면에서 처리하면 그 화면이 바로 고쳐 줍니다(ggk-owner-waiting).
+  const [waitingReservations, setWaitingReservations] = useState(0);
+  const lastWaitingRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isOwner) return;
+    let cancelled = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch("/api/owner/reservations?count=1", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const json = await res.json();
+        if (cancelled || !res.ok) return;
+        const waiting = Number(json.waiting) || 0;
+        // 기다리는 예약이 늘었으면 "멍멍!"(처음 셀 때는 울리지 않습니다 — 화면을 열 때마다 짖지 않게)
+        if (lastWaitingRef.current != null && waiting > lastWaitingRef.current) playBark();
+        lastWaitingRef.current = waiting;
+        setWaitingReservations(waiting);
+      } catch { /* 알림 숫자를 못 받아도 화면은 그대로 */ }
+    };
+    // 화면을 열어 둔 채 새 예약 알림이 도착하면(서비스 워커가 알려 줌) 바로 다시 셉니다 → 숫자가 늘고 소리가 납니다.
+    const onPush = (e: MessageEvent) => { if (e.data?.type === "ggk-push" && String(e.data.tag || "").startsWith("ggk-order")) check(); };
+    navigator.serviceWorker?.addEventListener("message", onPush);
+    const onLocal = (e: Event) => { const waiting = Number((e as CustomEvent<number>).detail) || 0; lastWaitingRef.current = waiting; setWaitingReservations(waiting); };
+    check();
+    const timer = window.setInterval(check, 60_000);
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("ggk-owner-waiting", onLocal);
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", check); window.removeEventListener("ggk-owner-waiting", onLocal); navigator.serviceWorker?.removeEventListener("message", onPush); };
+  }, [isOwner]);
 
   // ⚠ 속도: 탭은 버튼(router.push)이라 화면 코드를 미리 받아 두지 않았습니다 — 누른 뒤에야 받기 시작해 반 박자 늦었습니다.
   // 화면이 한가해지면 탭 화면들을 미리 받아 둬서, 누르는 순간 바로 바뀌게 합니다.
@@ -103,9 +140,19 @@ export default function TabBar() {
     return "map";
   };
 
-  const activeTab = getActiveTab();
+  // ── 사장님 센터(/owner) 안에서는 손님용 탭 대신 사장님용 탭을 보여 줍니다 ──
+  // 대시보드·예약·상품·광고는 바로 누를 수 있게 하고, 마지막 칸으로 손님 화면(지도)에 돌아갑니다.
+  const inOwnerCenter = pathname.startsWith("/owner") && (isOwner || isAdmin);
 
-  const tabs = [
+  const activeTab = inOwnerCenter ? `owner-${ownerTab}` : getActiveTab();
+
+  const tabs = inOwnerCenter ? [
+    { key: "owner-dashboard",    label: "홈",       icon: Store,         onClick: () => setOwnerTab("dashboard"),    isReport: false },
+    { key: "owner-reservations", label: "예약",     icon: ClipboardList, onClick: () => setOwnerTab("reservations"), isReport: false, badge: waitingReservations },
+    { key: "owner-products",     label: "상품",     icon: Package,       onClick: () => setOwnerTab("products"),     isReport: false },
+    { key: "owner-ads",          label: "광고",     icon: Crown,         onClick: () => setOwnerTab("ads"),          isReport: false },
+    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => router.push("/"),            isReport: false },
+  ] : [
     { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
     { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
     // 유기동물 보호소 공고(전체 목록·지역 알림) — 예전엔 이 화면으로 가는 링크가 어디에도 없었습니다.
@@ -116,7 +163,7 @@ export default function TabBar() {
     // 인증된 사장님 전용 — 가게 성과·후기 답글·광고 상품(관리자 탭과 같은 자리).
     // 관리자에게도 보여서, 사장님 화면을 그대로 확인하고 사장님 요청이 있을 때 대신 처리할 수 있습니다.
     ...(isOwner || isAdmin ? [
-      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false },
+      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false, badge: waitingReservations },
     ] : []),
     {
       key:      isLoggedIn ? "mypage" : "login",
@@ -127,6 +174,7 @@ export default function TabBar() {
     },
   ];
 
+  // 사장님 센터에서 아래 탭에 없는 메뉴(후기·가게 정보·보고서)를 보는 중이면 강조할 칸이 없습니다(-1).
   const activeIdx = tabs.findIndex((t) => t.key === activeTab);
   const TAB_COUNT = tabs.length;
 
@@ -198,6 +246,7 @@ export default function TabBar() {
           {/* ── 탭 버튼들 ── */}
           {tabs.map((tab) => {
             const Icon = tab.icon;
+            const badge = isOwner ? Number((tab as { badge?: number }).badge) || 0 : 0;
             const isActive = activeTab === tab.key;
             const activeColor   = tab.isReport ? "#DC2626" : "#5C7A4A";
             const inactiveColor = "#1a1a1a";
@@ -225,11 +274,18 @@ export default function TabBar() {
                   fontFamily: "'Noto Sans KR', sans-serif",
                 }}
               >
-                <Icon
-                  size={18}
-                  strokeWidth={isActive ? 2.3 : 1.7}
-                  color={isActive ? activeColor : inactiveColor}
-                />
+                <span style={{ position: "relative", display: "flex" }}>
+                  <Icon
+                    size={18}
+                    strokeWidth={isActive ? 2.3 : 1.7}
+                    color={isActive ? activeColor : inactiveColor}
+                  />
+                  {badge > 0 && (
+                    <span aria-label={`확인을 기다리는 예약 ${badge}건`} style={{ position: "absolute", top: -5, left: 11, minWidth: 15, height: 15, padding: "0 4px", boxSizing: "border-box", borderRadius: 999, background: "#DC2626", color: "white", fontSize: 9, fontWeight: 800, lineHeight: "15px", textAlign: "center" }}>
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
                 <span
                   style={{
                     fontSize: "9px",

@@ -44,7 +44,9 @@ export type AnalyticsEventType =
   | "course_stop_directions"
   | "place_directions"  // 장소 상세에서 길찾기 열기(meta.app: kakao | naver)
   | "place_call"        // 장소 상세에서 전화번호 누르기
-  | "place_website";    // 장소 상세에서 홈페이지 열기
+  | "place_website"     // 장소 상세에서 홈페이지 열기
+  | "banner_view"       // 배너 광고가 화면에 보임(한 사람·한 가게·한 번 방문에 한 번만 셉니다)
+  | "banner_click";     // 배너 광고를 눌러 가게 화면으로 감
 
 export function trackEvent(
   type: AnalyticsEventType,

@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { notifyAdmin } from "@/lib/server/notify";
-import { quote, won } from "@/lib/ownerPlans";
+import { quote, won, normalizePlan, PLAN_MONTHLY_PRICE, PLAN_NAME } from "@/lib/ownerPlans";
 
 // 인증된 사장님이 본인 업장의 "프리미엄 등록"을 신청할 때 쓰는 라우트입니다.
 // update-place/route.ts와 동일한 이유로 service role을 씁니다: 클라이언트(anon key)로
@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "이미 처리 대기 중인 신청이 있습니다" }, { status: 409 });
     }
 
+    // 신청하는 요금제 단계(모르는 값은 가장 낮은 '프리미엄')
+    const plan = normalizePlan(body?.plan);
     const months = Number(body?.months) > 0 ? Math.min(Math.floor(Number(body.months)), 12) : 1;
     const payerName = typeof body?.payerName === "string" ? body.payerName.slice(0, 40) : null;
     const rawMemo = typeof body?.memo === "string" ? body.memo.slice(0, 480) : "";
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
       {
         place_id: targetPlaceId,
         owner_auth_user_id: user.id,
-        plan: "basic",
+        plan, // 'premium' | 'store' | 'local'
         months,
         payer_name: payerName,
         memo,
@@ -71,10 +73,10 @@ export async function POST(req: NextRequest) {
     // 지금까지 승인된 개월 수를 이어서 할인 구간(첫 달 무료·2~3개월째 반값)을 계산합니다.
     const { data: approved } = await supabaseAdmin.from("premium_requests").select("months").eq("place_id", targetPlaceId).eq("status", "approved");
     const usedMonths = (approved || []).reduce((sum, r) => sum + (Number(r.months) || 0), 0);
-    const price = quote(months, usedMonths);
+    const price = quote(months, usedMonths, PLAN_MONTHLY_PRICE[plan]);
     await notifyAdmin({
       title: price.total === 0 ? "💎 프리미엄 신청 — 무료 기간(입금 없음)" : "💎 프리미엄 신청 — 입금 확인 필요",
-      lines: [`업장 번호 ${targetPlaceId}`, `${months}개월(이용 ${usedMonths}개월 뒤)`, `받을 금액 ${won(price.total)}`, payerName ? `입금자명 ${payerName}` : null],
+      lines: [`업장 번호 ${targetPlaceId}`, `요금제 ${PLAN_NAME[plan]}`, `${months}개월(이용 ${usedMonths}개월 뒤)`, `받을 금액 ${won(price.total)}`, payerName ? `입금자명 ${payerName}` : null],
       path: "/admin/premium",
     });
     return NextResponse.json({ success: true });

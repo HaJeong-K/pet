@@ -15,6 +15,8 @@ import { supabase } from "@/lib/supabase";
 import { fetchCulturePlaces } from "@/lib/culturePlaces";
 import { fetchFoodsafetyPlaces } from "@/lib/foodsafetyPlaces";
 import { getTourPlaces } from "@/app/api/public-data/tour/route";
+import { getAllParks } from "@/lib/server/allParks";
+import { findParkDuplicateIds } from "@/lib/parkDuplicates";
 
 const SOURCE_ID_BASE: Record<string, number> = {
   tour: 1_000_000_000,
@@ -149,6 +151,15 @@ async function applyHidden(list: any[]): Promise<any[]> {
   return list.filter((p) => !hiddenIds.has(p.id));
 }
 
+// 전국 공원 데이터(parks)에 이미 있는 공원은 여기서 뺍니다 — 같은 공원이 지도·목록에 두 번 보이지 않게(src/lib/parkDuplicates.ts).
+// 공원 목록을 못 받으면(빈 배열) 아무것도 빼지 않습니다.
+async function dropParkDuplicates(list: any[]): Promise<any[]> {
+  const parks = await getAllParks().catch(() => []);
+  if (parks.length === 0) return list;
+  const duplicates = findParkDuplicateIds(list, parks);
+  return duplicates.size === 0 ? list : list.filter((p) => !duplicates.has(p.id));
+}
+
 async function refresh(): Promise<any[]> {
   if (!base || Date.now() - baseAt >= BASE_TTL_MS) {
     const snap = await loadSnapshot();
@@ -168,7 +179,7 @@ async function refresh(): Promise<any[]> {
       }
     }
   }
-  const visible = await applyHidden(base ?? []);
+  const visible = await dropParkDuplicates(await applyHidden(base ?? []));
   cachedRaw = visible;
   cachedAt = Date.now();
   return visible;

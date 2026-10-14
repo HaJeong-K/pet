@@ -19,7 +19,7 @@ type Stats = {
   reviews: number;
   last30: {
     courseIncluded: number; courseClicks: number; courseDirections: number; recommendClicks: number;
-    recommendImpressions?: number; directions?: number; calls?: number; website?: number;
+    recommendImpressions?: number; directions?: number; calls?: number; website?: number; bannerViews?: number; bannerClicks?: number;
   };
   recentReviews?: { id: string; nickname: string; content: string; created_at: string; likes: number; ownerReplied: boolean }[];
 };
@@ -101,6 +101,11 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
     { label: "길찾기 열기", value: (stats.last30.directions ?? 0) + stats.last30.courseDirections, hint: "상세 화면·AI 코스에서 내 가게로 길찾기를 연 횟수" },
     { label: "전화 걸기", value: stats.last30.calls ?? 0, hint: "상세 화면에서 전화번호를 누른 횟수" },
     { label: "홈페이지 방문", value: stats.last30.website ?? 0, hint: "상세 화면에서 홈페이지 링크를 누른 횟수" },
+    // 배너 광고를 낸 적이 있을 때만 보여 줍니다.
+    ...((stats.last30.bannerViews ?? 0) > 0 ? [
+      { label: "배너 노출", value: stats.last30.bannerViews ?? 0, hint: "커뮤니티·마이페이지 배너에 내 가게가 보인 횟수" },
+      { label: "배너 클릭", value: stats.last30.bannerClicks ?? 0, hint: "배너를 눌러 내 가게 화면으로 온 횟수" },
+    ] : []),
   ];
 
   return (

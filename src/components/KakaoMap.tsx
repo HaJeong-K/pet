@@ -33,6 +33,7 @@ import { rememberPlaces } from "@/lib/placeCache";
 import { getPetZoneLabel } from "@/lib/placeConstants";
 import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
+import { rememberInterest } from "@/lib/interestRegions";
 import { parkToPlace } from "@/lib/parkPlace";
 import WelcomeIntro, { shouldShowWelcomeIntro } from "@/components/WelcomeIntro";
 import PageGuide from "@/components/PageGuide";
@@ -404,6 +405,11 @@ export default function KakaoMap() {
   };
   // ── 검색으로 지도를 이동시켰을 때의 중심 좌표 (리스트 패널 반경 기준 우선순위: 검색 > 실제 위치)
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // 검색으로 찾아간 곳을 "관심 지역"으로 이 기기에만 기억합니다(src/lib/interestRegions.ts — 배너 광고 고르기에만 씀).
+  useEffect(() => {
+    if (searchCenter) rememberInterest(searchCenter.lat, searchCenter.lng, "search");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchCenter?.lat, searchCenter?.lng]);
   // ── 현재 지도 화면(뷰포트)의 경계. 지도를 드래그/확대·축소할 때마다 갱신되고,
   // 리스트 패널(nearbyPlaces)이 고정 반경 대신 "지금 화면에 보이는 영역"을 기준으로
   // 장소를 보여주는 데 씁니다.
