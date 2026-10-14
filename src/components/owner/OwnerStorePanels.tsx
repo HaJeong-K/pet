@@ -54,7 +54,7 @@ function PlanNotice({ onGoAds }: { onGoAds: () => void }) {
   return (
     <div style={{ ...card, background: "#FFFBEB", borderColor: "#FDE68A", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 240px", fontSize: 13, color: "#78350F", lineHeight: 1.65 }}>
-        <b>프리미엄 스토어</b> 요금제부터 상품이 손님에게 보이고 예약을 받을 수 있어요. 상품은 지금 미리 올려 둘 수 있어요.
+        <b>프리미엄 스토어</b> 요금제부터 상품이 쇼핑 탭에 진열되고, 손님이 직접 예약 주문을 넣을 수 있어요.<br />상품은 지금 미리 올려 둘 수 있어요.
       </div>
       <button onClick={onGoAds} style={primaryButton(false)}>요금제 보기</button>
     </div>
@@ -178,7 +178,10 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
           {open.some((r) => r.status === "requested") && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>확인 대기 {open.filter((r) => r.status === "requested").length}건</span>}
           <button onClick={load} style={{ marginLeft: "auto", padding: "7px 12px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}>새로 고침</button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.6 }}>손님이 예약을 넣으면 먼저 확정하거나 거절해 주세요. 결제는 손님이 가게에 와서 해요.</div>
+        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+          손님이 <b style={{ color: "#555" }}>쇼핑 탭</b>이나 우리 가게 상세 화면에서 직접 예약 주문을 넣어요.<br />
+          예약이 들어오면 먼저 확정하거나 거절해 주세요. 결제는 손님이 가게에 와서 해요.
+        </div>
         {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
         <div style={{ marginTop: 14, display: "grid", gap: 10 }}>

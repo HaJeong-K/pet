@@ -6,6 +6,7 @@
 //       사진, 분류, 한 줄 설명, 용량·크기, 재료·소재, 알레르기 정보, 원산지·제조, 주의사항·보관 방법
 //   · 상태: 대표 상품(맨 앞에 표시), 품절(보이지만 예약 못 함), 판매 중지(손님에게 숨김)
 //   · 순서: ↑ ↓ 로 손님에게 보이는 순서를 바꿉니다
+// 올린 상품은 쇼핑 탭(/shop)과 가게 상세 화면에 진열되고, 손님이 거기서 직접 예약 주문을 넣습니다.
 // 손님에게 보이는 것은 '프리미엄 스토어' 이상일 때입니다(미리 올려 두는 것은 언제든 가능). 결제는 가게에서 받습니다.
 // 규칙(글자 수·다듬기)은 src/lib/storeRules.ts, 서버는 /api/owner/products.
 
@@ -145,7 +146,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
     <div style={{ display: "grid", gap: 12 }}>
       {!state.enabled && (
         <div style={{ ...card, background: "#FFFBEB", borderColor: "#FDE68A", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 240px", fontSize: 13, color: "#78350F", lineHeight: 1.65 }}><b>프리미엄 스토어</b> 요금제부터 상품이 손님에게 보이고 예약을 받을 수 있어요. 상품은 지금 미리 올려 둘 수 있어요.</div>
+          <div style={{ flex: "1 1 240px", fontSize: 13, color: "#78350F", lineHeight: 1.65 }}><b>프리미엄 스토어</b> 요금제부터 상품이 쇼핑 탭에 진열되고, 손님이 직접 예약 주문을 넣을 수 있어요.<br />상품은 지금 미리 올려 둘 수 있어요.</div>
           <button onClick={onGoAds} style={primaryButton(false)}>요금제 보기</button>
         </div>
       )}
@@ -161,7 +162,14 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>우리 가게 상품 {state.products.length}개</div>
           {canAct && state.products.length < PRODUCTS_PER_PLACE_MAX && <button onClick={() => open("new")} style={{ ...primaryButton(false), marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}><Plus size={14} />상품 추가</button>}
         </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.6 }}>가게 상세 화면에 진열되고, 손님이 예약 포장을 요청할 수 있어요. 결제는 가게에서 받아요(건당 수수료 없음).</div>
+        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+          올린 상품은 <b style={{ color: "#555" }}>쇼핑 탭</b>과 우리 가게 상세 화면에 진열돼요.<br />
+          손님이 직접 예약 주문을 넣으면 &ldquo;예약&rdquo; 메뉴에서 확정해 주세요.<br />
+          결제는 가게에서 받아요(건당 수수료 없음).
+        </div>
+        {state.enabled && (
+          <a href="/shop" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 9, padding: "7px 12px", borderRadius: 9, background: "#E4EBDC", fontSize: 12, fontWeight: 800, color: "#3F5230", textDecoration: "none" }}>손님이 보는 쇼핑 탭 열어 보기 →</a>
+        )}
         {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         {error && !editing && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
 

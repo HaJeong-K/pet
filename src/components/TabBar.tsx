@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown, ShoppingBag } from "lucide-react";
 import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab } from "@/lib/ownerTab";
 import { supabase } from "@/lib/supabase";
 import { playBark } from "@/lib/ownerAlertSound";
@@ -85,7 +85,7 @@ export default function TabBar() {
   // ⚠ 속도: 탭은 버튼(router.push)이라 화면 코드를 미리 받아 두지 않았습니다 — 누른 뒤에야 받기 시작해 반 박자 늦었습니다.
   // 화면이 한가해지면 탭 화면들을 미리 받아 둬서, 누르는 순간 바로 바뀌게 합니다.
   useEffect(() => {
-    const routes = ["/", "/community", "/shelter-notices", isLoggedIn ? "/mypage" : "/login", ...(isAdmin ? ["/admin"] : []), ...(isOwner || isAdmin ? ["/owner"] : [])];
+    const routes = ["/", "/community", "/shelter-notices", "/shop", isLoggedIn ? "/mypage" : "/login", ...(isAdmin ? ["/admin"] : []), ...(isOwner || isAdmin ? ["/owner"] : [])];
     const warm = () => { for (const route of routes) { try { router.prefetch(route); } catch { /* 미리 받기 실패는 무시 */ } } };
     const idle = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     const timer = window.setTimeout(() => (idle ? idle(warm, { timeout: 3000 }) : warm()), 3000);
@@ -133,6 +133,7 @@ export default function TabBar() {
     if (pathname === "/" || pathname === "") return "map";
     if (pathname.startsWith("/community")) return "community";
     if (pathname.startsWith("/shelter-notices")) return "adopt";
+    if (pathname.startsWith("/shop")) return "shop";
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/owner")) return isOwner || isAdmin ? "owner" : "mypage";
     if (pathname.startsWith("/mypage")) return "mypage";
@@ -157,6 +158,8 @@ export default function TabBar() {
     { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
     // 유기동물 보호소 공고(전체 목록·지역 알림) — 예전엔 이 화면으로 가는 링크가 어디에도 없었습니다.
     { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
+    // 동네 가게가 올린 상품을 모아 보고 예약 포장을 넣는 화면(/shop)
+    { key: "shop",      label: "쇼핑",     icon: ShoppingBag, onClick: () => router.push("/shop"),         isReport: false },
     ...(isAdmin ? [
       { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
     ] : []),
