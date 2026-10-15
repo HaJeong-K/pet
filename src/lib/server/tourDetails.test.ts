@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { limitKind, cleanText, extractPhone, extractIntroFields, largeDogFrom, petZoneFrom, tidyLines, petMemo, type TourDetail } from "./tourDetails";
+import { limitKind, cleanText, extractPhone, extractIntroFields, largeDogFrom, petZoneFrom, tidyLines, petMemo, tourMemo, type TourDetail } from "./tourDetails";
 
 describe("관광공사 상세 정보 가공", () => {
   it("문의처 글에서 첫 전화번호만 꺼낸다", () => {
@@ -55,5 +55,16 @@ describe("관광공사 상세 정보 가공", () => {
     expect(limitKind(200, "<returnReasonCode>22</returnReasonCode>")).toBe("day");
     expect(limitKind(429, "")).toBe("second");
     expect(limitKind(200, '{"response":{"header":{"resultCode":"0000"}}}')).toBeNull();
+  });
+});
+
+describe("장소 상세 메모(tourMemo)", () => {
+  const base = { petType: "전구역 동반가능", petNeeds: null, petEtc: null, overview: "다이소는 '국민 가게'라는 별칭처럼 일상에 필요한 모든 것을…" } as unknown as TourDetail;
+  it("반려동물 동반 안내만 넣고, 관광공사의 장소 소개(홍보성 설명)는 넣지 않는다", () => {
+    expect(tourMemo(base)).toBe("동반 범위: 전구역 동반가능");
+  });
+  it("동반 안내가 없으면 비워 둔다(소개 글로 채우지 않음)", () => {
+    expect(tourMemo({ ...base, petType: null } as TourDetail)).toBe(null);
+    expect(tourMemo(undefined)).toBe(null);
   });
 });

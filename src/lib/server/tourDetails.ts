@@ -305,6 +305,16 @@ export function petZoneFrom(petType: string | null): "indoor" | "terrace" | "bot
 }
 
 /** 반려동물 동반 안내를 메모용 글로 묶습니다. */
+/**
+ * 장소 상세의 "메모"에 넣을 글 — 반려동물 동반 안내(범위·준비물·주의사항)만 씁니다.
+ * ⚠ 관광공사가 주는 장소 소개(overview)는 넣지 않습니다. "다이소는 국민 가게라는 별칭처럼…" 같은 홍보성 설명이라
+ *   반려동물과 갈 곳을 고르는 데 도움이 되지 않고 메모 칸만 길어졌습니다(2026-10-15 사용자 요청으로 제외).
+ * 안내가 하나도 없으면 null — 그때는 화면에 출처 안내 문구가 대신 들어갑니다.
+ */
+export function tourMemo(d: TourDetail | undefined | null): string | null {
+  return d ? petMemo(d) : null;
+}
+
 export function petMemo(d: TourDetail): string | null {
   const lines = [
     d.petType && `동반 범위: ${d.petType}`,

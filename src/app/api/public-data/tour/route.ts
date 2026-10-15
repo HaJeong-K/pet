@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadTourDetails, petMemo, tidyLines, petZoneFrom, largeDogFrom, extractPhone, type TourDetail } from "@/lib/server/tourDetails";
+import { loadTourDetails, tourMemo, tidyLines, petZoneFrom, largeDogFrom, extractPhone, type TourDetail } from "@/lib/server/tourDetails";
 
 // ─────────────────────────────────────────────────────────────
 // 한국관광공사 반려동물 동반여행 서비스 (KorPetTourService2)
@@ -142,12 +142,8 @@ export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<a
 
     return targets.map((item: any) => {
       const detail: TourDetail | undefined = details[item.contentid];
-      // 메모: 반려동물 동반 안내(범위·준비물·주의사항)를 먼저, 그 뒤에 장소 소개를 붙입니다.
-      const pet = detail ? petMemo(detail) : null;
-      const overview = detail?.overview
-        ? detail.overview.length > 300 ? detail.overview.slice(0, 300) + "…" : detail.overview
-        : null;
-      const memo = [pet, overview].filter(Boolean).join("\n\n");
+      // 메모: 반려동물 동반 안내(범위·준비물·주의사항)만 — 관광공사의 장소 소개(홍보성 설명)는 넣지 않습니다(tourMemo).
+      const memo = tourMemo(detail);
 
       return {
         source_id: `tour-${item.contentid}`,
