@@ -77,6 +77,27 @@ export async function listBackups(): Promise<BackupFile[]> {
     .map((f) => ({ name: f.name, createdAt: f.created_at ?? null, sizeKb: Math.round(((f.metadata as { size?: number } | null)?.size ?? 0) / 1024) }));
 }
 
+/** 저장소가 잠깐 응답을 못 할 때(2026-10-21 "Gateway Timeout") 쉬었다가 다시 올리는 횟수와 간격 */
+const UPLOAD_RETRY_WAITS_MS = [3_000, 10_000];
+
+/**
+ * 백업 파일 올리기 — 저장소 쪽 일시 오류(504 등)면 잠깐 쉬었다 다시 올립니다(같은 이름에 덮어쓰기라 안전).
+ * 실패 응답이 와도 파일은 실제로 올라가 있는 경우가 있어서, 마지막에는 같은 크기의 파일이 있는지 확인합니다.
+ */
+async function uploadWithRetry(file: string, body: Buffer): Promise<void> {
+  let lastError = "";
+  for (let attempt = 0; attempt <= UPLOAD_RETRY_WAITS_MS.length; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, UPLOAD_RETRY_WAITS_MS[attempt - 1]));
+    const { error } = await admin().storage.from(BUCKET).upload(file, body, { upsert: true, contentType: "application/gzip" });
+    if (!error) return;
+    lastError = error.message;
+  }
+  const { data } = await admin().storage.from(BUCKET).list("", { search: file, limit: 1 });
+  const saved = data?.find((f) => f.name === file);
+  if ((saved?.metadata as { size?: number } | undefined)?.size === body.length) return;
+  throw new Error(`백업 저장 실패: ${lastError}`);
+}
+
 export async function runDbBackup(): Promise<BackupResult> {
   const tables = (await listTables()).filter((t) => !SKIP_TABLES.has(t));
   const dump: Record<string, unknown[]> = {};
@@ -103,8 +124,7 @@ export async function runDbBackup(): Promise<BackupResult> {
   const body = gzipSync(Buffer.from(JSON.stringify({ createdAt: new Date().toISOString(), skipped: [...SKIP_TABLES], tables: dump }), "utf8"));
   await admin().storage.createBucket(BUCKET, { public: false }).catch(() => {});
   const file = `backup-${todayKst()}.json.gz`;
-  const { error } = await admin().storage.from(BUCKET).upload(file, body, { upsert: true, contentType: "application/gzip" });
-  if (error) throw new Error(`백업 저장 실패: ${error.message}`);
+  await uploadWithRetry(file, body);
 
   // 오래된 백업 정리(이름이 날짜순이라 이름으로 정렬)
   const old = (await listBackups()).slice(KEEP_BACKUPS).map((f) => f.name);
