@@ -4,18 +4,24 @@
 //   ① 정말 해지할까요? — 해지하면 없어지는 혜택과 이용 마지막 날을 보여 주고, 이유를 고르게 합니다(선택).
 //   ② 시크릿 프라이스 — 아직 한 번도 받지 않은 업장이면, 해지 대신 "다음 30일 30% 할인"을 제안합니다(기능은 그대로).
 //   ③ 결과 — 할인을 받았거나, 해지가 접수됐다는 안내.
+// 환불: 결제일부터 3일 안이면 그 결제 금액 전액, 그 뒤면 남은 날만큼 일할(src/lib/ownerPlans.ts refundFor).
+//       환불이 있으면 혜택은 해지한 날 바로 끝나고, 없으면(무료 기간) 마지막 날까지 이용합니다.
 
 import { useState } from "react";
 import { Gift, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { PERIOD_DAYS, PLAN_MONTHLY_PRICE, PLAN_NAME, RETENTION_DISCOUNT_PERCENT, won, type PaidPlanId } from "@/lib/ownerPlans";
+import { FULL_REFUND_DAYS, PERIOD_DAYS, PLAN_MONTHLY_PRICE, PLAN_NAME, RETENTION_DISCOUNT_PERCENT, won, type PaidPlanId } from "@/lib/ownerPlans";
+
+/** 지금 해지하면 돌려받는 금액(서버가 계산해 준 값) */
+export type RefundPreview = { amount: number; kind: "full" | "prorated" | "none"; remainingDays: number; totalDays: number; paidAmount: number };
 
 const REASONS = ["광고 효과를 잘 모르겠어요", "요금이 부담돼요", "잠시 쉬어요(휴업·비수기)", "다른 광고를 쓰려고요", "기타"];
 
 type Step = "confirm" | "offer" | "retained" | "cancelled";
 
-export default function PremiumCancelDialog({ plan, expiresText, offerAvailable, onClose, onDone }: {
+export default function PremiumCancelDialog({ plan, expiresText, offerAvailable, refund, onClose, onDone }: {
   plan: PaidPlanId;
+  refund: RefundPreview | null;
   /** 이용 마지막 날(예: 2026. 11. 24.) */
   expiresText: string;
   offerAvailable: boolean;
@@ -28,6 +34,10 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const price = PLAN_MONTHLY_PRICE[plan];
+  const refundAmount = refund?.amount ?? 0;
+  const refundText = refund?.kind === "full"
+    ? `결제하신 지 ${FULL_REFUND_DAYS}일이 지나지 않아 결제 금액 ${won(refund.paidAmount)} 전액`
+    : refund?.kind === "prorated" ? `남은 ${refund.remainingDays}일(전체 ${refund.totalDays}일)만큼 일할 계산한 금액` : "";
   const secret = Math.floor((price * (1 - RETENTION_DISCOUNT_PERCENT / 100)) / 100) * 100;
 
   const send = async (body: Record<string, unknown>) => {
@@ -65,10 +75,18 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
         {step === "confirm" && (
           <>
             <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", paddingRight: 36 }}>정말 해지할까요?</div>
-            <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
-              해지해도 <b>{expiresText}</b>까지는 {PLAN_NAME[plan]} 혜택이 그대로 유지돼요.<br />
-              그 뒤에는 기본 요금제로 돌아가고, 아래 혜택이 사라져요.
-            </div>
+            {refundAmount > 0 ? (
+              <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
+                지금 해지하면 <b style={{ color: "#15803D" }}>{won(refundAmount)}</b>을 돌려드려요.<br />
+                <span style={{ fontSize: 12, color: "#888" }}>{refundText}</span><br />
+                환불되는 대신 {PLAN_NAME[plan]} 혜택은 <b>해지한 날 바로</b> 끝나고, 아래 혜택이 사라져요.
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
+                해지해도 <b>{expiresText}</b>까지는 {PLAN_NAME[plan]} 혜택이 그대로 유지돼요.<br />
+                그 뒤에는 기본 요금제로 돌아가고, 아래 혜택이 사라져요.
+              </div>
+            )}
             <ul style={{ margin: "10px 0 0", padding: "12px 14px 12px 30px", borderRadius: 12, background: "#FFFBEB", fontSize: 12.5, color: "#78350F", lineHeight: 1.8 }}>
               <li>주변 장소 목록 맨 위 노출과 프리미엄 배지</li>
               <li>AI 추천 코스 정거장 포함</li>
@@ -133,9 +151,15 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
           <>
             <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", paddingRight: 36 }}>해지가 접수됐어요</div>
             <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
-              <b>{expiresText}</b>까지 지금 혜택을 이용할 수 있어요.<br />
+              {refundAmount > 0 ? (
+                <>
+                  혜택은 오늘로 끝났어요.<br />
+                  <b>{won(refundAmount)}</b>은 담당자가 확인한 뒤 입금하신 계좌로 돌려드려요.<br />
+                </>
+              ) : (
+                <><b>{expiresText}</b>까지 지금 혜택을 이용할 수 있어요.<br /></>
+              )}
               처리 대기 중이던 연장 신청은 취소했어요.<br />
-              남은 기간 요금은 담당자가 확인해 따로 안내해 드려요.<br />
               언제든 다시 신청하실 수 있어요.
             </div>
             <button onClick={onClose} style={{ ...button(true), width: "100%", marginTop: 18 }}>확인</button>

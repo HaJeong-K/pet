@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { priceForMonth, quote, PREMIUM_MONTHLY_PRICE } from "./ownerPlans";
+import { priceForMonth, quote, refundFor, PREMIUM_MONTHLY_PRICE } from "./ownerPlans";
 
 describe("사장님 프리미엄 요금(단계 인상 프로모션)", () => {
   it("첫 달은 무료, 2~3개월째는 반값, 4개월째부터 정가", () => {
@@ -35,5 +35,20 @@ describe("해지 방어 시크릿 할인", () => {
   });
   it("할인이 없으면 예전과 같다", () => {
     expect(quote(2, 0).perMonth).toEqual(quote(2, 0, PREMIUM_MONTHLY_PRICE, null).perMonth);
+  });
+});
+
+describe("해지 환불", () => {
+  const base = { paidAmount: 33000, paidAt: "2026-10-01T00:00:00Z", periodStart: "2026-10-01T00:00:00Z", periodEnd: "2026-10-31T00:00:00Z" };
+  it("결제 후 3일 이내면 전액", () => {
+    expect(refundFor(base, new Date("2026-10-03T12:00:00Z").getTime())).toMatchObject({ amount: 33000, kind: "full" });
+  });
+  it("3일이 지나면 남은 날만큼 일할(10원 미만 버림)", () => {
+    const r = refundFor(base, new Date("2026-10-11T00:00:00Z").getTime());
+    expect(r).toMatchObject({ kind: "prorated", usedDays: 10, remainingDays: 20, amount: 22000 });
+  });
+  it("무료 기간이거나 끝난 기간은 환불 없음", () => {
+    expect(refundFor({ ...base, paidAmount: 0 }, new Date("2026-10-02T00:00:00Z").getTime()).kind).toBe("none");
+    expect(refundFor(base, new Date("2026-11-02T00:00:00Z").getTime()).kind).toBe("none");
   });
 });

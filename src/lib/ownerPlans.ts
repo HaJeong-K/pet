@@ -133,3 +133,32 @@ export function quote(months: number, usedMonths = 0, monthlyPrice = PREMIUM_MON
 }
 
 export const won = (n: number) => `${Number(n || 0).toLocaleString("ko-KR")}원`;
+
+// ── 해지 환불 규칙 ──
+// 결제일(관리자가 입금을 확인해 적용한 날)부터 3일 안에 해지하면 그 결제 금액 전액,
+// 그 뒤에는 남은 날만큼 일할로 돌려드립니다(10원 미만 버림). 환불이 생기면 혜택은 해지한 날 바로 끝납니다.
+export const FULL_REFUND_DAYS = 3;
+
+export type RefundInput = {
+  /** 마지막으로 결제(승인)된 금액 */
+  paidAmount: number;
+  /** 결제일(승인 시각) */
+  paidAt: string;
+  /** 그 결제로 이용하는 기간의 시작·끝(끝 = 지금의 만료일) */
+  periodStart: string;
+  periodEnd: string;
+};
+export type Refund = { amount: number; kind: "full" | "prorated" | "none"; usedDays: number; totalDays: number; remainingDays: number };
+
+export function refundFor(input: RefundInput, now = Date.now()): Refund {
+  const DAY = 86_400_000;
+  const start = new Date(input.periodStart).getTime();
+  const end = new Date(input.periodEnd).getTime();
+  const totalDays = Math.max(1, Math.round((end - start) / DAY));
+  const usedDays = Math.min(totalDays, Math.max(0, Math.ceil((now - start) / DAY)));
+  const remainingDays = totalDays - usedDays;
+  if (input.paidAmount <= 0 || end <= now) return { amount: 0, kind: "none", usedDays, totalDays, remainingDays };
+  if (now - new Date(input.paidAt).getTime() <= FULL_REFUND_DAYS * DAY) return { amount: input.paidAmount, kind: "full", usedDays, totalDays, remainingDays };
+  const amount = Math.floor((input.paidAmount * remainingDays) / totalDays / 10) * 10;
+  return { amount, kind: amount > 0 ? "prorated" : "none", usedDays, totalDays, remainingDays };
+}

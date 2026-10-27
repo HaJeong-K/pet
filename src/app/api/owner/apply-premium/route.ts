@@ -76,8 +76,10 @@ export async function POST(req: NextRequest) {
       memo,
       status: "pending",
     };
-    let { error } = await supabaseAdmin.from("premium_requests").insert([{ ...row, discount_percent: price.discounted > 0 ? extra!.percent : 0 }]);
-    // 할인율 칸(scripts/sql/premium-cancel.sql) 실행 전이면 할인율 없이 저장합니다
+    // 할인율·금액도 남깁니다 — 금액은 해지할 때 환불 계산(결제 3일 이내 전액, 이후 일할)에 씁니다.
+    let { error } = await supabaseAdmin.from("premium_requests").insert([{ ...row, discount_percent: price.discounted > 0 ? extra!.percent : 0, amount: price.total }]);
+    // 할인율·금액 칸(scripts/sql/premium-cancel.sql, premium-refund.sql) 실행 전이면 그 칸 없이 저장합니다
+    if (error && /amount/.test(error.message)) ({ error } = await supabaseAdmin.from("premium_requests").insert([{ ...row, discount_percent: price.discounted > 0 ? extra!.percent : 0 }]));
     if (error && /discount_percent/.test(error.message)) ({ error } = await supabaseAdmin.from("premium_requests").insert([row]));
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await notifyAdmin({

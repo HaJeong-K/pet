@@ -184,3 +184,20 @@ export const ownerNextStays = (from: StayStatus): StayStatus[] => OWNER_NEXT[fro
 export const holdsRoom = (status: StayStatus) => status === "confirmed";
 /** 아직 끝나지 않은 예약 */
 export const isOpenStay = (status: StayStatus) => status === "requested" || status === "confirmed";
+
+// ── 화면 표시 ──
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+/** "11/7(토)" */
+export function stayDayLabel(day: string): string {
+  return `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
+}
+/** "강아지 소형견 5kg '콩이'" */
+export function petLabel(p: StayPet): string {
+  return [
+    PET_SPECIES.find((s) => s.id === p.species)?.label,
+    p.size ? PET_SIZES.find((s) => s.id === p.size)?.label : null,
+    p.weight != null ? `${p.weight}kg` : null,
+    p.name ? `'${p.name}'` : null,
+  ].filter(Boolean).join(" ");
+}
