@@ -17,6 +17,7 @@ import { fetchFoodsafetyPlaces } from "@/lib/foodsafetyPlaces";
 import { getTourPlaces } from "@/app/api/public-data/tour/route";
 import { getAllParks } from "@/lib/server/allParks";
 import { findParkDuplicateIds } from "@/lib/parkDuplicates";
+import { countBySource, type MapCounts } from "@/lib/cronDigest";
 
 const SOURCE_ID_BASE: Record<string, number> = {
   tour: 1_000_000_000,
@@ -89,6 +90,8 @@ const VISIBLE_TTL_MS = 5 * 60_000;
 
 let base: any[] | null = null;
 let baseAt = 0;
+/** 지금 쓰는 목록이 공공 API에서 만들어진 때(장소 상세의 "공공데이터 ○월 ○일 갱신" 표시에 씁니다) */
+let baseBuiltAt = 0;
 let cachedRaw: any[] | null = null;
 let cachedAt = 0;
 // 지금 만들고 있는 목록 — 동시에 온 요청들이 같은 작업 하나를 함께 기다립니다.
@@ -166,16 +169,19 @@ async function refresh(): Promise<any[]> {
     if (snap && snap.places.length > 0 && Date.now() - snap.builtAt < SNAPSHOT_MAX_AGE_MS) {
       base = snap.places;
       baseAt = Date.now();
+      baseBuiltAt = snap.builtAt;
     } else {
       const built = await buildFromSources();
       if (built.length > 0) {
         base = built;
         baseAt = Date.now();
+        baseBuiltAt = Date.now();
         await saveSnapshot(built);
       } else if (snap && snap.places.length > 0) {
         // 공공 API가 전부 실패하면 오래된 스냅샷이라도 씁니다(빈 지도보다 낫습니다).
         base = snap.places;
         baseAt = Date.now();
+        baseBuiltAt = snap.builtAt;
       }
     }
   }
@@ -205,18 +211,25 @@ export async function getMergedPublicDataPlaces(): Promise<any[]> {
   return inFlight;
 }
 
+/** 공공데이터 목록이 공공 API에서 마지막으로 만들어진 때(밀리초). 아직 목록을 못 만들었으면 null */
+export async function getPublicDataBuiltAt(): Promise<number | null> {
+  await getMergedPublicDataPlaces().catch(() => []);
+  return baseBuiltAt || null;
+}
+
 /**
  * 크론 전용: 공공 API에서 전체 목록을 새로 만들어 스냅샷으로 저장합니다.
  * 결과(건수·저장 성공 여부)를 돌려줘서 크론 로그에서 확인할 수 있게 합니다.
  */
-export async function rebuildPublicDataSnapshot(): Promise<{ count: number; saved: boolean }> {
+export async function rebuildPublicDataSnapshot(): Promise<{ count: number; saved: boolean; bySource?: MapCounts }> {
   const built = await buildFromSources();
   if (built.length === 0) return { count: 0, saved: false };
   const saved = await saveSnapshot(built);
   base = built;
   baseAt = Date.now();
+  baseBuiltAt = Date.now();
   cachedRaw = null; // 다음 요청에서 숨김 장소를 다시 반영
-  return { count: built.length, saved };
+  return { count: built.length, saved, bySource: countBySource(built) };
 }
 
 async function buildFromSources(): Promise<any[]> {

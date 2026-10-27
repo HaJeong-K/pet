@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { deleteAccount } from "@/lib/server/deleteAccount";
+import { isMissingOwnerKind, ownerKindOf } from "@/lib/ownerKind";
 
 // 관리자 전용: 가입 회원 관리
 //   GET                         → 가입 회원 목록 + 회원별 활동(후기·답글·글·댓글 수)과 신고받은 횟수, 관리자가 지운 글 수
@@ -25,14 +26,18 @@ const empty = (): Counts => ({ reviews: 0, replies: 0, posts: 0, comments: 0, re
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: "관리자 권한 없음" }, { status: 401 });
 
-  const [users, reviews, replies, posts, comments, reports] = await Promise.all([
-    supabaseAdmin.from("users").select("auth_user_id, email, nickname, avatar_url, created_at, is_admin, owner_status, owner_business_name").not("auth_user_id", "is", null).order("created_at", { ascending: false }).limit(MAX_ROWS),
+  const userColumns = "auth_user_id, email, nickname, avatar_url, created_at, is_admin, owner_status, owner_business_name";
+  const usersQuery = (columns: string) => supabaseAdmin.from("users").select(columns).not("auth_user_id", "is", null).order("created_at", { ascending: false }).limit(MAX_ROWS).returns<Record<string, unknown>[]>();
+  const [firstUsers, reviews, replies, posts, comments, reports] = await Promise.all([
+    usersQuery(`${userColumns}, owner_kind`),
     supabaseAdmin.from("reviews").select("id, auth_user_id, is_admin_deleted").not("auth_user_id", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("review_replies").select("id, auth_user_id, is_admin_deleted").not("auth_user_id", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("community_posts").select("id, author_auth_key, is_admin_deleted").not("author_auth_key", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("community_comments").select("id, author_auth_key, is_admin_deleted").not("author_auth_key", "is", null).order("id", { ascending: false }).limit(MAX_ROWS),
     supabaseAdmin.from("reports").select("type, target_id, board_post_id, is_resolved").neq("type", "place").order("created_at", { ascending: false }).limit(MAX_ROWS),
   ]);
+  // 사장님 유형 칸(scripts/sql/owner-kind.sql) 실행 전이면 유형 없이 불러옵니다(모두 가게로 표시)
+  const users = isMissingOwnerKind(firstUsers.error) ? await usersQuery(userColumns) : firstUsers;
   if (users.error) return NextResponse.json({ error: users.error.message }, { status: 500 });
   // 회원 레벨(레벨 표가 아직 없으면 빈 채로 — 화면에서는 표시하지 않습니다)
   const levelRows = await supabaseAdmin.from("member_levels").select("auth_user_id, level, points");
@@ -76,6 +81,7 @@ export async function GET(req: NextRequest) {
     isAdmin: !!u.is_admin,
     ownerStatus: (u.owner_status as string | null) ?? null,
     ownerBusinessName: (u.owner_business_name as string | null) ?? null,
+    ownerKind: ownerKindOf(u.owner_kind),
     level: levelOf.get(u.auth_user_id as string)?.level ?? null,
     points: levelOf.get(u.auth_user_id as string)?.points ?? null,
     ...(byUser.get(u.auth_user_id as string) ?? empty()),

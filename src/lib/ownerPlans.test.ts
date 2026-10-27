@@ -25,3 +25,15 @@ describe("사장님 프리미엄 요금(단계 인상 프로모션)", () => {
     expect(quote(2, 1).perMonth).toEqual([9900, 9900]);
   });
 });
+
+describe("해지 방어 시크릿 할인", () => {
+  it("다음 1회(30일)만 30% 더 깎는다", () => {
+    const q = quote(3, 3, PREMIUM_MONTHLY_PRICE, { percent: 30, months: 1 });
+    expect(q.perMonth[0]).toBe(Math.floor((PREMIUM_MONTHLY_PRICE * 0.7) / 100) * 100);
+    expect(q.perMonth[1]).toBe(PREMIUM_MONTHLY_PRICE);
+    expect(q.discounted).toBe(1);
+  });
+  it("할인이 없으면 예전과 같다", () => {
+    expect(quote(2, 0).perMonth).toEqual(quote(2, 0, PREMIUM_MONTHLY_PRICE, null).perMonth);
+  });
+});

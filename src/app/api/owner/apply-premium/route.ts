@@ -57,26 +57,32 @@ export async function POST(req: NextRequest) {
     const rawMemo = typeof body?.memo === "string" ? body.memo.slice(0, 480) : "";
     const memo = rawMemo || null;
 
-    const { error } = await supabaseAdmin.from("premium_requests").insert([
-      {
-        place_id: targetPlaceId,
-        owner_auth_user_id: user.id,
-        plan, // 'premium' | 'store' | 'local'
-        months,
-        payer_name: payerName,
-        memo,
-        status: "pending",
-      },
-    ]);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
     // 지금까지 승인된 개월 수를 이어서 할인 구간(첫 달 무료·2~3개월째 반값)을 계산합니다.
-    const { data: approved } = await supabaseAdmin.from("premium_requests").select("months").eq("place_id", targetPlaceId).eq("status", "approved");
+    // 관리자 할인·해지 방어 시크릿 프라이스(premium_perks)가 남아 있으면 앞쪽 개월에 더 깎습니다(표가 없으면 할인 없음).
+    const [{ data: approved }, { data: perk }] = await Promise.all([
+      supabaseAdmin.from("premium_requests").select("months").eq("place_id", targetPlaceId).eq("status", "approved"),
+      supabaseAdmin.from("premium_perks").select("discount_percent, discount_months").eq("place_id", targetPlaceId).maybeSingle(),
+    ]);
     const usedMonths = (approved || []).reduce((sum, r) => sum + (Number(r.months) || 0), 0);
-    const price = quote(months, usedMonths, PLAN_MONTHLY_PRICE[plan]);
+    const extra = perk && Number(perk.discount_percent) > 0 && Number(perk.discount_months) > 0 ? { percent: Number(perk.discount_percent), months: Number(perk.discount_months) } : null;
+    const price = quote(months, usedMonths, PLAN_MONTHLY_PRICE[plan], extra);
+
+    const row = {
+      place_id: targetPlaceId,
+      owner_auth_user_id: user.id,
+      plan, // 'premium' | 'store' | 'local'
+      months,
+      payer_name: payerName,
+      memo,
+      status: "pending",
+    };
+    let { error } = await supabaseAdmin.from("premium_requests").insert([{ ...row, discount_percent: price.discounted > 0 ? extra!.percent : 0 }]);
+    // 할인율 칸(scripts/sql/premium-cancel.sql) 실행 전이면 할인율 없이 저장합니다
+    if (error && /discount_percent/.test(error.message)) ({ error } = await supabaseAdmin.from("premium_requests").insert([row]));
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await notifyAdmin({
       title: price.total === 0 ? "💎 프리미엄 신청 — 무료 기간(입금 없음)" : "💎 프리미엄 신청 — 입금 확인 필요",
-      lines: [`업장 번호 ${targetPlaceId}`, `요금제 ${PLAN_NAME[plan]}`, `${months}개월(이용 ${usedMonths}개월 뒤)`, `받을 금액 ${won(price.total)}`, payerName ? `입금자명 ${payerName}` : null],
+      lines: [`업장 번호 ${targetPlaceId}`, `요금제 ${PLAN_NAME[plan]}`, `${months}개월(이용 ${usedMonths}개월 뒤)`, `받을 금액 ${won(price.total)}`, price.discounted > 0 ? `추가 할인 ${extra!.percent}% · ${price.discounted}개월 적용` : null, payerName ? `입금자명 ${payerName}` : null],
       path: "/admin/premium",
     });
     return NextResponse.json({ success: true });

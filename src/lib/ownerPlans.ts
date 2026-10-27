@@ -106,13 +106,30 @@ export function priceForMonth(nth: number, monthlyPrice = PREMIUM_MONTHLY_PRICE)
   return Math.floor((monthlyPrice * (1 - discount)) / 100) * 100;
 }
 
+/** 이용 기간 1회(요금표의 "한 달")의 실제 길이 — 승인·연장 모두 30일 단위로 계산합니다 */
+export const PERIOD_DAYS = 30;
+/** 기간 표시 — 숙소 사장님은 "30일 / 90일", 가게 사장님은 "1개월 / 3개월" */
+export const periodText = (months: number, lodging: boolean) => (lodging ? `${months * PERIOD_DAYS}일` : `${months}개월`);
+
+/** 해지 방어 "시크릿 프라이스" — 해지하려는 사장님에게 1회만, 다음 30일 요금을 30% 깎아 줍니다(기능은 그대로) */
+export const RETENTION_DISCOUNT_PERCENT = 30;
+export const RETENTION_DISCOUNT_MONTHS = 1;
+
+/** 관리자·해지 방어로 받은 추가 할인 — 신청하는 기간의 앞쪽 months개월에 percent%를 더 깎습니다 */
+export type ExtraDiscount = { percent: number; months: number };
+
 /**
  * 이미 이용한 개월 수(usedMonths) 뒤로 months개월을 신청할 때의 월별 금액과 합계.
- * 처음 신청이면 usedMonths = 0.
+ * 처음 신청이면 usedMonths = 0. extra가 있으면 단계 요금 위에 추가 할인을 얹습니다(100원 단위 내림).
  */
-export function quote(months: number, usedMonths = 0, monthlyPrice = PREMIUM_MONTHLY_PRICE): { perMonth: number[]; total: number; listTotal: number } {
-  const perMonth = Array.from({ length: Math.max(0, months) }, (_, i) => priceForMonth(usedMonths + i + 1, monthlyPrice));
-  return { perMonth, total: perMonth.reduce((a, b) => a + b, 0), listTotal: monthlyPrice * Math.max(0, months) };
+export function quote(months: number, usedMonths = 0, monthlyPrice = PREMIUM_MONTHLY_PRICE, extra?: ExtraDiscount | null): { perMonth: number[]; total: number; listTotal: number; discounted: number } {
+  const percent = Math.min(Math.max(extra?.percent ?? 0, 0), 100);
+  const extraMonths = percent > 0 ? Math.max(0, Math.floor(extra?.months ?? 0)) : 0;
+  const perMonth = Array.from({ length: Math.max(0, months) }, (_, i) => {
+    const step = priceForMonth(usedMonths + i + 1, monthlyPrice);
+    return i < extraMonths ? Math.floor((step * (1 - percent / 100)) / 100) * 100 : step;
+  });
+  return { perMonth, total: perMonth.reduce((a, b) => a + b, 0), listTotal: monthlyPrice * Math.max(0, months), discounted: Math.min(extraMonths, Math.max(0, months)) };
 }
 
 export const won = (n: number) => `${Number(n || 0).toLocaleString("ko-KR")}원`;

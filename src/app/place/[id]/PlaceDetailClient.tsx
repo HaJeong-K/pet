@@ -14,6 +14,7 @@ const PLACE_FETCH_TIMEOUT_MS = 12_000;
 import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import PlaceStoreSection from "@/components/PlaceStoreSection";
+import PlaceFreshness from "@/components/PlaceFreshness";
 import { rememberInterest } from "@/lib/interestRegions";
 import {
   calculateAffinityBreakdown,
@@ -1420,6 +1421,9 @@ export default function PlaceDetail({
           </>)}
 
         </div>
+
+        {/* 정보 확인 — 마지막 확인일(방문자·사장님·공공데이터)과 다녀온 사람의 "정보가 맞아요 / 달라졌어요" */}
+        <PlaceFreshness placeId={placeId} placeName={place.name} isOwner={isPlaceOwner} phone={place.phone} />
 
         {/* 찜/추천/비추천/네이버 */}
         <div data-guide="place-actions" style={{ marginTop:"12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px" }}>

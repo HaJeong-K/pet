@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff, Search, Check, MapPin, Upload } from "lucide-react";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
+import OwnerKindPicker from "@/components/OwnerKindPicker";
+import { isMissingOwnerKind, ownerKindInfo, type OwnerKind } from "@/lib/ownerKind";
 
 // 다음 주소검색 API가 돌려주는 시/도 표기가 지역마다 풀네임/축약형이 섞여 있어
 // 기존 닉네임 규칙([지역명]가게명_사장님, 예: "경남")과 맞추기 위해 정규화합니다.
@@ -76,6 +78,9 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
   const [emailProvider, setEmailProvider] = useState<"none" | "email" | "kakao">("none");
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
+  // 가게 / 숙소 — 고른 유형에 따라 입력칸 이름이 바뀌고 관리자 화면에도 표시됩니다(src/lib/ownerKind.ts)
+  const [kind, setKind] = useState<OwnerKind>("store");
+  const kindInfo = ownerKindInfo(kind);
   const [sido, setSido] = useState("");
   const [sigungu, setSigungu] = useState("");
   const [roadAddress, setRoadAddress] = useState("");
@@ -231,25 +236,26 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
 
       // ⚠ 인증 판정은 서버(국세청 진위확인)가 합니다 — 브라우저는 항상 "승인 대기"로만 저장합니다.
 
-      const { error: insertError } = await supabase.from("users").insert([
-        {
-          auth_user_id: data.user.id,
-          email,
-          nickname: nicknamePreview,
-          nickname_locked: true,
-          owner_status: "pending",
-          owner_business_name: businessName.trim(),
-          owner_region: sido,
-          owner_sigungu: sigungu,
-          owner_address_detail: fullAddress,
-          owner_phone: phone.trim(),
-          owner_place_id: selectedPlace?.id ?? null,
-          owner_cert_url: certUrl,
-          owner_auto_verified: false,
-          owner_ocr_text: ocrText ? ocrText.slice(0, 2000) : null,
-          agreed_terms_at: new Date().toISOString(),
-        },
-      ]);
+      const ownerRow = {
+        auth_user_id: data.user.id,
+        email,
+        nickname: nicknamePreview,
+        nickname_locked: true,
+        owner_status: "pending",
+        owner_business_name: businessName.trim(),
+        owner_region: sido,
+        owner_sigungu: sigungu,
+        owner_address_detail: fullAddress,
+        owner_phone: phone.trim(),
+        owner_place_id: selectedPlace?.id ?? null,
+        owner_cert_url: certUrl,
+        owner_auto_verified: false,
+        owner_ocr_text: ocrText ? ocrText.slice(0, 2000) : null,
+        agreed_terms_at: new Date().toISOString(),
+      };
+      let { error: insertError } = await supabase.from("users").insert([{ ...ownerRow, owner_kind: kind }]);
+      // 유형 칸을 만드는 SQL 실행 전이면 유형 없이 저장합니다(가게로 처리)
+      if (isMissingOwnerKind(insertError)) ({ error: insertError } = await supabase.from("users").insert([ownerRow]));
       if (insertError) {
         console.error("사장님 가입 users insert 실패:", insertError);
         alert("가입 정보 저장 중 오류가 발생했습니다.");
@@ -281,6 +287,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
         반려동물 동반 가능 업장을 운영하신다면 사장님 계정으로 가입해주세요.
         사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후 인증 배지·본인 업장 정보 수정·사장님 게시판 글쓰기 권한이 주어집니다.
       </p>
+
+      <OwnerKindPicker value={kind} onChange={setKind} />
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input placeholder="이메일" value={email} onChange={handleEmailChange} style={{ ...inputStyle, marginBottom: 0, flex: 1 }} />
@@ -361,7 +369,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         <input
-          placeholder="가게명"
+          placeholder={kindInfo.nameLabel}
           value={businessName}
           onChange={(e) => setBusinessName(e.target.value)}
           style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
@@ -374,7 +382,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
         />
       </div>
 
-      <input placeholder="가게 연락처" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
+      <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
       {nicknamePreview && (
         <div style={{ padding: "10px 12px", borderRadius: 10, background: "#E4EBDC", marginBottom: 14, fontSize: 12.5, color: "#48603A" }}>
@@ -418,7 +426,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         <input
-          placeholder="가게명으로 검색"
+          placeholder={`${kindInfo.nameLabel}으로 검색`}
           value={placeQuery}
           onChange={(e) => setPlaceQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && searchPlace()}

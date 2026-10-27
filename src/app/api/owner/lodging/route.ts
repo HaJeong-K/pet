@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/server/ownerStore";
+import { getLodging, lodgingOwnerContext, PROFILE_COLUMNS } from "@/lib/server/lodgingStore";
+import { cleanLodgingProfile } from "@/lib/lodgingRules";
+
+// 숙소 사장님의 "숙소·객실" 화면(인증된 숙소 사장님은 본인 숙소, 관리자는 ?placeId= 로 지정한 숙소)
+//   GET → 숙소 기본 정보·동반 규정 + 객실 목록(판매 중지 포함). 표가 없으면 ready: false(scripts/sql/lodging.sql 실행 전)
+//   PUT → 숙소 기본 정보·동반 규정 저장 { check_in, check_out, pet_species, pet_sizes, max_pet_weight_kg, max_pets, pet_fee, ... }
+// 객실 추가·수정·삭제는 /api/owner/lodging/rooms, 객실 사진은 /api/owner/lodging/image.
+
+const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
+
+export async function GET(req: NextRequest) {
+  const ctx = await lodgingOwnerContext(req);
+  if ("error" in ctx) return fail(ctx.error, ctx.status);
+  try {
+    return NextResponse.json(await getLodging(ctx.placeId, false));
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "불러오지 못했어요.", 500);
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const ctx = await lodgingOwnerContext(req);
+  if ("error" in ctx) return fail(ctx.error, ctx.status);
+  const cleaned = cleanLodgingProfile(await req.json().catch(() => null));
+  if ("error" in cleaned) return fail(cleaned.error, 400);
+  const { data, error } = await db
+    .from("lodging_profiles")
+    .upsert({ place_id: ctx.placeId, ...cleaned.profile, updated_by: ctx.userId, updated_at: new Date().toISOString() }, { onConflict: "place_id" })
+    .select(PROFILE_COLUMNS)
+    .single();
+  if (error) return fail(error.message, 500);
+  return NextResponse.json({ profile: data });
+}

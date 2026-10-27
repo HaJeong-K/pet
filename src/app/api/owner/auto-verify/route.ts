@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateBusiness } from "@/lib/server/ntsBusiness";
 import { clientIp, createRateLimiter } from "@/lib/server/rateLimit";
 import { notifyAdmin } from "@/lib/server/notify";
+import { isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
 import { bizNamesMatch, isCompleteBizInfo, onlyDigits, type OwnerBizInfo } from "@/lib/ownerBizInfo";
 
 // POST /api/owner/auto-verify   (Authorization: Bearer <로그인 토큰>)
@@ -49,19 +50,23 @@ export async function POST(req: NextRequest) {
   };
   if (!isCompleteBizInfo(info)) return reply("pending", "사업자 정보를 다시 확인해 주세요.", 400);
 
-  const { data: profile } = await supabaseAdmin
+  const profileOf = (columns: string) => supabaseAdmin
     .from("users")
-    .select("owner_status, owner_business_name, owner_place_id")
+    .select(columns)
     .eq("auth_user_id", user.id)
-    .maybeSingle();
+    .maybeSingle<{ owner_status: string | null; owner_business_name: string | null; owner_place_id: number | null; owner_kind?: string | null }>();
+  let { data: profile, error: profileError } = await profileOf("owner_status, owner_business_name, owner_place_id, owner_kind");
+  // 사장님 유형 칸(scripts/sql/owner-kind.sql) 실행 전이면 유형 없이(가게로) 처리합니다
+  if (isMissingOwnerKind(profileError)) ({ data: profile } = await profileOf("owner_status, owner_business_name, owner_place_id"));
   if (!profile) return reply("pending", "가입 정보를 찾을 수 없어요.", 404);
   if (profile.owner_status === "verified") return reply("verified", "이미 인증된 사장님 계정이에요.");
   if (profile.owner_status !== "pending") return reply("pending", "사장님 신청 상태가 아니에요.", 400);
 
-  // 결과를 관리자에게 알립니다 — 자동 인증은 기록용, 검토 대기는 처리 요청.
-  const shopName = profile.owner_business_name || "(가게명 없음)";
+  // 결과를 관리자에게 알립니다 — 자동 인증은 기록용, 검토 대기는 처리 요청. 가게 / 숙소 유형을 제목에 붙입니다.
+  const kind = ownerKindInfo(profile.owner_kind);
+  const shopName = profile.owner_business_name || `(${kind.nameLabel} 없음)`;
   const alertPending = (reason: string) =>
-    notifyAdmin({ title: "🏪 사장님 신청 — 확인 필요", lines: [shopName, reason], path: "/admin/owners" });
+    notifyAdmin({ title: `${kind.emoji} ${kind.label} 사장님 신청 — 확인 필요`, lines: [shopName, reason], path: "/admin/owners" });
 
   // 사업자번호는 인증 결과와 상관없이 저장 — 관리자 수동 검토 때 대조용
   await supabaseAdmin.from("users").update({ owner_biz_no: info.bizNo }).eq("auth_user_id", user.id);
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   await notifyAdmin({
-    title: "✅ 사장님 자동 인증 완료",
+    title: `✅ ${kind.label} 사장님 자동 인증 완료`,
     lines: [shopName, placeId == null && profile.owner_place_id != null ? "고른 업장 이름이 달라 업장 연결은 보류 — 확인 필요" : null],
     path: "/admin/owners",
   });

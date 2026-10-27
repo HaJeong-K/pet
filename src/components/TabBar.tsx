@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown, ShoppingBag } from "lucide-react";
+import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown, ShoppingBag, BedDouble, CalendarDays } from "lucide-react";
 import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab } from "@/lib/ownerTab";
 import { supabase } from "@/lib/supabase";
 import { playBark } from "@/lib/ownerAlertSound";
+import { isMissingOwnerKind, ownerKindOf } from "@/lib/ownerKind";
+
+/** 아래 탭에 필요한 내 계정 정보(사장님 유형 칸이 아직 없으면 유형 없이 — 가게로 봅니다) */
+async function tabProfile(uid: string) {
+  const query = (columns: string) => supabase.from("users").select(columns).eq("auth_user_id", uid).single<{ is_admin: boolean | null; owner_status: string | null; owner_place_id: number | null; owner_kind?: string | null }>();
+  const first = await query("is_admin, owner_status, owner_place_id, owner_kind");
+  return isMissingOwnerKind(first.error) ? (await query("is_admin, owner_status, owner_place_id")).data : first.data;
+}
 
 export default function TabBar() {
   const router = useRouter();
@@ -15,16 +23,18 @@ export default function TabBar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  // 숙소 사장님이면 사장님 센터 아래 탭이 "객실" 중심으로 바뀝니다(src/lib/ownerKind.ts)
+  const [isLodgingOwner, setIsLodgingOwner] = useState(false);
 
   useEffect(() => {
     const checkLogin = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setIsLoggedIn(!!session);
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from("users").select("is_admin, owner_status, owner_place_id").eq("auth_user_id", session.user.id).single();
+        const profile = await tabProfile(session.user.id);
         setIsAdmin(!!profile?.is_admin);
         setIsOwner(profile?.owner_status === "verified" && profile?.owner_place_id != null);
+        setIsLodgingOwner(ownerKindOf(profile?.owner_kind) === "lodging");
       }
     };
     checkLogin();
@@ -36,14 +46,15 @@ export default function TabBar() {
       if (session?.user) {
         const uid = session.user.id;
         setTimeout(async () => {
-          const { data: profile } = await supabase
-            .from("users").select("is_admin, owner_status, owner_place_id").eq("auth_user_id", uid).single();
+          const profile = await tabProfile(uid);
           setIsAdmin(!!profile?.is_admin);
           setIsOwner(profile?.owner_status === "verified" && profile?.owner_place_id != null);
+          setIsLodgingOwner(ownerKindOf(profile?.owner_kind) === "lodging");
         }, 0);
       } else {
         setIsAdmin(false);
         setIsOwner(false);
+        setIsLodgingOwner(false);
       }
     });
     return () => subscription.unsubscribe();
@@ -61,7 +72,8 @@ export default function TabBar() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        const res = await fetch("/api/owner/reservations?count=1", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        // 숙소 사장님은 숙박 예약, 가게 사장님은 예약 포장을 셉니다.
+        const res = await fetch(isLodgingOwner ? "/api/owner/lodging/bookings?count=1" : "/api/owner/reservations?count=1", { headers: { Authorization: `Bearer ${session.access_token}` } });
         const json = await res.json();
         if (cancelled || !res.ok) return;
         const waiting = Number(json.waiting) || 0;
@@ -72,7 +84,7 @@ export default function TabBar() {
       } catch { /* 알림 숫자를 못 받아도 화면은 그대로 */ }
     };
     // 화면을 열어 둔 채 새 예약 알림이 도착하면(서비스 워커가 알려 줌) 바로 다시 셉니다 → 숫자가 늘고 소리가 납니다.
-    const onPush = (e: MessageEvent) => { if (e.data?.type === "ggk-push" && String(e.data.tag || "").startsWith("ggk-order")) check(); };
+    const onPush = (e: MessageEvent) => { if (e.data?.type === "ggk-push" && /^ggk-(order|stay)/.test(String(e.data.tag || ""))) check(); };
     navigator.serviceWorker?.addEventListener("message", onPush);
     const onLocal = (e: Event) => { const waiting = Number((e as CustomEvent<number>).detail) || 0; lastWaitingRef.current = waiting; setWaitingReservations(waiting); };
     check();
@@ -80,7 +92,7 @@ export default function TabBar() {
     document.addEventListener("visibilitychange", check);
     window.addEventListener("ggk-owner-waiting", onLocal);
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", check); window.removeEventListener("ggk-owner-waiting", onLocal); navigator.serviceWorker?.removeEventListener("message", onPush); };
-  }, [isOwner]);
+  }, [isOwner, isLodgingOwner]);
 
   // ⚠ 속도: 탭은 버튼(router.push)이라 화면 코드를 미리 받아 두지 않았습니다 — 누른 뒤에야 받기 시작해 반 박자 늦었습니다.
   // 화면이 한가해지면 탭 화면들을 미리 받아 둬서, 누르는 순간 바로 바뀌게 합니다.
@@ -147,7 +159,13 @@ export default function TabBar() {
 
   const activeTab = inOwnerCenter ? `owner-${ownerTab}` : getActiveTab();
 
-  const tabs = inOwnerCenter ? [
+  const tabs = inOwnerCenter && isOwner && isLodgingOwner ? [
+    { key: "owner-dashboard",    label: "홈",       icon: Store,         onClick: () => setOwnerTab("dashboard"),    isReport: false },
+    { key: "owner-stays",        label: "예약",     icon: CalendarDays,  onClick: () => setOwnerTab("stays"),        isReport: false, badge: waitingReservations },
+    { key: "owner-lodging",      label: "객실",     icon: BedDouble,     onClick: () => setOwnerTab("lodging"),      isReport: false },
+    { key: "owner-ads",          label: "광고",     icon: Crown,         onClick: () => setOwnerTab("ads"),          isReport: false },
+    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => router.push("/"),            isReport: false },
+  ] : inOwnerCenter ? [
     { key: "owner-dashboard",    label: "홈",       icon: Store,         onClick: () => setOwnerTab("dashboard"),    isReport: false },
     { key: "owner-reservations", label: "예약",     icon: ClipboardList, onClick: () => setOwnerTab("reservations"), isReport: false, badge: waitingReservations },
     { key: "owner-products",     label: "상품",     icon: Package,       onClick: () => setOwnerTab("products"),     isReport: false },

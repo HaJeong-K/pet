@@ -93,6 +93,15 @@ export async function POST(req: NextRequest) {
       .update({ status: "approved", admin_note: adminNote, processed_at: new Date().toISOString(), processed_by: user.email || user.id })
       .eq("id", requestId);
     if (reqUpdateError) return NextResponse.json({ error: reqUpdateError.message }, { status: 500 });
+
+    // 추가 할인(관리자 할인·해지 방어 시크릿 프라이스)은 승인된 개월 수만큼 써서 줄입니다 — 다 쓰면 0%로 돌아갑니다.
+    try {
+      const { data: perk } = await supabaseAdmin.from("premium_perks").select("discount_percent, discount_months").eq("place_id", reqRow.place_id).maybeSingle();
+      if (perk && Number(perk.discount_percent) > 0 && Number(perk.discount_months) > 0) {
+        const left = Math.max(0, Number(perk.discount_months) - Number(reqRow.months || 0));
+        await supabaseAdmin.from("premium_perks").update({ discount_months: left, discount_percent: left > 0 ? perk.discount_percent : 0, updated_at: new Date().toISOString() }).eq("place_id", reqRow.place_id);
+      }
+    } catch { /* 혜택 표가 없으면 건너뜀 */ }
     // 변경 기록(표가 없으면 건너뜀)
     try {
       await supabaseAdmin.from("premium_changes").insert([{ place_id: reqRow.place_id, action: "approve", detail: `${PLAN_NAME[plan]} ${reqRow.months}개월 신청 승인 → 만료 ${newExpiry.slice(0, 10)}`, changed_by: user.email || user.id }]);

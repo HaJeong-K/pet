@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import { ShieldCheck, Play } from "lucide-react";
 import type { QualityIssue, QualityReport } from "@/lib/server/dataQuality";
+import VisitorReportsCard from "@/components/admin/VisitorReportsCard";
 
 // ── 장소 데이터 품질 점검 ──
 // 매주 자동 점검(화요일 새벽) 결과를 보여주고, "지금 점검"으로 바로 다시 돌릴 수 있습니다.
@@ -70,6 +71,9 @@ export default function AdminQuality() {
             <Play size={12} /> {running ? "점검 중… (사진 확인에 시간이 걸려요)" : "지금 점검"}
           </button>
         </div>
+
+        {/* 방문자 "달라졌어요" 제보 — 장소 화면의 정보 확인 칸에서 들어옵니다 */}
+        <VisitorReportsCard />
 
         {error && <div style={{ padding: 14, borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: 13, color: "#9a3412", marginBottom: 14 }}>{error}</div>}
 

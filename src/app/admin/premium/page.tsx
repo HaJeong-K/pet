@@ -217,8 +217,14 @@ export default function AdminPremiumPage() {
 
                     <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
                       <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
-                        <CalendarClock size={11} color="#5C7A4A"/>{PLAN_NAME[normalizePlan(req.plan)]} · {req.months}개월 신청
+                        <CalendarClock size={11} color="#5C7A4A"/>{PLAN_NAME[normalizePlan(req.plan)]} · {req.months}개월({req.months * 30}일) 신청
                       </span>
+                      {/* 관리자 할인·해지 방어 시크릿 프라이스가 적용된 신청(scripts/sql/premium-cancel.sql) — 입금액이 그만큼 적어요 */}
+                      {Number(req.discount_percent) > 0 && (
+                        <span style={{ fontSize:11, fontWeight:800, color:"#6D28D9", background:"#F5F3FF", padding:"4px 10px", borderRadius:999 }}>
+                          🎁 추가 할인 {req.discount_percent}% 적용
+                        </span>
+                      )}
                       {req.payer_name && (
                         <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
                           <User size={11} color="#5C7A4A"/>입금자명: {req.payer_name}

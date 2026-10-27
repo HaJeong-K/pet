@@ -16,6 +16,8 @@ export type AdminAlert = {
   lines?: (string | null | undefined | false)[];
   /** 관리자 화면 경로(예: "/admin/owners") — 메시지의 "관리자 화면 열기" 버튼이 여는 곳 */
   path?: string;
+  /** 앱 알림에만 쓰는 긴 본문(카카오톡은 200자 제한이라 lines만 보냄). 없으면 lines를 씁니다. */
+  pushLines?: (string | null | undefined | false)[];
 };
 
 /** 관리자에게 알림을 보냅니다. 보냈으면 true, 연결 전이거나 실패하면 false. */
@@ -28,7 +30,7 @@ export async function notifyAdmin(alert: AdminAlert): Promise<boolean> {
     sendKakaoTalkMemo(text, alert.path ?? "/admin"),
     sendAdminPush({
       title: alert.title,
-      body: (alert.lines || []).filter(Boolean).join("\n"),
+      body: (alert.pushLines || alert.lines || []).filter(Boolean).join("\n"),
       path: alert.path ?? "/admin",
     }),
   ]);

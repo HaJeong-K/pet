@@ -6,6 +6,8 @@ import { isCompleteBizInfo } from "@/lib/ownerBizInfo";
 import { supabase } from "@/lib/supabase";
 import { Search, Check, MapPin, Upload } from "lucide-react";
 import { PrivacyModal } from "@/components/SiteFooter";
+import OwnerKindPicker from "@/components/OwnerKindPicker";
+import { isMissingOwnerKind, ownerKindInfo, type OwnerKind } from "@/lib/ownerKind";
 
 // ── 이미 로그인된 일반 회원이 "사장님"으로 전환할 때 쓰는 폼입니다.
 // OwnerSignupForm.tsx(비회원용 사장님 가입)과 사업장 정보 입력·OCR 자동대조 로직은
@@ -61,6 +63,9 @@ export default function OwnerUpgradeForm({
   userId: string;
   onDone: (result: { verified: boolean }) => void;
 }) {
+  // 가게 / 숙소 — 고른 유형에 따라 입력칸 이름이 바뀌고 관리자 화면에도 표시됩니다(src/lib/ownerKind.ts)
+  const [kind, setKind] = useState<OwnerKind>("store");
+  const kindInfo = ownerKindInfo(kind);
   const [sido, setSido] = useState("");
   const [sigungu, setSigungu] = useState("");
   const [roadAddress, setRoadAddress] = useState("");
@@ -175,7 +180,7 @@ export default function OwnerUpgradeForm({
 
       // ⚠ 인증 판정은 서버(국세청 진위확인)가 합니다 — 브라우저는 항상 "승인 대기"로만 저장합니다.
 
-      const { error: updateError } = await supabase.from("users").update({
+      const ownerFields = {
         nickname: nicknamePreview,
         nickname_locked: true,
         owner_status: "pending",
@@ -188,7 +193,10 @@ export default function OwnerUpgradeForm({
         owner_cert_url: certUrl,
         owner_auto_verified: false,
         owner_ocr_text: ocrText ? ocrText.slice(0, 2000) : null,
-      }).eq("auth_user_id", userId);
+      };
+      let { error: updateError } = await supabase.from("users").update({ ...ownerFields, owner_kind: kind }).eq("auth_user_id", userId);
+      // 유형 칸을 만드는 SQL 실행 전이면 유형 없이 저장합니다(가게로 처리)
+      if (isMissingOwnerKind(updateError)) ({ error: updateError } = await supabase.from("users").update(ownerFields).eq("auth_user_id", userId));
 
       if (updateError) {
         console.error("사장님 전환 users update 실패:", updateError);
@@ -226,8 +234,10 @@ export default function OwnerUpgradeForm({
           사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후
           인증 배지·본인 업장 정보 수정·사장님 게시판 글쓰기 권한이 주어집니다.
         </p>
-        <p style={{ margin: 0 }}>전환 시 닉네임은 <strong>[지역명]가게명_사장님</strong> 형식으로 바뀝니다.</p>
+        <p style={{ margin: 0 }}>전환 시 닉네임은 <strong>[지역명]{kindInfo.nameLabel}_사장님</strong> 형식으로 바뀝니다.</p>
       </div>
+
+      <OwnerKindPicker value={kind} onChange={setKind} />
 
       <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222", marginBottom: 8 }}>사업장 주소</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
@@ -248,7 +258,7 @@ export default function OwnerUpgradeForm({
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         <input
-          placeholder="가게명"
+          placeholder={kindInfo.nameLabel}
           value={businessName}
           onChange={(e) => setBusinessName(e.target.value)}
           style={{ ...inputStyle, marginBottom: 0, flex: "1 1 220px", minWidth: 0 }}
@@ -261,7 +271,7 @@ export default function OwnerUpgradeForm({
         />
       </div>
 
-      <input placeholder="가게 연락처" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
+      <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
       {nicknamePreview && (
         <div style={{ padding: "10px 12px", borderRadius: 10, background: "#E4EBDC", marginBottom: 14, fontSize: 12.5, color: "#48603A" }}>
@@ -305,7 +315,7 @@ export default function OwnerUpgradeForm({
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         <input
-          placeholder="가게명으로 검색"
+          placeholder={`${kindInfo.nameLabel}으로 검색`}
           value={placeQuery}
           onChange={(e) => setPlaceQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && searchPlace()}

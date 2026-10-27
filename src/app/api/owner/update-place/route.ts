@@ -37,10 +37,23 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { placeId, fields } = body as { placeId: number; fields: Record<string, unknown> };
+    const { placeId, fields, confirmOnly } = body as { placeId: number; fields: Record<string, unknown>; confirmOnly?: boolean };
 
     if (!isAdmin && Number(placeId) !== Number(profile?.owner_place_id)) {
       return NextResponse.json({ error: "본인 업장만 수정할 수 있습니다" }, { status: 403 });
+    }
+
+    // 사장님이 정보를 고치거나 "지금 정보가 맞아요"를 누르면 확인한 때를 남깁니다(장소 상세의 "사장님 확인" 표시).
+    // 관리자가 대신 고친 경우는 사장님 확인으로 치지 않습니다.
+    const verifiedAt = isAdmin ? {} : { owner_verified_at: new Date().toISOString() };
+    if (confirmOnly) {
+      if (isAdmin) return NextResponse.json({ error: "사장님 본인만 확인할 수 있습니다" }, { status: 403 });
+      const { error } = await supabaseAdmin.from("places").update(verifiedAt).eq("id", placeId);
+      if (error) {
+        const missing = /owner_verified_at|schema cache|does not exist/i.test(error.message);
+        return NextResponse.json({ error: missing ? "확인 기능을 준비하고 있어요." : error.message }, { status: missing ? 503 : 500 });
+      }
+      return NextResponse.json({ success: true, ...verifiedAt });
     }
 
     const update: Record<string, unknown> = {};
@@ -51,10 +64,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "수정할 항목이 없습니다" }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin.from("places").update(update).eq("id", placeId);
+    let { error } = await supabaseAdmin.from("places").update({ ...update, ...verifiedAt }).eq("id", placeId);
+    // 확인일 칸이 아직 없으면(scripts/sql/place-verification.sql 실행 전) 정보만 저장합니다.
+    if (error && /owner_verified_at|schema cache|does not exist/i.test(error.message)) {
+      ({ error } = await supabaseAdmin.from("places").update(update).eq("id", placeId));
+    }
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, ...verifiedAt });
   } catch (e) {
     console.error("[/api/owner/update-place] failed:", e);
     return NextResponse.json({ error: "서버 오류" }, { status: 500 });

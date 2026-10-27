@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake } from "lucide-react";
+import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake, Calculator } from "lucide-react";
 
 // ── 관리자 페이지 공통 상단 탭 — 대시보드 / 신고 관리 / 제보 관리 / 통계 분석 / 사장님 인증을
 // 어느 관리자 화면에서든 한 번에 오가며 확인할 수 있도록 하는 공용 네비게이션입니다.
@@ -19,6 +19,7 @@ const TABS = [
   { key: "premium", href: "/admin/premium", label: "프리미엄", icon: Crown },
   { key: "analytics", href: "/admin/analytics", label: "통계 분석", icon: BarChart3 },
   { key: "kpi", href: "/admin/kpi", label: "성과 지표", icon: TrendingUp },
+  { key: "business", href: "/admin/business", label: "사업성 계산", icon: Calculator },
   { key: "quality", href: "/admin/quality", label: "데이터 품질", icon: ShieldCheck },
   { key: "inquiries", href: "/admin/inquiries", label: "광고·제휴 문의", icon: Handshake },
   { key: "support", href: "/admin/support", label: "후원 단체", icon: HeartHandshake },

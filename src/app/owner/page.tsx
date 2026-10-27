@@ -20,15 +20,19 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone,
+  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays,
 } from "lucide-react";
+import OwnerLodgingTab from "@/components/owner/OwnerLodgingTab";
+import OwnerStaysTab from "@/components/owner/OwnerStaysTab";
 import { ProductsTab, ReservationsTab } from "@/components/owner/OwnerStorePanels";
 import OwnerBannerEditor from "@/components/owner/OwnerBannerEditor";
 import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab, type OwnerTabKey } from "@/lib/ownerTab";
 import OwnerStatsPanel, { fetchOwnerStats, type OwnerStats } from "@/components/OwnerStatsPanel";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
-import { OWNER_PLANS, PROMO_STEPS, PLAN_MONTHLY_PRICE, PLAN_NAME, normalizePlan, quote, won, type PaidPlanId } from "@/lib/ownerPlans";
+import { OWNER_PLANS, PROMO_STEPS, PLAN_MONTHLY_PRICE, PLAN_NAME, PERIOD_DAYS, normalizePlan, periodText, quote, won, type ExtraDiscount, type PaidPlanId } from "@/lib/ownerPlans";
+import PremiumCancelDialog from "@/components/owner/PremiumCancelDialog";
 import { isPlacePremiumNow } from "@/lib/premium";
+import { isLodgingCategory, isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
 
 // 사장님 센터의 메뉴. 자주 쓰는 것(대시보드·예약·상품·광고)은 아래 탭바(TabBar.tsx)에도 있습니다.
 type TabKey = OwnerTabKey;
@@ -36,6 +40,8 @@ const TABS: { key: TabKey; label: string; Icon: typeof Store }[] = [
   { key: "dashboard", label: "대시보드", Icon: BarChart3 },
   { key: "reservations", label: "예약", Icon: ClipboardList },
   { key: "products", label: "상품", Icon: Package },
+  { key: "stays", label: "숙박 예약", Icon: CalendarDays },
+  { key: "lodging", label: "숙소·객실", Icon: BedDouble },
   { key: "banner", label: "배너 광고", Icon: Megaphone },
   { key: "reviews", label: "후기·답글", Icon: MessageCircle },
   { key: "place", label: "가게 정보", Icon: Pencil },
@@ -58,9 +64,9 @@ export default function OwnerPage() {
   // 이 가게가 배너 광고를 내는 가게인지('동네 대표' 요금제 · 관리자가 켜 준 배너 혜택) — 그럴 때만 "배너" 메뉴를 보여 줍니다.
   const [bannerPlaceId, setBannerPlaceId] = useState<number | null>(null);
   // 관리자 미리보기용으로 고른 장소
-  const [preview, setPreview] = useState<{ id: number; name: string } | null>(null);
+  const [preview, setPreview] = useState<{ id: number; name: string; category?: string | null } | null>(null);
   const [previewQuery, setPreviewQuery] = useState("");
-  const [previewResults, setPreviewResults] = useState<{ id: number; name: string; address: string | null }[]>([]);
+  const [previewResults, setPreviewResults] = useState<{ id: number; name: string; address: string | null; category?: string | null }[]>([]);
   // 관리자 "대신 처리" 스위치 — 꺼져 있으면 보기 전용
   const [actForOwner, setActForOwner] = useState(false);
 
@@ -70,7 +76,10 @@ export default function OwnerPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
       if (!session) { setState("guest"); return; }
-      const { data } = await supabase.from("users").select("is_admin, owner_status, owner_place_id, owner_business_name").eq("auth_user_id", session.user.id).maybeSingle();
+      const profileOf = (columns: string) => supabase.from("users").select(columns).eq("auth_user_id", session.user.id).maybeSingle<any>();
+      let { data, error } = await profileOf("is_admin, owner_status, owner_place_id, owner_business_name, owner_kind");
+      // 사장님 유형 칸(scripts/sql/owner-kind.sql) 실행 전이면 유형 없이(가게로) 불러옵니다
+      if (isMissingOwnerKind(error)) ({ data } = await profileOf("is_admin, owner_status, owner_place_id, owner_business_name"));
       if (cancelled) return;
       setProfile(data);
       if (data?.owner_status === "verified" && data?.owner_place_id != null) setState("ready");
@@ -83,6 +92,10 @@ export default function OwnerPage() {
 
   const isVerifiedOwner = profile?.owner_status === "verified" && profile?.owner_place_id != null;
   const isPreview = !isVerifiedOwner && !!profile?.is_admin;
+  // 가게 / 숙소 사장님에 따라 머리말 문구가 바뀝니다(src/lib/ownerKind.ts)
+  const kindInfo = ownerKindInfo(profile?.owner_kind);
+  // 숙소 사장님은 "숙소·객실" 메뉴를, 가게 사장님은 "예약·상품" 메뉴를 씁니다. 관리자 미리보기는 고른 장소의 분류로 정합니다.
+  const isLodging = isPreview ? isLodgingCategory(preview?.category) : kindInfo.id === "lodging";
   const placeId: number | null = isVerifiedOwner ? Number(profile.owner_place_id) : preview?.id ?? null;
 
   // 배너 광고를 내는 가게인지 확인(가게가 바뀔 때마다). 확인한 가게 번호를 기억해 두어, 다른 가게로 바꾸는 순간에는 메뉴가 바로 사라집니다.
@@ -105,7 +118,7 @@ export default function OwnerPage() {
     if (!isPreview) return;
     const term = previewQuery.trim();
     const timer = setTimeout(async () => {
-      let q = supabase.from("places").select("id, name, address").order("id", { ascending: false }).limit(8);
+      let q = supabase.from("places").select("id, name, address, category").order("id", { ascending: false }).limit(8);
       if (term) q = q.ilike("name", `%${term.replace(/[%_]/g, "")}%`);
       const { data } = await q;
       setPreviewResults(data || []);
@@ -138,12 +151,12 @@ export default function OwnerPage() {
       {/* 머리말 */}
       <div style={{ borderRadius: 20, background: "linear-gradient(135deg,#B45309,#D97706)", color: "white", padding: "20px 20px", marginTop: 16 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.2)", fontSize: 11.5, fontWeight: 800 }}>
-          <BadgeCheck size={12} />{isPreview ? "관리자 모드" : "인증된 사장님"}
+          <BadgeCheck size={12} />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
         </div>
         <div className="ggk-logo" style={{ fontSize: 21, fontWeight: 800, marginTop: 8 }}>
-          {isPreview ? preview?.name ?? "가게를 골라 주세요" : profile?.owner_business_name || "내 가게"}
+          {isPreview ? preview?.name ?? "가게를 골라 주세요" : profile?.owner_business_name || `내 ${kindInfo.placeWord}`}
         </div>
-        <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 3 }}>가게 성과를 확인하고, 고객과 직접 이야기해 보세요.</div>
+        <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 3 }}>{kindInfo.placeWord} 성과를 확인하고, 고객과 직접 이야기해 보세요.</div>
       </div>
 
       {isPreview && (
@@ -155,7 +168,7 @@ export default function OwnerPage() {
           </div>
           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
             {previewResults.map((p) => (
-              <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#FEF3C7" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
+              <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#FEF3C7" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
                 <b>{p.name}</b> <span style={{ color: "#999" }}>{p.address}</span>
               </button>
             ))}
@@ -180,18 +193,21 @@ export default function OwnerPage() {
         @media (min-width: 768px) { .owner-tabs { flex-wrap: wrap; overflow-x: visible; } }
       `}</style>
       <div className="owner-tabs owner-no-print">
-        {TABS.filter(({ key }) => key !== "banner" || hasBanner).map(({ key, label, Icon }) => (
+        {TABS.filter(({ key }) => (key !== "banner" || hasBanner) && (isLodging ? key !== "products" && key !== "reservations" : key !== "lodging" && key !== "stays")).map(({ key, label: tabLabel, Icon }) => {
+          const label = key === "place" ? `${isLodging ? "숙소" : "가게"} 정보` : tabLabel;
+          return (
           <button key={key} onClick={() => setTab(key)} aria-current={tab === key ? "page" : undefined} style={{
             flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 11,
             border: tab === key ? "none" : "1px solid #e8e2d2", background: tab === key ? "#B45309" : "white", color: tab === key ? "white" : "#555",
             fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
           }}>
             <Icon size={14} />{label}
-            {key === "reservations" && waitingReservations > 0 && (
+            {(key === "reservations" || key === "stays") && waitingReservations > 0 && (
               <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{waitingReservations}</span>
             )}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {placeId == null ? (
@@ -199,13 +215,16 @@ export default function OwnerPage() {
       ) : (
         <>
           {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
-          {tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
-          {tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
+          {/* 숙소 사장님이 가게용 메뉴 주소(#products 등)로 들어오면 숙소·객실을 보여 줍니다 */}
+          {isLodging && (tab === "stays" || tab === "reservations") && <OwnerStaysTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onCount={setWaitingReservations} />}
+          {isLodging && (tab === "lodging" || tab === "products") && <OwnerLodgingTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+          {!isLodging && tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
+          {!isLodging && tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
           {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
           {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "banner" && hasBanner && <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {/* 배너를 내지 않는 가게가 #banner 주소로 들어오면 요금제 화면을 보여 줍니다 */}
-          {(tab === "ads" || (tab === "banner" && !hasBanner)) && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+          {(tab === "ads" || (tab === "banner" && !hasBanner)) && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} lodging={isLodging} />}
           {tab === "report" && <ReportTab placeId={placeId} isPreview={isPreview} />}
         </>
       )}
@@ -318,7 +337,8 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
 }
 
 /* ── 광고 상품 ── */
-function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: boolean; canAct: boolean }) {
+// 숙소 사장님(lodging)은 이용 기간을 "30일" 단위로 보여 줍니다(실제 계산은 가게·숙소 모두 30일 단위 — PERIOD_DAYS).
+function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPreview: boolean; canAct: boolean; lodging: boolean }) {
   const [place, setPlace] = useState<any>(null);
   const [latest, setLatest] = useState<any>(null);
   const [usedMonths, setUsedMonths] = useState(0);
@@ -332,6 +352,9 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
   const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // 해지·해지 방어(/api/owner/premium-cancel) — 사장님 본인만. 남은 추가 할인(관리자 할인·시크릿 프라이스)도 여기서 받습니다.
+  const [cancelInfo, setCancelInfo] = useState<{ ready: boolean; offerAvailable: boolean; discount: ExtraDiscount | null; cancellation: { outcome: string; created_at: string; expires_at: string | null } | null } | null>(null);
+  const [showCancel, setShowCancel] = useState(false);
 
   const load = async () => {
     const [{ data: p }, { data: reqs }] = await Promise.all([
@@ -345,12 +368,23 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
     if (!planError) { const plan = normalizePlan((planRow as { premium_plan?: string | null } | null)?.premium_plan); setCurrentPlan(plan); setPlanId(plan); }
     // 지금까지 승인된 개월 수 — 할인 구간(첫 달 무료·2~3개월째 반값)을 이어서 계산하는 데 씁니다.
     setUsedMonths((reqs || []).filter((r: any) => r.status === "approved").reduce((sum: number, r: any) => sum + (Number(r.months) || 0), 0));
+    if (!isPreview) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const res = await fetch("/api/owner/premium-cancel", { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null);
+        if (res?.ok) setCancelInfo(await res.json());
+      }
+    }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [placeId]);
 
   const active = isPlacePremiumNow(place);
   const monthlyPrice = PLAN_MONTHLY_PRICE[planId];
-  const q = useMemo(() => quote(months, usedMonths, monthlyPrice), [months, usedMonths, monthlyPrice]);
+  const extra = cancelInfo?.discount ?? null;
+  const q = useMemo(() => quote(months, usedMonths, monthlyPrice, extra), [months, usedMonths, monthlyPrice, extra]);
+  // 해지 접수 후 아직 기간이 남은 상태 — 마지막 기록이 해지이고, 그 뒤로 새로 승인된 연장이 없을 때
+  const cancelled = active && cancelInfo?.cancellation?.outcome === "cancelled" && !!place?.premium_expires_at && !!cancelInfo.cancellation.expires_at && new Date(cancelInfo.cancellation.expires_at).getTime() === new Date(place.premium_expires_at).getTime();
+  const unit = (m: number) => periodText(m, lodging);
   const pending = latest?.status === "pending";
 
   const apply = async () => {
@@ -384,9 +418,25 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
           <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>{active ? `${PLAN_NAME[currentPlan]} 이용 중` : "지금은 기본 요금제예요"}</div>
         </div>
         <div style={{ fontSize: 12.5, color: "#777", marginTop: 5, lineHeight: 1.6 }}>
-          {active ? `${fmtDate(place.premium_expires_at)}까지 적용돼요. 끝나기 전에 미리 알려 드리고, 자동으로 결제되지 않아요.` : "프리미엄을 신청하면 추천 목록과 AI 코스에서 우리 가게가 먼저 보여요."}
+          {cancelled
+            ? `해지가 접수됐어요. ${fmtDate(place.premium_expires_at)}까지 이용한 뒤 기본 요금제로 돌아가요.`
+            : active ? `${fmtDate(place.premium_expires_at)}까지 적용돼요. 끝나기 전에 미리 알려 드리고, 자동으로 결제되지 않아요.` : `프리미엄을 신청하면 추천 목록과 AI 코스에서 우리 ${lodging ? "숙소" : "가게"}가 먼저 보여요.`}
         </div>
+        {extra && (
+          <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 999, background: "#F5F3FF", color: "#6D28D9", fontSize: 12, fontWeight: 800 }}>
+            🎁 시크릿 할인 {extra.percent}% · 다음 {unit(extra.months)} 연장에 자동 적용
+          </div>
+        )}
+        {active && !isPreview && canAct && cancelInfo?.ready && !cancelled && (
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #F5D48A", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11.5, color: "#999", flex: "1 1 200px" }}>의무 이용 기간·위약금 없이 언제든 해지할 수 있어요.</span>
+            <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: "#888", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
+          </div>
+        )}
       </div>
+      {showCancel && place && (
+        <PremiumCancelDialog plan={currentPlan} expiresText={fmtDate(place.premium_expires_at)} offerAvailable={!!cancelInfo?.offerAvailable} onClose={() => setShowCancel(false)} onDone={load} />
+      )}
 
       {/* 요금제 비교 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
@@ -410,7 +460,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
               </div>
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{plan.tagline}</div>
               <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222", marginTop: 10 }}>
-                {plan.monthlyPrice === 0 ? "무료" : <>월 {won(plan.monthlyPrice)}<span style={{ fontSize: 11.5, fontWeight: 600, color: "#999" }}> · 부가세 포함</span></>}
+                {plan.monthlyPrice === 0 ? "무료" : <>{lodging ? `${PERIOD_DAYS}일` : "월"} {won(plan.monthlyPrice)}<span style={{ fontSize: 11.5, fontWeight: 600, color: "#999" }}> · 부가세 포함</span></>}
               </div>
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 {plan.features.map((f) => (
@@ -428,14 +478,15 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
           {PROMO_STEPS.map((s) => (
             <div key={s.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8", border: "1px solid #ece6d6" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#7a6a3a" }}>{s.label}</div>
-              <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{s.discount === 1 ? "0원" : `월 ${won(Math.floor((monthlyPrice * (1 - s.discount)) / 100) * 100)}`}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#7a6a3a" }}>{lodging ? s.label.replace("첫 달", `첫 ${PERIOD_DAYS}일`).replace("2~3개월째", "2~3회차(30일씩)").replace("4개월째부터", "4회차부터") : s.label}</div>
+              <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{s.discount === 1 ? "0원" : `${lodging ? `${PERIOD_DAYS}일` : "월"} ${won(Math.floor((monthlyPrice * (1 - s.discount)) / 100) * 100)}`}</div>
             </div>
           ))}
         </div>
         <div style={{ fontSize: 11.5, color: "#999", marginTop: 10, lineHeight: 1.7 }}>
           · 시범 운영 기간의 요금이며, 바뀔 때는 적용 전에 미리 알려 드려요.<br />
-          · 의무 이용 기간과 해지 위약금이 없어요. 기간이 끝나면 자동으로 기본 요금제로 돌아가고, 자동 결제는 하지 않아요.<br />
+          · 이용 기간은 신청일(또는 남은 기간 끝)부터 {PERIOD_DAYS}일 단위로 계산해요.<br />
+          · 의무 이용 기간과 해지 위약금이 없어요. 위의 [해지하기]로 언제든 해지할 수 있고, 기간이 끝나면 자동으로 기본 요금제로 돌아가요. 자동 결제는 하지 않아요.<br />
           · 광고 효과(조회·방문 증가)는 가게와 지역에 따라 달라 보장되지는 않아요. 성과는 대시보드와 보고서에서 직접 확인할 수 있어요.
         </div>
       </div>
@@ -445,7 +496,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{PLAN_NAME[planId]} {usedMonths > 0 ? "연장 신청" : "신청"}</div>
         {pending ? (
           <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "#EFF6FF", color: "#1d4ed8", fontSize: 13, lineHeight: 1.6 }}>
-            {latest.months}개월 신청이 접수돼 확인 중이에요({fmtDate(latest.requested_at)} 신청).
+            {unit(latest.months)} 신청이 접수돼 확인 중이에요({fmtDate(latest.requested_at)} 신청).
           </div>
         ) : (
           <>
@@ -454,12 +505,12 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
             )}
             <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
               {[1, 3, 6, 12].map((m) => (
-                <button key={m} onClick={() => setMonths(m)} style={{ padding: "9px 16px", borderRadius: 10, border: months === m ? "2px solid #B45309" : "1px solid #e2e4e8", background: months === m ? "#FFFBEB" : "white", color: months === m ? "#92400E" : "#555", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{m}개월</button>
+                <button key={m} onClick={() => setMonths(m)} style={{ padding: "9px 16px", borderRadius: 10, border: months === m ? "2px solid #B45309" : "1px solid #e2e4e8", background: months === m ? "#FFFBEB" : "white", color: months === m ? "#92400E" : "#555", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{unit(m)}</button>
               ))}
             </div>
             <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#F7F3E8" }}>
               <div style={{ fontSize: 12, color: "#7a6a3a", lineHeight: 1.7 }}>
-                {q.perMonth.slice(0, 6).map((p, i) => `${usedMonths + i + 1}개월째 ${p === 0 ? "무료" : won(p)}`).join(" · ")}{q.perMonth.length > 6 ? " · 이후 정가" : ""}
+                {q.perMonth.slice(0, 6).map((p, i) => `${usedMonths + i + 1}${lodging ? "회차" : "개월째"} ${p === 0 ? "무료" : won(p)}${i < q.discounted ? "(시크릿 할인)" : ""}`).join(" · ")}{q.perMonth.length > 6 ? " · 이후 정가" : ""}
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
                 <span className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222" }}>합계 {won(q.total)}</span>
@@ -479,7 +530,7 @@ function AdsTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: bo
             </label>
             {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
             <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#d6d3c9" : "#B45309", color: "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
-              {busy ? "신청 중…" : `${months}개월 신청하기`}
+              {busy ? "신청 중…" : `${unit(months)} 신청하기`}
             </button>
             </>)}
             <div style={{ fontSize: 11.5, color: "#999", marginTop: 8, lineHeight: 1.6 }}>카드 결제는 준비 중이에요. 지금은 신청 후 계좌 입금으로 진행하고, 세금계산서·현금영수증을 발행해 드려요.</div>

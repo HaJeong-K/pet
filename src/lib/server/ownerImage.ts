@@ -1,6 +1,6 @@
 // src/lib/server/ownerImage.ts
 //
-// 사장님이 올리는 사진(배너 사진·상품 사진)을 저장소에 넣는 공통 코드(서버 전용).
+// 사장님이 올리는 사진(배너 사진·상품 사진·객실 사진)을 저장소에 넣는 공통 코드(서버 전용).
 //   · 파일 종류는 이름이 아니라 파일 앞머리(실제 내용)로 확인합니다 — JPG·PNG·WEBP만.
 //   · 보관함은 공개(누구나 볼 수 있는 광고·상품 사진)이고, 없으면 만듭니다.
 //   · 경로는 "가게 번호/무작위 이름" — 저장할 때 "이 가게가 올린 사진인지"를 주소 앞부분으로 확인합니다(ownImageUrl).
@@ -10,7 +10,7 @@ import { db } from "@/lib/server/ownerStore";
 
 export const OWNER_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const OWNER_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export type OwnerImageBucket = "banner-images" | "product-images";
+export type OwnerImageBucket = "banner-images" | "product-images" | "lodging-images";
 
 function sniff(bytes: Uint8Array): { type: string; ext: string } | null {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { type: "image/jpeg", ext: "jpg" };

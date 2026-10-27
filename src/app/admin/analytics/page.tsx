@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import RecommendMetricsSection from "@/components/RecommendMetricsSection";
+import TrafficCard from "@/components/admin/TrafficCard";
 import { Users, TrendingUp, Search, MapPin, Repeat, UserCheck, RotateCcw } from "lucide-react";
 
 type AnalyticsData = {
@@ -303,6 +304,9 @@ export default function AdminAnalytics() {
                   )}
                 </div>
               </div>
+
+              {/* 유입 경로 — 마케팅 채널별 방문·재방문·회원 전환과 홍보 링크 만들기 */}
+              <TrafficCard />
 
               <RecommendMetricsSection />
             </>
