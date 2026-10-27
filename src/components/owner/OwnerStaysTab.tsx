@@ -13,9 +13,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, Phone, PawPrint } from "lucide
 import LogoLoader from "@/components/LogoLoader";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { PET_SIZES, PET_SPECIES } from "@/lib/lodgingRules";
 import {
-  addDays, isOpenStay, kstToday, nightPrice, ownerNextStays, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
+  addDays, isOpenStay, kstToday, nightPrice, ownerNextStays, petLabel, stayDayLabel, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
 } from "@/lib/lodgingBooking";
 
 type Booking = {
@@ -35,14 +34,9 @@ const actionButton = (kind: "primary" | "plain" | "danger", disabled = false): R
   background: disabled ? "#d6d3c9" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
-const dayLabel = (day: string) => `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEK[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
+const dayLabel = stayDayLabel;
 const shortWon = (n: number) => (n >= 10000 && n % 1000 === 0 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
-const petText = (p: StayPet) => [
-  PET_SPECIES.find((s) => s.id === p.species)?.label,
-  p.size ? PET_SIZES.find((s) => s.id === p.size)?.label : null,
-  p.weight != null ? `${p.weight}kg` : null,
-  p.name ? `'${p.name}'` : null,
-].filter(Boolean).join(" ");
+const petText = petLabel;
 const ACTION_LABEL: Partial<Record<StayStatus, string>> = { confirmed: "예약 확정", declined: "거절", completed: "이용 완료", no_show: "노쇼", cancelled_by_owner: "숙소 사정으로 취소" };
 
 type Filter = "waiting" | "upcoming" | "past" | "all";
