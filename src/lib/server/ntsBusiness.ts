@@ -2,6 +2,7 @@
 //
 // 국세청 사업자등록정보 진위확인 API(공공데이터포털 "국세청_사업자등록정보 진위확인 및 상태조회 서비스").
 // 사업자번호·개업일자·대표자명이 국세청 등록 정보와 일치하는지, 지금 영업 중(계속사업자)인지 확인합니다.
+// 상호(b_nm)·주종목(b_type)을 함께 보내면 그 값까지 일치해야 "일치"가 됩니다(업종·상호 확인에 사용).
 // 사장님 자동 인증의 근거입니다(src/app/api/owner/auto-verify/route.ts).
 //
 // ⚠ 공공데이터포털에서 이 API를 "활용신청"해야 키가 동작합니다(보통 즉시 자동 승인).
@@ -23,7 +24,10 @@ function serviceKey(): string | null {
   return /%[0-9A-Fa-f]{2}/.test(key) ? key : encodeURIComponent(key);
 }
 
-export async function validateBusiness(info: OwnerBizInfo): Promise<NtsResult> {
+/** 진위확인에 함께 보낼 수 있는 값 — 넣으면 국세청 등록 글자와 정확히 같아야 일치(b_nm 상호, b_type 주종목) */
+export type NtsExtra = { b_nm?: string; b_type?: string };
+
+export async function validateBusiness(info: OwnerBizInfo, extra: NtsExtra = {}): Promise<NtsResult> {
   const key = serviceKey();
   if (!key) return { ok: false, reason: "no_key" };
   try {
@@ -31,7 +35,7 @@ export async function validateBusiness(info: OwnerBizInfo): Promise<NtsResult> {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
-        businesses: [{ b_no: info.bizNo, start_dt: info.openDate, p_nm: info.ownerName.trim() }],
+        businesses: [{ b_no: info.bizNo, start_dt: info.openDate, p_nm: info.ownerName.trim(), ...extra }],
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
@@ -49,6 +53,19 @@ export async function validateBusiness(info: OwnerBizInfo): Promise<NtsResult> {
     console.error("[ntsBusiness] 국세청 호출 실패", e);
     return { ok: false, reason: "api_error" };
   }
+}
+
+/**
+ * 후보 글자를 하나씩 국세청에 물어 처음 일치한 값을 돌려줍니다(없으면 null, 조회가 안 되면 "error").
+ * 상호·종목의 띄어쓰기·오타를 감안하려고 쓰며, 후보는 src/lib/bizTypeCheck.ts가 만듭니다.
+ */
+export async function confirmWithNts(info: OwnerBizInfo, field: keyof NtsExtra, candidates: string[]): Promise<string | null | "error"> {
+  for (const value of candidates) {
+    const r = await validateBusiness(info, { [field]: value });
+    if (!r.ok) return "error";
+    if (r.valid) return value;
+  }
+  return null;
 }
 
 // ── 영업 상태 조회(사업자번호만으로) ──

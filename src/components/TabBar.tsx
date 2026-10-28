@@ -60,9 +60,12 @@ export default function TabBar() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── 새 예약 알림: 인증된 사장님에게, 확인을 기다리는 예약 수를 "사장님"·"예약" 탭에 숫자로 보여 줍니다 ──
+  // ── 사장님 알림 숫자: 카카오톡처럼 빨간 원에 숫자로 보여 줍니다(/api/owner/alerts) ──
+  //   "예약" 탭: 확인을 기다리는 예약 + 의견을 기다리는 숙박 문제 접수
+  //   "사장님" 탭: 위 + 최근 14일 동안 사장님 답글이 없는 후기(사장님 센터의 "후기·답글"에도 숫자 — ggk-owner-alerts)
   // 1분마다, 그리고 다른 창에서 돌아올 때 다시 셉니다. 사장님 센터의 예약 화면에서 처리하면 그 화면이 바로 고쳐 줍니다(ggk-owner-waiting).
   const [waitingReservations, setWaitingReservations] = useState(0);
+  const [unansweredReviews, setUnansweredReviews] = useState(0);
   const lastWaitingRef = useRef<number | null>(null);
   useEffect(() => {
     if (!isOwner) return;
@@ -72,11 +75,13 @@ export default function TabBar() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        // 숙소 사장님은 숙박 예약, 가게 사장님은 예약 포장을 셉니다.
-        const res = await fetch(isLodgingOwner ? "/api/owner/lodging/bookings?count=1" : "/api/owner/reservations?count=1", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const res = await fetch("/api/owner/alerts", { headers: { Authorization: `Bearer ${session.access_token}` } });
         const json = await res.json();
         if (cancelled || !res.ok) return;
-        const waiting = Number(json.waiting) || 0;
+        const waiting = (Number(json.reservations) || 0) + (Number(json.issues) || 0);
+        const reviews = Number(json.reviews) || 0;
+        setUnansweredReviews(reviews);
+        window.dispatchEvent(new CustomEvent("ggk-owner-alerts", { detail: { reviews } }));
         // 기다리는 예약이 늘었으면 "멍멍!"(처음 셀 때는 울리지 않습니다 — 화면을 열 때마다 짖지 않게)
         if (lastWaitingRef.current != null && waiting > lastWaitingRef.current) playBark();
         lastWaitingRef.current = waiting;
@@ -187,7 +192,7 @@ export default function TabBar() {
     // 인증된 사장님 전용 — 가게 성과·후기 답글·광고 상품(관리자 탭과 같은 자리).
     // 관리자에게도 보여서, 사장님 화면을 그대로 확인하고 사장님 요청이 있을 때 대신 처리할 수 있습니다.
     ...(isOwner || isAdmin ? [
-      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false, badge: waitingReservations },
+      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false, badge: waitingReservations + unansweredReviews },
     ] : []),
     {
       key:      isLoggedIn ? "mypage" : "login",
@@ -305,8 +310,8 @@ export default function TabBar() {
                     color={isActive ? activeColor : inactiveColor}
                   />
                   {badge > 0 && (
-                    <span aria-label={`확인을 기다리는 예약 ${badge}건`} style={{ position: "absolute", top: -5, left: 11, minWidth: 15, height: 15, padding: "0 4px", boxSizing: "border-box", borderRadius: 999, background: "#DC2626", color: "white", fontSize: 9, fontWeight: 800, lineHeight: "15px", textAlign: "center" }}>
-                      {badge > 9 ? "9+" : badge}
+                    <span aria-label={`확인할 알림 ${badge}건`} style={{ position: "absolute", top: -8, left: 10, minWidth: 18, height: 18, padding: "0 5px", boxSizing: "border-box", borderRadius: 999, background: "#EF4444", border: "1.5px solid white", boxShadow: "0 1px 3px rgba(0,0,0,0.25)", color: "white", fontSize: 10.5, fontWeight: 800, lineHeight: "15px", textAlign: "center", fontFamily: "inherit" }}>
+                      {badge > 99 ? "99+" : badge}
                     </span>
                   )}
                 </span>

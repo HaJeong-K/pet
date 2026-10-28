@@ -231,6 +231,10 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                 <button key={s.id} disabled={disabled} onClick={() => setP({ pet_species: toggle<PetSpecies>(profile.pet_species, s.id) })} aria-pressed={profile.pet_species.includes(s.id)} style={chip(profile.pet_species.includes(s.id))}>{s.label}</button>
               ))}
             </div>
+            {profile.pet_species.includes("other") && (
+              <input value={profile.pet_others ?? ""} onChange={(e) => setP({ pet_others: e.target.value.slice(0, LODGING_SHORT_MAX) })} disabled={disabled}
+                placeholder="받을 수 있는 그 외 동물 — 예: 토끼·햄스터" aria-label="받을 수 있는 그 외 동물" style={{ ...input, marginTop: 8 }} />
+            )}
           </div>
           {hasDog && (
             <div>

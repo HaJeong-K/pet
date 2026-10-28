@@ -1,3 +1,4 @@
+import { STAY_CONSENT_VERSION } from "@/lib/lodgingConsents";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
 import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, confirmedOverlaps, getLodging, roomDays } from "@/lib/server/lodgingStore";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
   if (!user) return fail("로그인한 뒤 예약할 수 있어요.", 401);
   if (!allow(user.id)) return fail("예약을 너무 자주 넣었어요. 잠시 후 다시 시도해 주세요.", 429);
   const body = await req.json().catch(() => null);
-  if (body?.agreed !== true) return fail("취소·환불 규정과 반려동물 동반 조건에 동의해 주세요.", 400);
+  // 이용 규칙·취소 환불·개인정보 수집/제공·만 14세 동의는 cleanStayRequest가 모두 확인합니다
   const cleaned = cleanStayRequest(body);
   if ("error" in cleaned) return fail(cleaned.error, 400);
   const r = cleaned.request;
@@ -109,7 +110,15 @@ export async function POST(req: NextRequest) {
     pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal },
     total: q.total, payment: "online", memo: r.memo, status: instant ? "confirmed" : "requested", ...(instant ? { decided_at: new Date().toISOString() } : {}),
   };
-  let { data, error } = await db.from("lodging_bookings").insert([{ ...base, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single();
+  // 이용자 정보·방문 수단·동의 기록(scripts/sql/lodging-guest-review-reports.sql)
+  const guestInfo = {
+    guest_email: r.email, stay_guest_name: r.stayGuestName, stay_guest_phone: r.stayGuestPhone,
+    arrival_method: r.arrivalMethod, arrival_time: r.arrivalTime,
+    consents: { version: STAY_CONSENT_VERSION, at: new Date().toISOString(), items: r.consents },
+  };
+  let { data, error } = await db.from("lodging_bookings").insert([{ ...base, ...guestInfo, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single();
+  // 그 칸들이 아직 없으면 빼고 접수합니다
+  if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").insert([{ ...base, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single());
   // 정산 칸(scripts/sql/lodging-settlement.sql) 실행 전이면 그 칸 없이 접수합니다
   if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").insert([base]).select(BOOKING_COLUMNS).single());
   if (error || !data) return fail(error?.message ?? "예약하지 못했어요.", 500);

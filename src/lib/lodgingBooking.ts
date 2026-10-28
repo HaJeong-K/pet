@@ -7,6 +7,7 @@
 // 지금 단계는 "예약 요청 → 사장님 확정" 방식이고 결제는 숙소에서 직접 합니다(온라인 결제는 PG 계약 후).
 // 날짜는 모두 한국 날짜 문자열("2026-11-07")로 다룹니다. 1박 = 체크인 날짜의 밤 하나입니다.
 
+import { ARRIVAL_METHODS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import type { LodgingProfile, PetSize, PetSpecies, RoomInput } from "@/lib/lodgingRules";
 import { PET_SIZES, PET_SPECIES, PET_WEIGHT_MAX } from "@/lib/lodgingRules";
 
@@ -63,10 +64,18 @@ export function nightPrice(room: Pick<RoomInput, "base_price" | "weekend_price">
 
 // ── 손님 예약 요청 ──
 
-export type StayPet = { species: PetSpecies; size: PetSize | null; weight: number | null; name: string | null };
+/** kind = "그 외 동물"일 때 어떤 동물인지(예: 토끼). name은 예전 예약에만 있습니다(이제 이름은 받지 않음) */
+export type StayPet = { species: PetSpecies; size: PetSize | null; weight: number | null; kind?: string | null; name?: string | null };
 export type StayRequest = {
   roomId: number; checkIn: string; checkOut: string; guests: number; pets: StayPet[];
   name: string; phone: string; memo: string | null;
+  /** 예약자 이메일(선택) */
+  email: string | null;
+  /** 실제 이용자(투숙 대표자) — 예약자와 같으면 null */
+  stayGuestName: string | null; stayGuestPhone: string | null;
+  arrivalMethod: ArrivalMethod; arrivalTime: string | null;
+  /** 동의한 항목(모두 필수) */
+  consents: StayConsentId[];
 };
 
 /** 손님이 보낸 예약 요청을 다듬습니다(날짜·인원·반려동물·연락처). 문제가 있으면 이유를 돌려줍니다. */
@@ -94,8 +103,9 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
     if (species === "dog" && !size) return { error: "강아지 크기를 골라 주세요." };
     const weight = p?.weight === "" || p?.weight == null ? null : Number(p.weight);
     if (weight != null && (!Number.isFinite(weight) || weight <= 0 || weight > PET_WEIGHT_MAX)) return { error: "몸무게를 다시 확인해 주세요." };
-    const petName = typeof p?.name === "string" && p.name.trim() ? p.name.trim().slice(0, 20) : null;
-    pets.push({ species, size, weight: weight == null ? null : Math.round(weight * 10) / 10, name: petName });
+    const kind = species === "other" && typeof p?.kind === "string" && p.kind.trim() ? p.kind.trim().slice(0, 20) : null;
+    if (species === "other" && !kind) return { error: "어떤 동물인지 적어 주세요. (예: 토끼)" };
+    pets.push({ species, size, weight: weight == null ? null : Math.round(weight * 10) / 10, kind });
   }
 
   const name = typeof r.name === "string" ? r.name.trim().slice(0, 20) : "";
@@ -103,7 +113,22 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
   const phone = typeof r.phone === "string" ? r.phone.replace(/\D/g, "") : "";
   if (phone.length < 9 || phone.length > 11) return { error: "연락받을 전화번호를 확인해 주세요." };
   const memo = typeof r.memo === "string" && r.memo.trim() ? r.memo.trim().slice(0, 300) : null;
-  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo } };
+
+  const email = typeof r.email === "string" && r.email.trim() ? r.email.trim().slice(0, 120) : null;
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "이메일 주소를 다시 확인해 주세요." };
+  let stayGuestName: string | null = null, stayGuestPhone: string | null = null;
+  if (r.sameGuest === false) {
+    stayGuestName = typeof r.stayGuestName === "string" ? r.stayGuestName.trim().slice(0, 20) : "";
+    if (!stayGuestName) return { error: "실제 이용하시는 분의 이름을 적어 주세요." };
+    stayGuestPhone = typeof r.stayGuestPhone === "string" ? r.stayGuestPhone.replace(/\D/g, "") : "";
+    if (stayGuestPhone.length < 9 || stayGuestPhone.length > 11) return { error: "실제 이용하시는 분의 전화번호를 확인해 주세요." };
+  }
+  const arrivalMethod = ARRIVAL_METHODS.find((m) => m.id === r.arrivalMethod)?.id;
+  if (!arrivalMethod) return { error: "방문 수단(차량·도보)을 골라 주세요." };
+  const arrivalTime = typeof r.arrivalTime === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.arrivalTime) ? r.arrivalTime : null;
+  const agreed = Array.isArray(r.consents) ? STAY_CONSENTS.filter((c) => (r.consents as unknown[]).includes(c.id)).map((c) => c.id) : [];
+  if (agreed.length !== STAY_CONSENTS.length) return { error: "필수 동의 항목에 모두 동의해 주세요." };
+  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo, email, stayGuestName, stayGuestPhone, arrivalMethod, arrivalTime, consents: agreed } };
 }
 
 /** 이 반려동물들이 숙소·객실 규정에 맞는지 — 안 맞으면 이유 */
@@ -193,10 +218,10 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 export function stayDayLabel(day: string): string {
   return `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
 }
-/** "강아지 소형견 5kg '콩이'" */
+/** "강아지 소형견 5kg" · "토끼 2kg" (예전 예약은 이름도 붙음) */
 export function petLabel(p: StayPet): string {
   return [
-    PET_SPECIES.find((s) => s.id === p.species)?.label,
+    p.species === "other" && p.kind ? p.kind : PET_SPECIES.find((s) => s.id === p.species)?.label,
     p.size ? PET_SIZES.find((s) => s.id === p.size)?.label : null,
     p.weight != null ? `${p.weight}kg` : null,
     p.name ? `'${p.name}'` : null,

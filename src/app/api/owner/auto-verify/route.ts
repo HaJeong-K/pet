@@ -1,10 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
-import { validateBusiness } from "@/lib/server/ntsBusiness";
+import { confirmWithNts, validateBusiness } from "@/lib/server/ntsBusiness";
 import { clientIp, createRateLimiter } from "@/lib/server/rateLimit";
 import { notifyAdmin } from "@/lib/server/notify";
 import { isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
-import { bizNamesMatch, isCompleteBizInfo, onlyDigits, type OwnerBizInfo } from "@/lib/ownerBizInfo";
+import { isCompleteBizInfo, onlyDigits, type OwnerBizInfo } from "@/lib/ownerBizInfo";
+import { nameCandidates, namesLookSame, typeCandidates, typeFitsKind } from "@/lib/bizTypeCheck";
 
 // POST /api/owner/auto-verify   (Authorization: Bearer <로그인 토큰>)
 // body: { bizNo, ownerName, openDate }
@@ -15,11 +16,14 @@ import { bizNamesMatch, isCompleteBizInfo, onlyDigits, type OwnerBizInfo } from 
 //    (DB 트리거 scripts/sql/protect-privileged-columns.sql이 브라우저의 직접 변경도 막음).
 //
 // 판정 규칙
-//   1) 국세청 등록 정보(사업자번호·개업일자·대표자명)와 일치 + 계속사업자(휴·폐업 아님) → 즉시 인증
-//   2) 같은 사업자번호로 이미 인증된 다른 계정이 있으면 → 관리자 검토(명의 도용·중복 방지)
-//   3) 국세청 조회 불가(키 미신청·장애) 또는 불일치 → 관리자 검토(owner_status 'pending' 유지)
-//   업장 연결(owner_place_id)은 지도에서 고른 업장 이름이 신청한 가게 이름과 비슷할 때만 유지합니다
-//   — 내 사업자로 인증받고 남의 가게 수정 권한을 가져가는 것을 막기 위함입니다.
+//   1) 국세청 등록 정보(사업자번호·개업일자·대표자명)와 일치 + 계속사업자(휴·폐업 아님)
+//   2) 종목(주종목)도 국세청과 일치하고, 그 종목이 신청한 유형(가게 / 숙소)에 맞음 → 즉시 인증
+//      (예: 건설업 사업자가 숙소로 신청하면 국세청 확인 종목이 '건설업'이라 관리자 검토로 넘어감)
+//      띄어쓰기·한두 글자 오타는 후보를 몇 개 만들어 차례로 물어 감안합니다(src/lib/bizTypeCheck.ts).
+//   3) 같은 사업자번호로 이미 인증된 다른 계정이 있으면 → 관리자 검토(명의 도용·중복 방지)
+//   4) 국세청 조회 불가(키 미신청·장애) 또는 불일치 → 관리자 검토(owner_status 'pending' 유지)
+//   업장 연결(owner_place_id)은 지도에서 고른 업장 이름이 "국세청에서 확인된 상호"와 비슷할 때만 유지합니다
+//   — 직접 적은 가게 이름은 아무렇게나 적을 수 있어서, 내 사업자로 인증받고 남의 가게 수정 권한을 가져가는 것을 막습니다.
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,6 +51,8 @@ export async function POST(req: NextRequest) {
     bizNo: onlyDigits(String(body.bizNo || "")),
     ownerName: String(body.ownerName || "").trim().slice(0, 30),
     openDate: onlyDigits(String(body.openDate || "")),
+    bizName: String(body.bizName || "").trim().slice(0, 40),
+    bizType: String(body.bizType || "").trim().slice(0, 40),
   };
   if (!isCompleteBizInfo(info)) return reply("pending", "사업자 정보를 다시 확인해 주세요.", 400);
 
@@ -97,11 +103,32 @@ export async function POST(req: NextRequest) {
     return reply("pending", `국세청에 '${nts.statusText || "영업 중 아님"}'으로 확인되어 관리자 확인 후 승인돼요.`);
   }
 
-  // 지도에서 고른 업장이 신청한 가게와 같은 곳으로 보일 때만 연결 유지
+  // 종목 — 국세청과 일치하고 신청 유형(가게 / 숙소)에 맞아야 자동 인증
+  if (!info.bizType) {
+    await alertPending("종목 미입력 — 업종 수동 확인");
+    return reply("pending", "종목이 비어 있어 관리자가 업종을 확인한 뒤 승인돼요.");
+  }
+  const verifiedType = await confirmWithNts(info, "b_type", typeCandidates(info.bizType));
+  if (verifiedType === "error") {
+    await alertPending("국세청 종목 조회 실패 — 수동 확인");
+    return reply("pending", "국세청 자동 확인을 지금 할 수 없어 관리자 확인 후 승인돼요.");
+  }
+  if (!verifiedType) {
+    await alertPending(`종목 불일치(입력: ${info.bizType.slice(0, 20)})`);
+    return reply("pending", "입력한 종목이 국세청 등록 정보와 달라 관리자 확인 후 승인돼요. 사업자등록증의 '종목' 첫 번째 칸을 그대로 적어 주세요.");
+  }
+  if (!typeFitsKind(kind.id, verifiedType)) {
+    await alertPending(`업종이 ${kind.label}와 맞지 않음: ${verifiedType.slice(0, 20)}`);
+    return reply("pending", `국세청 종목(${verifiedType})이 ${kind.label} 업종으로 보이지 않아 관리자 확인 후 승인돼요.`);
+  }
+
+  // 상호 — 국세청에서 확인된 상호와 지도에서 고른 업장 이름이 비슷할 때만 연결 유지
+  const verifiedName = await confirmWithNts(info, "b_nm", nameCandidates(info.bizName || profile.owner_business_name || ""));
+  const confirmedName = verifiedName && verifiedName !== "error" ? verifiedName : null;
   let placeId: number | null = profile.owner_place_id ?? null;
   if (placeId != null) {
     const { data: place } = await supabaseAdmin.from("places").select("name").eq("id", placeId).maybeSingle();
-    if (!place || !bizNamesMatch(place.name, profile.owner_business_name || "")) placeId = null;
+    if (!place || !confirmedName || !namesLookSame(place.name, confirmedName)) placeId = null;
   }
 
   const { error } = await supabaseAdmin
@@ -117,13 +144,17 @@ export async function POST(req: NextRequest) {
 
   await notifyAdmin({
     title: `✅ ${kind.label} 사장님 자동 인증 완료`,
-    lines: [shopName, placeId == null && profile.owner_place_id != null ? "고른 업장 이름이 달라 업장 연결은 보류 — 확인 필요" : null],
+    lines: [
+      shopName,
+      `종목 ${verifiedType.slice(0, 20)} · 상호 ${confirmedName ? "확인" : "미확인"}`,
+      placeId == null && profile.owner_place_id != null ? "고른 업장이 국세청 상호와 달라 업장 연결 보류 — 확인 필요" : null,
+    ],
     path: "/admin/owners",
   });
   return reply(
     "verified",
     placeId == null && profile.owner_place_id != null
-      ? "국세청 확인이 완료되어 사장님 인증이 끝났어요. 고르신 업장은 가게 이름이 달라 관리자가 확인 후 연결해 드려요."
+      ? "국세청 확인이 완료되어 사장님 인증이 끝났어요. 고르신 업장은 사업자등록증 상호와 이름이 달라 관리자가 확인 후 연결해 드려요."
       : "국세청 확인이 완료되어 사장님 인증이 끝났어요."
   );
 }

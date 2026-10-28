@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
-import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, confirmedOverlaps, lodgingOwnerContext } from "@/lib/server/lodgingStore";
+import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, GUEST_INFO_COLUMNS, confirmedOverlaps, lodgingOwnerContext } from "@/lib/server/lodgingStore";
 import { applyCancel, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
 import { notifyAdmin } from "@/lib/server/notify";
 import { canChangeStay, kstToday, type StayStatus } from "@/lib/lodgingBooking";
@@ -30,8 +30,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ waiting: (requested.error ? 0 : requested.count ?? 0) + (issues.error ? 0 : issues.count ?? 0) });
   }
   let settlementReady = true;
-  let { data, error } = await db.from("lodging_bookings").select(BOOKING_FULL_COLUMNS)
+  let { data, error } = await db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, ${GUEST_INFO_COLUMNS}`)
     .eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT);
+  // 이용자 정보 칸이 아직 없으면 그 칸 없이
+  if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").select(BOOKING_FULL_COLUMNS).eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);
   if (error && isMissingSchema(error)) {
     settlementReady = false;
     ({ data, error } = await db.from("lodging_bookings").select(BOOKING_COLUMNS).eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);

@@ -11,10 +11,12 @@ import type { PeakPeriod } from "@/lib/lodgingPolicy";
 
 // ── 동반 조건 ──
 
-export type PetSpecies = "dog" | "cat";
+export type PetSpecies = "dog" | "cat" | "other";
+/** other = 강아지·고양이 말고 숙소가 받는 동물(토끼·햄스터 등) — 어떤 동물인지는 숙소의 pet_others에 적습니다 */
 export const PET_SPECIES: { id: PetSpecies; label: string }[] = [
   { id: "dog", label: "강아지" },
   { id: "cat", label: "고양이" },
+  { id: "other", label: "그 외 동물" },
 ];
 
 export type PetSize = "small" | "medium" | "large";
@@ -63,6 +65,8 @@ export type LodgingProfile = {
   check_in: string | null;
   check_out: string | null;
   pet_species: PetSpecies[];
+  /** "그 외 동물"을 받을 때 어떤 동물인지(예: "토끼·햄스터") */
+  pet_others: string | null;
   pet_sizes: PetSize[];
   /** 한 마리 최대 몸무게(kg) — 없으면 크기 기준만 */
   max_pet_weight_kg: number | null;
@@ -87,7 +91,7 @@ export type LodgingProfile = {
 export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
-  check_in: null, check_out: null, pet_species: ["dog"], pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
+  check_in: null, check_out: null, pet_species: ["dog"], pet_others: null, pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
   pet_fee: null, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
   peak_periods: [], instant_confirm: false,
 };
@@ -138,6 +142,8 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   if (species.length === 0) return { error: "동반 가능한 반려동물을 하나 이상 골라 주세요." };
   const sizes = pickList(r.pet_sizes, PET_SIZES.map((s) => s.id));
   if (species.includes("dog") && sizes.length === 0) return { error: "받을 수 있는 강아지 크기를 하나 이상 골라 주세요." };
+  const others = species.includes("other") ? text(r.pet_others, LODGING_SHORT_MAX) : null;
+  if (species.includes("other") && !others) return { error: "받을 수 있는 그 외 동물을 적어 주세요. (예: 토끼·햄스터)" };
   const weight = number(r.max_pet_weight_kg, 0.5, PET_WEIGHT_MAX, 1);
   if (weight === "bad") return { error: `최대 몸무게는 0.5~${PET_WEIGHT_MAX}kg 사이로 적어 주세요.` };
   const maxPets = number(r.max_pets, 1, ROOM_PETS_MAX);
@@ -150,6 +156,7 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
     profile: {
       check_in: checkIn, check_out: checkOut,
       pet_species: species,
+      pet_others: others,
       // 고양이만 받는 숙소면 강아지 크기는 비워 둡니다
       pet_sizes: species.includes("dog") ? sizes : [],
       max_pet_weight_kg: weight, max_pets: maxPets, pet_fee: fee,
@@ -226,9 +233,10 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
 // ── 손님에게 보여 줄 요약 ──
 
 /** "강아지(소형견·중형견, 10kg 이하)·고양이 · 최대 2마리 · 1마리 1박 1만 원" 같은 한 줄 요약 */
-export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee">): string {
+export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee"> & { pet_others?: string | null }): string {
   const parts: string[] = [];
   const animals = p.pet_species.map((s) => {
+    if (s === "other") return p.pet_others || "그 외 동물";
     if (s !== "dog") return PET_SPECIES.find((x) => x.id === s)?.label ?? s;
     const sizes = PET_SIZES.filter((x) => p.pet_sizes.includes(x.id)).map((x) => x.label);
     const limits = [sizes.length === PET_SIZES.length ? "크기 무관" : sizes.join("·"), p.max_pet_weight_kg != null ? `${p.max_pet_weight_kg}kg 이하` : ""].filter(Boolean);

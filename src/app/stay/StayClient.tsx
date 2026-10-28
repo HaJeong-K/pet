@@ -3,13 +3,16 @@
 // 숙소 탭 화면(/stay) — 숙박 예약 앱처럼 반려동물 동반 숙소를 찾고, 같이가개에서 바로 예약할 수 있는 곳을 먼저 보여 줍니다.
 //   · 위: 검색(숙소 이름·지역) + 지역 고르기(내 주변·강원·제주…) + 조건(바로 예약·대형견·펜션·호텔…)
 //   · "같이가개에서 바로 예약": 사장님이 객실을 올린 숙소 — 최저가·동반 조건 요약
-//   · 아래: 전체 숙소(가까운 순). 누르면 숙소 상세(예약 요약·객실·동반 규정·후기)로 갑니다.
+//   · 아래: 전체 숙소(가까운 순). 바로 예약 숙소는 숙소 화면(/stay/번호 — 객실·동반 조건·숙박 후기·예약),
+//     그 밖의 숙소는 장소 상세로 갑니다.
+//   · 바깥 틀은 StayFrame — 다른 화면처럼 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 // 데이터는 /api/lodging/list(공공데이터 숙소 + 직접 등록된 숙소), 정렬·검색·필터는 여기서 합니다.
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CalendarCheck, MapPin, PawPrint, Search, Sparkles } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import StayFrame from "@/components/lodging/StayFrame";
 import { useUserArea } from "@/lib/useUserRegion";
 import { haversineKm } from "@/lib/geo";
 import type { PetSize } from "@/lib/lodgingRules";
@@ -88,7 +91,7 @@ export default function StayClient() {
   }, [stays, query, region, filters, hereLat, hereLng]);
   const bookable = list.filter((s) => s.bookable);
   const toggle = (f: Filter) => { setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f])); setLimit(PAGE); };
-  const open = (s: Stay) => router.push(`/place/${s.id}`);
+  const open = (s: Stay) => router.push(s.bookable ? `/stay/${s.id}` : `/place/${s.id}`);
   const km = (d: number | null) => (d == null ? null : d < 1 ? `${Math.round(d * 1000)}m` : `${d < 10 ? d.toFixed(1) : Math.round(d)}km`);
 
   const chip = (on: boolean): React.CSSProperties => ({
@@ -97,8 +100,8 @@ export default function StayClient() {
   });
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 0 var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
+    <StayFrame>
+      <div>
         {/* 머리말 + 검색 */}
         <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#1D4F91 0%,#3D7BC8 70%,#6FA3DD 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
@@ -169,7 +172,8 @@ export default function StayClient() {
                   조건에 맞는 숙소가 없어요.<br />지역이나 조건을 바꿔 보세요.
                 </div>
               )}
-              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              {/* 넓은 화면에서는 두 줄로 */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 400px), 1fr))", gap: 10, marginTop: 10 }}>
                 {list.slice(0, limit).map((s) => (
                   <button key={s.id} onClick={() => open(s)} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "flex", gap: 12, padding: 10, border: "none", borderRadius: 18, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", alignItems: "stretch" }}>
                     <div style={{ width: 96, flexShrink: 0, borderRadius: 13, overflow: "hidden" }}><StayImage stay={s} height={96} /></div>
@@ -203,6 +207,6 @@ export default function StayClient() {
           </>
         )}
       </div>
-    </div>
+    </StayFrame>
   );
 }

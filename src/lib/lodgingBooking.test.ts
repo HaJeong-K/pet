@@ -49,13 +49,26 @@ describe("요금", () => {
 });
 
 describe("예약 요청 다듬기", () => {
-  const ok = { roomId: 3, checkIn: "2026-11-05", checkOut: "2026-11-07", guests: 2, pets: [{ species: "dog", size: "small", weight: "5.25", name: " 콩이 " }], name: "김보호", phone: "010-1234-5678" };
+  const ok = { roomId: 3, checkIn: "2026-11-05", checkOut: "2026-11-07", guests: 2, pets: [{ species: "dog", size: "small", weight: "5.25", name: " 콩이 " }], name: "김보호", phone: "010-1234-5678", arrivalMethod: "car", consents: ["rules", "privacy", "third_party", "age14"] };
   it("정상 요청", () => {
     const r = cleanStayRequest(ok, NOW);
     expect("request" in r).toBe(true);
     if (!("request" in r)) return;
     expect(r.request.phone).toBe("01012345678");
-    expect(r.request.pets[0]).toEqual({ species: "dog", size: "small", weight: 5.3, name: "콩이" });
+    // 이름은 이제 받지 않습니다(보내도 버림)
+    expect(r.request.pets[0]).toEqual({ species: "dog", size: "small", weight: 5.3, kind: null });
+  });
+  it("예약자와 다른 이용자·방문 수단·도착 시각·이메일", () => {
+    const r = cleanStayRequest({ ...ok, email: " a@b.co ", sameGuest: false, stayGuestName: " 이용자 ", stayGuestPhone: "010 9999 8888", arrivalTime: "16:30" }, NOW);
+    expect("request" in r && [r.request.email, r.request.stayGuestName, r.request.stayGuestPhone, r.request.arrivalMethod, r.request.arrivalTime]).toEqual(["a@b.co", "이용자", "01099998888", "car", "16:30"]);
+    expect("request" in cleanStayRequest(ok, NOW) && (cleanStayRequest(ok, NOW) as { request: { stayGuestName: null } }).request.stayGuestName).toBeNull();
+    expect("error" in cleanStayRequest({ ...ok, sameGuest: false, stayGuestName: "이용자" }, NOW)).toBe(true);
+    expect("error" in cleanStayRequest({ ...ok, arrivalMethod: undefined }, NOW)).toBe(true);
+    expect("error" in cleanStayRequest({ ...ok, email: "메일" }, NOW)).toBe(true);
+  });
+  it("필수 동의를 하나라도 빼면 막기", () => {
+    expect("error" in cleanStayRequest({ ...ok, consents: ["rules", "privacy", "age14"] }, NOW)).toBe(true);
+    expect("error" in cleanStayRequest({ ...ok, consents: undefined }, NOW)).toBe(true);
   });
   it("지난 날짜·0박·너무 긴 숙박 막기", () => {
     expect("error" in cleanStayRequest({ ...ok, checkIn: "2026-10-24" }, NOW)).toBe(true);
@@ -66,6 +79,11 @@ describe("예약 요청 다듬기", () => {
     expect("error" in cleanStayRequest({ ...ok, pets: [] }, NOW)).toBe(true);
     expect("error" in cleanStayRequest({ ...ok, pets: [{ species: "dog" }] }, NOW)).toBe(true);
     expect("request" in cleanStayRequest({ ...ok, pets: [{ species: "cat" }] }, NOW)).toBe(true);
+  });
+  it("그 외 동물은 어떤 동물인지 필수", () => {
+    expect("error" in cleanStayRequest({ ...ok, pets: [{ species: "other" }] }, NOW)).toBe(true);
+    const r = cleanStayRequest({ ...ok, pets: [{ species: "other", kind: " 토끼 ", size: "large" }] }, NOW);
+    expect("request" in r && r.request.pets[0]).toEqual({ species: "other", size: null, weight: null, kind: "토끼" });
   });
 });
 
@@ -80,6 +98,8 @@ describe("동반 규정 확인", () => {
     expect(petsAllowed(profile, { max_pets: null }, [dog("medium", 12)])).not.toBeNull();
     expect(petsAllowed(profile, { max_pets: 1 }, [dog("small"), dog("small")])).not.toBeNull();
     expect(petsAllowed(profile, { max_pets: null }, [{ species: "cat", size: null, weight: null, name: null }])).not.toBeNull();
+    expect(petsAllowed(profile, { max_pets: null }, [{ species: "other", size: null, weight: null, kind: "토끼" }])).not.toBeNull();
+    expect(petsAllowed({ ...profile, pet_species: ["dog", "other"] }, { max_pets: null }, [{ species: "other", size: null, weight: 2, kind: "토끼" }])).toBeNull();
   });
   it("동반 규정을 안 적은 숙소는 사장님 판단", () => {
     expect(petsAllowed(null, { max_pets: null }, [dog("large", 40)])).toBeNull();

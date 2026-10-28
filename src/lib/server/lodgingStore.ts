@@ -14,6 +14,8 @@ import type { LodgingProfile, RoomInput } from "@/lib/lodgingRules";
 export const PROFILE_COLUMNS = "place_id, check_in, check_out, pet_species, pet_sizes, max_pet_weight_kg, max_pets, pet_fee, pet_fee_note, pet_amenities, pet_rules, stay_rules, refund_policy, updated_at";
 /** 4단계 칸(scripts/sql/lodging-settlement.sql) — 없으면 기본값으로 채웁니다 */
 export const PROFILE_EXTRA_COLUMNS = "peak_periods, instant_confirm";
+/** 그 외 동반 동물 칸(scripts/sql/lodging-reviews.sql) */
+export const PROFILE_OTHERS_COLUMN = "pet_others";
 export const ROOM_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
 
 export type ProfileRow = LodgingProfile & { place_id: number; updated_at: string };
@@ -36,7 +38,9 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
   let roomQuery = db.from("lodging_rooms").select(ROOM_COLUMNS).eq("place_id", placeId).order("sort_order").order("id");
   if (onlyActive) roomQuery = roomQuery.eq("is_active", true);
   const profileOf = (columns: string) => db.from("lodging_profiles").select(columns).eq("place_id", placeId).maybeSingle<Record<string, any>>();
-  let [profile, rooms] = await Promise.all([profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}`), roomQuery]);
+  let [profile, rooms] = await Promise.all([profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}, ${PROFILE_OTHERS_COLUMN}`), roomQuery]);
+  // 새 칸이 아직 없으면(SQL 실행 전) 한 단계씩 빼고 다시 읽습니다
+  if (isMissingSchema(profile.error)) profile = await profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}`);
   if (isMissingSchema(profile.error)) profile = await profileOf(PROFILE_COLUMNS);
   if (isMissingSchema(profile.error) || isMissingSchema(rooms.error)) return { ready: false, profile: null, rooms: [] };
   if (profile.error) throw new Error(profile.error.message);
@@ -48,6 +52,7 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
       // 성수기·즉시 확정 칸이 아직 없으면(SQL 실행 전) 기본값
       peak_periods: Array.isArray(profile.data.peak_periods) ? profile.data.peak_periods : [],
       instant_confirm: profile.data.instant_confirm === true,
+      pet_others: typeof profile.data.pet_others === "string" ? profile.data.pet_others : null,
       max_pet_weight_kg: profile.data.max_pet_weight_kg == null ? null : Number(profile.data.max_pet_weight_kg),
     } : null,
     rooms: onlyActive && !(await partnerOf(placeId)).open ? [] : (rooms.data ?? []) as unknown as RoomRow[],
@@ -60,6 +65,8 @@ export const BOOKING_COLUMNS = "id, place_id, room_id, room_name, guest_name, gu
 /** 4단계 칸(scripts/sql/lodging-settlement.sql) — 결제·취소 환불·이용 확정·문제 접수·정산 */
 export const SETTLEMENT_COLUMNS = "booked_on, payment_status, paid_at, cancel_cause, cancelled_at, refund_amount, penalty_amount, compensation_amount, stay_confirmed_at, stay_confirmed_by, issue_status, issue_kind, issue_detail, issue_opened_at, issue_owner_reply, issue_resolution, fee_rate, fee_amount, payout_amount, payout_due_on, payout_status, paid_out_at";
 export const BOOKING_FULL_COLUMNS = `${BOOKING_COLUMNS}, ${SETTLEMENT_COLUMNS}`;
+/** 이용자 정보·방문 수단(scripts/sql/lodging-guest-review-reports.sql) — 숙소 사장님 화면용 */
+export const GUEST_INFO_COLUMNS = "guest_email, stay_guest_name, stay_guest_phone, arrival_method, arrival_time";
 
 /** 그 객실의 바꾼 날(막은 날·날짜별 요금) — from 이상 to 미만 */
 export async function roomDays(roomId: number, from: string, to: string): Promise<{ day: string; closed: boolean; price: number | null }[]> {

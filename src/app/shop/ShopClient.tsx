@@ -2,6 +2,7 @@
 
 // 쇼핑 탭 화면 — 동네 가게의 상품을 가까운 순으로 보여 주고, 가게를 펼치면 그 자리에서 예약 포장을 넣습니다.
 //   · 가게 목록·미리보기: /api/store/list (가까운 순 정렬은 여기서)
+//   · /shop?store=번호 로 들어오면(지도 상세의 "예약하러 가기") 그 가게를 펼쳐서 보여 줍니다.
 //   · 가게를 펼치면: 장소 상세와 같은 "상품 · 예약 포장" 칸(PlaceStoreSection)이 그대로 열립니다 — 예약 방법이 두 군데서 달라지지 않게.
 // 결제는 받지 않습니다(가게에서 결제).
 
@@ -35,6 +36,12 @@ export default function ShopClient() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  // ?store=번호 — 지도 상세에서 "예약하러 가기"로 들어온 가게
+  const [focusId] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const n = Number(new URLSearchParams(window.location.search).get("store"));
+    return Number.isInteger(n) && n > 0 ? n : null;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +50,15 @@ export default function ShopClient() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setIsLoggedIn(!!session));
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (!focusId || !stores?.some((s) => s.id === focusId)) return;
+    const t = window.setTimeout(() => {
+      setOpenId(focusId);
+      document.getElementById(`shop-store-${focusId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [focusId, stores]);
 
   const here = area.lat != null && area.lng != null ? { lat: area.lat, lng: area.lng } : null;
   const hereLat = here?.lat, hereLng = here?.lng;
@@ -103,7 +119,7 @@ export default function ShopClient() {
             {visible.map((s) => {
               const open = openId === s.id;
               return (
-                <div key={s.id} style={{ background: "white", borderRadius: 16, border: `1px solid ${open ? "#d8cfae" : "#ece6d6"}`, overflow: "hidden" }}>
+                <div key={s.id} id={`shop-store-${s.id}`} style={{ scrollMarginTop: 12, background: "white", borderRadius: 16, border: `1px solid ${open ? "#d8cfae" : "#ece6d6"}`, overflow: "hidden" }}>
                   <div style={{ padding: "14px 14px 12px" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>

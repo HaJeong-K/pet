@@ -2,22 +2,27 @@
 
 // 숙박 예약 창(손님용) — 장소 상세의 숙소 칸(PlaceLodgingSection)에서 객실의 [예약하기]로 엽니다.
 //   ① 날짜·인원·반려동물: 객실 달력에서 체크인 → 체크아웃을 고릅니다(막은 날·찬 날은 못 고름).
-//      반려동물은 한 마리씩 종류·크기·몸무게·이름을 적고, 숙소 동반 규정에 안 맞으면 바로 알려 줍니다.
-//   ② 확인: 1박씩 나눈 요금, 날짜별 환불 안내(소비자분쟁해결기준), 예약자 정보, 규정 동의 → 예약
+//      반려동물은 한 마리씩 종류(숙소가 받는 동물만 — 강아지·고양이·그 외 동물)·크기·몸무게를 적고,
+//      숙소 동반 규정에 안 맞으면 바로 알려 줍니다.
+//   ② 확인: 1박씩 나눈 요금, 날짜별 환불 안내(소비자분쟁해결기준),
+//      예약자(이름·휴대전화 필수, 이메일 선택)·실제 이용자(예약자와 다르면 필수)·방문 수단(필수)·도착 예정 시각·요청 사항,
+//      필수 동의(이용 규칙·취소 환불 / 개인정보 수집·이용 / 숙소에 제공 / 만 14세 이상 — src/lib/lodgingConsents.ts) → 예약
 //   ③ 완료: 숙소 확정을 기다리거나(24시간), 즉시 확정 숙소면 바로 확정
+// variant="page"면 덮는 창 없이 숙소 예약 화면(/stay/번호/book)에 그대로 그립니다.
 // 금액은 서버가 다시 계산합니다(/api/lodging/bookings). 결제대행 연동 전에는 결제 단계 없이 접수되고, 결제는 따로 안내합니다.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Minus, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Trash2, X } from "lucide-react";
+import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { PET_SIZES, PET_SPECIES, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
+import { PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
 import { addDays, daysBetween, kstToday, nightsOf, petsAllowed, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
 import { refundSchedule } from "@/lib/lodgingPolicy";
 
 export type GuestRoom = RoomInput & { id: number };
 type DayInfo = { day: string; price: number; closed: boolean; booked: boolean };
-type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; name: string };
+type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; kind: string };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const shortWon = (n: number) => (n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
@@ -25,14 +30,17 @@ const box: React.CSSProperties = { padding: "14px 14px", borderRadius: 14, backg
 const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6 };
 const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 11px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#e2dcc8"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const stepper: React.CSSProperties = { width: 32, height: 32, padding: 0, borderRadius: 999, border: "1px solid #ddd", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#333" };
 const primary = (disabled: boolean): React.CSSProperties => ({ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: disabled ? "#d6d3c9" : "#1D4F91", color: "white", fontSize: 15, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 
-export default function LodgingBookingSheet({ placeName, profile, rooms, initialRoomId, onClose }: {
+export default function LodgingBookingSheet({ placeName, profile, rooms, initialRoomId, onClose, variant = "sheet" }: {
   placeName: string;
   profile: LodgingProfile | null;
   rooms: GuestRoom[];
   initialRoomId: number;
   onClose: () => void;
+  /** sheet = 아래에서 올라오는 창, page = 예약 화면에 그대로 */
+  variant?: "sheet" | "page";
 }) {
   const today = kstToday();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -43,9 +51,15 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkOut, setCheckOut] = useState<string | null>(null);
   const [guests, setGuests] = useState(Math.min(2, room?.max_guests ?? 2));
-  const [pets, setPets] = useState<PetForm[]>([{ species: profile?.pet_species?.[0] ?? "dog", size: profile?.pet_sizes?.[0] ?? "small", weight: "", name: "" }]);
-  const [form, setForm] = useState({ name: "", phone: "", memo: "" });
-  const [agreed, setAgreed] = useState(false);
+  // 숙소가 받는 동물만 고를 수 있게 합니다(동반 규정을 안 적은 숙소는 전부)
+  const speciesOptions = PET_SPECIES.filter((s) => !profile || profile.pet_species.includes(s.id))
+    .map((s) => ({ ...s, label: s.id === "other" && profile?.pet_others ? `그 외 (${profile.pet_others})` : s.label }));
+  const newPet = (): PetForm => ({ species: speciesOptions[0]?.id ?? "dog", size: profile?.pet_sizes?.[0] ?? "small", weight: "", kind: "" });
+  const [pets, setPets] = useState<PetForm[]>(() => [newPet()]);
+  const [form, setForm] = useState({ name: "", phone: "", email: "", memo: "", sameGuest: true, stayGuestName: "", stayGuestPhone: "", arrivalMethod: "" as ArrivalMethod | "", arrivalTime: "" });
+  const [consents, setConsents] = useState<StayConsentId[]>([]);
+  const [openConsent, setOpenConsent] = useState<StayConsentId | null>(null);
+  const allAgreed = consents.length === STAY_CONSENTS.length;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ status: string } | null>(null);
@@ -88,14 +102,16 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
     setCheckOut(day);
   };
 
-  const stayPets: StayPet[] = pets.map((p) => ({ species: p.species, size: p.species === "dog" && p.size ? p.size : null, weight: p.weight ? Number(p.weight) : null, name: p.name.trim() || null }));
+  const stayPets: StayPet[] = pets.map((p) => ({ species: p.species, size: p.species === "dog" && p.size ? p.size : null, weight: p.weight ? Number(p.weight) : null, kind: p.species === "other" ? p.kind.trim() || null : null }));
   const petProblem = room ? petsAllowed(profile, room, stayPets) : null;
   const roomDays: RoomDay[] = days.map((d) => ({ day: d.day, closed: d.closed, price: d.price }));
   const quote = room && checkIn && checkOut ? quoteStay(room, profile?.pet_fee ?? null, roomDays, checkIn, checkOut, guests, pets.length) : null;
   const priced = quote && !("error" in quote) ? quote : null;
   const schedule = priced && checkIn ? refundSchedule(priced.total, checkIn, today, profile?.peak_periods) : [];
-  const step1Ready = !!priced && !petProblem && pets.every((p) => p.species !== "dog" || p.size);
-  const step2Ready = form.name.trim() && form.phone.replace(/\D/g, "").length >= 9 && agreed && !busy;
+  const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" || p.kind.trim()));
+  const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 9;
+  const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && !busy
+    && (form.sameGuest || (!!form.stayGuestName.trim() && phoneOk(form.stayGuestPhone)));
   const maxPets = room?.max_pets ?? profile?.max_pets ?? 10;
 
   const submit = async () => {
@@ -108,7 +124,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
       const res = await fetch("/api/lodging/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, ...form, agreed: true }),
+        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, ...form, consents }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "예약하지 못했어요.");
@@ -124,16 +140,18 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   const count = daysBetween(first, next);
   const cells = [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => addDays(first, i))];
 
-  return (
-    <div role="dialog" aria-modal="true" aria-label={`${placeName} 예약`} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px 24px", boxSizing: "border-box", wordBreak: "keep-all" }}>
+  const isPage = variant === "page";
+  const body = (
+      <div onClick={(e) => e.stopPropagation()} style={isPage
+        ? { width: "100%", background: "white", borderRadius: 20, border: "1px solid #e3eaf3", padding: "18px 18px 24px", boxSizing: "border-box", wordBreak: "keep-all" }
+        : { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px 24px", boxSizing: "border-box", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           {step === 2 && <button onClick={() => setStep(1)} aria-label="이전 단계" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={16} /></button>}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: "#888" }}>{placeName}</div>
             <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{step === 1 ? "날짜·인원·반려동물" : step === 2 ? "예약 확인" : "예약 완료"}</div>
           </div>
-          <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
+          {!isPage && <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>}
         </div>
 
         {step === 1 && room && (
@@ -181,19 +199,23 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={label}>인원 <span style={{ fontWeight: 600, color: "#aaa" }}>최대 {room.max_guests}명</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={() => setGuests((g) => Math.max(1, g - 1))} aria-label="인원 줄이기" style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #ddd", background: "white", cursor: "pointer" }}><Minus size={13} /></button>
+                <button onClick={() => setGuests((g) => Math.max(1, g - 1))} disabled={guests <= 1} aria-label="인원 줄이기" style={{ ...stepper, opacity: guests <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
                 <b style={{ minWidth: 20, textAlign: "center" }}>{guests}</b>
-                <button onClick={() => setGuests((g) => Math.min(room.max_guests, g + 1))} aria-label="인원 늘리기" style={{ width: 30, height: 30, borderRadius: 999, border: "1px solid #ddd", background: "white", cursor: "pointer" }}><Plus size={13} /></button>
+                <button onClick={() => setGuests((g) => Math.min(room.max_guests, g + 1))} disabled={guests >= room.max_guests} aria-label="인원 늘리기" style={{ ...stepper, opacity: guests >= room.max_guests ? 0.4 : 1 }}><Plus size={14} /></button>
               </div>
             </div>
 
             <div>
               <div style={label}>함께 가는 반려동물 <span style={{ fontWeight: 600, color: "#aaa" }}>정확히 적어야 입실 거부를 막을 수 있어요</span></div>
+              {profile && <div style={{ fontSize: 12, color: "#1D4F91", marginBottom: 7 }}>이 숙소는 {petPolicySummary(profile)}</div>}
+              <div role="note" style={{ display: "flex", gap: 6, marginBottom: 8, padding: "9px 11px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>
+                <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /><span>{DANGEROUS_DOG_NOTICE}</span>
+              </div>
               <div style={{ display: "grid", gap: 8 }}>
                 {pets.map((p, i) => (
                   <div key={i} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 7 }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {PET_SPECIES.map((s) => <button key={s.id} onClick={() => setPets((all) => all.map((x, j) => (j === i ? { ...x, species: s.id } : x)))} aria-pressed={p.species === s.id} style={chip(p.species === s.id)}>{s.label}</button>)}
+                      {speciesOptions.map((s) => <button key={s.id} onClick={() => setPets((all) => all.map((x, j) => (j === i ? { ...x, species: s.id } : x)))} aria-pressed={p.species === s.id} style={chip(p.species === s.id)}>{s.label}</button>)}
                       {pets.length > 1 && <button onClick={() => setPets((all) => all.filter((_, j) => j !== i))} aria-label={`${i + 1}번째 반려동물 빼기`} style={{ marginLeft: "auto", border: "none", background: "transparent", cursor: "pointer", color: "#b42318" }}><Trash2 size={15} /></button>}
                     </div>
                     {p.species === "dog" && (
@@ -201,14 +223,14 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                         {PET_SIZES.map((s) => <button key={s.id} onClick={() => setPets((all) => all.map((x, j) => (j === i ? { ...x, size: s.id } : x)))} aria-pressed={p.size === s.id} style={chip(p.size === s.id)}>{s.label}</button>)}
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      <input value={p.weight} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) } : x)))} placeholder="몸무게(kg)" inputMode="decimal" style={input} />
-                      <input value={p.name} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, name: e.target.value.slice(0, 20) } : x)))} placeholder="이름(선택)" style={input} />
+                    <div style={{ display: "grid", gridTemplateColumns: p.species === "other" ? "1fr 1fr" : "1fr", gap: 6 }}>
+                      {p.species === "other" && <input value={p.kind} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, kind: e.target.value.slice(0, 20) } : x)))} placeholder="어떤 동물인가요? 예: 토끼" aria-label="동물 종류" style={input} />}
+                      <input value={p.weight} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) } : x)))} placeholder="몸무게(kg)" inputMode="decimal" aria-label="몸무게" style={input} />
                     </div>
                   </div>
                 ))}
               </div>
-              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, { species: "dog", size: "small", weight: "", name: "" }])} style={{ marginTop: 8, border: "1px dashed #9db4d6", background: "#F2F6FC", color: "#1D4F91", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
+              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 8, border: "1px dashed #9db4d6", background: "#F2F6FC", color: "#1D4F91", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
               {petProblem && <div role="status" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{petProblem}</div>}
             </div>
 
@@ -251,18 +273,64 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
-              <div style={label}>예약자</div>
+              <div style={label}>예약자 정보 <span style={{ color: "#DC2626" }}>*</span></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.slice(0, 20) }))} placeholder="이름" style={input} />
-                <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.slice(0, 13) }))} placeholder="휴대전화" inputMode="tel" style={input} />
+                <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value.slice(0, 20) }))} placeholder="이름 (필수)" aria-label="예약자 이름" autoComplete="name" style={input} />
+                <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value.slice(0, 13) }))} placeholder="휴대전화 (필수)" aria-label="예약자 휴대전화" inputMode="tel" autoComplete="tel" style={input} />
               </div>
-              <textarea value={form.memo} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value.slice(0, 300) }))} rows={2} placeholder="숙소에 전할 말(선택) — 예: 늦게 도착해요, 노견이라 1층 객실 부탁드려요" style={{ ...input, resize: "vertical" }} />
+              <input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.slice(0, 120) }))} placeholder="이메일 (선택) — 예약 내역을 받아 볼 주소" aria-label="예약자 이메일" inputMode="email" autoComplete="email" style={input} />
             </div>
 
-            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#444", lineHeight: 1.6, cursor: "pointer" }}>
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 3, width: 16, height: 16 }} />
-              <span>위 취소·환불 규정과 숙소의 반려동물 동반 조건을 확인했어요.<br />반려동물 정보를 사실과 다르게 적어 입실이 거부되면 당일 취소로 처리돼요.</span>
-            </label>
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ ...label, marginBottom: 0 }}>이용자 정보 <span style={{ color: "#DC2626" }}>*</span></div>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#444", cursor: "pointer" }}>
+                  <input type="checkbox" checked={form.sameGuest} onChange={(e) => setForm((f) => ({ ...f, sameGuest: e.target.checked }))} style={{ width: 15, height: 15 }} />예약자와 같아요
+                </label>
+              </div>
+              {!form.sameGuest && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <input value={form.stayGuestName} onChange={(e) => setForm((f) => ({ ...f, stayGuestName: e.target.value.slice(0, 20) }))} placeholder="실제 이용자 이름" aria-label="실제 이용자 이름" style={input} />
+                  <input value={form.stayGuestPhone} onChange={(e) => setForm((f) => ({ ...f, stayGuestPhone: e.target.value.slice(0, 13) }))} placeholder="실제 이용자 휴대전화" aria-label="실제 이용자 휴대전화" inputMode="tel" style={input} />
+                </div>
+              )}
+              <div style={{ fontSize: 11.5, color: "#999" }}>숙소가 입실 안내·확인 연락을 드릴 분이에요.</div>
+            </div>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={label}>방문 정보</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>방문 수단 <span style={{ color: "#DC2626" }}>*</span></span>
+                {ARRIVAL_METHODS.map((m) => <button key={m.id} type="button" onClick={() => setForm((f) => ({ ...f, arrivalMethod: m.id }))} aria-pressed={form.arrivalMethod === m.id} style={chip(form.arrivalMethod === m.id)}>{m.label}</button>)}
+              </div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>도착 예정</span>
+                <input type="time" value={form.arrivalTime} onChange={(e) => setForm((f) => ({ ...f, arrivalTime: e.target.value }))} aria-label="도착 예정 시각(선택)" style={{ ...input, width: 140 }} />
+                <span style={{ fontSize: 11.5, color: "#aaa" }}>선택</span>
+              </div>
+              <textarea value={form.memo} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value.slice(0, 300) }))} rows={2} placeholder="숙소에 전할 말(선택) — 예: 늦게 도착해요, 노견이라 1층 객실 부탁드려요" aria-label="요청 사항" style={{ ...input, resize: "vertical" }} />
+            </div>
+
+            <div style={{ borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 12px", background: "#f8fafc", fontSize: 14, fontWeight: 800, color: "#222", cursor: "pointer" }}>
+                <input type="checkbox" checked={allAgreed} onChange={(e) => setConsents(e.target.checked ? STAY_CONSENTS.map((c) => c.id) : [])} style={{ width: 17, height: 17 }} />
+                필수 약관 전체 동의
+              </label>
+              {STAY_CONSENTS.map((c) => (
+                <div key={c.id} style={{ borderTop: "1px solid #f0f0f0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
+                    <input type="checkbox" id={`consent-${c.id}`} checked={consents.includes(c.id)} onChange={(e) => setConsents((all) => (e.target.checked ? [...all, c.id] : all.filter((x) => x !== c.id)))} style={{ width: 15, height: 15 }} />
+                    <label htmlFor={`consent-${c.id}`} style={{ flex: 1, fontSize: 12.5, color: "#444", cursor: "pointer" }}><b style={{ color: "#DC2626" }}>[필수]</b> {c.label}</label>
+                    <button type="button" onClick={() => setOpenConsent(openConsent === c.id ? null : c.id)} aria-expanded={openConsent === c.id} style={{ border: "none", background: "transparent", color: "#888", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>{openConsent === c.id ? "접기" : "보기"}</button>
+                  </div>
+                  {openConsent === c.id && (
+                    <ul style={{ margin: 0, padding: "0 14px 10px 34px", fontSize: 11.5, color: "#666", lineHeight: 1.7 }}>
+                      {c.detail.map((d) => <li key={d}>{d}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
 
             <div style={{ fontSize: 11.5, color: "#888", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
               카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요.<br />
@@ -286,6 +354,12 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
           </div>
         )}
       </div>
+  );
+  if (isPage) return body;
+  return (
+    <div role="dialog" aria-modal="true" aria-label={`${placeName} 예약`} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      {body}
     </div>
   );
 }
+

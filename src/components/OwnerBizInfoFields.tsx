@@ -7,8 +7,10 @@ import {
 } from "@/lib/ownerBizInfo";
 
 // ── 사장님 인증용 사업자 정보 입력칸(사장님 가입·전환 폼 공용) ──
-// 사업자등록증 사진을 고르면 OCR로 사업자번호·대표자명·개업일자를 읽어 빈 칸을 자동으로 채웁니다.
+// 사업자등록증 사진을 고르면 OCR로 사업자번호·대표자명·개업일자·상호·종목을 읽어 빈 칸을 자동으로 채웁니다.
 // 사용자는 확인만 하고, 실제 인증은 서버가 국세청 진위확인으로 판정합니다(/api/owner/auto-verify).
+// 상호·종목은 국세청에 등록된 글자와 대조해, 종목이 가게 / 숙소 유형에 맞을 때만 바로 인증됩니다
+// (띄어쓰기·한두 글자 오타는 서버가 감안 — src/lib/bizTypeCheck.ts).
 
 export type OcrStatus = "idle" | "reading" | "done" | "failed";
 
@@ -39,7 +41,7 @@ export async function runOcr(file: File): Promise<string> {
 
 /** 사업자등록증 사진 선택 → OCR → 사업자 정보 자동 채움까지 묶은 상태 훅 */
 export function useOwnerBizInfo() {
-  const [info, setInfo] = useState<OwnerBizInfo>({ bizNo: "", ownerName: "", openDate: "" });
+  const [info, setInfo] = useState<OwnerBizInfo>({ bizNo: "", ownerName: "", openDate: "", bizName: "", bizType: "" });
   const [ocrText, setOcrText] = useState("");
   const [ocrStatus, setOcrStatus] = useState<OcrStatus>("idle");
 
@@ -55,8 +57,10 @@ export function useOwnerBizInfo() {
         bizNo: cur.bizNo || parsed.bizNo,
         ownerName: cur.ownerName || parsed.ownerName,
         openDate: cur.openDate || parsed.openDate,
+        bizName: cur.bizName || parsed.bizName,
+        bizType: cur.bizType || parsed.bizType,
       }));
-      setOcrStatus(parsed.bizNo || parsed.ownerName || parsed.openDate ? "done" : "failed");
+      setOcrStatus(parsed.bizNo || parsed.ownerName || parsed.openDate || parsed.bizName || parsed.bizType ? "done" : "failed");
     } catch (e) {
       console.error("사업자등록증 OCR 실패:", e);
       setOcrStatus("failed");
@@ -134,6 +138,24 @@ export default function OwnerBizInfoFields({
       <div style={hintStyle(isValidOpenDate(dateDigits))}>
         {dateDigits.length === 8 ? (isValidOpenDate(dateDigits) ? "" : "날짜를 다시 확인해 주세요") : ""}
       </div>
+      <input
+        placeholder="상호 (사업자등록증에 적힌 이름)"
+        value={info.bizName ?? ""}
+        onChange={(e) => onChange({ ...info, bizName: e.target.value.slice(0, 40) })}
+        style={inputStyle}
+      />
+      <div style={hintStyle(true)} />
+      <input
+        placeholder="종목 (사업의 종류 중 첫 번째, 예: 커피전문점·펜션)"
+        value={info.bizType ?? ""}
+        onChange={(e) => onChange({ ...info, bizType: e.target.value.slice(0, 40) })}
+        style={inputStyle}
+      />
+      <p style={{ fontSize: 11.5, color: "#777", margin: "2px 0 8px", lineHeight: 1.6, wordBreak: "keep-all" }}>
+        종목이 가게(음식점·카페·용품 등) 또는 숙소(숙박업·민박·펜션·야영장 등)와 맞아야 바로 인증돼요.
+        <br />
+        띄어쓰기나 한두 글자 오타는 괜찮아요. 맞지 않으면 관리자가 확인한 뒤 승인해 드려요.
+      </p>
     </div>
   );
 }

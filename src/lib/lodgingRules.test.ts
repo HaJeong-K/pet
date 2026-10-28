@@ -12,6 +12,12 @@ describe("cleanTime", () => {
 });
 
 describe("cleanLodgingProfile", () => {
+  it("그 외 동물은 어떤 동물인지 적어야 함", () => {
+    expect("error" in cleanLodgingProfile({ pet_species: ["other"] })).toBe(true);
+    const r = cleanLodgingProfile({ pet_species: ["cat", "other"], pet_others: " 토끼·햄스터 " });
+    expect("profile" in r && r.profile.pet_others).toBe("토끼·햄스터");
+    expect("profile" in r && petPolicySummary({ ...r.profile })).toContain("토끼·햄스터");
+  });
   it("기본 동반 규정을 다듬는다", () => {
     const r = cleanLodgingProfile({
       check_in: "15:00", check_out: "11:00", pet_species: ["dog", "rabbit"], pet_sizes: ["small", "medium"],

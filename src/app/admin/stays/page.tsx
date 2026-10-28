@@ -6,6 +6,7 @@
 //   · 정산 예정: 결제대행 연동 전에는 직접 이체한 뒤 "보냄"으로 표시
 //   · 최근 예약: 결제 확인 전 예약을 "결제 확인"으로 표시(연동 전 임시)
 //   · 입점 심사: 숙소 입점 신청 승인·반려(PartnersView)
+//   · 후기 신고: 숙소 사장님이 신고한 숙박 후기 검토 — 유지·가리기·삭제, 작성자 후기 제한(ReviewReportsView)
 // 서버는 /api/admin/stays, 규칙은 src/lib/lodgingPolicy.ts.
 
 import { useCallback, useEffect, useState } from "react";
@@ -13,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import LogoLoader from "@/components/LogoLoader";
 import PartnersView from "./PartnersView";
+import ReviewReportsView from "./ReviewReportsView";
 import { won } from "@/lib/ownerPlans";
 import { petLabel, stayDayLabel, STAY_STATUS, type StayPet, type StayStatus } from "@/lib/lodgingBooking";
 import { CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
@@ -23,7 +25,7 @@ type Row = {
   compensation_amount: number | null; issue_status: string; issue_kind: string | null; issue_detail: string | null; issue_owner_reply: string | null; issue_opened_at: string | null;
   fee_rate: number | null; fee_amount: number | null; payout_amount: number | null; payout_due_on: string | null; payout_status: string; created_at: string;
 };
-type View = "issues" | "payouts" | "all" | "partners";
+type View = "issues" | "payouts" | "all" | "partners" | "reviews";
 
 const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
@@ -51,7 +53,7 @@ export default function AdminStays() {
     return json;
   }, []);
   const load = useCallback(async () => {
-    if (view === "partners") return;
+    if (view === "partners" || view === "reviews") return;
     try { const json = await call({}, `?view=${view}`); setReady(json.ready !== false); setRows(json.bookings ?? []); }
     catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "불러오지 못했어요." }); setRows([]); }
   }, [call, view]);
@@ -76,11 +78,11 @@ export default function AdminStays() {
           결제대행 연동 전에는 결제 확인과 정산 이체를 직접 표시합니다.
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["all", "최근 예약"], ["partners", "입점 심사"]] as [View, string][]).map(([key, text]) => (
+          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["all", "최근 예약"], ["partners", "입점 심사"], ["reviews", "후기 신고"]] as [View, string][]).map(([key, text]) => (
             <button key={key} onClick={() => { setView(key); setRows(null); }} aria-pressed={view === key} style={{ padding: "7px 13px", borderRadius: 999, border: "none", background: view === key ? "#5C7A4A" : "white", color: view === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: view === key ? "none" : "inset 0 0 0 1px #e5e0d0" }}>{text}</button>
           ))}
         </div>
-        {view === "partners" ? <PartnersView /> : <>
+        {view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : <>
         {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
         {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-settlement.sql</b>을 실행해 주세요.</div>}
         {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}

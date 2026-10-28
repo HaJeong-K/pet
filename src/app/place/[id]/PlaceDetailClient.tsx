@@ -14,6 +14,9 @@ const PLACE_FETCH_TIMEOUT_MS = 12_000;
 import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import PlaceStoreSection from "@/components/PlaceStoreSection";
+import PlaceStoreCta from "@/components/PlaceStoreCta";
+import PlaceNoticeBar from "@/components/PlaceNoticeBar";
+import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import PlaceLodgingSection from "@/components/lodging/PlaceLodgingSection";
 import { isLodgingCategory } from "@/lib/ownerKind";
 import PlaceFreshness from "@/components/PlaceFreshness";
@@ -1087,13 +1090,18 @@ export default function PlaceDetail({
           {place.address}
         </p>
 
-        {/* 숙소(펜션·호텔·캠핑 등)는 숙박 예약 앱처럼 맨 위에 예약 요약·바로가기·객실을 먼저 보여 줍니다 */}
+        {/* 사장님 인증 — 인증된 사장님이 직접 관리하는 가게면 신뢰 표시 */}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && <OwnerManagedBadge placeId={placeId} />}
+
+        {/* 숙소(펜션·호텔·캠핑 등): 입점 숙소면 "숙소 예약하러 가기"(/stay/번호), 아니면 전화 문의 안내 */}
         {isLodgingCategory(place.category) && !isParkPlaceId(placeId) && (
           <div style={{ margin: "-6px 0 14px" }}>
             <PlaceLodgingSection placeId={placeId} placeName={place.name} isLoggedIn={isLoggedIn} layout="hero" phone={place.phone ?? null}
               reviewCount={reviews.filter((r) => !r.deleted).length} />
           </div>
         )}
+        {/* 쇼핑 입점 가게: "상품 보고 예약하러 가기"(/shop?store=번호) */}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && !isLodgingCategory(place.category) && <PlaceStoreCta placeId={placeId} />}
 
         {/* 반려동물 친화도 점수 — 0~100점 + 신호등(초록/노랑/빨강) 배지 */}
         {affinity && (() => {
@@ -1124,6 +1132,9 @@ export default function PlaceDetail({
             </div>
           );
         })()}
+
+        {/* 사장님 공지 — 친화도 점수 바로 아래(공지가 있을 때만) */}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && <PlaceNoticeBar placeId={placeId} />}
 
         {/* 관리자 표시 배지 ★ */}
         {isAdmin && (

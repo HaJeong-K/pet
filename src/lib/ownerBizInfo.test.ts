@@ -24,15 +24,23 @@ describe("사업자등록증 OCR 글자 해석", () => {
 성 명 : 홍 길 동    생 년 월 일 : 1985 년 03 월 02 일
 개 업 연 월 일 : 2020 년 03 월 15 일
 사업장 소재지 : 대구광역시 북구 대학로 80
+사업의 종류 : 업태 숙박 및 음식점업 종목 커피 전문점
 2024 년 01 월 10 일
 북대구세무서장`;
 
-  it("사업자번호·대표자명·개업일자를 뽑는다(생년월일·발급일과 헷갈리지 않음)", () => {
-    expect(parseBizInfoFromOcr(ocr)).toEqual({ bizNo: "1248100998", ownerName: "홍길동", openDate: "20200315" });
+  it("사업자번호·대표자명·개업일자·상호·종목을 뽑는다(생년월일·발급일과 헷갈리지 않음)", () => {
+    expect(parseBizInfoFromOcr(ocr)).toEqual({ bizNo: "1248100998", ownerName: "홍길동", openDate: "20200315", bizName: "멍멍카페", bizType: "커피 전문점" });
+  });
+
+  it("법인 상호와 여러 줄로 나뉜 업태·종목도 읽는다", () => {
+    const corp = `법인명(단체명) : 주식회사 해피펫\n대 표 자 : 김 철 수\n업 태 서비스\n종 목 애완동물 미용업\n종 목 기타 소매업`;
+    const p = parseBizInfoFromOcr(corp);
+    expect(p.bizName).toBe("주식회사 해피펫");
+    expect(p.bizType).toBe("애완동물 미용업");
   });
 
   it("못 읽은 값은 빈 문자열로 둔다", () => {
-    expect(parseBizInfoFromOcr("흐릿한 사진")).toEqual({ bizNo: "", ownerName: "", openDate: "" });
+    expect(parseBizInfoFromOcr("흐릿한 사진")).toEqual({ bizNo: "", ownerName: "", openDate: "", bizName: "", bizType: "" });
   });
 
   it("미래 날짜는 개업일로 받지 않는다", () => {

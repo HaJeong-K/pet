@@ -8,6 +8,7 @@
 // 결제는 숙소에서 직접 받습니다(온라인 결제는 PG 계약 후). 규칙은 src/lib/lodgingBooking.ts,
 // 서버는 /api/owner/lodging/bookings · /api/owner/lodging/calendar.
 
+import { ARRIVAL_METHODS } from "@/lib/lodgingConsents";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Phone, PawPrint } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
@@ -22,6 +23,8 @@ type Booking = {
   id: number; room_id: number; room_name: string; guest_name: string; guest_phone: string; check_in: string; check_out: string; nights: number; guests: number;
   pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number };
   total: number; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
+  // 이용자 정보(scripts/sql/lodging-guest-review-reports.sql) — 없으면 비어 있음
+  stay_guest_name?: string | null; stay_guest_phone?: string | null; arrival_method?: string | null; arrival_time?: string | null;
   // 정산 칸(scripts/sql/lodging-settlement.sql) — 없으면 비어 있음
   payment_status?: string; cancel_cause?: CancelCause | null; refund_amount?: number; penalty_amount?: number; compensation_amount?: number | null;
   stay_confirmed_at?: string | null; stay_confirmed_by?: string | null;
@@ -164,6 +167,17 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   <span><b>{b.guest_name}</b>님 · {b.guests}명</span>
                   <a href={`tel:${b.guest_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1D4F91", fontWeight: 700, textDecoration: "none" }}><Phone size={12} />{b.guest_phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3")}</a>
                 </div>
+                {b.stay_guest_name && (
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 4, fontSize: 12.5, color: "#444" }}>
+                    <span>실제 이용: <b>{b.stay_guest_name}</b>님</span>
+                    {b.stay_guest_phone && <a href={`tel:${b.stay_guest_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#1D4F91", fontWeight: 700, textDecoration: "none" }}><Phone size={12} />{b.stay_guest_phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3")}</a>}
+                  </div>
+                )}
+                {(b.arrival_method || b.arrival_time) && (
+                  <div style={{ marginTop: 4, fontSize: 12.5, color: "#555" }}>
+                    {[b.arrival_method ? `방문 수단: ${ARRIVAL_METHODS.find((m) => m.id === b.arrival_method)?.label ?? b.arrival_method}` : null, b.arrival_time ? `도착 예정 ${b.arrival_time}` : null].filter(Boolean).join(" · ")}
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 5, marginTop: 6, fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
                   <PawPrint size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 3 }} />
                   <span>{b.pets.length}마리 — {b.pets.map(petText).join(", ")}</span>

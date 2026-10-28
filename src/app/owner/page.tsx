@@ -20,9 +20,11 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays,
+  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
 } from "lucide-react";
 import OwnerLodgingTab from "@/components/owner/OwnerLodgingTab";
+import OwnerNoticesTab from "@/components/owner/OwnerNoticesTab";
+import OwnerLodgingReviews from "@/components/owner/OwnerLodgingReviews";
 import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
 import OwnerStaysTab from "@/components/owner/OwnerStaysTab";
 import { ProductsTab, ReservationsTab } from "@/components/owner/OwnerStorePanels";
@@ -45,6 +47,7 @@ const TABS: { key: TabKey; label: string; Icon: typeof Store }[] = [
   { key: "lodging", label: "숙소·객실", Icon: BedDouble },
   { key: "banner", label: "배너 광고", Icon: Megaphone },
   { key: "reviews", label: "후기·답글", Icon: MessageCircle },
+  { key: "notices", label: "공지", Icon: Bell },
   { key: "place", label: "가게 정보", Icon: Pencil },
   { key: "ads", label: "광고 상품", Icon: Crown },
   { key: "report", label: "성과 보고서", Icon: FileText },
@@ -62,6 +65,13 @@ export default function OwnerPage() {
   const setTab = setOwnerTab;
   // 확인을 기다리는 예약 수(메뉴에 숫자로 표시)
   const [waitingReservations, setWaitingReservations] = useState(0);
+  // 사장님 답글이 아직 없는 최근 후기 수 — 아래 탭바가 세서 알려 줍니다(ggk-owner-alerts)
+  const [unansweredReviews, setUnansweredReviews] = useState(0);
+  useEffect(() => {
+    const onAlerts = (e: Event) => setUnansweredReviews(Number((e as CustomEvent<{ reviews?: number }>).detail?.reviews) || 0);
+    window.addEventListener("ggk-owner-alerts", onAlerts);
+    return () => window.removeEventListener("ggk-owner-alerts", onAlerts);
+  }, []);
   // 이 가게가 배너 광고를 내는 가게인지('동네 대표' 요금제 · 관리자가 켜 준 배너 혜택) — 그럴 때만 "배너" 메뉴를 보여 줍니다.
   const [bannerPlaceId, setBannerPlaceId] = useState<number | null>(null);
   // 관리자 미리보기용으로 고른 장소
@@ -216,6 +226,9 @@ export default function OwnerPage() {
             {(key === "reservations" || key === "stays") && waitingReservations > 0 && (
               <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{waitingReservations}</span>
             )}
+            {key === "reviews" && unansweredReviews > 0 && (
+              <span aria-label={`답글을 기다리는 후기 ${unansweredReviews}개`} style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{unansweredReviews}</span>
+            )}
           </button>
           );
         })}
@@ -231,7 +244,10 @@ export default function OwnerPage() {
           {isLodging && (tab === "lodging" || tab === "products") && <OwnerLodgingTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {!isLodging && tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
           {!isLodging && tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
+          {/* 숙소는 숙박 후기(별점·답글·신고)를 먼저, 그 아래 장소 후기 */}
+          {isLodging && tab === "reviews" && <OwnerLodgingReviews placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
+          {tab === "notices" && <OwnerNoticesTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {tab === "banner" && hasBanner && <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
           {/* 배너를 내지 않는 가게가 #banner 주소로 들어오면 요금제 화면을 보여 줍니다 */}

@@ -5,9 +5,10 @@
 //   · 객실 카드: 사진(옆으로 넘김)·요금·인원·마릿수·편의시설·설명 → [예약하기]
 // 예약 창은 LodgingBookingSheet, 데이터는 /api/lodging.
 //
-// 숙소 장소(펜션·호텔·캠핑 등)는 상세 화면 맨 위에 layout="hero"로 그려 숙박 예약 앱처럼 보이게 합니다:
-//   예약 요약 카드(최저가·객실 수·체크인 시각·[예약하기]) + 바로가기(객실·동반 규정·후기·위치) + 아래 본문.
-//   아직 같이가개에서 예약을 받지 않는 숙소(사장님 미입점·공공데이터)는 전화 문의 안내 카드를 보여 줍니다.
+// 숙소 장소(펜션·호텔·캠핑 등)는 상세 화면 맨 위에 layout="hero"로 그립니다:
+//   · 입점해서 바로 예약되는 숙소: "숙소 예약하러 가기" 안내 카드만 — 객실·후기·예약은 숙소 화면(/stay/번호)에서 합니다.
+//     (지도 위 상세 창에서 열려도 창을 벗어나 숙소 화면으로 갑니다)
+//   · 아직 같이가개에서 예약을 받지 않는 숙소(사장님 미입점·공공데이터): 전화 문의 안내 카드
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -68,6 +69,24 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
   }
   const p = data.profile;
   const minPrice = data.rooms.length ? Math.min(...data.rooms.map((r) => r.base_price)) : null;
+  if (layout === "hero" && data.rooms.length > 0) {
+    return (
+      <div style={{ ...card, background: "linear-gradient(135deg,#1D4F91,#2E6BC0)", border: "none", color: "white" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, opacity: 0.9 }}><ShieldCheck size={13} />같이가개 입점 숙소</div>
+        <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, marginTop: 6, lineHeight: 1.45 }}>
+          같이가개에서 바로 예약할 수 있어요
+        </div>
+        <div style={{ fontSize: 12.5, opacity: 0.92, marginTop: 4, lineHeight: 1.65 }}>
+          객실 {data.rooms.length}개{minPrice != null ? ` · 1박 ${minPrice.toLocaleString("ko-KR")}원~` : ""}<br />
+          {p ? petPolicySummary(p) : "동반 조건·숙박 후기를 확인하고 날짜를 골라 예약하세요."}
+        </div>
+        {/* 지도 위 상세 창(모달)에서도 창을 닫고 숙소 화면으로 가도록 새로 엽니다 */}
+        <a href={`/stay/${placeId}`} style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 12, background: "white", color: "#1D4F91", fontSize: 14.5, fontWeight: 800, textDecoration: "none" }}>
+          <CalendarDays size={15} />숙소 예약하러 가기
+        </a>
+      </div>
+    );
+  }
   const open = (roomId: number) => {
     if (!isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(`/place/${placeId}`)}`); return; }
     setBooking(roomId);

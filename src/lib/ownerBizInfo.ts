@@ -13,6 +13,10 @@ export type OwnerBizInfo = {
   ownerName: string;
   /** 개업일자 YYYYMMDD */
   openDate: string;
+  /** 상호(사업자등록증에 적힌 이름) — 국세청과 대조해 지도 업장 연결에 씁니다 */
+  bizName?: string;
+  /** 종목(사업의 종류 중 첫 번째 종목) — 국세청과 대조해 가게 / 숙소 업종이 맞는지 봅니다 */
+  bizType?: string;
 };
 
 export const onlyDigits = (s: string) => s.replace(/\D/g, "");
@@ -51,7 +55,7 @@ export function isCompleteBizInfo(info: OwnerBizInfo): boolean {
 const DATE_RE = /(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?/;
 
 /**
- * 사업자등록증 OCR 글자에서 사업자번호·대표자명·개업일자를 뽑습니다(못 찾은 값은 빈 문자열).
+ * 사업자등록증 OCR 글자에서 사업자번호·대표자명·개업일자·상호·종목을 뽑습니다(못 찾은 값은 빈 문자열).
  * OCR은 한글 사이에 공백을 끼워 넣는 경우가 많아("개 업 연 월 일") 라벨은 공백을 무시하고 찾습니다.
  */
 export function parseBizInfoFromOcr(text: string): OwnerBizInfo {
@@ -77,7 +81,17 @@ export function parseBizInfoFromOcr(text: string): OwnerBizInfo {
     if (isValidOpenDate(candidate)) openDate = candidate;
   }
 
-  return { bizNo, ownerName, openDate };
+  // 상호: "상 호 : 멍멍카페" 또는 법인은 "법인명(단체명) : 주식회사 해피펫"
+  let bizName = "";
+  const nameLine = src.match(/(?:상\s*호|법\s*인\s*명\s*(?:\(\s*단\s*체\s*명\s*\))?)\s*[:：]?\s*([^\n]+)/);
+  if (nameLine) bizName = nameLine[1].replace(/\s*(?:성\s*명|대\s*표\s*자|등\s*록\s*번\s*호).*$/, "").trim().slice(0, 40);
+
+  // 종목: "사업의 종류 : 업태 숙박 및 음식점업 종목 펜션" — 첫 번째 종목만(국세청은 주종목으로 대조)
+  let bizType = "";
+  const typeLine = src.match(/종\s*목\s*[:：]?\s*([^\n]+)/);
+  if (typeLine) bizType = typeLine[1].replace(/\s*(?:업\s*태|종\s*목|발\s*급|공\s*동|사\s*업\s*자\s*단\s*위|전\s*자).*$/, "").trim().slice(0, 40);
+
+  return { bizNo, ownerName, openDate, bizName, bizType };
 }
 
 /** 가게 이름 비교용 정규화(공백·괄호·특수문자·"주식회사" 등 제거) */
