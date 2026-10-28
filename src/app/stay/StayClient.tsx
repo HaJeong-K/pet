@@ -1,0 +1,208 @@
+"use client";
+
+// 숙소 탭 화면(/stay) — 숙박 예약 앱처럼 반려동물 동반 숙소를 찾고, 같이가개에서 바로 예약할 수 있는 곳을 먼저 보여 줍니다.
+//   · 위: 검색(숙소 이름·지역) + 지역 고르기(내 주변·강원·제주…) + 조건(바로 예약·대형견·펜션·호텔…)
+//   · "같이가개에서 바로 예약": 사장님이 객실을 올린 숙소 — 최저가·동반 조건 요약
+//   · 아래: 전체 숙소(가까운 순). 누르면 숙소 상세(예약 요약·객실·동반 규정·후기)로 갑니다.
+// 데이터는 /api/lodging/list(공공데이터 숙소 + 직접 등록된 숙소), 정렬·검색·필터는 여기서 합니다.
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BedDouble, CalendarCheck, MapPin, PawPrint, Search, Sparkles } from "lucide-react";
+import LogoLoader from "@/components/LogoLoader";
+import { useUserArea } from "@/lib/useUserRegion";
+import { haversineKm } from "@/lib/geo";
+import type { PetSize } from "@/lib/lodgingRules";
+
+type Stay = {
+  id: number; name: string; category: string | null; address: string | null; lat: number; lng: number; image: string | null; phone: string | null;
+  largeDog: boolean | null; bookable: boolean; minPrice: number | null; roomCount: number; petSummary: string | null; petSizes: PetSize[];
+};
+
+const BLUE = "#1D4F91";
+const REGIONS: { label: string; match: string[] }[] = [
+  { label: "내 주변", match: [] },
+  { label: "강원", match: ["강원"] },
+  { label: "제주", match: ["제주"] },
+  { label: "경기", match: ["경기"] },
+  { label: "서울·인천", match: ["서울", "인천"] },
+  { label: "부산·경남", match: ["부산", "울산", "경남", "경상남"] },
+  { label: "대구·경북", match: ["대구", "경북", "경상북"] },
+  { label: "충청", match: ["충청", "충북", "충남", "대전", "세종"] },
+  { label: "전라", match: ["전라", "전북", "전남", "광주"] },
+];
+type Filter = "bookable" | "large" | "pension" | "hotel" | "camping" | "hanok";
+const FILTERS: { id: Filter; label: string; test: (s: Stay) => boolean }[] = [
+  { id: "bookable", label: "바로 예약", test: (s) => s.bookable },
+  { id: "large", label: "대형견 가능", test: (s) => s.largeDog === true || s.petSizes.includes("large") },
+  { id: "pension", label: "펜션·풀빌라", test: (s) => /펜션|풀빌라|독채/.test(s.category ?? "") },
+  { id: "hotel", label: "호텔·리조트", test: (s) => /호텔|리조트|콘도/.test(s.category ?? "") },
+  { id: "camping", label: "캠핑·글램핑", test: (s) => /캠핑|글램핑|카라반/.test(s.category ?? "") },
+  { id: "hanok", label: "한옥·스테이", test: (s) => /한옥|스테이|게스트|민박/.test(`${s.category ?? ""} ${s.name}`) },
+];
+const PAGE = 30;
+const regionOf = (address: string | null) => (address ?? "").split(" ").slice(0, 2).join(" ");
+const realImage = (src: string | null) => (src && !src.includes("default-place") ? src : null);
+
+function StayImage({ stay, height }: { stay: Stay; height: number }) {
+  // 사진 주소가 깨져 있으면(공공데이터에 흔함) 기본 그림으로 바꿉니다
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : realImage(stay.image);
+  return src ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} style={{ width: "100%", height, objectFit: "cover", display: "block" }} />
+  ) : (
+    <div aria-hidden style={{ width: "100%", height, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#7d97bd" }}>
+      <BedDouble size={height > 120 ? 30 : 22} /><PawPrint size={height > 120 ? 20 : 15} />
+    </div>
+  );
+}
+
+export default function StayClient() {
+  const router = useRouter();
+  const area = useUserArea();
+  const [stays, setStays] = useState<Stay[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [region, setRegion] = useState("내 주변");
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [limit, setLimit] = useState(PAGE);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/lodging/list").then((r) => r.json()).then((d) => { if (!cancelled) setStays(d.items ?? []); }).catch(() => { if (!cancelled) setStays([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const here = area.lat != null && area.lng != null ? { lat: area.lat, lng: area.lng } : null;
+  const hereLat = here?.lat, hereLng = here?.lng;
+  const list = useMemo(() => {
+    if (!stays) return [];
+    const q = query.trim().replace(/\s+/g, "");
+    const r = REGIONS.find((x) => x.label === region)!;
+    return stays
+      .filter((s) => !q || `${s.name}${s.address ?? ""}${s.category ?? ""}`.replace(/\s+/g, "").includes(q))
+      .filter((s) => r.match.length === 0 || r.match.some((m) => (s.address ?? "").startsWith(m)))
+      .filter((s) => filters.every((f) => FILTERS.find((x) => x.id === f)!.test(s)))
+      .map((s) => ({ ...s, distance: hereLat != null && hereLng != null ? haversineKm(hereLat, hereLng, s.lat, s.lng) : null }))
+      .sort((a, b) => Number(b.bookable) - Number(a.bookable) || (a.distance ?? 0) - (b.distance ?? 0) || a.name.localeCompare(b.name));
+  }, [stays, query, region, filters, hereLat, hereLng]);
+  const bookable = list.filter((s) => s.bookable);
+  const toggle = (f: Filter) => { setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f])); setLimit(PAGE); };
+  const open = (s: Stay) => router.push(`/place/${s.id}`);
+  const km = (d: number | null) => (d == null ? null : d < 1 ? `${Math.round(d * 1000)}m` : `${d < 10 ? d.toFixed(1) : Math.round(d)}km`);
+
+  const chip = (on: boolean): React.CSSProperties => ({
+    flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 13px", borderRadius: 999, border: `1px solid ${on ? BLUE : "#e3e6ec"}`, background: on ? BLUE : "white",
+    color: on ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+  });
+
+  return (
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 0 var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
+        {/* 머리말 + 검색 */}
+        <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#1D4F91 0%,#3D7BC8 70%,#6FA3DD 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
+            <PawPrint size={12} />반려동물 동반 숙소
+          </div>
+          <h1 className="ggk-logo" style={{ margin: "10px 0 0", fontSize: 24, fontWeight: 800, lineHeight: 1.35 }}>우리 아이도 환영하는<br />숙소를 찾아보세요</h1>
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6, lineHeight: 1.6 }}>동반 조건을 미리 확인하고, 바로 예약까지.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, padding: "12px 14px", borderRadius: 14, background: "white", boxShadow: "0 6px 18px rgba(0,0,0,0.12)" }}>
+            <Search size={17} color="#8a96a8" />
+            <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 애월, 가평" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
+          </div>
+        </div>
+
+        {/* 지역·조건 */}
+        <div style={{ padding: "14px 16px 0" }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+            {REGIONS.map((r) => (
+              <button key={r.label} onClick={() => { setRegion(r.label); setLimit(PAGE); }} aria-pressed={region === r.label} style={chip(region === r.label)}>
+                {r.label === "내 주변" && <MapPin size={12} />}{r.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
+            {FILTERS.map((f) => (
+              <button key={f.id} onClick={() => toggle(f.id)} aria-pressed={filters.includes(f.id)} style={{ ...chip(false), border: `1px solid ${filters.includes(f.id) ? "#B45309" : "#e3e6ec"}`, background: filters.includes(f.id) ? "#FEF3C7" : "white", color: filters.includes(f.id) ? "#92400E" : "#555" }}>
+                {f.id === "bookable" && <CalendarCheck size={12} />}{f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {stays === null ? (
+          <div style={{ padding: 40, textAlign: "center" }}><LogoLoader /></div>
+        ) : (
+          <>
+            {/* 같이가개에서 바로 예약 */}
+            {bookable.length > 0 && (
+              <section style={{ marginTop: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 18px" }}>
+                  <Sparkles size={16} color={BLUE} />
+                  <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>같이가개에서 바로 예약</h2>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#888", padding: "3px 18px 0" }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.</div>
+                <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "12px 18px 4px", scrollSnapType: "x mandatory" }}>
+                  {bookable.slice(0, 12).map((s) => (
+                    <button key={s.id} onClick={() => open(s)} style={{ flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: 0, border: "none", borderRadius: 18, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(29,79,145,0.12)", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+                      <StayImage stay={s} height={140} />
+                      <div style={{ padding: "11px 13px 13px" }}>
+                        <div style={{ fontSize: 11.5, color: "#888" }}>{[s.category, regionOf(s.address)].filter(Boolean).join(" · ")}</div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: "#222", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                        {s.petSummary && <div style={{ fontSize: 11.5, color: BLUE, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>🐾 {s.petSummary}</div>}
+                        {s.minPrice != null && <div style={{ fontSize: 16, fontWeight: 800, color: "#222", marginTop: 6 }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 12, fontWeight: 600, color: "#888" }}> /1박~</span></div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 전체 숙소 */}
+            <section style={{ marginTop: 18, padding: "0 16px", minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, padding: "0 2px" }}>
+                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : `${region} 숙소`}</h2>
+                <span style={{ fontSize: 12.5, color: "#999" }}>{list.length.toLocaleString("ko-KR")}곳</span>
+              </div>
+              {list.length === 0 && (
+                <div style={{ marginTop: 12, padding: "32px 16px", borderRadius: 18, background: "white", textAlign: "center", color: "#999", fontSize: 13, lineHeight: 1.7 }}>
+                  조건에 맞는 숙소가 없어요.<br />지역이나 조건을 바꿔 보세요.
+                </div>
+              )}
+              <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+                {list.slice(0, limit).map((s) => (
+                  <button key={s.id} onClick={() => open(s)} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "flex", gap: 12, padding: 10, border: "none", borderRadius: 18, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", alignItems: "stretch" }}>
+                    <div style={{ width: 96, flexShrink: 0, borderRadius: 13, overflow: "hidden" }}><StayImage stay={s} height={96} /></div>
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                        {s.bookable && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: BLUE, color: "white" }}>바로 예약</span>}
+                        {s.category && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "#EEF3FA", color: BLUE }}>{s.category}</span>}
+                        {(s.largeDog || s.petSizes.includes("large")) && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>대형견 가능</span>}
+                      </div>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+                      <div style={{ fontSize: 12, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {[km(s.distance), regionOf(s.address)].filter(Boolean).join(" · ")}
+                      </div>
+                      {s.bookable && s.minPrice != null
+                        ? <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 11.5, fontWeight: 600, color: "#888" }}> /1박~</span></div>
+                        : <div style={{ fontSize: 11.5, color: "#9aa5b5" }}>전화로 예약 · 동반 조건은 숙소에 확인</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {list.length > limit && (
+                <button onClick={() => setLimit((n) => n + PAGE)} style={{ width: "100%", marginTop: 12, padding: "13px 0", borderRadius: 14, border: `1px solid ${BLUE}`, background: "white", color: BLUE, fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                  숙소 더 보기 ({(list.length - limit).toLocaleString("ko-KR")}곳 남음)
+                </button>
+              )}
+              <div style={{ margin: "20px 4px 8px", fontSize: 11.5, color: "#a0a0a0", lineHeight: 1.7, textAlign: "center" }}>
+                숙소 정보는 한국관광공사·한국문화정보원 공공데이터와 숙소 사장님이 올린 내용이에요.<br />
+                반려동물 동반 조건은 바뀔 수 있으니 예약 전에 확인해 주세요.
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

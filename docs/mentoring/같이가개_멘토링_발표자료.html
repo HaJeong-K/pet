@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>같이가개 멘토링 발표 자료</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  @font-face { font-family: "GmarketSans"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansBold.woff") format("woff"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "GmarketSans"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff") format("woff"); font-weight: 500; font-display: block; }
+  @page { size: 1280px 720px; margin: 0; }
+  :root {
+    --brand: #8B5A3C; --accent: #B8692E; --soft: #F3E7D8; --panel: #F7F2E8; --ink: #2B2118;
+    --muted: #6E6257; --line: #E6DCCB; --green: #3F6B2B; --green-soft: #E8F2E1; --blue: #1D4F91; --blue-soft: #E3EDFA;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #fff; }
+  body { font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif; color: var(--ink);
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* 자동 줄바꿈 금지 — 줄은 모두 <br>로 직접 나눕니다 */
+  .slide, .slide * { white-space: nowrap; }
+  .slide { width: 1280px; height: 720px; position: relative; overflow: hidden; background: #fff; padding: 50px 64px 0; page-break-after: always; }
+  .slide:last-child { page-break-after: auto; }
+  body.one .slide { display: none; }
+  body.one .slide.on { display: block; }
+
+  .hd { font-family: "GmarketSans", sans-serif; font-weight: 700; }
+  .sec { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 800; color: var(--accent); letter-spacing: .08em; }
+  .sec::before { content: ""; width: 28px; height: 5px; border-radius: 3px; background: var(--accent); }
+  h1 { font-family: "GmarketSans", sans-serif; font-weight: 700; font-size: 37px; line-height: 1.3; margin-top: 12px; letter-spacing: -0.02em; }
+  .lead { font-size: 18px; color: var(--muted); margin-top: 10px; }
+  .body { position: absolute; left: 64px; right: 64px; top: 192px; bottom: 60px; }
+  .foot { position: absolute; left: 64px; right: 64px; bottom: 22px; display: flex; justify-content: space-between; font-size: 12px; color: #9A8E82; }
+
+  .grid { display: grid; gap: 18px; height: 100%; }
+  .g2 { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 1fr; }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--panel); border-radius: 16px; padding: 24px 26px; position: relative; overflow: hidden; }
+  .card.soft { background: var(--soft); }
+  .card.brand { background: var(--brand); color: #fff; }
+  .card.line { background: #fff; border: 1.5px solid var(--line); }
+  .ct { font-family: "GmarketSans", sans-serif; font-weight: 700; font-size: 21px; line-height: 1.35; letter-spacing: -0.01em; color: var(--brand); }
+  .card.brand .ct { color: #fff; }
+  .cd { font-size: 16.5px; line-height: 1.65; color: var(--muted); margin-top: 10px; }
+  .card.brand .cd { color: #F6EBDD; }
+  .eff { position: absolute; left: 26px; right: 26px; bottom: 22px; font-size: 16px; font-weight: 700; color: var(--accent);
+    padding-top: 12px; border-top: 1.5px solid var(--line); }
+  .card.soft .eff { border-color: #E5D3BE; }
+  .eff b { color: var(--muted); font-weight: 600; margin-right: 8px; }
+  ul.b { list-style: none; }
+  ul.b li { position: relative; padding-left: 16px; font-size: 16.5px; line-height: 1.5; margin-bottom: 9px; }
+  ul.b li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .card.brand ul.b li::before { background: #F3E7D8; }
+  .num { width: 38px; height: 38px; border-radius: 50%; background: var(--brand); color: #fff; display: inline-flex; align-items: center; justify-content: center;
+    font-family: "GmarketSans", sans-serif; font-weight: 700; font-size: 16px; padding-top: 2px; flex: none; }
+  .row { display: flex; gap: 14px; align-items: center; }
+  .badge { display: inline-block; font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 99px; }
+  .b-g { background: var(--green-soft); color: var(--green); }
+  .b-o { background: #fff; color: var(--accent); border: 1px solid #EBD3BC; }
+  .b-b { background: var(--blue-soft); color: var(--blue); }
+  .tr { position: absolute; top: 26px; right: 24px; }
+  .big { font-family: "GmarketSans", sans-serif; font-weight: 700; color: var(--accent); line-height: 1.2; letter-spacing: -0.02em; }
+
+  table.t { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 16px; border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden; }
+  table.t th { background: var(--panel); text-align: left; padding: 12px 18px; font-weight: 800; font-size: 15px; color: var(--brand); }
+  table.t td { padding: 11px 18px; border-top: 1px solid var(--line); }
+  table.t td.k { font-weight: 700; }
+  table.t.tight td { padding: 8.5px 18px; }
+  .steps .ct { font-size: 19px; }
+  table.t td.r, table.t th.r { text-align: right; }
+  .when { font-family: "GmarketSans", sans-serif; font-weight: 700; font-size: 16px; color: var(--brand); }
+  .good { color: var(--green); font-weight: 800; }
+  .dim { color: var(--muted); }
+</style>
+<script>
+  addEventListener("DOMContentLoaded", () => {
+    const m = location.hash.match(/^#s(\d+)$/);
+    if (!m) return;
+    document.body.classList.add("one");
+    document.querySelectorAll(".slide")[m[1] - 1]?.classList.add("on");
+  });
+</script>
+<script>
+  // 검사용: 주소 끝이 #check면 글자 넘침을 찾아 id="__report"에 적습니다(인쇄·보기에는 영향 없음)
+  addEventListener("load", async () => {
+    if (location.hash !== "#check") return;
+    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 4000))]);
+    await new Promise((r) => setTimeout(r, 500));
+    const out = [];
+    document.querySelectorAll(".slide").forEach((sl, i) => {
+      const sr = sl.getBoundingClientRect();
+      const w = document.createTreeWalker(sl, NodeFilter.SHOW_TEXT); let n;
+      while ((n = w.nextNode())) {
+        if (!n.textContent.trim()) continue;
+        const el = n.parentElement, box = el.closest(".card, td, th, .slide"), br = box.getBoundingClientRect();
+        const pad = box.classList.contains("slide") ? 40 : Math.min(parseFloat(getComputedStyle(box).paddingRight) || 0, 12);
+        const r = document.createRange(); r.selectNodeContents(n);
+        for (const rc of r.getClientRects()) {
+          if (rc.width < 1) continue;
+          const t = n.textContent.trim().slice(0, 24);
+          if (rc.right > br.right - pad + 0.5) out.push(`${i + 1} 오른쪽 넘침 "${t}" ${Math.round(rc.right - (br.right - pad))}px`);
+          if (rc.bottom > br.bottom + 0.5) out.push(`${i + 1} 아래 넘침 "${t}"`);
+          if (!el.closest(".foot") && !sl.style.background && rc.bottom > sr.bottom - 50) out.push(`${i + 1} 바닥글 겹침 "${t}"`);
+        }
+      }
+      sl.querySelectorAll(".card").forEach((c) => { const e = c.querySelector(".eff"), d = c.querySelector(".cd, ul"); if (e && d && d.getBoundingClientRect().bottom > e.getBoundingClientRect().top - 8) out.push(`${i + 1} 효과줄 겹침`); });
+    });
+    const pre = document.createElement("pre"); pre.id = "__report"; pre.textContent = "REPORT | " + (out.length ? [...new Set(out)].join(" | ") : "OK"); document.body.appendChild(pre);
+  });
+</script>
+</head>
+<body>
+
+<!-- 1 표지 -->
+<section class="slide" style="background:var(--panel); padding:0">
+  <div style="position:absolute; left:0; top:0; bottom:0; width:16px; background:var(--brand)"></div>
+  <div style="position:absolute; left:88px; top:80px; width:720px">
+    <img src="../../src/app/icon.png" style="width:92px; height:92px; border-radius:20px; display:block">
+    <div style="margin-top:28px"><span class="badge b-o" style="font-size:14px; padding:6px 16px">모두의 창업 2기 1라운드 진출 · 멘토링 사전 자료</span></div>
+    <div class="hd" style="font-size:48px; line-height:1.15; margin-top:22px">반려동물과 같이 갈 수 있는 곳,<br>한 지도에서 찾습니다</div>
+    <div style="font-size:19px; color:var(--muted); margin-top:20px">같이가개(가칭) · 공공데이터 기반 동반 장소 지도 + 사장님 플랫폼</div>
+    <div style="font-size:17px; margin-top:44px"><b>서비스 체험</b>&nbsp;&nbsp;<a href="https://gachigagae.vercel.app" style="color:var(--accent); font-weight:800">gachigagae.vercel.app</a></div>
+    <div style="font-size:14.5px; color:var(--muted); margin-top:8px">Vercel 무료 버전으로 운영 중인 데모 · 2026년 10월</div>
+  </div>
+  <div style="position:absolute; right:72px; top:80px; width:390px; height:560px; background:#fff; border:1.5px solid var(--line); border-radius:22px; padding:38px 40px; display:flex; flex-direction:column; justify-content:space-between">
+    <div><div class="big" style="font-size:37px">약 3.3만 곳</div><div class="cd">지도에 표시되는 동반 장소<br>공공데이터 3종 합치고 중복 제거</div></div>
+    <div style="border-top:1.5px solid var(--line)"></div>
+    <div><div class="big" style="font-size:37px">매일 새벽 3시</div><div class="cd">수집·정제·검증·백업 등<br>운영 작업 11가지 자동 실행</div></div>
+    <div style="border-top:1.5px solid var(--line)"></div>
+    <div><div class="big" style="font-size:37px">유료 업장 17곳</div><div class="cd">월 운영비를 충당하는 손익분기<br>(요금제 시범 운영 제안가 기준)</div></div>
+  </div>
+</section>
+
+<!-- 2 요약 -->
+<section class="slide">
+  <div class="sec">SUMMARY</div>
+  <h1>한 장 요약</h1>
+  <p class="lead">이 장만 보셔도 사업의 핵심과 멘토링 요청 사항을 파악하실 수 있도록 정리했습니다.</p>
+  <div class="body"><div class="grid g4">
+    <div class="card"><div class="ct">문제</div>
+      <div style="font-size:19px; font-weight:700; line-height:1.5; margin-top:14px">반려인은 외출 전에<br>동반 가능 여부를<br>알기 어렵습니다.</div>
+      <div style="border-top:1.5px solid var(--line); margin:22px 0 18px"></div>
+      <ul class="b"><li>검색 결과에<br>동반 불가 장소가 섞이고<br>가능한 곳은 빠짐</li><li>공공데이터는 4개 기관에<br>흩어져 있고 갱신이 느림</li></ul></div>
+    <div class="card"><div class="ct">해결</div>
+      <div style="font-size:19px; font-weight:700; line-height:1.5; margin-top:14px">공공데이터를 자동으로<br>합쳐 전국 3.3만 곳을<br>한 지도에 정리했습니다.</div>
+      <div style="border-top:1.5px solid var(--line); margin:22px 0 18px"></div>
+      <ul class="b"><li>매일 새벽 자동 실행<br>수집·정제·중복 제거·검증</li><li>말로 찾는 검색·AI 코스<br>커뮤니티·입양 공고</li></ul></div>
+    <div class="card soft"><div class="ct">수익</div>
+      <div style="font-size:19px; font-weight:700; line-height:1.5; margin-top:14px">'내 가게'를 무료 인증한<br>사장님이 유료 요금제로<br>전환합니다.</div>
+      <div style="border-top:1.5px solid #E5D3BE; margin:22px 0 18px"></div>
+      <ul class="b"><li>월 19,800원 ~ 55,000원<br>(시범 운영 제안가)</li><li>유료 업장 약 17곳에서<br>월 운영비 충당</li></ul></div>
+    <div class="card"><div class="ct">요청</div>
+      <div style="font-size:19px; font-weight:700; line-height:1.5; margin-top:14px">네 가지 분야의<br>조언을 구합니다.</div>
+      <div style="border-top:1.5px solid var(--line); margin:51px 0 18px"></div>
+      <ul class="b"><li>디자인</li><li>수익화 구체화 · 빌드 조언</li><li>사업화 절차</li><li>추가 기능의 현실적 수익성</li></ul></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>2 / 17</span></div>
+</section>
+
+<!-- 3 문제 -->
+<section class="slide">
+  <div class="sec">PROBLEM</div>
+  <h1>같이 가도 되는지, 가 보기 전에는 알 수 없습니다</h1>
+  <p class="lead">창업자 본인이 반려견 보호자로서 외식할 곳을 찾을 때마다 겪은 불편에서 출발했습니다.</p>
+  <div class="body"><div class="grid g2">
+    <div class="card"><div class="row"><span class="num">1</span><span class="ct">검색 결과를 믿을 수 없음</span></div>
+      <div class="cd" style="margin-left:52px">포털에서 '애견 동반'으로 검색하면 동반이 안 되는<br>곳이 섞이고, 가능한 곳은 빠집니다.</div>
+      <div class="eff">→ 결국 가게마다 전화로 확인</div></div>
+    <div class="card"><div class="row"><span class="num">2</span><span class="ct">조건이 제각각</span></div>
+      <div class="cd" style="margin-left:52px">실내 동반 범위, 대형견 허용, 몸무게·마릿수 제한,<br>추가 요금이 장소마다 다릅니다.</div>
+      <div class="eff">→ 현장에서 입장·입실 거부</div></div>
+    <div class="card"><div class="row"><span class="num">3</span><span class="ct">데이터가 흩어져 있음</span></div>
+      <div class="cd" style="margin-left:52px">관광공사·식약처·문화정보원·농식품부 데이터가<br>따로 있고, 형식과 갱신 주기가 다릅니다.</div>
+      <div class="eff">→ 한곳에서 비교할 수 없음</div></div>
+    <div class="card"><div class="row"><span class="num">4</span><span class="ct">동네 가게는 알릴 길이 없음</span></div>
+      <div class="cd" style="margin-left:52px">반려동물을 환영하는 작은 가게도 보호자에게<br>닿을 마땅한 채널이 없습니다.</div>
+      <div class="eff">→ 사장님은 광고비 대비 효과를 모름</div></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>3 / 17</span></div>
+</section>
+
+<!-- 4 서비스 구조 -->
+<section class="slide">
+  <div class="sec">SOLUTION</div>
+  <h1>공공데이터로 먼저 채우고, 이용자와 사장님을 잇습니다</h1>
+  <p class="lead">이용자는 무료로 찾고, 사장님은 노출·예약으로 손님을 얻는 양면 구조입니다.</p>
+  <div class="body" style="display:grid; grid-template-columns: 340px 44px 1fr 44px 340px; align-items:center">
+    <div class="card" style="height:100%"><div class="ct">공급 · 공공데이터</div>
+      <ul class="b" style="margin-top:16px; font-size:15px"><li>문화정보원 문화시설 <b>21,114곳</b></li><li>관광공사 동반여행 <b>9,485곳</b></li><li>식품안전나라 음식점 <b>2,770곳</b></li><li>전국 도시공원 약 1.7만 곳</li><li>농식품부 입양 공고</li></ul>
+      <div class="eff">+ 이용자 제보 · 사장님 직접 등록</div></div>
+    <div class="hd" style="text-align:center; font-size:36px; color:#CDBFAA">→</div>
+    <div class="card brand" style="height:100%; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center">
+      <img src="../../src/app/icon.png" style="width:76px; height:76px; border-radius:16px">
+      <div class="hd" style="font-size:32px; margin-top:12px">같이가개</div>
+      <div class="cd" style="font-size:17px; margin-top:4px">자동 정제·검증된 동반 장소 지도</div>
+      <ul class="b" style="text-align:left; margin-top:24px"><li>매일 새벽 자동 갱신</li><li>노출·클릭·길찾기 측정</li><li>국세청 기반 사장님 인증</li></ul></div>
+    <div class="hd" style="text-align:center; font-size:36px; color:#CDBFAA">→</div>
+    <div style="display:grid; grid-template-rows:1fr 1fr; gap:18px; height:100%">
+      <div class="card"><div class="ct">이용자 <span style="font-size:18px; color:var(--muted)">무료</span></div>
+        <ul class="b" style="margin-top:14px"><li>지도 · 말로 찾는 검색 · AI 코스</li><li>후기 · 찜 · 길찾기 · 커뮤니티</li></ul></div>
+      <div class="card soft"><div class="ct">사장님 <span style="font-size:18px; color:var(--muted)">유료 고객</span></div>
+        <ul class="b" style="margin-top:14px"><li>가게·숙소 정보 관리, 후기 답글</li><li>상단 노출 · 예약 · 동네 배너</li></ul></div>
+    </div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>4 / 17</span></div>
+</section>
+
+<!-- 5 자동화 1 -->
+<section class="slide">
+  <div class="sec">AUTOMATION ①</div>
+  <h1>공공데이터를 매일 새벽 자동으로 다시 만듭니다</h1>
+  <p class="lead">사람이 손대지 않아도 수집부터 지도 제공까지 6단계가 매일 새벽 3시에 실행됩니다.</p>
+  <div class="body">
+    <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:12px; height:296px">
+      <div class="card" style="padding:20px 18px"><span class="num">1</span><div class="ct" style="margin-top:14px">수집</div><div class="cd" style="font-size:14.5px">관광공사 API<br>식약처 파일<br>문화정보원 파일<br>공원 표준데이터<br>모두 자동 내려받기</div></div>
+      <div class="card" style="padding:20px 18px"><span class="num">2</span><div class="ct" style="margin-top:14px">정제</div><div class="cd" style="font-size:14.5px">이름·주소 정규화<br>좌표 변환·보완<br>(주소만 있는 음식점은<br>인허가 데이터로)<br>분류 보정</div></div>
+      <div class="card" style="padding:20px 18px"><span class="num">3</span><div class="ct" style="margin-top:14px">중복 제거</div><div class="cd" style="font-size:14.5px">이름+주소 기준으로<br>출처가 다른<br>같은 장소를<br>1건으로 합침<br>공원 중복 정리</div></div>
+      <div class="card soft" style="padding:20px 18px"><span class="num">4</span><div class="ct" style="margin-top:14px">안전장치</div><div class="cd" style="font-size:14.5px">식약처·문화정보원<br>파일이 절반 이하로<br>줄거나 30% 넘게<br>삭제되면 반영 중단<br>+ 관리자 알림</div></div>
+      <div class="card" style="padding:20px 18px"><span class="num">5</span><div class="ct" style="margin-top:14px">스냅샷</div><div class="cd" style="font-size:14.5px">전국 목록을<br>압축 저장(약 2MB)<br>서버가 다시 켜져도<br>공공 API를<br>다시 부르지 않음</div></div>
+      <div class="card" style="padding:20px 18px"><span class="num">6</span><div class="ct" style="margin-top:14px">지도 제공</div><div class="cd" style="font-size:14.5px">지역 칸 단위로<br>나눠 CDN 캐시로<br>전달<br>보이는 지역만<br>빠르게 로드</div></div>
+    </div>
+    <div style="font-size:14px; font-weight:800; color:var(--muted); margin:22px 0 10px">점검 결과</div>
+    <div class="grid g4" style="height:auto">
+      <div class="card line" style="padding:16px 22px"><div class="big" style="font-size:25px">33,369곳</div><div class="cd" style="font-size:14.5px; margin-top:4px">지도 표시 장소 (10.27 기준)</div></div>
+      <div class="card line" style="padding:16px 22px"><div class="big" style="font-size:25px">9,657곳</div><div class="cd" style="font-size:14.5px; margin-top:4px">관광공사 상세 수집 (전체 9,658곳)</div></div>
+      <div class="card line" style="padding:16px 22px"><div class="big" style="font-size:25px">123KB → 54KB</div><div class="cd" style="font-size:14.5px; margin-top:4px">지도 데이터 전송량 (대구)</div></div>
+      <div class="card line" style="padding:16px 22px"><div class="big" style="font-size:25px">825ms → 85ms</div><div class="cd" style="font-size:14.5px; margin-top:4px">지도 화면 계산 시간 (서울)</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>5 / 17</span></div>
+</section>
+
+<!-- 6 자동화 2 -->
+<section class="slide">
+  <div class="sec">AUTOMATION ②</div>
+  <h1>운영 작업 11가지를 일정표대로 자동 실행합니다</h1>
+  <p class="lead">작업마다 따로 실패해도 나머지는 계속 돌고, 결과는 매일 아침 카카오톡으로 받아 봅니다.</p>
+  <div class="body">
+    <table class="t tight">
+      <tr><th style="width:120px">주기</th><th style="width:250px">작업</th><th>하는 일</th></tr>
+      <tr><td class="when">매일</td><td class="k">공공데이터 목록 갱신</td><td>관광공사·식약처·문화정보원 데이터를 합쳐 지도 목록을 다시 만듦</td></tr>
+      <tr><td class="when">매일</td><td class="k">관광공사 상세 보충</td><td>새로 생긴 곳·60일 지난 곳의 영업시간·동반 조건을 다시 받음</td></tr>
+      <tr><td class="when">매일</td><td class="k">DB 백업</td><td>사용자 데이터 전체를 비공개 저장소에 백업, 14일 보관</td></tr>
+      <tr><td class="when">매일</td><td class="k">유기동물 지역 알림</td><td>구독한 지역에 새 입양 공고가 올라오면 알림 발송</td></tr>
+      <tr><td class="when">매일</td><td class="k">아침 요약 · 실패 알림</td><td>처리 대기 건수와 오류 수를 카카오톡으로 전송</td></tr>
+      <tr><td class="when">매주 수</td><td class="k">식품안전나라 파일 갱신</td><td>API가 없는 파일 데이터를 자동으로 내려받아 비교·반영</td></tr>
+      <tr><td class="when">매주 일</td><td class="k">공원 데이터 동기화</td><td>전국 도시공원 표준데이터 갱신</td></tr>
+      <tr><td class="when">매주 월</td><td class="k">폐업 자동 점검</td><td>인증된 사장님 업장의 영업 상태를 국세청 API로 조회</td></tr>
+      <tr><td class="when">매주 화</td><td class="k">데이터 품질 점검</td><td>좌표 이상·중복·깨진 사진·정보 부족 장소를 찾아 알림</td></tr>
+    </table>
+    <div class="dim" style="font-size:14px; margin-top:10px">+ 90일 지난 오류 기록 정리, 입양 공고 사진 정리 등 용량 관리 작업 포함</div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>6 / 17</span></div>
+</section>
+
+<!-- 7 자동화 3 -->
+<section class="slide">
+  <div class="sec">AUTOMATION ③</div>
+  <h1>사람이 확인하던 일을 자동화해 1인 운영이 가능합니다</h1>
+  <p class="lead">인증·검수·최신성 확인처럼 플랫폼 신뢰에 필요한 일을 사람 손 없이 처리합니다.</p>
+  <div class="body"><div class="grid g2">
+    <div class="card"><span class="badge b-g tr">운영 중</span><div class="ct">사장님 자동 인증</div>
+      <div class="cd">사업자등록증 사진에서 OCR로 사업자번호·대표자·<br>개업일을 읽고, 서버가 국세청 진위확인과<br>영업 상태 조회로 판정합니다.</div>
+      <div class="eff"><b>효과</b>관리자 승인 대기 없이 바로 '사장님' 권한</div></div>
+    <div class="card"><span class="badge b-g tr">운영 중</span><div class="ct">글 · 댓글 자동 검토</div>
+      <div class="cd">욕설·도박 홍보·링크 도배를 띄어쓰기·숫자 변형까지<br>잡아 차단하고, 동물 판매·유료 분양 의심 글은<br>관리자 확인 전까지 비공개합니다.</div>
+      <div class="eff"><b>효과</b>커뮤니티 품질과 법적 리스크 관리</div></div>
+    <div class="card"><span class="badge b-o tr">연결 예정</span><div class="ct">제보 사진 AI 판정</div>
+      <div class="cd">이용자가 새 장소를 제보하면 사진을 AI가 판정해<br>기준을 넘으면 바로 등록합니다.<br>AI 사용 키를 받으면 켭니다.</div>
+      <div class="eff"><b>효과</b>관리자 검토를 기다리지 않고 바로 등록</div></div>
+    <div class="card"><span class="badge b-o tr">개발 중</span><div class="ct">정보 최신성 확인</div>
+      <div class="cd">방문자 확인·사장님 확인·공공데이터 갱신일 중<br>가장 최근 것을 보여 주고,<br>'달라졌어요'가 몰리면 경고합니다.</div>
+      <div class="eff"><b>효과</b>공공데이터의 느린 갱신을 이용자 참여로 보완</div></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>7 / 17</span></div>
+</section>
+
+<!-- 8 이용자 기능 -->
+<section class="slide">
+  <div class="sec">PRODUCT · 이용자</div>
+  <h1>보호자가 실제로 쓰는 기능</h1>
+  <p class="lead">모두 gachigagae.vercel.app 에서 바로 써 보실 수 있습니다.</p>
+  <div class="body"><div class="grid g3">
+    <div class="card"><div class="ct">말로 찾는 검색</div><div class="cd" style="color:var(--ink)">'경북대 근처 카페', '우리동네 핫플'처럼<br>말하듯 검색하면 기준 위치와<br>범위를 알아서 해석합니다.</div></div>
+    <div class="card"><div class="ct">AI 추천 코스</div><div class="cd" style="color:var(--ink)">식사·카페·산책 역할별로 장소를 조합하고<br>영업시간과 도보 거리를 반영합니다.<br><b>24km·7시간 50분 → 1.8km·1시간 42분</b></div></div>
+    <div class="card"><div class="ct">장소 상세</div><div class="cd" style="color:var(--ink)">동반 범위·대형견 여부·후기·찜,<br>카카오맵·네이버지도 길찾기,<br>장소 공유 카드를 제공합니다.</div></div>
+    <div class="card"><div class="ct">커뮤니티</div><div class="cd" style="color:var(--ink)">지역·주제별 게시판, 자동 검토,<br>회원 레벨로 지역 보호자들이<br>정보를 나눕니다.</div></div>
+    <div class="card"><div class="ct">입양 · 후원</div><div class="cd" style="color:var(--ink)">내 주변 유기동물 공고, 보호센터별 현황,<br>후원 단체 공식 페이지 연결<br>(후원금은 받지 않음)</div></div>
+    <div class="card"><div class="ct">안드로이드 앱</div><div class="cd" style="color:var(--ink)">사이트를 그대로 감싼 앱(TWA)<br>빌드·서명 완료. 사장님 새 예약 알림을<br>앱 푸시로 받습니다.</div></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>8 / 17</span></div>
+</section>
+
+<!-- 9 사장님 센터 -->
+<section class="slide">
+  <div class="sec">PRODUCT · 사장님</div>
+  <h1>사장님이 직접 관리하고, 효과를 숫자로 확인합니다</h1>
+  <p class="lead">가게 사장님과 숙소 사장님에게 맞는 메뉴를 따로 보여 줍니다.</p>
+  <div class="body">
+    <table class="t">
+      <tr><th style="width:250px">기능</th><th>내용</th><th style="width:180px">요금제</th></tr>
+      <tr><td class="k">가게 정보 관리</td><td>영업시간·동반 조건·사진 직접 수정, '지금 정보가 맞아요' 확인</td><td><span class="badge b-g">기본(무료)</span></td></tr>
+      <tr><td class="k">후기 답글</td><td>후기에 '사장님' 배지 답글 — DB가 인증 여부를 판정해 사칭 방지</td><td><span class="badge b-g">기본(무료)</span></td></tr>
+      <tr><td class="k">성과 통계</td><td>조회·찜·길찾기·전화·홈페이지 클릭·추천 노출 추이</td><td><span class="badge b-g">기본(무료)</span></td></tr>
+      <tr><td class="k">상단 노출 · 월간 보고서</td><td>주변 목록 맨 위 '프리미엄' 칸, AI 코스 포함, 성과 보고서</td><td><span class="badge b-o">프리미엄</span></td></tr>
+      <tr><td class="k">상품 · 예약 포장</td><td>상품 등록 → 쇼핑 탭 진열 → 손님 예약 → 확정·수령 관리</td><td><span class="badge b-o">프리미엄 스토어</span></td></tr>
+      <tr><td class="k">동네 배너</td><td>문구·사진·글꼴을 골라 직접 제작, 같은 시·군·구에 균등 노출</td><td><span class="badge b-o">동네 대표</span></td></tr>
+      <tr><td class="k">숙소 · 객실 · 예약 달력</td><td>객실·동반 규정 등록, 날짜별 요금·막기, 예약 요청 확정·거절</td><td><span class="badge b-b">숙소 (개발 중)</span></td></tr>
+    </table>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>9 / 17</span></div>
+</section>
+
+<!-- 10 수익 설계 -->
+<section class="slide">
+  <div class="sec">REVENUE DESIGN</div>
+  <h1>수익 구조는 이렇게 쌓았습니다</h1>
+  <p class="lead">트래픽이 적은 초기에도 사장님이 돈을 낼 이유를 단계별로 만드는 것이 목표입니다.</p>
+  <div class="body steps" style="display:grid; grid-template-columns:repeat(5,1fr); gap:12px; align-items:end">
+    <div class="card" style="height:290px; padding:22px 20px"><span class="badge b-o">STEP 1</span><div class="ct" style="margin-top:14px">공급을 먼저 채움</div><div class="cd" style="font-size:15px">공공데이터로 전국<br>3.3만 곳을 미리 등록<br>→ '이미 지도에 있는<br>내 가게'를 발견</div></div>
+    <div class="card" style="height:320px; padding:22px 20px"><span class="badge b-o">STEP 2</span><div class="ct" style="margin-top:14px">무료 인증으로 소유</div><div class="cd" style="font-size:15px">국세청 자동 인증만 하면<br>정보 관리·답글·통계가<br>계속 무료<br>→ 가입 장벽을 없앰</div></div>
+    <div class="card" style="height:350px; padding:22px 20px"><span class="badge b-o">STEP 3</span><div class="ct" style="margin-top:14px">효과를 숫자로 체감</div><div class="cd" style="font-size:15px">조회·길찾기·전화 클릭을<br>무료 통계로 먼저 보여 줌<br>→ '노출 = 손님'을 증명</div></div>
+    <div class="card soft" style="height:380px; padding:22px 20px"><span class="badge b-o">STEP 4</span><div class="ct" style="margin-top:14px">단계별 업셀</div><div class="cd" style="font-size:15px">노출 (프리미엄)<br>→ 매출 도구 (스토어 예약)<br>→ 지역 브랜딩 (동네 배너)<br>필요한 만큼 올라감</div></div>
+    <div class="card brand" style="height:410px; padding:22px 20px"><span class="badge" style="background:#fff; color:var(--brand)">STEP 5</span><div class="ct" style="margin-top:14px">부담 없이 시작·유지</div><div class="cd" style="font-size:15px">첫 달 무료 · 2~3개월 반값<br>자동 결제 없음<br>건당 수수료 없음<br>해지하려 할 때<br>1회 30% 할인으로 붙잡음</div></div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>10 / 17</span></div>
+</section>
+
+<!-- 11 요금제 -->
+<section class="slide">
+  <div class="sec">PRICING</div>
+  <h1>사장님 요금제 4단계</h1>
+  <p class="lead">모두 시범 운영 제안가(월, 부가세 포함)이며, 결제 연동 전까지 계좌 입금 → 관리자 승인으로 운영합니다.</p>
+  <div class="body">
+    <div class="grid g4" style="height:320px">
+      <div class="card"><div class="ct">기본</div><div class="hd" style="font-size:37px; margin-top:6px">0원</div><div class="dim" style="font-size:15.5px">인증만 하면 계속 무료</div>
+        <ul class="b" style="margin-top:20px"><li>가게 정보 직접 관리</li><li>후기 답글 (사장님 배지)</li><li>우리 가게 통계</li></ul></div>
+      <div class="card brand"><div class="ct" style="color:#F3E7D8">프리미엄</div><div class="hd" style="font-size:37px; margin-top:6px">19,800원</div><div style="font-size:15.5px; color:#F6EBDD">더 많은 보호자에게 먼저</div>
+        <ul class="b" style="margin-top:20px"><li>주변 목록 맨 위 노출</li><li>AI 추천 코스에 포함</li><li>월간 성과 보고서</li></ul></div>
+      <div class="card"><div class="ct">프리미엄 스토어</div><div class="hd" style="font-size:37px; margin-top:6px">33,000원</div><div class="dim" style="font-size:15.5px">상품을 올리고 예약 포장</div>
+        <ul class="b" style="margin-top:20px"><li>쇼핑 탭에 상품 진열</li><li>예약 포장 · 예약 관리</li><li>건당 수수료 없음</li></ul></div>
+      <div class="card"><div class="ct">동네 대표</div><div class="hd" style="font-size:37px; margin-top:6px">55,000원</div><div class="dim" style="font-size:15.5px">우리 동네에 배너로</div>
+        <ul class="b" style="margin-top:20px"><li>같은 시·군·구 배너 노출</li><li>추천 광고 칸 우선</li><li>배너 직접 제작</li></ul></div>
+    </div>
+    <div style="font-size:14px; font-weight:800; color:var(--muted); margin:18px 0 10px">단계 인상 프로모션 (프리미엄 기준)</div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr); height:auto">
+      <div class="card line" style="padding:14px 24px; display:flex; justify-content:space-between; align-items:center"><div><b style="font-size:16.5px">1개월째</b><div class="dim" style="font-size:14px">첫 달 무료로 효과 확인</div></div><div class="big" style="font-size:27px">0원</div></div>
+      <div class="card line" style="padding:14px 24px; display:flex; justify-content:space-between; align-items:center"><div><b style="font-size:16.5px">2~3개월째</b><div class="dim" style="font-size:14px">50% 할인</div></div><div class="big" style="font-size:27px">9,900원</div></div>
+      <div class="card line" style="padding:14px 24px; display:flex; justify-content:space-between; align-items:center"><div><b style="font-size:16.5px">4개월째부터</b><div class="dim" style="font-size:14px">정가 · 매번 신청 후 연장</div></div><div class="big" style="font-size:27px">19,800원</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>11 / 17</span></div>
+</section>
+
+<!-- 12 손익분기 -->
+<section class="slide">
+  <div class="sec">BREAK-EVEN</div>
+  <h1>유료 업장 약 17곳이면 월 운영비를 충당합니다</h1>
+  <p class="lead">1라운드 심사 의견 '개발 비용 대비 최소 매출액 계산'에 답하려고 관리자 화면에 계산기를 만들었습니다.</p>
+  <div class="body" style="display:grid; grid-template-columns:440px 1fr; gap:22px">
+    <div class="card" style="padding:24px 28px">
+      <div class="ct">월 운영비 <span style="font-size:17px; color:var(--muted)">대표 인건비 제외</span></div>
+      <table style="width:100%; margin-top:14px; font-size:16.5px; border-collapse:collapse">
+        <tr><td style="padding:10px 0">서버 (Vercel Pro)</td><td style="text-align:right">28,000원</td></tr>
+        <tr><td style="padding:10px 0">DB·저장소 (Supabase Pro)</td><td style="text-align:right">35,000원</td></tr>
+        <tr><td style="padding:10px 0">AI 사용료</td><td style="text-align:right">30,000원</td></tr>
+        <tr><td style="padding:10px 0">도메인</td><td style="text-align:right">2,000원</td></tr>
+        <tr><td style="padding:10px 0">마케팅 (블로그·SNS)</td><td style="text-align:right">300,000원</td></tr>
+        <tr><td style="padding:10px 0">기타 (문자·알림·세무)</td><td style="text-align:right">50,000원</td></tr>
+      </table>
+      <div style="border-top:1.5px solid var(--line); margin-top:14px; padding-top:12px; display:flex; justify-content:space-between; align-items:baseline">
+        <b style="font-size:18px">합계</b><span class="big" style="font-size:30px">약 445,000원</span></div>
+    </div>
+    <div>
+      <div class="card brand" style="padding:20px 28px">
+        <div class="hd" style="font-size:24px">업장당 평균 월 매출 27,280원</div>
+        <div style="font-size:15.5px; color:#F6EBDD; margin-top:6px; line-height:1.6">요금제 비율 프리미엄 60% · 스토어 30% · 동네 대표 10% 가정<br>결제 수수료 3.3% 차감 시 실수령 약 26,380원 → 445,000 ÷ 26,380 ≈ <b style="color:#fff">17곳</b></div>
+      </div>
+      <table class="t" style="margin-top:14px">
+        <tr><th>유료 업장 수</th><th class="r">월 매출</th><th class="r">월 이익</th></tr>
+        <tr><td class="k">17곳 (손익분기)</td><td class="r">463,760원</td><td class="r k">+3,456원</td></tr>
+        <tr><td class="k">30곳</td><td class="r">818,400원</td><td class="r good">+346,393원</td></tr>
+        <tr><td class="k">50곳</td><td class="r">1,364,000원</td><td class="r good">+873,988원</td></tr>
+        <tr><td class="k">100곳</td><td class="r">2,728,000원</td><td class="r good">+2,192,976원</td></tr>
+      </table>
+      <div class="dim" style="font-size:13.5px; margin-top:8px">월 이익 = 수수료 차감 매출 − 운영비 · 부가세 제외 시 약 19곳 · 모두 추정치</div>
+    </div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>12 / 17</span></div>
+</section>
+
+<!-- 13 차별점 -->
+<section class="slide">
+  <div class="sec">DIFFERENTIATION</div>
+  <h1>차별점과 강점</h1>
+  <p class="lead">범용 지도·숙박 앱이 다루지 않는 '동반 조건'과 '동네 일상'에 집중합니다.</p>
+  <div class="body">
+    <table class="t">
+      <tr><th style="width:340px">비교 항목</th><th>포털 지도</th><th>숙박 앱</th><th style="background:var(--soft)">같이가개</th></tr>
+      <tr><td class="k">동반 조건 (대형견·실내 범위·추가 요금)</td><td class="dim">거의 없음</td><td class="dim">숙소만</td><td class="good">장소·객실마다 정리</td></tr>
+      <tr><td class="k">동네 일상 (카페·식당·공원)</td><td class="dim">동반 여부 불명확</td><td class="dim">없음</td><td class="good">공공데이터 3.3만 곳</td></tr>
+      <tr><td class="k">정보 최신성</td><td class="dim">가게가 직접 관리</td><td class="dim">숙소가 직접 관리</td><td class="good">방문자·사장님·공공데이터 3중 확인</td></tr>
+      <tr><td class="k">사장님 광고 단위</td><td class="dim">넓은 지역 키워드</td><td class="dim">수수료 중심</td><td class="good">시·군·구 단위 월정액, 수수료 없음</td></tr>
+    </table>
+    <div class="grid g4" style="height:198px; margin-top:20px">
+      <div class="card soft"><div class="ct">콜드스타트 해결</div><div class="cd" style="color:var(--ink); font-size:15px">첫날부터 전국 지도가 채워져<br>이용자와 사장님을<br>동시에 모을 필요가 없음</div></div>
+      <div class="card soft"><div class="ct">낮은 고정비</div><div class="cd" style="color:var(--ink); font-size:15px">운영 자동화 + 1인 개발로<br>월 운영비 약 44.5만 원<br>→ 손익분기가 낮음</div></div>
+      <div class="card soft"><div class="ct">신뢰 장치</div><div class="cd" style="color:var(--ink); font-size:15px">국세청 기반 사장님 배지와<br>정보 확인 표시로<br>'믿을 수 있는 정보'</div></div>
+      <div class="card soft"><div class="ct">측정 인프라</div><div class="cd" style="color:var(--ink); font-size:15px">노출·클릭·길찾기·유입 경로를<br>이미 기록 중<br>→ 광고 효과를 증명</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>13 / 17</span></div>
+</section>
+
+<!-- 14 추가 중 -->
+<section class="slide">
+  <div class="sec">IN PROGRESS</div>
+  <h1>현재 추가하고 있는 기능과 수익 연결</h1>
+  <p class="lead">1라운드 심사 의견을 보완하고, 숙소 분야로 수익원을 넓히기 위해 개발 중입니다.</p>
+  <div class="body"><div class="grid g2">
+    <div class="card"><span class="badge b-b tr">수익원 확장</span><div class="ct">반려동물 동반 숙소</div>
+      <div class="cd">사장님을 '가게 / 숙소'로 구분합니다. 숙소는 객실,<br>동반 규정(종·크기·몸무게·마릿수·추가 요금),<br>예약 달력, 예약 요청 확정을 관리합니다.</div>
+      <div class="eff"><b>수익 연결</b>숙소 요금제 → 결제 연동 후 예약 수수료</div></div>
+    <div class="card"><span class="badge b-o tr">심사 의견 ①</span><div class="ct">장소 정보 확인</div>
+      <div class="cd">'정보가 맞아요 / 달라졌어요' 방문자 확인과<br>사장님 확인으로 마지막 확인일을 표시합니다.</div>
+      <div class="eff"><b>수익 연결</b>사장님 확인 배지 → 무료 인증 → 유료 전환</div></div>
+    <div class="card"><span class="badge b-o tr">심사 의견 ②</span><div class="ct">유입 경로 분석</div>
+      <div class="cd">블로그·인스타그램·당근·전단 QR 등 채널별<br>홍보 링크로 방문·가입·재방문을 측정합니다.<br>(처음 들어온 채널을 90일 기억)</div>
+      <div class="eff"><b>수익 연결</b>마케팅비를 효과 있는 채널에 집중</div></div>
+    <div class="card"><span class="badge b-o tr">심사 의견 ③</span><div class="ct">손익분기 · 해지 방어</div>
+      <div class="cd">운영비·요금제 비율로 필요한 업장 수를 계산합니다.<br>해지 시 1회 '시크릿 프라이스'(다음 30일 30% 할인)를<br>제안하고 해지 사유를 모읍니다.</div>
+      <div class="eff"><b>수익 연결</b>유료 업장 유지율 관리</div></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>14 / 17</span></div>
+</section>
+
+<!-- 15 로드맵 -->
+<section class="slide">
+  <div class="sec">ROADMAP</div>
+  <h1>진행 현황과 다음 단계</h1>
+  <p class="lead">정식 홍보 전 단계로, 실사용 지표는 유입 경로 분석을 갖춘 뒤 홍보와 함께 측정합니다.</p>
+  <div class="body"><div class="grid g3">
+    <div class="card" style="padding:0"><div class="ct" style="background:var(--green-soft); color:var(--green); padding:14px 26px">완료</div>
+      <ul class="b" style="padding:20px 26px"><li>서비스 배포 (https, 2026.10.04)</li><li>약관·개인정보 처리방침 게시</li><li>국세청 사업자 API 활용 승인</li><li>사장님 자동 인증·통계·답글</li><li>상품·예약 포장·동네 배너</li><li>안드로이드 앱 빌드·서명</li></ul></div>
+    <div class="card" style="padding:0"><div class="ct" style="background:var(--soft); color:var(--accent); padding:14px 26px">진행 중</div>
+      <ul class="b" style="padding:20px 26px"><li>숙소 입점·객실·예약 달력</li><li>장소 정보 확인 (최신성)</li><li>유입 경로 분석·손익분기 계산</li><li>해지 방어 (시크릿 프라이스)</li><li>사업계획서 (12.01 13시 마감)</li></ul></div>
+    <div class="card" style="padding:0"><div class="ct" style="background:var(--blue-soft); color:var(--blue); padding:14px 26px">사업비로 진행 예정</div>
+      <ul class="b" style="padding:20px 26px"><li>사업자등록 (개인사업자 검토)</li><li>상표 출원·정식 서비스명 확정</li><li>도메인·운영 DB 분리·유료 플랜</li><li>위치기반서비스사업 신고</li><li>통신판매(중개)업 신고·PG 연동</li><li>첫 유료 사장님 확보 (지역 집중)</li></ul></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>15 / 17</span></div>
+</section>
+
+<!-- 16 멘토링 -->
+<section class="slide">
+  <div class="sec">MENTORING</div>
+  <h1>멘토링으로 받고 싶은 도움</h1>
+  <p class="lead">멘토링 시간을 효율적으로 쓰실 수 있도록 분야별 질문을 미리 정리했습니다.</p>
+  <div class="body"><div class="grid g2">
+    <div class="card soft"><div class="row"><span class="num">1</span><span class="ct">디자인</span></div>
+      <ul class="b" style="margin-top:16px"><li>가칭과 로고를 확정할 때의 기준 (상표 등록·검색 노출)</li><li>모바일 지도 화면이 처음 쓰는 사람에게 직관적인지</li><li>사장님 화면이 결제를 결심할 만큼 신뢰감 있는지</li></ul></div>
+    <div class="card"><div class="row"><span class="num">2</span><span class="ct">수익화 구체화 · 빌드 조언</span></div>
+      <ul class="b" style="margin-top:16px"><li>월 19,800~55,000원 가격대와 단계 프로모션의 적절성</li><li>트래픽이 적은 초기에 첫 유료 사장님 10곳 확보 방법</li><li>개발을 멈추고 영업·검증에 집중할 시점의 기준</li></ul></div>
+    <div class="card"><div class="row"><span class="num">3</span><span class="ct">사업화 절차</span></div>
+      <ul class="b" style="margin-top:16px"><li>개인사업자로 시작해도 되는지, 업종 코드는 무엇인지</li><li>예약·숙소 예약이 통신판매중개업 대상이 되는 시점</li><li>위치기반서비스 신고·PG 정기결제·상표 출원의 순서</li></ul></div>
+    <div class="card soft"><div class="row"><span class="num">4</span><span class="ct">추가 기능의 현실적 수익성</span></div>
+      <ul class="b" style="margin-top:16px"><li>숙소·쇼핑·배너·해지 방어 중 초기 매출 가능성 1순위</li><li>기존 숙박 플랫폼과 차별화할 수 있는 지점</li><li>트래픽이 적을 때 제휴 쇼핑 수수료가 의미 있는지</li></ul></div>
+  </div></div>
+  <div class="foot"><span>같이가개 · 모두의 창업 멘토링 사전 자료</span><span>16 / 17</span></div>
+</section>
+
+<!-- 17 마무리 -->
+<section class="slide" style="background:var(--brand); text-align:center; color:#fff; padding-top:140px">
+  <img src="../../src/app/icon.png" style="width:110px; height:110px; border-radius:24px">
+  <div class="hd" style="font-size:53px; margin-top:24px">감사합니다</div>
+  <div style="font-size:19px; color:#F3E7D8; margin-top:10px">멘토님의 조언을 사업계획서와 정식 출시에 반영하겠습니다.</div>
+  <a href="https://gachigagae.vercel.app" style="display:inline-block; margin-top:40px; background:#fff; color:var(--brand); border-radius:99px; padding:14px 56px; font-family:'GmarketSans'; font-weight:700; font-size:24px; text-decoration:none">gachigagae.vercel.app</a>
+  <div style="font-size:15px; color:#F3E7D8; margin-top:20px">자세한 내용은 함께 보내 드린 제안서(PDF)에 정리했습니다.</div>
+</section>
+
+</body>
+</html>

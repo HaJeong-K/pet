@@ -12,6 +12,8 @@ import { ownerKindOf } from "@/lib/ownerKind";
 import type { LodgingProfile, RoomInput } from "@/lib/lodgingRules";
 
 export const PROFILE_COLUMNS = "place_id, check_in, check_out, pet_species, pet_sizes, max_pet_weight_kg, max_pets, pet_fee, pet_fee_note, pet_amenities, pet_rules, stay_rules, refund_policy, updated_at";
+/** 4단계 칸(scripts/sql/lodging-settlement.sql) — 없으면 기본값으로 채웁니다 */
+export const PROFILE_EXTRA_COLUMNS = "peak_periods, instant_confirm";
 export const ROOM_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
 
 export type ProfileRow = LodgingProfile & { place_id: number; updated_at: string };
@@ -29,27 +31,35 @@ export async function lodgingOwnerContext(req: NextRequest): Promise<OwnerContex
   return ctx;
 }
 
-/** 숙소 정보와 객실 목록(사장님이 정한 순서). onlyActive면 판매 중인 객실만. */
+/** 숙소 정보와 객실 목록(사장님이 정한 순서). onlyActive면 판매 중인 객실만 — 손님용이라 입점 승인 전 숙소는 객실을 숨깁니다. */
 export async function getLodging(placeId: number, onlyActive: boolean): Promise<{ ready: boolean; profile: ProfileRow | null; rooms: RoomRow[] }> {
   let roomQuery = db.from("lodging_rooms").select(ROOM_COLUMNS).eq("place_id", placeId).order("sort_order").order("id");
   if (onlyActive) roomQuery = roomQuery.eq("is_active", true);
-  const [profile, rooms] = await Promise.all([
-    db.from("lodging_profiles").select(PROFILE_COLUMNS).eq("place_id", placeId).maybeSingle(),
-    roomQuery,
-  ]);
+  const profileOf = (columns: string) => db.from("lodging_profiles").select(columns).eq("place_id", placeId).maybeSingle<Record<string, any>>();
+  let [profile, rooms] = await Promise.all([profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}`), roomQuery]);
+  if (isMissingSchema(profile.error)) profile = await profileOf(PROFILE_COLUMNS);
   if (isMissingSchema(profile.error) || isMissingSchema(rooms.error)) return { ready: false, profile: null, rooms: [] };
   if (profile.error) throw new Error(profile.error.message);
   if (rooms.error) throw new Error(rooms.error.message);
   return {
     ready: true,
-    profile: profile.data ? { ...(profile.data as unknown as ProfileRow), max_pet_weight_kg: profile.data.max_pet_weight_kg == null ? null : Number(profile.data.max_pet_weight_kg) } : null,
-    rooms: (rooms.data ?? []) as unknown as RoomRow[],
+    profile: profile.data ? {
+      ...(profile.data as unknown as ProfileRow),
+      // 성수기·즉시 확정 칸이 아직 없으면(SQL 실행 전) 기본값
+      peak_periods: Array.isArray(profile.data.peak_periods) ? profile.data.peak_periods : [],
+      instant_confirm: profile.data.instant_confirm === true,
+      max_pet_weight_kg: profile.data.max_pet_weight_kg == null ? null : Number(profile.data.max_pet_weight_kg),
+    } : null,
+    rooms: onlyActive && !(await partnerOf(placeId)).open ? [] : (rooms.data ?? []) as unknown as RoomRow[],
   };
 }
 
 // ── 3단계: 예약 달력 · 숙박 예약 (scripts/sql/lodging-bookings.sql) ──
 
 export const BOOKING_COLUMNS = "id, place_id, room_id, room_name, guest_name, guest_phone, check_in, check_out, nights, guests, pets, price_detail, total, payment, memo, status, owner_note, decided_at, created_at, updated_at";
+/** 4단계 칸(scripts/sql/lodging-settlement.sql) — 결제·취소 환불·이용 확정·문제 접수·정산 */
+export const SETTLEMENT_COLUMNS = "booked_on, payment_status, paid_at, cancel_cause, cancelled_at, refund_amount, penalty_amount, compensation_amount, stay_confirmed_at, stay_confirmed_by, issue_status, issue_kind, issue_detail, issue_opened_at, issue_owner_reply, issue_resolution, fee_rate, fee_amount, payout_amount, payout_due_on, payout_status, paid_out_at";
+export const BOOKING_FULL_COLUMNS = `${BOOKING_COLUMNS}, ${SETTLEMENT_COLUMNS}`;
 
 /** 그 객실의 바꾼 날(막은 날·날짜별 요금) — from 이상 to 미만 */
 export async function roomDays(roomId: number, from: string, to: string): Promise<{ day: string; closed: boolean; price: number | null }[]> {
@@ -65,4 +75,23 @@ export async function confirmedOverlaps(roomId: number, checkIn: string, checkOu
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as { id: number; check_in: string; check_out: string }[];
+}
+
+// ── 입점 상태 (scripts/sql/lodging-partners.sql) ──
+
+/**
+ * 그 숙소의 입점 상태. 입점 승인된 숙소만 손님에게 예약이 열립니다.
+ * 입점 표가 아직 없으면(SQL 실행 전) 예전처럼 모두 열어 둡니다(open: true, partnerSince: null).
+ */
+export async function partnerOf(placeId: number): Promise<{ open: boolean; partnerSince: string | null }> {
+  const { data, error } = await db.from("lodging_partners").select("partner_since").eq("linked_place_id", placeId).eq("status", "approved").maybeSingle();
+  if (error) return isMissingSchema(error) ? { open: true, partnerSince: null } : { open: false, partnerSince: null };
+  return { open: !!data, partnerSince: (data?.partner_since as string | null) ?? null };
+}
+/** 여러 숙소 중 입점 승인된 곳(표가 없으면 null = 모두 허용) */
+export async function approvedPartnerIds(placeIds: number[]): Promise<Set<number> | null> {
+  if (placeIds.length === 0) return new Set();
+  const { data, error } = await db.from("lodging_partners").select("linked_place_id").in("linked_place_id", placeIds).eq("status", "approved");
+  if (error) return isMissingSchema(error) ? null : new Set();
+  return new Set((data ?? []).map((r) => Number(r.linked_place_id)));
 }

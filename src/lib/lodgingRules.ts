@@ -7,6 +7,8 @@
 // 숙소에서 가장 중요한 것은 "우리 아이가 들어갈 수 있는지"입니다 — 동반 조건(종·크기·몸무게·마릿수·추가 요금)이
 // 틀리면 현장에서 입실을 거부당하므로, 손님 화면(이후 단계)에서는 이 값을 그대로 크게 보여 줍니다.
 
+import type { PeakPeriod } from "@/lib/lodgingPolicy";
+
 // ── 동반 조건 ──
 
 export type PetSpecies = "dog" | "cat";
@@ -77,12 +79,33 @@ export type LodgingProfile = {
   stay_rules: string | null;
   /** 취소·환불 규정 — 온라인 결제 단계에서는 소비자분쟁해결기준에 맞춰 다시 확인합니다 */
   refund_policy: string | null;
+  /** 성수기 기간(비우면 소비자분쟁해결기준의 기본값 — 여름 7/15~8/24, 겨울 12/20~2/20). 취소 공제율 판단에 씁니다 */
+  peak_periods: PeakPeriod[];
+  /** 즉시 확정 — 켜면 손님 결제와 함께 예약이 바로 확정됩니다(계약서 제8조 제3항) */
+  instant_confirm: boolean;
 };
+export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
   check_in: null, check_out: null, pet_species: ["dog"], pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
   pet_fee: null, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
+  peak_periods: [], instant_confirm: false,
 };
+
+const MONTH_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12]d|3[01])$/;
+/** 성수기 기간 다듬기 — "MM-DD" 두 개씩, 최대 6구간. 틀린 칸이 있으면 "bad" */
+function cleanPeakPeriods(value: unknown): PeakPeriod[] | "bad" {
+  if (!Array.isArray(value)) return [];
+  const out: PeakPeriod[] = [];
+  for (const p of value as Record<string, unknown>[]) {
+    const from = typeof p?.from === "string" ? p.from.trim() : "";
+    const to = typeof p?.to === "string" ? p.to.trim() : "";
+    if (!from && !to) continue;
+    if (!MONTH_DAY.test(from) || !MONTH_DAY.test(to)) return "bad";
+    out.push({ from, to });
+  }
+  return out.length > PEAK_PERIODS_MAX ? "bad" : out;
+}
 
 const text = (value: unknown, max: number) => (typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null);
 const pickList = <T extends string>(value: unknown, allowed: readonly T[]): T[] =>
@@ -112,7 +135,7 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   const checkOut = cleanTime(r.check_out);
   if (checkIn === "bad" || checkOut === "bad") return { error: "체크인·체크아웃 시각을 다시 확인해 주세요. (예: 15:00)" };
   const species = pickList(r.pet_species, PET_SPECIES.map((s) => s.id));
-  if (species.length === 0) return { error: "함께 묵을 수 있는 반려동물을 하나 이상 골라 주세요." };
+  if (species.length === 0) return { error: "동반 가능한 반려동물을 하나 이상 골라 주세요." };
   const sizes = pickList(r.pet_sizes, PET_SIZES.map((s) => s.id));
   if (species.includes("dog") && sizes.length === 0) return { error: "받을 수 있는 강아지 크기를 하나 이상 골라 주세요." };
   const weight = number(r.max_pet_weight_kg, 0.5, PET_WEIGHT_MAX, 1);
@@ -121,6 +144,8 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   if (maxPets === "bad") return { error: `최대 마릿수는 1~${ROOM_PETS_MAX}마리 사이로 적어 주세요.` };
   const fee = number(r.pet_fee, 0, PET_FEE_MAX);
   if (fee === "bad") return { error: "반려동물 추가 요금을 다시 확인해 주세요." };
+  const peak = cleanPeakPeriods(r.peak_periods);
+  if (peak === "bad") return { error: `성수기 기간을 다시 확인해 주세요(예: 07-15 ~ 08-24, 최대 ${PEAK_PERIODS_MAX}구간).` };
   return {
     profile: {
       check_in: checkIn, check_out: checkOut,
@@ -133,6 +158,8 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
       pet_rules: text(r.pet_rules, LODGING_TEXT_MAX),
       stay_rules: text(r.stay_rules, LODGING_TEXT_MAX),
       refund_policy: text(r.refund_policy, LODGING_TEXT_MAX),
+      peak_periods: peak,
+      instant_confirm: r.instant_confirm === true,
     },
   };
 }

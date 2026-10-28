@@ -3,9 +3,12 @@
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
+import MyStaysCard from "@/components/lodging/MyStaysCard";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
 import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
+import { isMyRoute } from "@/lib/myRoutes";
+import MyRouteCard from "@/components/MyRouteCard";
 import { openKakaoWalk, openNaverWalk } from "@/lib/directions";
 import { MYPAGE_GUIDE_KEY, MYPAGE_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useEffect, useState } from "react";
@@ -77,6 +80,12 @@ export default function MyPage() {
   const [bookmarks, setBookmarks]       = useState<any[]>([]);
   const [myReviews, setMyReviews]       = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState<"bookmarks"|"courses"|"posts"|"reviews">("bookmarks");
+  // 장소 상세의 "내 경로에 추가"에서 "마이페이지에서 보기"로 오면(/mypage#routes) 코스·내 경로 칸을 엽니다
+  useEffect(() => {
+    if (window.location.hash !== "#routes") return;
+    const timer = window.setTimeout(() => setActiveSection("courses"), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [myCourses, setMyCourses]       = useState<SavedCourse[]>([]); // 저장한 AI 코스
   const [myPosts, setMyPosts]           = useState<any[]>([]); // 커뮤니티에 내가 쓴 글
   const [loading, setLoading]           = useState(true);
@@ -778,7 +787,7 @@ export default function MyPage() {
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: activeSection === "courses" ? "rgba(255,255,255,0.85)" : "#999" }}>
-                  저장한 코스
+                  코스·내 경로
                 </div>
                 <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "courses" ? "white" : "#333", lineHeight: 1 }}>
                   {myCourses.length}
@@ -861,6 +870,8 @@ export default function MyPage() {
 						<div style={{ margin: "0 -16px" }}>
 							<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} />
 						</div>
+						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
+						<MyStaysCard />
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>
@@ -1011,10 +1022,10 @@ export default function MyPage() {
                       <PetIllustration variant="empty" width={40} />
                     </div>
                     <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
-                      아직 저장한 코스가 없어요
+                      아직 저장한 코스·경로가 없어요
                     </div>
                     <div style={{ fontSize: 12, color: "#b6bcc6", marginTop: 6, lineHeight: 1.6 }}>
-                      지도의 AI 코스에서 마음에 드는 코스를<br />"이 코스 저장"으로 담아 보세요.
+                      지도의 AI 코스에서 "이 코스 저장"을 누르거나,<br />장소 상세의 "내 경로에 추가"로 나만의 여행 경로를 만들어 보세요.
                     </div>
                     <button
                       onClick={() => router.push("/")}
@@ -1025,6 +1036,8 @@ export default function MyPage() {
                   </div>
                 ) : (
                   myCourses.map((course) => {
+                    // 내가 직접 만든 경로 — 순서 바꾸기·빼기·이름 바꾸기
+                    if (isMyRoute(course)) return <MyRouteCard key={course.id} route={course} onDelete={handleDeleteCourse} />;
                     const points = course.stops.map((st) => ({ lat: st.lat, lng: st.lng, name: st.name }));
                     return (
                       <div

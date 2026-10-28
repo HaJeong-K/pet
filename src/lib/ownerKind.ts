@@ -41,7 +41,7 @@ export const OWNER_KINDS: OwnerKindInfo[] = [
   {
     id: "lodging",
     label: "숙소",
-    description: "펜션·호텔·리조트·캠핑장·글램핑 등\n반려동물과 함께 묵을 수 있는 숙박 시설",
+    description: "펜션·호텔·리조트·캠핑장·글램핑 등\n반려동물 동반이 가능한 숙박 시설",
     nameLabel: "숙소명",
     phoneLabel: "숙소 연락처",
     placeWord: "숙소",

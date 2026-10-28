@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { isLodgingCategory } from "@/lib/ownerKind";
 import { buildNearestGrid } from "@/lib/nearestGrid";
 import LogoLoader from "@/components/LogoLoader";
 import { parseSearchIntent, describeIntent, looksLikeRegion, looksLikeLandmark, nameMatchesQuery, SIDO } from "@/lib/searchIntent";
@@ -136,8 +137,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   "동물약국": "💊",
 };
 
+// 숙소(펜션·호텔·캠핑 등)는 침대 마커 — 분류 이름이 여러 가지라 isLodgingCategory로 판단합니다
+const LODGING_EMOJI = "🛏️";
 const getPlaceEmoji = (place: any) =>
-  CATEGORY_EMOJI[place?.category] || PET_ZONE_EMOJI[place?.pet_zone] || null;
+  CATEGORY_EMOJI[place?.category] || (isLodgingCategory(place?.category) ? LODGING_EMOJI : null) || PET_ZONE_EMOJI[place?.pet_zone] || null;
 
 // ── AI 맞춤 추천 경로 테마 탭 아이콘
 // ⚠ 카페 중심/비 오는 날 테마는 제거했습니다(요청) — 남은 테마는 산책 중심/관광 중심/
@@ -210,8 +213,9 @@ const readRouteMedicalPref = (): { vet: boolean; pharmacy: boolean } => {
   }
 };
 
+// 숙소는 원래 분류 이름(펜션·호텔·게스트하우스 등)을 그대로 보여 줍니다 — "숙소"는 마커·필터용 큰 묶음일 뿐입니다
 const getPlaceLabel = (place: any) =>
-  CATEGORY_EMOJI[place?.category]
+  CATEGORY_EMOJI[place?.category] || isLodgingCategory(place?.category)
     ? place.category
     : getPetZoneLabel(place?.pet_zone);
 
@@ -1151,6 +1155,8 @@ export default function KakaoMap() {
       return places.filter((p) => p.category === "동물병원");
     } else if (selectedPetZone === "pharmacy") {
       return places.filter((p) => p.category === "동물약국");
+    } else if (selectedPetZone === "lodging") {
+      return places.filter((p) => isLodgingCategory(p.category));
     } else if (selectedPetZone !== "all") {
       // ⚠ 동물병원·동물약국은 문화정보원 원본 CSV의 "실내/실외 여부" 컬럼값을 그대로
       // 받아 pet_zone이 채워져 있어서(예: 동물약국이 indoor로 표기), "실내 가능"
@@ -2022,7 +2028,7 @@ export default function KakaoMap() {
     };
     const matchesFilterOf = (place: any) =>
       selectedPetZone !== "all" &&
-      (place.pet_zone === selectedPetZone || (!!filterCategory && place.category === filterCategory));
+      (place.pet_zone === selectedPetZone || (!!filterCategory && place.category === filterCategory) || (selectedPetZone === "lodging" && isLodgingCategory(place.category)));
 
     // ── v1(기존 규칙): A/B 비교·롤백용으로 그대로 유지 ──
     if (activeRecVariant === "v1") {
@@ -3851,7 +3857,7 @@ const courseMeta = (route: RouteResult) => ({
               >
                 {([
                   ["all", "전체"], ["indoor", "🏠 실내 가능"], ["terrace", "🌿 야외 가능"], ["both", "🏡 실내외 모두"],
-                  ["vet", "🏥 동물병원"], ["pharmacy", "💊 동물약국"],
+                  ["lodging", "🛏️ 숙소"], ["vet", "🏥 동물병원"], ["pharmacy", "💊 동물약국"],
                 ] as const).map(([key, label]) => (
                   <button key={key} onClick={() => setSelectedPetZone(key)} style={{ ...getButtonStyle(key), ...MOBILE_CHIP_STYLE }}>
                     {label}
@@ -3947,6 +3953,7 @@ const courseMeta = (route: RouteResult) => ({
               <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
               <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
               <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
+              <button onClick={() => setSelectedPetZone("lodging")} style={getButtonStyle("lodging")}>🛏️ 숙소</button>
               <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
               <button onClick={() => setSelectedPetZone("pharmacy")} style={getButtonStyle("pharmacy")}>💊 동물약국</button>
               {/* ⚠ 공원 버튼 자체가 눌림/안눌림 상태를 통째로 표현합니다(다른 필터 버튼과

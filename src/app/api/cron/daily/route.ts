@@ -14,6 +14,7 @@ import { syncCultureFile, syncFoodFile } from "@/lib/server/fileDataSync";
 import { cleanupShelterThumbs } from "@/lib/server/shelterThumbs";
 import { checkTourList, recordMapCounts, type TourListCheck } from "@/lib/server/cronState";
 import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest";
+import { runLodgingDaily } from "@/lib/server/lodgingMoney";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
 // vercel.json의 crons가 매일 UTC 18:00(한국 시간 새벽 3시)에 부릅니다.
@@ -21,6 +22,7 @@ import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest"
 //   2) 공원 데이터 동기화(전국도시공원정보표준데이터) — 매주 일요일(자주 안 바뀌는 데이터)
 //   2-1) 폐업 자동 점검(국세청 영업 상태 조회, 인증된 사장님 업장) — 매주 월요일
 //   2-2) 장소 데이터 품질 점검(좌표·중복·깨진 사진·정보 부족) — 매주 화요일
+//   2-2-1) 숙박 예약 — 체크아웃 3일 지난 예약 자동 이용 확정, 24시간 안에 확정되지 않은 예약 요청 자동 취소(src/lib/server/lodgingMoney.ts) — 매일
 //   2-3) 유기동물 공고 지역 알림 — 매일(구독자가 있는 지역의 새 공고를 브라우저 알림으로 발송)
 //   3) 오래된 오류 기록 정리 — 매일(90일 지난 것 삭제, DB 용량 관리)
 //   4) 아침 요약 — 처리 대기 중인 사장님 신청·제보·신고·프리미엄 신청, 최근 24시간 오류 수
@@ -30,7 +32,7 @@ import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest"
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | food-file | culture-file | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | food-file | culture-file | lodging | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
 // tour-details는 ?ms=240000 처럼 받을 시간을 늘려 수동으로 여러 번 돌려 빨리 채울 수도 있습니다.
 
 export const maxDuration = 300;
@@ -134,6 +136,7 @@ export async function GET(req: NextRequest) {
       ? await runJob(() => syncCultureFile(req.nextUrl.searchParams.get("force") === "1"))
       : { ok: true, ms: 0, skipped: "매달 1일에만 실행" };
   }
+  if (want("lodging")) results.lodging = await runJob(() => runLodgingDaily());
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
   // 오래된 오류 기록과, 줄여 둔 공고 사진 가운데 30일 지난 것을 지웁니다.
   if (want("cleanup")) results.cleanup = await runJob(async () => ({ ...(await cleanupOldErrors()), thumbs: await cleanupShelterThumbs() }));

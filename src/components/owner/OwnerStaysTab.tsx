@@ -13,16 +13,23 @@ import { CalendarDays, ChevronLeft, ChevronRight, Phone, PawPrint } from "lucide
 import LogoLoader from "@/components/LogoLoader";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { PET_SIZES, PET_SPECIES } from "@/lib/lodgingRules";
 import {
-  addDays, isOpenStay, kstToday, nightPrice, ownerNextStays, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
+  addDays, isOpenStay, kstToday, nightPrice, ownerNextStays, petLabel, stayDayLabel, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
 } from "@/lib/lodgingBooking";
+import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
 
 type Booking = {
   id: number; room_id: number; room_name: string; guest_name: string; guest_phone: string; check_in: string; check_out: string; nights: number; guests: number;
   pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number };
   total: number; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
+  // 정산 칸(scripts/sql/lodging-settlement.sql) — 없으면 비어 있음
+  payment_status?: string; cancel_cause?: CancelCause | null; refund_amount?: number; penalty_amount?: number; compensation_amount?: number | null;
+  stay_confirmed_at?: string | null; stay_confirmed_by?: string | null;
+  issue_status?: string; issue_kind?: string | null; issue_detail?: string | null; issue_owner_reply?: string | null; issue_resolution?: string | null;
+  fee_rate?: number | null; fee_amount?: number | null; payout_amount?: number | null; payout_due_on?: string | null; payout_status?: string; paid_out_at?: string | null;
 };
+const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실을 거부당했어요", different_room: "예약한 객실·시설과 달라요", pet_condition: "반려동물 동반 조건이 안내와 달라요", facility: "시설·위생 문제", other: "기타" };
+const PAYOUT_LABEL: Record<string, string> = { scheduled: "정산 예정", held: "정산 보류(문제 확인 중)", paid: "정산 완료" };
 type Room = { id: number; name: string; base_price: number; weekend_price: number | null; is_active: boolean };
 type CalBooking = { id: number; guest_name: string; check_in: string; check_out: string; status: StayStatus };
 
@@ -35,17 +42,12 @@ const actionButton = (kind: "primary" | "plain" | "danger", disabled = false): R
   background: disabled ? "#d6d3c9" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
-const dayLabel = (day: string) => `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEK[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
+const dayLabel = stayDayLabel;
 const shortWon = (n: number) => (n >= 10000 && n % 1000 === 0 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
-const petText = (p: StayPet) => [
-  PET_SPECIES.find((s) => s.id === p.species)?.label,
-  p.size ? PET_SIZES.find((s) => s.id === p.size)?.label : null,
-  p.weight != null ? `${p.weight}kg` : null,
-  p.name ? `'${p.name}'` : null,
-].filter(Boolean).join(" ");
-const ACTION_LABEL: Partial<Record<StayStatus, string>> = { confirmed: "예약 확정", declined: "거절", completed: "이용 완료", no_show: "노쇼", cancelled_by_owner: "숙소 사정으로 취소" };
+const petText = petLabel;
+const ACTION_LABEL: Partial<Record<StayStatus, string>> = { confirmed: "예약 확정", declined: "거절", no_show: "노쇼 처리", cancelled_by_owner: "숙소 사정으로 취소" };
 
-type Filter = "waiting" | "upcoming" | "past" | "all";
+type Filter = "waiting" | "issues" | "upcoming" | "past" | "all";
 
 export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: { placeId: number; isPreview: boolean; canAct: boolean; onCount?: (n: number) => void }) {
   const [bookings, setBookings] = useState<Booking[] | null>(null);
@@ -54,6 +56,9 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("waiting");
   const [busy, setBusy] = useState(false);
+  const [settlementReady, setSettlementReady] = useState(true);
+  const [replyFor, setReplyFor] = useState<number | null>(null);
+  const [reply, setReply] = useState("");
 
   const call = useCallback(async (path: string, init: RequestInit = {}, extra = "") => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -70,8 +75,9 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
       const [b, l] = await Promise.all([call("/api/owner/lodging/bookings"), call("/api/owner/lodging")]);
       setReady(b.ready !== false);
       setBookings(b.bookings ?? []);
+      setSettlementReady(b.settlementReady !== false);
       setRooms(l.rooms ?? []);
-      const waiting = (b.bookings ?? []).filter((x: Booking) => x.status === "requested").length;
+      const waiting = (b.bookings ?? []).filter((x: Booking) => x.status === "requested" || (x.issue_status === "open" && !x.issue_owner_reply)).length;
       onCount?.(waiting);
       // 아래 탭바의 알림 숫자도 바로 맞춥니다(TabBar가 듣고 있음)
       window.dispatchEvent(new CustomEvent("ggk-owner-waiting", { detail: waiting }));
@@ -83,14 +89,23 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
   const change = async (b: Booking, status: StayStatus) => {
     if (busy) return;
     let ownerNote: string | null = null;
+    if (status === "cancelled_by_owner" && !window.confirm(`숙소 사정으로 취소하면\n손님에게 ${won(b.total)} 전액을 돌려드리고, 취소 시점에 따른 배상금이 다음 정산에서 빠져요(계약서 제14조).\n\n그래도 취소할까요?`)) return;
     if (status === "declined" || status === "cancelled_by_owner") {
       const reason = window.prompt(`${status === "declined" ? "거절" : "취소"} 이유를 손님에게 남겨 주세요(선택).\n예: 그 날짜는 이미 다른 예약이 있어요`, "");
       if (reason === null) return;
       ownerNote = reason;
-    } else if (status === "no_show" && !window.confirm(`${b.guest_name}님 예약을 노쇼로 처리할까요?`)) return;
+    } else if (status === "no_show" && !window.confirm(`${b.guest_name}님이 오지 않았나요?\n노쇼로 처리하면 당일 취소 기준으로 위약금을 정산해 드려요.`)) return;
     setBusy(true);
     try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, status, ownerNote }) }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "바꾸지 못했어요."); }
+    finally { setBusy(false); }
+  };
+
+  const sendReply = async (b: Booking) => {
+    if (busy || !reply.trim()) return;
+    setBusy(true);
+    try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, issueReply: reply }) }); setReplyFor(null); setReply(""); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "보내지 못했어요."); }
     finally { setBusy(false); }
   };
 
@@ -99,6 +114,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
     const list = bookings ?? [];
     return {
       waiting: list.filter((b) => b.status === "requested"),
+      issues: list.filter((b) => b.issue_status === "open"),
       upcoming: list.filter((b) => b.status === "confirmed" && b.check_out >= today).sort((a, b) => a.check_in.localeCompare(b.check_in)),
       past: list.filter((b) => !isOpenStay(b.status) || b.check_out < today),
       all: list,
@@ -121,19 +137,19 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
       <div style={card}>
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>숙박 예약</div>
         <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
-          손님이 날짜·인원·반려동물 정보를 보내면 여기서 확정하거나 거절해 주세요.<br />
-          결제는 숙소에서 직접 받아요. 금액은 올려 두신 요금으로 계산한 예상 금액이에요.
+          손님은 예약할 때 전액을 결제하고, 숙소는 24시간 안에 확정하거나 거절해요.<br />
+          손님이 이용 확정(또는 체크아웃 3일 뒤 자동 확정)하면 다음 영업일에 정산해 드려요.
         </div>
         {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
-          {([["waiting", "확인 대기"], ["upcoming", "다가오는 예약"], ["past", "지난·취소"], ["all", "전체"]] as [Filter, string][]).map(([key, text]) => (
+          {([["waiting", "확인 대기"], ["issues", "문제 접수"], ["upcoming", "다가오는 예약"], ["past", "지난·취소"], ["all", "전체"]] as [Filter, string][]).map(([key, text]) => (
             <button key={key} onClick={() => setFilter(key)} aria-pressed={filter === key} style={chip(filter === key)}>{text} {groups[key].length}</button>
           ))}
         </div>
         {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
 
         <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          {shown.length === 0 && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>{filter === "waiting" ? "확인을 기다리는 예약이 없어요." : "예약이 없어요."}</div>}
+          {shown.length === 0 && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>{filter === "waiting" ? "확인을 기다리는 예약이 없어요." : filter === "issues" ? "접수된 문제가 없어요." : "예약이 없어요."}</div>}
           {shown.map((b) => {
             const s = STAY_STATUS[b.status];
             const detail = b.price_detail ?? {};
@@ -157,13 +173,51 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   객실 {won(detail.roomTotal ?? b.total)}
                   {(detail.extraGuestTotal ?? 0) > 0 && ` + 인원 추가 ${won(detail.extraGuestTotal!)}`}
                   {(detail.petTotal ?? 0) > 0 && ` + 반려동물 ${won(detail.petTotal!)}`}
-                  <span style={{ marginLeft: 6, fontSize: 14, fontWeight: 800, color: "#B45309" }}>예상 {won(b.total)}</span>
-                  <span style={{ marginLeft: 4 }}>· 현장 결제</span>
+                  <span style={{ marginLeft: 6, fontSize: 14, fontWeight: 800, color: "#B45309" }}>{won(b.total)}</span>
+                  <span style={{ marginLeft: 4 }}>· {b.payment_status === "paid" ? "결제 완료" : b.payment_status === "refunded" ? "전액 환불" : b.payment_status === "partially_refunded" ? "일부 환불" : "결제 확인 전"}</span>
                 </div>
+                {b.cancel_cause && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#555" }}>
+                    {CANCEL_CAUSE_LABEL[b.cancel_cause]} · 손님 환불 {won(b.refund_amount ?? 0)}
+                    {(b.penalty_amount ?? 0) > 0 && ` · 위약금 ${won(b.penalty_amount!)}`}
+                    {b.compensation_amount == null && (b.cancel_cause === "owner" || b.cancel_cause === "owner_pet_refused") ? " · 배상금 확인 중" : (b.compensation_amount ?? 0) > 0 ? ` · 배상금 ${won(b.compensation_amount!)}` : ""}
+                  </div>
+                )}
+                {b.payout_amount != null && b.payout_amount !== 0 && (
+                  <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: b.payout_amount < 0 ? "#FEF2F2" : "#F0F7EC", fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
+                    {b.payout_amount > 0
+                      ? <>정산 {won(b.payout_amount)} <span style={{ color: "#888" }}>({b.fee_rate}% 수수료 {won(b.fee_amount ?? 0)} 제외)</span></>
+                      : <>다음 정산에서 {won(-b.payout_amount)} 차감(배상금)</>}
+                    {b.payout_status && b.payout_status !== "none" && <> · <b>{PAYOUT_LABEL[b.payout_status] ?? b.payout_status}</b>{b.payout_status === "scheduled" && b.payout_due_on ? ` ${dayLabel(b.payout_due_on)}` : ""}</>}
+                    {b.payout_status === "none" && b.payment_status === "unpaid" && <span style={{ color: "#999" }}> · 결제 확인 후 정산</span>}
+                  </div>
+                )}
+                {b.status === "confirmed" && settlementReady && today >= b.check_out && b.issue_status !== "open" && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>손님의 이용 확정을 기다리는 중 — {dayLabel(autoConfirmOn(b.check_out))}에 자동 확정돼요.</div>
+                )}
+                {b.issue_status && b.issue_status !== "none" && (
+                  <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: b.issue_status === "open" ? "#FFF7ED" : "#f8fafc", border: `1px solid ${b.issue_status === "open" ? "#FED7AA" : "#eee"}`, fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
+                    <b style={{ color: b.issue_status === "open" ? "#B45309" : "#555" }}>{b.issue_status === "open" ? "손님이 문제를 접수했어요" : "문제 처리 완료"}</b> · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}
+                    {b.issue_detail && <div style={{ marginTop: 3, whiteSpace: "pre-line" }}>{b.issue_detail}</div>}
+                    {b.issue_owner_reply && <div style={{ marginTop: 5, color: "#666" }}>내 의견: {b.issue_owner_reply}</div>}
+                    {b.issue_resolution && <div style={{ marginTop: 5, color: "#666" }}>같이가개 판단: {b.issue_resolution}</div>}
+                    {b.issue_status === "open" && !b.issue_owner_reply && canAct && (replyFor === b.id ? (
+                      <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                        <textarea value={reply} onChange={(e) => setReply(e.target.value.slice(0, 600))} rows={3} placeholder="그때 상황을 적어 주세요. 예: 예약 정보와 달리 25kg 대형견이 와서 동반 규정에 따라 입실이 어려웠어요." style={{ width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => sendReply(b)} disabled={busy || !reply.trim()} style={actionButton("primary", busy || !reply.trim())}>의견 보내기</button>
+                          <button onClick={() => setReplyFor(null)} style={actionButton("plain")}>취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setReplyFor(b.id); setReply(""); }} style={{ ...actionButton("primary"), marginTop: 8 }}>3영업일 안에 의견 남기기</button>
+                    ))}
+                  </div>
+                )}
                 {b.owner_note && <div style={{ marginTop: 6, fontSize: 12, color: "#777" }}>남긴 말: {b.owner_note}</div>}
                 {canAct && ownerNextStays(b.status).length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                    {ownerNextStays(b.status).map((next) => (
+                    {ownerNextStays(b.status).filter((next) => next !== "no_show" || today >= b.check_in).map((next) => (
                       <button key={next} onClick={() => change(b, next)} disabled={busy} style={actionButton(next === "confirmed" || next === "completed" ? "primary" : next === "declined" || next === "cancelled_by_owner" || next === "no_show" ? "danger" : "plain", busy)}>
                         {ACTION_LABEL[next]}
                       </button>
@@ -176,7 +230,43 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
         </div>
       </div>
 
+      {settlementReady && <SettlementSummary bookings={bookings} today={today} />}
+
       <StayCalendar rooms={rooms} call={call} canAct={canAct} />
+    </div>
+  );
+}
+
+/* ── 정산 요약(이번 달) ── */
+function SettlementSummary({ bookings, today }: { bookings: Booking[]; today: string }) {
+  const month = today.slice(0, 7);
+  const scheduled = bookings.filter((b) => b.payout_status === "scheduled");
+  const held = bookings.filter((b) => b.payout_status === "held");
+  const paidThisMonth = bookings.filter((b) => b.payout_status === "paid" && (b.paid_out_at ?? "").slice(0, 7) === month);
+  const sum = (list: Booking[], key: "payout_amount" | "fee_amount") => list.reduce((t, b) => t + (Number(b[key]) || 0), 0);
+  const settledThisMonth = bookings.filter((b) => (b.stay_confirmed_at ?? "").slice(0, 7) === month);
+  const items = [
+    { label: "정산 예정", value: won(sum(scheduled, "payout_amount")), note: `${scheduled.length}건` },
+    { label: "정산 보류", value: won(held.reduce((t, b) => t + b.total, 0)), note: held.length ? `${held.length}건 · 문제 확인 중` : "없음" },
+    { label: `${Number(month.slice(5))}월 정산 완료`, value: won(sum(paidThisMonth, "payout_amount")), note: `${paidThisMonth.length}건` },
+    { label: `${Number(month.slice(5))}월 이용 확정 수수료`, value: won(sum(settledThisMonth, "fee_amount")), note: `${settledThisMonth.length}건` },
+  ];
+  return (
+    <div style={card}>
+      <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>정산</div>
+      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        이용 확정 다음 영업일에 수수료를 뺀 금액을 보내 드려요.<br />
+        취소 위약금은 원래 체크아웃 다음 영업일에 취소 정산 수수료 15%를 빼고 보내 드려요.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginTop: 12 }}>
+        {items.map((i) => (
+          <div key={i.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7a6a3a" }}>{i.label}</div>
+            <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{i.value}</div>
+            <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>{i.note}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

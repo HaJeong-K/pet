@@ -84,7 +84,7 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
   const guests = Number(r.guests);
   if (!Number.isInteger(guests) || guests < 1 || guests > 30) return { error: "인원을 다시 확인해 주세요." };
 
-  if (!Array.isArray(r.pets) || r.pets.length === 0) return { error: "함께 묵을 반려동물 정보를 적어 주세요." };
+  if (!Array.isArray(r.pets) || r.pets.length === 0) return { error: "함께하는 반려동물 정보를 적어 주세요." };
   if (r.pets.length > STAY_PETS_MAX) return { error: `반려동물은 ${STAY_PETS_MAX}마리까지 적을 수 있어요.` };
   const pets: StayPet[] = [];
   for (const p of r.pets as Record<string, unknown>[]) {
@@ -114,11 +114,11 @@ export function petsAllowed(
 ): string | null {
   if (!profile) return null; // 동반 규정을 아직 안 적은 숙소 — 사장님이 확정할 때 직접 판단
   const maxPets = room.max_pets ?? profile.max_pets;
-  if (maxPets != null && pets.length > maxPets) return `이 객실은 반려동물 ${maxPets}마리까지 함께 묵을 수 있어요.`;
+  if (maxPets != null && pets.length > maxPets) return `이 객실은 반려동물 ${maxPets}마리까지 동반할 수 있어요.`;
   for (const p of pets) {
-    if (!profile.pet_species.includes(p.species)) return `이 숙소는 ${PET_SPECIES.find((s) => s.id === p.species)?.label ?? "이 동물"}과(와) 함께 묵을 수 없어요.`;
+    if (!profile.pet_species.includes(p.species)) return `이 숙소는 ${PET_SPECIES.find((s) => s.id === p.species)?.label ?? "이 동물"}과(와) 동반할 수 없어요.`;
     if (p.species === "dog" && p.size && !profile.pet_sizes.includes(p.size)) return `이 숙소는 ${PET_SIZES.find((s) => s.id === p.size)?.label}을(를) 받지 않아요.`;
-    if (p.weight != null && profile.max_pet_weight_kg != null && p.weight > profile.max_pet_weight_kg) return `이 숙소는 ${profile.max_pet_weight_kg}kg 이하 반려동물만 함께 묵을 수 있어요.`;
+    if (p.weight != null && profile.max_pet_weight_kg != null && p.weight > profile.max_pet_weight_kg) return `이 숙소는 ${profile.max_pet_weight_kg}kg 이하 반려동물만 동반할 수 있어요.`;
   }
   return null;
 }
@@ -144,7 +144,7 @@ export function quoteStay(
   guests: number,
   petCount: number,
 ): StayQuote | { error: string } {
-  if (guests > room.max_guests) return { error: `이 객실은 최대 ${room.max_guests}명까지 묵을 수 있어요.` };
+  if (guests > room.max_guests) return { error: `이 객실은 최대 ${room.max_guests}명까지 이용할 수 있어요.` };
   const byDay = new Map(days.map((d) => [d.day, d]));
   const nights = nightsOf(checkIn, checkOut).map((day) => ({ day, override: byDay.get(day) ?? null }));
   const closed = nights.find((n) => n.override?.closed);
@@ -170,11 +170,12 @@ export const STAY_STATUS: Record<StayStatus, { label: string; color: string; bac
 };
 const OWNER_NEXT: Partial<Record<StayStatus, StayStatus[]>> = {
   requested: ["confirmed", "declined"],
-  confirmed: ["completed", "no_show", "cancelled_by_owner"],
+  // 이용 완료는 손님의 이용 확정(또는 체크아웃 3일 뒤 자동 확정)으로만 됩니다 — 계약서 제10조
+  confirmed: ["no_show", "cancelled_by_owner"],
 };
 const GUEST_NEXT: Partial<Record<StayStatus, StayStatus[]>> = {
   requested: ["cancelled_by_guest"],
-  confirmed: ["cancelled_by_guest"],
+  confirmed: ["cancelled_by_guest", "completed"],
 };
 export function canChangeStay(by: "owner" | "guest", from: StayStatus, to: StayStatus): boolean {
   return (by === "owner" ? OWNER_NEXT : GUEST_NEXT)[from]?.includes(to) ?? false;
@@ -184,3 +185,20 @@ export const ownerNextStays = (from: StayStatus): StayStatus[] => OWNER_NEXT[fro
 export const holdsRoom = (status: StayStatus) => status === "confirmed";
 /** 아직 끝나지 않은 예약 */
 export const isOpenStay = (status: StayStatus) => status === "requested" || status === "confirmed";
+
+// ── 화면 표시 ──
+
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+/** "11/7(토)" */
+export function stayDayLabel(day: string): string {
+  return `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
+}
+/** "강아지 소형견 5kg '콩이'" */
+export function petLabel(p: StayPet): string {
+  return [
+    PET_SPECIES.find((s) => s.id === p.species)?.label,
+    p.size ? PET_SIZES.find((s) => s.id === p.size)?.label : null,
+    p.weight != null ? `${p.weight}kg` : null,
+    p.name ? `'${p.name}'` : null,
+  ].filter(Boolean).join(" ");
+}

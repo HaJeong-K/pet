@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/server/ownerStore";
-import { getLodging, lodgingOwnerContext, PROFILE_COLUMNS } from "@/lib/server/lodgingStore";
+import { db, isMissingSchema } from "@/lib/server/ownerStore";
+import { getLodging, lodgingOwnerContext, PROFILE_COLUMNS, PROFILE_EXTRA_COLUMNS } from "@/lib/server/lodgingStore";
 import { cleanLodgingProfile } from "@/lib/lodgingRules";
 
 // 숙소 사장님의 "숙소·객실" 화면(인증된 숙소 사장님은 본인 숙소, 관리자는 ?placeId= 로 지정한 숙소)
@@ -25,11 +25,15 @@ export async function PUT(req: NextRequest) {
   if ("error" in ctx) return fail(ctx.error, ctx.status);
   const cleaned = cleanLodgingProfile(await req.json().catch(() => null));
   if ("error" in cleaned) return fail(cleaned.error, 400);
-  const { data, error } = await db
-    .from("lodging_profiles")
-    .upsert({ place_id: ctx.placeId, ...cleaned.profile, updated_by: ctx.userId, updated_at: new Date().toISOString() }, { onConflict: "place_id" })
-    .select(PROFILE_COLUMNS)
-    .single();
+  const save = (row: Record<string, unknown>, columns: string) => db.from("lodging_profiles")
+    .upsert({ place_id: ctx.placeId, ...row, updated_by: ctx.userId, updated_at: new Date().toISOString() }, { onConflict: "place_id" })
+    .select(columns).single();
+  let { data, error } = await save(cleaned.profile, `${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}`);
+  // 성수기·즉시 확정 칸(scripts/sql/lodging-settlement.sql) 실행 전이면 그 칸 없이 저장합니다
+  if (error && isMissingSchema(error)) {
+    const { peak_periods: _peak, instant_confirm: _instant, ...base } = cleaned.profile;
+    ({ data, error } = await save(base, PROFILE_COLUMNS));
+  }
   if (error) return fail(error.message, 500);
   return NextResponse.json({ profile: data });
 }

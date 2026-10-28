@@ -11,9 +11,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BedDouble, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
 import { supabase } from "@/lib/supabase";
 import {
-  EMPTY_PROFILE, LODGING_SHORT_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
+  EMPTY_PROFILE, LODGING_SHORT_MAX, PEAK_PERIODS_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
   ROOM_IMAGES_MAX, ROOM_NAME_MAX, ROOM_TYPE_MAX, ROOM_TYPE_SUGGESTIONS, ROOMS_PER_PLACE_MAX, petPolicySummary, roomPriceText,
   type LodgingProfile, type PetSize, type PetSpecies,
 } from "@/lib/lodgingRules";
@@ -205,6 +206,8 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
+      {/* 입점 신청·상태 — 승인 전에는 손님 예약이 열리지 않습니다 */}
+      {!isPreview && <LodgingPartnerApply />}
       {/* ① 숙소 기본 정보·반려동물 동반 규정 */}
       <div style={card}>
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>반려동물 동반 규정</div>
@@ -220,7 +223,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
         {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
 
         <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
-          <div style={section}>함께 묵을 수 있는 반려동물</div>
+          <div style={section}>동반 가능한 반려동물</div>
           <div>
             <div style={label}>동물 종류</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -284,6 +287,28 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               <input type="time" value={profile.check_out} onChange={(e) => setP({ check_out: e.target.value })} disabled={disabled} style={input} />
             </div>
           </div>
+          <div style={section}>성수기 · 예약 확정</div>
+          <div>
+            <div style={label}>성수기 기간 <span style={optional}>취소 공제율이 성수기 기준으로 계산돼요. 비우면 여름 7/15~8/24, 겨울 12/20~2/20</span></div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {profile.peak_periods.map((p, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input value={p.from} onChange={(e) => setP({ peak_periods: profile.peak_periods.map((x, j) => (j === i ? { ...x, from: e.target.value.slice(0, 5) } : x)) })} placeholder="07-15" disabled={disabled} style={{ ...input, width: 90, textAlign: "center" }} />
+                  <span style={{ color: "#888" }}>~</span>
+                  <input value={p.to} onChange={(e) => setP({ peak_periods: profile.peak_periods.map((x, j) => (j === i ? { ...x, to: e.target.value.slice(0, 5) } : x)) })} placeholder="08-24" disabled={disabled} style={{ ...input, width: 90, textAlign: "center" }} />
+                  {canAct && <button onClick={() => setP({ peak_periods: profile.peak_periods.filter((_, j) => j !== i) })} aria-label="이 기간 빼기" style={{ ...iconButton, borderColor: "#f3c7c5" }}><X size={13} color="#b42318" /></button>}
+                </div>
+              ))}
+              {canAct && profile.peak_periods.length < PEAK_PERIODS_MAX && (
+                <button onClick={() => setP({ peak_periods: [...profile.peak_periods, { from: "", to: "" }] })} style={{ ...chip(false), justifySelf: "start" }}>+ 성수기 기간 추가 (월-일)</button>
+              )}
+            </div>
+          </div>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#444", cursor: disabled ? "default" : "pointer", lineHeight: 1.6 }}>
+            <input type="checkbox" checked={profile.instant_confirm} onChange={(e) => setP({ instant_confirm: e.target.checked })} disabled={disabled} style={{ width: 17, height: 17, marginTop: 2 }} />
+            <span><b>즉시 확정</b> <span style={optional}>켜면 손님이 결제하는 순간 예약이 확정돼요. 끄면 24시간 안에 직접 확정해야 해요(미확정이면 자동 취소).</span></span>
+          </label>
+
           {area("pet_rules", "반려동물 동반 수칙", "예: 침대·소파 위 금지(전용 방석 제공)\n객실 내 배변 시 청소비 3만 원\n공용 공간에서는 리드줄 착용")}
           {area("stay_rules", "숙소 이용 수칙", "예: 밤 10시 이후 바비큐·야외 소음 금지\n객실 내 흡연 금지")}
           {area("refund_policy", "취소·환불 규정", "예: 이용 7일 전까지 전액 환불\n3일 전까지 50% 환불\n이후 환불 불가")}
@@ -306,7 +331,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
         </div>
         <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
           객실마다 사진·요금·인원·마릿수를 올려 주세요.<br />
-          예약 달력과 예약 요청은 다음 단계에서 열려요.
+          예약 달력과 예약 처리는 "숙박 예약" 메뉴에 있어요.
         </div>
 
         {editing && (

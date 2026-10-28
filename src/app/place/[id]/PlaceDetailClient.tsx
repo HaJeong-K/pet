@@ -14,6 +14,8 @@ const PLACE_FETCH_TIMEOUT_MS = 12_000;
 import { trackEvent, extractRegion, extractSubRegion } from "@/lib/analytics";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import PlaceStoreSection from "@/components/PlaceStoreSection";
+import PlaceLodgingSection from "@/components/lodging/PlaceLodgingSection";
+import { isLodgingCategory } from "@/lib/ownerKind";
 import PlaceFreshness from "@/components/PlaceFreshness";
 import { rememberInterest } from "@/lib/interestRegions";
 import {
@@ -47,7 +49,9 @@ import {
   Crown,       // 프리미엄 배지
   Trees,       // 공원 구분
   Store,       // 사장님 답글 배지
+  MapPinned,   // 내 경로에 추가
 } from "lucide-react";
+import AddToRouteSheet from "@/components/AddToRouteSheet";
 
 // ── 동물병원 진료과목 기본값: 특정 전문과가 지정되어 있지 않으면 '종합진료'로 표기
 const DEFAULT_VET_DEPARTMENT = "종합진료";
@@ -234,6 +238,8 @@ export default function PlaceDetail({
 
   const [bookmarked, setBookmarked]       = useState(false);
   const [showDirections, setShowDirections] = useState(false);
+  // 내 경로에 추가(직접 만드는 여행 경로 — src/lib/myRoutes.ts)
+  const [showRouteSheet, setShowRouteSheet] = useState(false);
   const [bookmarkCount, setBookmarkCount] = useState(0);
 
   const [voteReaction, setVoteReaction]   = useState<VoteReaction>(null);
@@ -1081,6 +1087,14 @@ export default function PlaceDetail({
           {place.address}
         </p>
 
+        {/* 숙소(펜션·호텔·캠핑 등)는 숙박 예약 앱처럼 맨 위에 예약 요약·바로가기·객실을 먼저 보여 줍니다 */}
+        {isLodgingCategory(place.category) && !isParkPlaceId(placeId) && (
+          <div style={{ margin: "-6px 0 14px" }}>
+            <PlaceLodgingSection placeId={placeId} placeName={place.name} isLoggedIn={isLoggedIn} layout="hero" phone={place.phone ?? null}
+              reviewCount={reviews.filter((r) => !r.deleted).length} />
+          </div>
+        )}
+
         {/* 반려동물 친화도 점수 — 0~100점 + 신호등(초록/노랑/빨강) 배지 */}
         {affinity && (() => {
           const tier = getAffinityTier(affinity.total);
@@ -1182,7 +1196,7 @@ export default function PlaceDetail({
         </div>
 
         {/* 정보 그리드 */}
-        <div style={{ marginTop:"12px", border:"1px solid #eee", borderRadius:"12px", overflow:"hidden" }}>
+        <div id="place-info" style={{ scrollMarginTop: 12, marginTop:"12px", border:"1px solid #eee", borderRadius:"12px", overflow:"hidden" }}>
 
           {isPark ? (<>
             {/* 공원 전용 정보: 구분 / 면적, 관리기관 / 전화번호, 시설 */}
@@ -1443,7 +1457,15 @@ export default function PlaceDetail({
             <ThumbsDown size={14} color={voteReaction==="dislike"?"#ef4444":"#666"} fill={voteReaction==="dislike"?"#ef4444":"none"} />
             <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="dislike"?"#ef4444":"#555" }}>비추천 {dislikesCount}</span>
           </button>
+          {/* 내 경로에 추가 — 가고 싶은 곳을 순서대로 엮어 두는 여행 경로(마이페이지 "코스·내 경로"에서 순서 변경) */}
+          <button onClick={() => { if (!isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(`/place/${placeId}`)}`); return; } setShowRouteSheet(true); }} className="ggk-body" style={{ gridColumn:"1 / -1", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:"1px solid #cfdcc3", background:"linear-gradient(145deg,#f6faf2,#edf4e6)", cursor:"pointer", color:"#48603A", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+            <MapPinned size={14} color="#48603A" />
+            <span style={{ fontSize:"12px", fontWeight:700 }}>내 경로에 추가</span>
+          </button>
         </div>
+        {showRouteSheet && Number.isFinite(placeLat) && Number.isFinite(placeLng) && (
+          <AddToRouteSheet stop={{ id: placeId, name: place.name, lat: placeLat, lng: placeLng, category: place.category ?? null, address: place.address ?? null }} onClose={() => setShowRouteSheet(false)} />
+        )}
 
 
         {/* 길찾기 선택 — 좌표 기준이라 이름이 같은 다른 가게로 잘못 연결되지 않습니다 */}
@@ -1471,8 +1493,11 @@ export default function PlaceDetail({
         {/* 상품 · 예약 포장 — '프리미엄 스토어' 이상인 가게에 상품이 있을 때만 보입니다(직접 등록된 장소만) */}
         {!isPublicDataPlace && !isParkPlaceId(placeId) && <PlaceStoreSection placeId={placeId} isLoggedIn={isLoggedIn} />}
 
+        {/* 숙소 — 동반 조건·객실·예약(숙소 사장님이 올린 내용이 있을 때만 보입니다. 숙소 사장님은 직접 등록된 장소에만 연결됨) */}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && !isLodgingCategory(place.category) && <PlaceLodgingSection placeId={placeId} placeName={place.name} isLoggedIn={isLoggedIn} />}
+
         {/* 댓글 헤더 */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"18px", marginBottom:"8px" }}>
+        <div id="place-reviews" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"18px", marginBottom:"8px", scrollMarginTop: 12 }}>
           <h3 className="ggk-title" style={{ margin:0, fontSize:"13px", fontWeight:800, color:"#111" }}>
             댓글{" "}
             {reviews.filter((r) => {

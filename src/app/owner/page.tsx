@@ -23,6 +23,7 @@ import {
   Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays,
 } from "lucide-react";
 import OwnerLodgingTab from "@/components/owner/OwnerLodgingTab";
+import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
 import OwnerStaysTab from "@/components/owner/OwnerStaysTab";
 import { ProductsTab, ReservationsTab } from "@/components/owner/OwnerStorePanels";
 import OwnerBannerEditor from "@/components/owner/OwnerBannerEditor";
@@ -30,7 +31,7 @@ import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab, type 
 import OwnerStatsPanel, { fetchOwnerStats, type OwnerStats } from "@/components/OwnerStatsPanel";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import { OWNER_PLANS, PROMO_STEPS, PLAN_MONTHLY_PRICE, PLAN_NAME, PERIOD_DAYS, normalizePlan, periodText, quote, won, type ExtraDiscount, type PaidPlanId } from "@/lib/ownerPlans";
-import PremiumCancelDialog from "@/components/owner/PremiumCancelDialog";
+import PremiumCancelDialog, { type RefundPreview } from "@/components/owner/PremiumCancelDialog";
 import { isPlacePremiumNow } from "@/lib/premium";
 import { isLodgingCategory, isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
 
@@ -54,7 +55,7 @@ const fmtDate = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateS
 
 export default function OwnerPage() {
   const router = useRouter();
-  const [state, setState] = useState<"loading" | "guest" | "none" | "pending" | "ready">("loading");
+  const [state, setState] = useState<"loading" | "guest" | "none" | "pending" | "apply" | "ready">("loading");
   const [profile, setProfile] = useState<any>(null);
   // 지금 보는 메뉴 — 아래 탭바와 같이 쓰고, 주소 끝의 #이름과 맞춰 둡니다(src/lib/ownerTab.ts).
   const tab = useSyncExternalStore(subscribeOwnerTab, getOwnerTab, getOwnerTabOnServer);
@@ -84,6 +85,8 @@ export default function OwnerPage() {
       setProfile(data);
       if (data?.owner_status === "verified" && data?.owner_place_id != null) setState("ready");
       else if (data?.is_admin) setState("ready");
+      // 인증된 숙소 사장님인데 아직 연결된 숙소가 없으면 → 숙소 입점 신청부터
+      else if (data?.owner_status === "verified" && ownerKindInfo(data?.owner_kind).id === "lodging") setState("apply");
       else if (data?.owner_status === "pending") setState("pending");
       else setState("none");
     })();
@@ -127,6 +130,14 @@ export default function OwnerPage() {
   }, [previewQuery, isPreview]);
 
   if (state === "loading") return <Shell><div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}><LogoLoader /></div></Shell>;
+
+  if (state === "apply") {
+    return (
+      <Shell>
+        <div style={{ marginTop: 16 }}><LodgingPartnerApply /></div>
+      </Shell>
+    );
+  }
 
   if (state !== "ready") {
     const message = state === "guest"
@@ -353,7 +364,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   // 해지·해지 방어(/api/owner/premium-cancel) — 사장님 본인만. 남은 추가 할인(관리자 할인·시크릿 프라이스)도 여기서 받습니다.
-  const [cancelInfo, setCancelInfo] = useState<{ ready: boolean; offerAvailable: boolean; discount: ExtraDiscount | null; cancellation: { outcome: string; created_at: string; expires_at: string | null } | null } | null>(null);
+  const [cancelInfo, setCancelInfo] = useState<{ ready: boolean; offerAvailable: boolean; discount: ExtraDiscount | null; cancellation: { outcome: string; created_at: string; expires_at: string | null } | null; refund?: RefundPreview | null } | null>(null);
   const [showCancel, setShowCancel] = useState(false);
 
   const load = async () => {
@@ -429,13 +440,13 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
         )}
         {active && !isPreview && canAct && cancelInfo?.ready && !cancelled && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #F5D48A", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11.5, color: "#999", flex: "1 1 200px" }}>의무 이용 기간·위약금 없이 언제든 해지할 수 있어요.</span>
+            <span style={{ fontSize: 11.5, color: "#999", flex: "1 1 200px" }}>위약금 없이 언제든 해지할 수 있어요. 결제 3일 안에는 전액, 그 뒤에는 남은 날만큼 돌려드려요.</span>
             <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: "#888", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
           </div>
         )}
       </div>
       {showCancel && place && (
-        <PremiumCancelDialog plan={currentPlan} expiresText={fmtDate(place.premium_expires_at)} offerAvailable={!!cancelInfo?.offerAvailable} onClose={() => setShowCancel(false)} onDone={load} />
+        <PremiumCancelDialog plan={currentPlan} expiresText={fmtDate(place.premium_expires_at)} offerAvailable={!!cancelInfo?.offerAvailable} refund={cancelInfo?.refund ?? null} onClose={() => setShowCancel(false)} onDone={load} />
       )}
 
       {/* 요금제 비교 */}

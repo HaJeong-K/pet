@@ -87,7 +87,8 @@ describe("동반 규정 확인", () => {
 });
 
 describe("예약 상태", () => {
-  it("사장님은 대기→확정/거절, 확정→완료/노쇼/취소", () => {
+  it("사장님은 대기→확정/거절, 확정→노쇼/취소(완료는 손님 확정으로만)", () => {
+    expect(canChangeStay("owner", "confirmed", "completed")).toBe(false);
     expect(canChangeStay("owner", "requested", "confirmed")).toBe(true);
     expect(canChangeStay("owner", "confirmed", "no_show")).toBe(true);
     expect(canChangeStay("owner", "declined", "confirmed")).toBe(false);
@@ -97,5 +98,6 @@ describe("예약 상태", () => {
     expect(canChangeStay("guest", "confirmed", "cancelled_by_guest")).toBe(true);
     expect(canChangeStay("guest", "completed", "cancelled_by_guest")).toBe(false);
     expect(canChangeStay("guest", "requested", "confirmed")).toBe(false);
+    expect(canChangeStay("guest", "confirmed", "completed")).toBe(true);
   });
 });
