@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, canChangeStay, cleanStayRequest, isDay, isWeekendNight, kstToday, nightPrice, nightsOf, petsAllowed, quoteStay, staysOverlap,
+  addDays, canChangeStay, cleanStayRequest, isDay, isWeekendNight, kstToday, nightPrice, nightsOf, petNightFee, petsAllowed, quoteStay, staysOverlap,
 } from "./lodgingBooking";
 
 const NOW = new Date("2026-10-25T03:00:00Z").getTime(); // 한국 2026-10-25 12시(일요일)
@@ -30,9 +30,15 @@ describe("요금", () => {
     expect(nightPrice(room, "2026-11-05")).toBe(100000);
     expect(nightPrice(room, "2026-11-06")).toBe(150000);
     expect(nightPrice(room, "2026-11-05", { day: "2026-11-05", closed: false, price: 80000 })).toBe(80000);
+    // 요일별 요금: 목요일(4) 9만 원, 날짜별 요금이 있으면 그게 먼저
+    const byDay = { ...room, weekday_prices: [null, null, null, null, 90000, null, null] };
+    expect(nightPrice(byDay, "2026-11-05")).toBe(90000);
+    expect(nightPrice(byDay, "2026-11-06")).toBe(150000);
+    expect(nightPrice(byDay, "2026-11-05", { day: "2026-11-05", closed: false, price: 80000 })).toBe(80000);
   });
   it("목·금 2박, 3명, 반려동물 2마리", () => {
-    const q = quoteStay(room, 10000, [], "2026-11-05", "2026-11-07", 3, 2);
+    // 반려동물 2마리 × 1만 원 = 1박 2만 원
+    const q = quoteStay(room, 20000, [], "2026-11-05", "2026-11-07", 3);
     expect("error" in q).toBe(false);
     if ("error" in q) return;
     expect(q.roomTotal).toBe(250000);
@@ -41,10 +47,32 @@ describe("요금", () => {
     expect(q.total).toBe(330000);
   });
   it("막은 날이 끼면 예약 불가", () => {
-    expect("error" in quoteStay(room, 0, [{ day: "2026-11-06", closed: true, price: null }], "2026-11-05", "2026-11-07", 2, 1)).toBe(true);
+    expect("error" in quoteStay(room, 0, [{ day: "2026-11-06", closed: true, price: null }], "2026-11-05", "2026-11-07", 2)).toBe(true);
   });
   it("최대 인원 초과 불가", () => {
-    expect("error" in quoteStay(room, 0, [], "2026-11-05", "2026-11-06", 5, 1)).toBe(true);
+    expect("error" in quoteStay(room, 0, [], "2026-11-05", "2026-11-06", 5)).toBe(true);
+  });
+  it("부가 옵션: 1회·1박마다·1인당, 최대 수량·없는 옵션 막기", () => {
+    const extras = [
+      { id: "bbq", name: "바비큐", price: 30000, unit: "stay" as const, max: 2, note: null },
+      { id: "fire", name: "불멍", price: 10000, unit: "night" as const, max: 1, note: null },
+      { id: "meal", name: "조식", price: 12000, unit: "person" as const, max: 4, note: null },
+    ];
+    const q = quoteStay(room, 0, [], "2026-11-05", "2026-11-07", 2, [{ id: "bbq", qty: 1 }, { id: "fire", qty: 1 }, { id: "meal", qty: 2 }], extras);
+    expect("error" in q).toBe(false);
+    if ("error" in q) return;
+    expect(q.extras.map((x) => x.amount)).toEqual([30000, 20000, 24000]);
+    expect(q.extrasTotal).toBe(74000);
+    expect(q.total).toBe(250000 + 74000);
+    expect("error" in quoteStay(room, 0, [], "2026-11-05", "2026-11-07", 2, [{ id: "bbq", qty: 3 }], extras)).toBe(true);
+    expect("error" in quoteStay(room, 0, [], "2026-11-05", "2026-11-07", 2, [{ id: "spa", qty: 1 }], extras)).toBe(true);
+  });
+  it("반려동물 추가 요금: 크기·종류별 요금이 있으면 그것, 없으면 기본", () => {
+    const profile = { pet_fee: 10000, pet_fees: { large: 20000, cat: 5000 } };
+    expect(petNightFee(profile, { species: "dog", size: "small" })).toBe(10000);
+    expect(petNightFee(profile, { species: "dog", size: "large" })).toBe(20000);
+    expect(petNightFee(profile, { species: "cat", size: null })).toBe(5000);
+    expect(petNightFee({ pet_fee: null }, { species: "dog", size: "large" })).toBe(0);
   });
 });
 
@@ -56,7 +84,7 @@ describe("예약 요청 다듬기", () => {
     if (!("request" in r)) return;
     expect(r.request.phone).toBe("01012345678");
     // 이름은 이제 받지 않습니다(보내도 버림)
-    expect(r.request.pets[0]).toEqual({ species: "dog", size: "small", weight: 5.3, kind: null });
+    expect(r.request.pets[0]).toEqual({ species: "dog", size: "small", weight: 5.3, kind: null, breed: null });
   });
   it("예약자와 다른 이용자·방문 수단·도착 시각·이메일", () => {
     const r = cleanStayRequest({ ...ok, email: " a@b.co ", sameGuest: false, stayGuestName: " 이용자 ", stayGuestPhone: "010 9999 8888", arrivalTime: "16:30" }, NOW);
@@ -80,10 +108,15 @@ describe("예약 요청 다듬기", () => {
     expect("error" in cleanStayRequest({ ...ok, pets: [{ species: "dog" }] }, NOW)).toBe(true);
     expect("request" in cleanStayRequest({ ...ok, pets: [{ species: "cat" }] }, NOW)).toBe(true);
   });
+  it("견종·부가 옵션", () => {
+    const r = cleanStayRequest({ ...ok, pets: [{ species: "dog", size: "small", breed: " 말티푸 " }], extras: [{ id: "bbq", qty: 2 }] }, NOW);
+    expect("request" in r && [r.request.pets[0].breed, r.request.extras]).toEqual(["말티푸", [{ id: "bbq", qty: 2 }]]);
+    expect("error" in cleanStayRequest({ ...ok, extras: [{ id: "bbq", qty: 0 }] }, NOW)).toBe(true);
+  });
   it("그 외 동물은 어떤 동물인지 필수", () => {
     expect("error" in cleanStayRequest({ ...ok, pets: [{ species: "other" }] }, NOW)).toBe(true);
     const r = cleanStayRequest({ ...ok, pets: [{ species: "other", kind: " 토끼 ", size: "large" }] }, NOW);
-    expect("request" in r && r.request.pets[0]).toEqual({ species: "other", size: null, weight: null, kind: "토끼" });
+    expect("request" in r && r.request.pets[0]).toEqual({ species: "other", size: null, weight: null, kind: "토끼", breed: null });
   });
 });
 

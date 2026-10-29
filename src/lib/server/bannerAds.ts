@@ -5,7 +5,7 @@
 
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import {
-  BANNER_SLOTS_ON_SCREEN, chooseBannerPool,
+  BANNER_SLOTS_ON_SCREEN, chooseBannerPool, isLodgingAd,
   type BannerPerk, type BannerTier, type BannerViewer, type GeoAdPlace,
 } from "@/lib/localAds";
 import { bannerAddress, type BannerFontId } from "@/lib/bannerCreative";
@@ -47,7 +47,7 @@ const shuffle = <T,>(list: T[]): T[] => {
 
 /**
  * 이 사람에게 내보낼 배너를 slots장 고릅니다.
- *   ① 후보 정하기: 같은 시·군·구 → 근처 → 관심 지역 → 전국 무작위(chooseBannerPool)
+ *   ① 후보 정하기: 숙소는 자주 검색한 지역 → 무작위, 일반 가게는 GPS를 자주 켠 동네 → 자주 검색한 지역 → 무작위(chooseBannerPool)
  *   ② 후보 안에서 고르기: 지금까지 가장 적게 나간 가게부터(같으면 무작위) — DB 함수 pick_banners가 고르면서 횟수를 올려,
  *      같은 후보끼리는 노출 횟수가 1번 넘게 벌어지지 않습니다. 함수가 아직 없으면(banner-ads.sql 실행 전) 무작위로 고릅니다.
  */
@@ -73,7 +73,8 @@ export async function serveBanners(viewer: BannerViewer, slots: number): Promise
       id, name: place.name, category: place.category, address: bannerAddress(place.address),
       image: creative?.image_url || place.image_url || null,
       headline: creative?.headline || place.name,
-      body: creative ? creative.body : "우리 동네 반려동물 동반 가게",
+      // 사장님이 배너를 만들지 않았을 때의 기본 문구(지역을 한정하는 표현은 쓰지 않음)
+      body: creative ? creative.body : isLodgingAd(place) ? "반려동물 동반 숙소" : "반려동물 동반 가게",
       font: ((creative?.font as BannerFontId) || "logo"),
       custom: !!creative,
     } satisfies BannerCard;

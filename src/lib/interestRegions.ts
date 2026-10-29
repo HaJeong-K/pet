@@ -4,6 +4,7 @@
 // 내 동네에 배너 광고 가게가 한 곳도 없을 때, 그 관심 지역 근처의 가게를 대신 보여 주는 데만 씁니다(src/lib/localAds.ts).
 //   · 기기(브라우저 저장소)에만 두고 서버에는 저장하지 않습니다. 광고를 고를 때 좌표만 잠깐 보냅니다.
 //   · 약 1km 단위로 뭉툭하게, 최근 8곳까지, 30일이 지나면 지웁니다.
+//   · 같은 지역(5km 안)을 다시 찾으면 횟수(hits)를 올립니다 — "자주 검색한 지역"을 고르는 데 씁니다.
 
 const KEY = "ggk_interest_regions_v1";
 const KEEP = 8;
@@ -11,7 +12,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 /** 이보다 가까운 곳은 같은 지역으로 보고 하나로 합칩니다 */
 const SAME_AREA_KM = 5;
 
-export type InterestPoint = { lat: number; lng: number; at: number; source: "search" | "place" };
+export type InterestPoint = { lat: number; lng: number; at: number; source: "search" | "place"; hits?: number };
 
 const round = (n: number) => Math.round(n * 100) / 100;
 function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -24,8 +25,11 @@ function km(a: { lat: number; lng: number }, b: { lat: number; lng: number }): n
 /** 새 지점을 넣은 목록을 돌려줍니다(저장소 없이도 시험할 수 있는 계산 부분). */
 export function addInterest(list: InterestPoint[], point: { lat: number; lng: number; source: InterestPoint["source"] }, now = Date.now()): InterestPoint[] {
   if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return list;
-  const fresh = list.filter((p) => now - p.at < MAX_AGE_MS && km(p, point) > SAME_AREA_KM);
-  return [{ lat: round(point.lat), lng: round(point.lng), at: now, source: point.source }, ...fresh].slice(0, KEEP);
+  const live = list.filter((p) => now - p.at < MAX_AGE_MS);
+  const same = live.filter((p) => km(p, point) <= SAME_AREA_KM);
+  const hits = same.reduce((sum, p) => sum + (p.hits ?? 1), 0) + 1;
+  const fresh = live.filter((p) => km(p, point) > SAME_AREA_KM);
+  return [{ lat: round(point.lat), lng: round(point.lng), at: now, source: point.source, hits }, ...fresh].slice(0, KEEP);
 }
 
 export function readInterests(now = Date.now()): InterestPoint[] {

@@ -12,6 +12,21 @@ describe("cleanTime", () => {
 });
 
 describe("cleanLodgingProfile", () => {
+  it("크기·종류별 반려동물 요금과 부가 옵션", () => {
+    const r = cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small", "large"], pet_fee: 10000, pet_fees: { large: "20000", cat: "" },
+      extras: [{ name: " 바비큐 ", price: "30000", unit: "stay", max: "2" }, { name: "", price: "" }] });
+    expect("profile" in r && r.profile.pet_fees).toEqual({ large: 20000 });
+    expect("profile" in r && r.profile.extras.map((x) => [x.name, x.price, x.unit, x.max])).toEqual([["바비큐", 30000, "stay", 2]]);
+    expect("profile" in r && petPolicySummary(r.profile)).toContain("대형견 20,000원");
+    expect("error" in cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small"], extras: [{ name: "바비큐", price: "-1" }] })).toBe(true);
+  });
+  it("요일별 객실 요금", () => {
+    const r = cleanRoom({ name: "스위트", base_price: 100000, std_guests: 2, max_guests: 2, weekday_prices: ["", "80000", "", "", "", "150000", ""] });
+    expect("room" in r && r.room.weekday_prices).toEqual([null, 80000, null, null, null, 150000, null]);
+    expect("room" in r && roomPriceText(r.room)).toBe("1박 80,000원부터 · 요일별 요금");
+    const plain = cleanRoom({ name: "스탠다드", base_price: 100000, std_guests: 2, max_guests: 2 });
+    expect("room" in plain && plain.room.weekday_prices).toBeNull();
+  });
   it("그 외 동물은 어떤 동물인지 적어야 함", () => {
     expect("error" in cleanLodgingProfile({ pet_species: ["other"] })).toBe(true);
     const r = cleanLodgingProfile({ pet_species: ["cat", "other"], pet_others: " 토끼·햄스터 " });

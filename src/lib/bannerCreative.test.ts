@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { BANNER_CHANGE_DAYS, BANNER_FONTS, BANNER_HEADLINE_MAX, bannerAddress, bannerFont, bannerFontsUrl, changeAllowance, cleanBannerCreative } from "./bannerCreative";
-import { ADJACENT_KM, chooseBannerPool, type BannerPerk, type GeoAdPlace } from "./localAds";
+import { chooseBannerPool, type BannerPerk, type GeoAdPlace } from "./localAds";
 import { addInterest, type InterestPoint } from "./interestRegions";
+import { addGpsArea, frequentGpsAreas } from "./gpsAreas";
 import { cleanInquiry } from "./partnerInquiry";
 
 const day = 86_400_000;
@@ -64,36 +65,34 @@ describe("누구에게 어느 가게의 배너를 보여 줄지", () => {
   const gyeongsan = place({ id: 3, address: "경북 경산시 1", lat: 35.82, lng: 128.74 });   // 달서구에서 약 16km
   const jeju = place({ id: 4, address: "제주 제주시 1", lat: 33.5, lng: 126.53 });
   const jejuPremiumOnly = place({ id: 5, address: "제주 서귀포시 1", lat: 33.45, lng: 126.56, premium_plan: "premium" });
+  const seoulStore = place({ id: 8, address: "서울 강남구 1", lat: 37.5, lng: 127.03 });
 
-  it("내 동네에 배너 가게가 있으면 그 가게들만", () => {
-    const { tier, pool } = chooseBannerPool([daegu, daegu2, gyeongsan, jeju], none, { sigungu: "달서구", lat: 35.85, lng: 128.56 }, now);
-    expect(tier).toBe("local");
-    expect(pool.map((p) => p.id)).toEqual([1, 2]);
+  const pension = place({ id: 6, name: "제주 펜션", category: "펜션", address: "제주 서귀포시 1", lat: 33.25, lng: 126.56 });
+  const daeguHotel = place({ id: 7, name: "대구 호텔", category: "호텔", address: "대구 달서구 2" });
+  const jejuSearched = [{ lat: 33.26, lng: 126.55, hits: 3 }];
+
+  it("일반 가게 1순위: GPS 동네(지금 있는 곳·자주 켠 곳)의 가게", () => {
+    expect(chooseBannerPool([daegu, daegu2, gyeongsan, jeju], none, { sigungu: "달서구" }, now)).toMatchObject({ tier: "local" });
+    expect(chooseBannerPool([daegu, daegu2, gyeongsan, jeju], none, { sigungu: "달서구" }, now).pool.map((p) => p.id)).toEqual([1, 2]);
+    expect(chooseBannerPool([gyeongsan, jeju], none, { sigungu: "달서구", gpsAreas: ["경산시"] }, now).pool.map((p) => p.id)).toEqual([3]);
   });
-  it("내 동네에 없으면 바로 근처 지역의 배너 가게", () => {
-    const { tier, pool } = chooseBannerPool([gyeongsan, jeju], none, { sigungu: "달서구", lat: 35.85, lng: 128.56 }, now);
-    expect(tier).toBe("adjacent");
-    expect(pool.map((p) => p.id)).toEqual([3]);
-    expect(ADJACENT_KM).toBeGreaterThan(16);
+  it("숙소는 GPS 동네가 아니라 자주 검색한 지역 기준(1순위)", () => {
+    // 대구에 있어도 대구 호텔은 1순위가 아님, 제주를 자주 검색했으면 제주 펜션이 1순위
+    const r = chooseBannerPool([daeguHotel, pension], none, { sigungu: "달서구", interests: jejuSearched }, now);
+    expect(r.tier).toBe("local");
+    expect(r.pool.map((p) => p.id)).toEqual([6]);
+    // 한 번만 찾아본 곳은 "자주"가 아님 → 무작위
+    expect(chooseBannerPool([pension], none, { interests: [{ lat: 33.26, lng: 126.55, hits: 1 }] }, now).tier).toBe("random");
   });
-  it("근처에도 없으면 최근에 찾아본 지역 근처의 배너 가게", () => {
-    const { tier, pool } = chooseBannerPool([jeju, jejuPremiumOnly], none, { sigungu: "달서구", lat: 35.85, lng: 128.56, interests: [{ lat: 33.49, lng: 126.5 }] }, now);
-    expect(tier).toBe("interest");
-    expect(pool.map((p) => p.id)).toEqual([4]);
+  it("일반 가게 2순위: 자주 검색한 지역 근처의 가게", () => {
+    const r = chooseBannerPool([jeju, seoulStore], none, { sigungu: "달서구", interests: [{ lat: 33.49, lng: 126.5, hits: 2 }] }, now);
+    expect(r.tier).toBe("search");
+    expect(r.pool.map((p) => p.id)).toEqual([4]);
   });
-  it("찾아본 지역에 배너 가게가 없으면 그 근처의 프리미엄 가게", () => {
-    const seoul = place({ id: 9, address: "서울 강남구 1", lat: 37.5, lng: 127.03 });
-    const { tier, pool } = chooseBannerPool([seoul, jejuPremiumOnly], none, { sigungu: "달서구", lat: 35.85, lng: 128.56, interests: [{ lat: 33.46, lng: 126.56 }] }, now);
-    expect(tier).toBe("interest-premium");
-    expect(pool.map((p) => p.id)).toEqual([5]);
-  });
-  it("아무 관련이 없으면 전국의 배너 가게 중에서(무작위로 고를 후보)", () => {
-    const { tier, pool } = chooseBannerPool([jeju, jejuPremiumOnly], none, { sigungu: "달서구", lat: 35.85, lng: 128.56 }, now);
-    expect(tier).toBe("random");
-    expect(pool.map((p) => p.id)).toEqual([4]);
-  });
-  it("위치를 몰라도 관심 지역이나 무작위로 보여 준다", () => {
-    expect(chooseBannerPool([jeju], none, {}, now).tier).toBe("random");
+  it("관련 있는 곳이 없으면 전국 배너 가게 무작위(숙소 포함), 배너 혜택 없는 프리미엄은 제외", () => {
+    const r = chooseBannerPool([jeju, jejuPremiumOnly, pension], none, { sigungu: "달서구" }, now);
+    expect(r.tier).toBe("random");
+    expect(r.pool.map((p) => p.id)).toEqual([4, 6]);
     expect(chooseBannerPool([], none, {}, now)).toEqual({ tier: "none", pool: [] });
   });
 });
@@ -105,6 +104,8 @@ describe("관심 지역 기억", () => {
     list = addInterest(list, { lat: 37.5, lng: 127.03, source: "place" }, now + 1);
     list = addInterest(list, { lat: 33.51, lng: 126.54, source: "place" }, now + 2);
     expect(list.map((p) => p.lat)).toEqual([33.51, 37.5]);
+    // 같은 지역을 다시 찾으면 횟수가 올라감
+    expect(list.map((p) => p.hits)).toEqual([2, 1]);
   });
   it("30일이 지난 것은 버리고 8곳까지만 둔다", () => {
     let list: InterestPoint[] = [{ lat: 38.12, lng: 128, at: now - 31 * day, source: "search" }];
@@ -125,5 +126,17 @@ describe("광고·제휴 문의", () => {
     expect(cleanInquiry({ ...ok, kind: "spam" })).toHaveProperty("error");
     expect(cleanInquiry({ ...ok, name: " " })).toHaveProperty("error");
     expect(cleanInquiry({ ...ok, message: "짧음" })).toHaveProperty("error");
+  });
+});
+
+describe("GPS를 자주 켠 동네", () => {
+  it("서로 다른 날 2번 이상 잡힌 동네만 자주 켠 동네", () => {
+    const t0 = Date.parse("2026-10-20T03:00:00Z");
+    let list = addGpsArea([], "달서구", t0);
+    list = addGpsArea(list, "달서구", t0 + 60_000); // 같은 날 또
+    list = addGpsArea(list, "수성구", t0);
+    expect(frequentGpsAreas(list, t0)).toEqual([]);
+    list = addGpsArea(list, "달서구", t0 + 86_400_000); // 다음 날
+    expect(frequentGpsAreas(list, t0 + 86_400_000)).toEqual(["달서구"]);
   });
 });

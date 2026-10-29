@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberGpsArea } from "@/lib/gpsAreas";
 import { useEffect, useRef, useState } from "react";
 import { normalizeSidoName } from "@/lib/shelterNotices";
 
@@ -87,6 +88,8 @@ export function useUserArea(): UserArea {
             console.info(`[useUserRegion] 감지된 위치: (${latitude}, ${longitude}) → "${rawName}" → "${name}"`);
             const sigungu: string | null = data.result?.sigungu || null;
             setArea({ sido: name, sigungu, lat: latitude, lng: longitude, status: "ready" });
+            // 배너 광고의 "GPS를 자주 켠 동네"(src/lib/gpsAreas.ts) — 기기에만 기억
+            rememberGpsArea(sigungu);
             localStorage.setItem(AREA_CACHE_KEY, JSON.stringify({ sigungu, lat: latitude, lng: longitude }));
             localStorage.setItem(REGION_CACHE_KEY, name);
             localStorage.setItem(REGION_CACHE_AT_KEY, String(Date.now()));

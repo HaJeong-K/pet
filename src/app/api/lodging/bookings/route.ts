@@ -6,7 +6,7 @@ import { applyCancel, confirmStay, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type Mone
 import { sendOwnerPush } from "@/lib/server/ownerPush";
 import { notifyAdmin } from "@/lib/server/notify";
 import { createRateLimiter } from "@/lib/server/rateLimit";
-import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petsAllowed, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
+import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petNightFee, petsAllowed, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
 import { cancelOutcome, refundSchedule, type PeakPeriod } from "@/lib/lodgingPolicy";
 import { won } from "@/lib/ownerPlans";
 
@@ -93,7 +93,9 @@ export async function POST(req: NextRequest) {
   const petProblem = petsAllowed(profile, room, r.pets);
   if (petProblem) return fail(petProblem, 400);
   const days = await roomDays(r.roomId, r.checkIn, r.checkOut).catch(() => []);
-  const q = quoteStay(room, profile?.pet_fee ?? null, days, r.checkIn, r.checkOut, r.guests, r.pets.length);
+  // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
+  const petNightly = r.pets.reduce((sum, p) => sum + petNightFee(profile, p), 0);
+  const q = quoteStay(room, petNightly, days, r.checkIn, r.checkOut, r.guests, r.extras, profile?.extras ?? []);
   if ("error" in q) return fail(q.error, 400);
   if ((await confirmedOverlaps(r.roomId, r.checkIn, r.checkOut)).length > 0) return fail("그 날짜에는 이미 예약이 찼어요. 다른 날짜를 골라 주세요.", 409);
 
@@ -107,7 +109,7 @@ export async function POST(req: NextRequest) {
   const base = {
     place_id: placeId, room_id: room.id, room_name: room.name, guest_auth_user_id: user.id,
     guest_name: r.name, guest_phone: r.phone, check_in: r.checkIn, check_out: r.checkOut, nights: q.nights.length, guests: r.guests,
-    pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal },
+    pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal, extras: q.extras, extrasTotal: q.extrasTotal },
     total: q.total, payment: "online", memo: r.memo, status: instant ? "confirmed" : "requested", ...(instant ? { decided_at: new Date().toISOString() } : {}),
   };
   // 이용자 정보·방문 수단·동의 기록(scripts/sql/lodging-guest-review-reports.sql)

@@ -16,7 +16,10 @@ export async function GET(req: NextRequest) {
   if (!Number.isInteger(roomId) || roomId <= 0 || !isDay(from) || !isDay(to) || daysBetween(from, to) < 1 || daysBetween(from, to) > RANGE_MAX) {
     return NextResponse.json({ error: "기간을 다시 골라 주세요." }, { status: 400 });
   }
-  const { data: room, error: roomError } = await db.from("lodging_rooms").select("base_price, weekend_price, is_active").eq("id", roomId).maybeSingle();
+  const roomOf = (columns: string) => db.from("lodging_rooms").select(columns).eq("id", roomId).maybeSingle<{ base_price: number; weekend_price: number | null; weekday_prices?: (number | null)[] | null; is_active: boolean }>();
+  let { data: room, error: roomError } = await roomOf("base_price, weekend_price, weekday_prices, is_active");
+  // 요일별 요금 칸(scripts/sql/lodging-fees-extras.sql) 실행 전이면 그 칸 없이
+  if (roomError && isMissingSchema(roomError)) ({ data: room, error: roomError } = await roomOf("base_price, weekend_price, is_active"));
   if (roomError && isMissingSchema(roomError)) return NextResponse.json({ ready: false, days: [] });
   if (!room || !room.is_active) return NextResponse.json({ error: "객실을 찾을 수 없어요." }, { status: 404 });
   try {

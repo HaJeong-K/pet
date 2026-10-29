@@ -62,10 +62,10 @@ export const OWNER_PLANS: OwnerPlan[] = [
   {
     id: "local",
     name: "동네 대표",
-    tagline: "우리 동네 보호자에게 배너로 먼저 보여요",
+    tagline: "보호자 화면에 배너로 우리 가게를 알려요",
     monthlyPrice: LOCAL_MONTHLY_PRICE,
     features: [
-      "커뮤니티·마이페이지 배너에 우리 가게 노출(같은 시·군·구 사용자에게)",
+      "커뮤니티·마이페이지 배너에 우리 가게 노출",
       "추천 장소 광고 칸 우선",
       "문구·사진·글꼴을 직접 골라 배너 만들기",
       "프리미엄 스토어 혜택 전체 포함",

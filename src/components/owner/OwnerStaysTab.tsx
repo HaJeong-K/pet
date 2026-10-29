@@ -21,7 +21,7 @@ import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgi
 
 type Booking = {
   id: number; room_id: number; room_name: string; guest_name: string; guest_phone: string; check_in: string; check_out: string; nights: number; guests: number;
-  pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number };
+  pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number; extras?: { id: string; name: string; qty: number; amount: number }[]; extrasTotal?: number };
   total: number; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
   // 이용자 정보(scripts/sql/lodging-guest-review-reports.sql) — 없으면 비어 있음
   stay_guest_name?: string | null; stay_guest_phone?: string | null; arrival_method?: string | null; arrival_time?: string | null;
@@ -187,6 +187,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   객실 {won(detail.roomTotal ?? b.total)}
                   {(detail.extraGuestTotal ?? 0) > 0 && ` + 인원 추가 ${won(detail.extraGuestTotal!)}`}
                   {(detail.petTotal ?? 0) > 0 && ` + 반려동물 ${won(detail.petTotal!)}`}
+                  {(detail.extras ?? []).map((x) => ` + ${x.name}×${x.qty} ${won(x.amount)}`).join("")}
                   <span style={{ marginLeft: 6, fontSize: 14, fontWeight: 800, color: "#B45309" }}>{won(b.total)}</span>
                   <span style={{ marginLeft: 4 }}>· {b.payment_status === "paid" ? "결제 완료" : b.payment_status === "refunded" ? "전액 환불" : b.payment_status === "partially_refunded" ? "일부 환불" : "결제 확인 전"}</span>
                 </div>

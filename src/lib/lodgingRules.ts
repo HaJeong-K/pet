@@ -20,6 +20,12 @@ export const PET_SPECIES: { id: PetSpecies; label: string }[] = [
 ];
 
 export type PetSize = "small" | "medium" | "large";
+/** 반려동물 추가 요금을 따로 정할 수 있는 묶음 — 강아지는 크기별, 고양이·그 외 동물은 하나씩 */
+export type PetFeeKey = PetSize | "cat" | "other";
+export type PetFees = Partial<Record<PetFeeKey, number>>;
+export const PET_FEE_KEYS: { id: PetFeeKey; label: string }[] = [
+  { id: "small", label: "소형견" }, { id: "medium", label: "중형견" }, { id: "large", label: "대형견" }, { id: "cat", label: "고양이" }, { id: "other", label: "그 외 동물" },
+];
 /** 크기 기준은 숙소마다 다르므로 몸무게 예시만 붙이고, 정확한 한도는 "최대 몸무게" 칸으로 받습니다 */
 export const PET_SIZES: { id: PetSize; label: string; hint: string }[] = [
   { id: "small", label: "소형견", hint: "대략 7kg 미만" },
@@ -74,6 +80,8 @@ export type LodgingProfile = {
   max_pets: number | null;
   /** 반려동물 추가 요금(1마리·1박, 원) — 0이면 무료, null이면 안 적음 */
   pet_fee: number | null;
+  /** 크기·종류별 추가 요금(1마리·1박) — 비어 있는 칸은 pet_fee(기본)를 씁니다 */
+  pet_fees: PetFees;
   /** 추가 요금 설명(예: "2마리부터 1만 원 추가", "대형견 2만 원") */
   pet_fee_note: string | null;
   pet_amenities: string[];
@@ -87,13 +95,27 @@ export type LodgingProfile = {
   peak_periods: PeakPeriod[];
   /** 즉시 확정 — 켜면 손님 결제와 함께 예약이 바로 확정됩니다(계약서 제8조 제3항) */
   instant_confirm: boolean;
+  /** 부가 옵션(바비큐·불멍·추가 침구 등) — 손님이 예약할 때 골라서 함께 결제 */
+  extras: LodgingExtra[];
 };
+
+// ── 부가 옵션 ──
+export type ExtraUnit = "stay" | "night" | "person";
+export const EXTRA_UNITS: { id: ExtraUnit; label: string; hint: string }[] = [
+  { id: "stay", label: "1회", hint: "숙박 한 번에" },
+  { id: "night", label: "1박마다", hint: "묵는 밤 수만큼" },
+  { id: "person", label: "1인당", hint: "고른 인원 수만큼" },
+];
+export type LodgingExtra = { id: string; name: string; price: number; unit: ExtraUnit; max: number; note: string | null };
+export const EXTRAS_MAX = 12;
+export const EXTRA_QTY_MAX = 20;
+export const EXTRA_PRESETS = ["바비큐(숯·그릴)", "불멍(화로대)", "추가 침구", "조식", "얼리 체크인", "레이트 체크아웃", "반려동물 용품 대여", "온수 수영장"];
 export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
   check_in: null, check_out: null, pet_species: ["dog"], pet_others: null, pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
-  pet_fee: null, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
-  peak_periods: [], instant_confirm: false,
+  pet_fee: null, pet_fees: {}, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
+  peak_periods: [], instant_confirm: false, extras: [],
 };
 
 const MONTH_DAY = /^(0[1-9]|1[0-2])-(0[1-9]|[12]d|3[01])$/;
@@ -132,6 +154,26 @@ export function cleanTime(value: unknown): string | null | "bad" {
   return `${String(h).padStart(2, "0")}:${m[2]}`;
 }
 
+/** 부가 옵션 다듬기 — 이름·요금 필수, 단위(1회·1박마다·1인당), 한 번에 고를 수 있는 최대 수량 */
+export function cleanExtras(value: unknown): { extras: LodgingExtra[] } | { error: string } {
+  if (!Array.isArray(value)) return { extras: [] };
+  if (value.length > EXTRAS_MAX) return { error: `부가 옵션은 ${EXTRAS_MAX}개까지 둘 수 있어요.` };
+  const out: LodgingExtra[] = [];
+  for (const [i, raw] of (value as Record<string, unknown>[]).entries()) {
+    const name = text(raw?.name, 30);
+    const price = number(raw?.price, 0, ROOM_PRICE_MAX);
+    if (!name && (price == null || price === "bad")) continue; // 빈 줄은 건너뜀
+    if (!name) return { error: `${i + 1}번째 부가 옵션의 이름을 적어 주세요.` };
+    if (price == null || price === "bad") return { error: `"${name}" 요금을 0 이상의 숫자로 적어 주세요.` };
+    const unit = EXTRA_UNITS.find((u) => u.id === raw?.unit)?.id ?? "stay";
+    const max = number(raw?.max, 1, EXTRA_QTY_MAX);
+    const id = typeof raw?.id === "string" && /^[\w-]{1,24}$/.test(raw.id) ? raw.id : `x${i + 1}${Math.random().toString(36).slice(2, 7)}`;
+    if (out.some((x) => x.id === id)) return { error: "부가 옵션이 겹쳐요. 다시 저장해 주세요." };
+    out.push({ id, name, price, unit, max: max == null || max === "bad" ? 1 : max, note: text(raw?.note, 60) });
+  }
+  return { extras: out };
+}
+
 /** 숙소 기본 정보·동반 규정을 다듬습니다. 문제가 있으면 이유를 돌려줍니다. */
 export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } | { error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
@@ -150,6 +192,15 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   if (maxPets === "bad") return { error: `최대 마릿수는 1~${ROOM_PETS_MAX}마리 사이로 적어 주세요.` };
   const fee = number(r.pet_fee, 0, PET_FEE_MAX);
   if (fee === "bad") return { error: "반려동물 추가 요금을 다시 확인해 주세요." };
+  const petFees: PetFees = {};
+  const rawFees = (r.pet_fees ?? {}) as Record<string, unknown>;
+  for (const k of PET_FEE_KEYS) {
+    const v = number(rawFees[k.id], 0, PET_FEE_MAX);
+    if (v === "bad") return { error: `${k.label} 추가 요금을 다시 확인해 주세요.` };
+    if (v != null) petFees[k.id] = v;
+  }
+  const extras = cleanExtras(r.extras);
+  if ("error" in extras) return extras;
   const peak = cleanPeakPeriods(r.peak_periods);
   if (peak === "bad") return { error: `성수기 기간을 다시 확인해 주세요(예: 07-15 ~ 08-24, 최대 ${PEAK_PERIODS_MAX}구간).` };
   return {
@@ -167,11 +218,15 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
       refund_policy: text(r.refund_policy, LODGING_TEXT_MAX),
       peak_periods: peak,
       instant_confirm: r.instant_confirm === true,
+      pet_fees: petFees,
+      extras: extras.extras,
     },
   };
 }
 
 // ── 객실 ──
+
+export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 export type RoomInput = {
   name: string;
@@ -181,6 +236,8 @@ export type RoomInput = {
   base_price: number;
   /** 1박 요금(금·토) — 없으면 평일 요금과 같음 */
   weekend_price: number | null;
+  /** 요일별 1박 요금 [일, 월, 화, 수, 목, 금, 토] — 적은 요일은 평일·주말 요금 대신 이 값(손님 적은 요일은 낮게, 많은 요일은 높게) */
+  weekday_prices?: (number | null)[] | null;
   /** 기준 인원 / 최대 인원 / 기준 초과 1명당 추가 요금 */
   std_guests: number;
   max_guests: number;
@@ -207,6 +264,13 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
   const max = number(r.max_guests, 1, ROOM_GUESTS_MAX);
   if (std === null || std === "bad" || max === null || max === "bad") return { error: `기준·최대 인원은 1~${ROOM_GUESTS_MAX}명 사이로 적어 주세요.` };
   if (max < std) return { error: "최대 인원은 기준 인원보다 적을 수 없어요." };
+  const weekdayPrices: (number | null)[] = [];
+  const rawWeekday = Array.isArray(r.weekday_prices) ? r.weekday_prices : [];
+  for (let d = 0; d < 7; d++) {
+    const v = number(rawWeekday[d], 0, ROOM_PRICE_MAX);
+    if (v === "bad") return { error: `${WEEKDAY_LABELS[d]}요일 요금을 다시 확인해 주세요.` };
+    weekdayPrices.push(v);
+  }
   const extra = number(r.extra_guest_fee, 0, ROOM_PRICE_MAX);
   if (extra === "bad") return { error: "인원 추가 요금을 다시 확인해 주세요." };
   const pets = number(r.max_pets, 1, ROOM_PETS_MAX);
@@ -220,6 +284,8 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
       description: text(r.description, ROOM_DESC_MAX),
       base_price: base,
       weekend_price: weekend,
+      // 하나도 안 적었으면 null(평일·주말 요금만 씀)
+      weekday_prices: weekdayPrices.some((v) => v != null) ? weekdayPrices : null,
       std_guests: std, max_guests: max,
       extra_guest_fee: max > std ? extra : null,
       max_pets: pets,
@@ -233,7 +299,7 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
 // ── 손님에게 보여 줄 요약 ──
 
 /** "강아지(소형견·중형견, 10kg 이하)·고양이 · 최대 2마리 · 1마리 1박 1만 원" 같은 한 줄 요약 */
-export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee"> & { pet_others?: string | null }): string {
+export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee"> & { pet_others?: string | null; pet_fees?: PetFees }): string {
   const parts: string[] = [];
   const animals = p.pet_species.map((s) => {
     if (s === "other") return p.pet_others || "그 외 동물";
@@ -244,13 +310,24 @@ export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_si
   });
   if (animals.length) parts.push(animals.join("·"));
   if (p.max_pets != null) parts.push(`최대 ${p.max_pets}마리`);
-  if (p.pet_fee === 0) parts.push("추가 요금 없음");
+  // 크기·종류별 요금이 있으면 "1마리 1박 소형견 1만 원·대형견 2만 원"처럼
+  const byKind = PET_FEE_KEYS.filter((k) => p.pet_fees?.[k.id] != null && p.pet_fees[k.id] !== p.pet_fee).map((k) => `${k.label} ${p.pet_fees![k.id]!.toLocaleString("ko-KR")}원`);
+  if (byKind.length > 0) parts.push(`1마리 1박 ${p.pet_fee != null ? `기본 ${p.pet_fee.toLocaleString("ko-KR")}원·` : ""}${byKind.join("·")}`);
+  else if (p.pet_fee === 0) parts.push("추가 요금 없음");
   else if (p.pet_fee != null) parts.push(`1마리 1박 ${p.pet_fee.toLocaleString("ko-KR")}원`);
   return parts.join(" · ");
 }
 
+/** 객실의 가장 낮은 1박 요금(요일별 요금 포함) — "1박 ○원~" 표시용 */
+export function roomLowestPrice(room: Pick<RoomInput, "base_price" | "weekend_price" | "weekday_prices">): number {
+  return Math.min(room.base_price, ...(room.weekday_prices ?? []).filter((v): v is number => v != null));
+}
+
 /** 손님 화면용 1박 요금 문구 — "1박 120,000원부터" (주말이 더 비싸면 "주말 150,000원") */
-export function roomPriceText(room: Pick<RoomInput, "base_price" | "weekend_price">): string {
+export function roomPriceText(room: Pick<RoomInput, "base_price" | "weekend_price" | "weekday_prices">): string {
+  // 요일별 요금이 있으면 가장 낮은 요금부터
+  const byDay = (room.weekday_prices ?? []).filter((v): v is number => v != null);
+  if (byDay.length > 0) return `1박 ${Math.min(room.base_price, ...byDay).toLocaleString("ko-KR")}원부터 · 요일별 요금`;
   const base = `1박 ${room.base_price.toLocaleString("ko-KR")}원`;
   return room.weekend_price != null && room.weekend_price !== room.base_price
     ? `${base} · 주말 ${room.weekend_price.toLocaleString("ko-KR")}원`

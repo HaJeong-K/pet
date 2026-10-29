@@ -16,7 +16,11 @@ export const PROFILE_COLUMNS = "place_id, check_in, check_out, pet_species, pet_
 export const PROFILE_EXTRA_COLUMNS = "peak_periods, instant_confirm";
 /** 그 외 동반 동물 칸(scripts/sql/lodging-reviews.sql) */
 export const PROFILE_OTHERS_COLUMN = "pet_others";
-export const ROOM_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
+/** 크기·종류별 반려동물 추가 요금·부가 옵션 칸(scripts/sql/lodging-fees-extras.sql) */
+export const PROFILE_FEES_COLUMNS = "pet_fees, extras";
+export const ROOM_BASE_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
+/** 요일별 요금 칸(scripts/sql/lodging-fees-extras.sql)까지 */
+export const ROOM_COLUMNS = `${ROOM_BASE_COLUMNS}, weekday_prices`;
 
 export type ProfileRow = LodgingProfile & { place_id: number; updated_at: string };
 export type RoomRow = RoomInput & { id: number; place_id: number; sort_order: number };
@@ -35,11 +39,17 @@ export async function lodgingOwnerContext(req: NextRequest): Promise<OwnerContex
 
 /** 숙소 정보와 객실 목록(사장님이 정한 순서). onlyActive면 판매 중인 객실만 — 손님용이라 입점 승인 전 숙소는 객실을 숨깁니다. */
 export async function getLodging(placeId: number, onlyActive: boolean): Promise<{ ready: boolean; profile: ProfileRow | null; rooms: RoomRow[] }> {
-  let roomQuery = db.from("lodging_rooms").select(ROOM_COLUMNS).eq("place_id", placeId).order("sort_order").order("id");
-  if (onlyActive) roomQuery = roomQuery.eq("is_active", true);
+  const roomQueryOf = (columns: string) => {
+    const q = db.from("lodging_rooms").select(columns).eq("place_id", placeId).order("sort_order").order("id");
+    return onlyActive ? q.eq("is_active", true) : q;
+  };
+  const roomQuery = roomQueryOf(ROOM_COLUMNS);
   const profileOf = (columns: string) => db.from("lodging_profiles").select(columns).eq("place_id", placeId).maybeSingle<Record<string, any>>();
-  let [profile, rooms] = await Promise.all([profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}, ${PROFILE_OTHERS_COLUMN}`), roomQuery]);
+  let [profile, rooms] = await Promise.all([profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}, ${PROFILE_OTHERS_COLUMN}, ${PROFILE_FEES_COLUMNS}`), roomQuery]);
   // 새 칸이 아직 없으면(SQL 실행 전) 한 단계씩 빼고 다시 읽습니다
+  if (isMissingSchema(profile.error)) profile = await profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}, ${PROFILE_OTHERS_COLUMN}`);
+  // 요일별 요금 칸이 아직 없으면 그 칸 없이
+  if (isMissingSchema(rooms.error)) rooms = await roomQueryOf(ROOM_BASE_COLUMNS);
   if (isMissingSchema(profile.error)) profile = await profileOf(`${PROFILE_COLUMNS}, ${PROFILE_EXTRA_COLUMNS}`);
   if (isMissingSchema(profile.error)) profile = await profileOf(PROFILE_COLUMNS);
   if (isMissingSchema(profile.error) || isMissingSchema(rooms.error)) return { ready: false, profile: null, rooms: [] };
@@ -53,6 +63,8 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
       peak_periods: Array.isArray(profile.data.peak_periods) ? profile.data.peak_periods : [],
       instant_confirm: profile.data.instant_confirm === true,
       pet_others: typeof profile.data.pet_others === "string" ? profile.data.pet_others : null,
+      pet_fees: profile.data.pet_fees && typeof profile.data.pet_fees === "object" && !Array.isArray(profile.data.pet_fees) ? profile.data.pet_fees : {},
+      extras: Array.isArray(profile.data.extras) ? profile.data.extras : [],
       max_pet_weight_kg: profile.data.max_pet_weight_kg == null ? null : Number(profile.data.max_pet_weight_kg),
     } : null,
     rooms: onlyActive && !(await partnerOf(placeId)).open ? [] : (rooms.data ?? []) as unknown as RoomRow[],

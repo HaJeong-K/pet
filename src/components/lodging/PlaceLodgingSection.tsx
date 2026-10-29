@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CalendarDays, ChevronDown, ChevronUp, Clock, MapPin, MessageCircle, PawPrint, Phone, ShieldCheck, Users } from "lucide-react";
-import { petPolicySummary, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
+import { petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
 import LodgingBookingSheet, { type GuestRoom } from "@/components/lodging/LodgingBookingSheet";
 
 type Data = { ready: boolean; profile: (LodgingProfile & { updated_at?: string }) | null; rooms: GuestRoom[] };
@@ -68,7 +68,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
     );
   }
   const p = data.profile;
-  const minPrice = data.rooms.length ? Math.min(...data.rooms.map((r) => r.base_price)) : null;
+  const minPrice = data.rooms.length ? Math.min(...data.rooms.map(roomLowestPrice)) : null;
   if (layout === "hero" && data.rooms.length > 0) {
     return (
       <div style={{ ...card, background: "linear-gradient(135deg,#1D4F91,#2E6BC0)", border: "none", color: "white" }}>

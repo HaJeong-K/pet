@@ -2,13 +2,15 @@
 
 // 배너 광고 칸에 넣을 배너를 받아 옵니다. PC의 양옆 광고 칸(SideAdRail)과 휴대폰의 한 줄 배너(LocalAdStrip)가 같이 씁니다.
 // 어느 가게가 나오는지는 서버가 정합니다(src/lib/localAds.ts · src/lib/server/bannerAds.ts):
-//   내 시·군·구의 배너 가게 → 근처 → 최근에 찾아본 지역(관심 지역) 근처 → 전국 무작위. 후보가 여러 곳이면 노출 횟수가 똑같아지도록 고릅니다.
+//   숙소: 자주 검색한 지역 → 무작위, 일반 가게: GPS를 자주 켠 동네 → 자주 검색한 지역 → 무작위.
+//   후보가 여러 곳이면 노출 횟수가 똑같아지도록 고릅니다.
 // 서버는 부를 때마다 노출 횟수를 올리므로, 한 화면에서는 한 번만 부릅니다(양옆 칸과 한 줄 배너가 같은 응답을 나눠 씀).
 
 import { useEffect, useState } from "react";
 import { useUserArea } from "@/lib/useUserRegion";
 import { trackEvent } from "@/lib/analytics";
 import { readInterests } from "@/lib/interestRegions";
+import { frequentGpsAreas, readGpsAreas } from "@/lib/gpsAreas";
 import type { BannerFontId } from "@/lib/bannerCreative";
 
 export type LocalAd = {
@@ -43,7 +45,11 @@ function fetchAds(sigungu: string, lat: number | null, lng: number | null): Prom
   const promise = fetch("/api/ads/local", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sigungu, lat, lng, slots, interests: readInterests().map((p) => ({ lat: p.lat, lng: p.lng })) }),
+    body: JSON.stringify({
+      sigungu, lat, lng, slots,
+      gpsAreas: frequentGpsAreas(readGpsAreas()),
+      interests: readInterests().map((p) => ({ lat: p.lat, lng: p.lng, hits: p.hits ?? 1 })),
+    }),
   }).then((r) => r.json()).then((data) => (data.places || []) as LocalAd[]).catch(() => [] as LocalAd[]);
   last = { key, at: Date.now(), promise };
   return promise;

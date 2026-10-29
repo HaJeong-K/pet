@@ -16,25 +16,31 @@ import { supabase } from "@/lib/supabase";
 import {
   EMPTY_PROFILE, LODGING_SHORT_MAX, PEAK_PERIODS_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
   ROOM_IMAGES_MAX, ROOM_NAME_MAX, ROOM_TYPE_MAX, ROOM_TYPE_SUGGESTIONS, ROOMS_PER_PLACE_MAX, petPolicySummary, roomPriceText,
-  type LodgingProfile, type PetSize, type PetSpecies,
+  EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, WEEKDAY_LABELS,
+  type ExtraUnit, type LodgingProfile, type PetFeeKey, type PetSize, type PetSpecies,
 } from "@/lib/lodgingRules";
 
 type Room = {
-  id: number; name: string; room_type: string | null; description: string | null; base_price: number; weekend_price: number | null;
+  id: number; name: string; room_type: string | null; description: string | null; base_price: number; weekend_price: number | null; weekday_prices?: (number | null)[] | null;
   std_guests: number; max_guests: number; extra_guest_fee: number | null; max_pets: number | null; images: string[]; amenities: string[]; is_active: boolean;
 };
 type State = { ready: boolean; profile: (LodgingProfile & { updated_at?: string }) | null; rooms: Room[] };
 
 /** 입력칸용(숫자도 글자로 들고 있다가 저장할 때 바꿈) */
-type ProfileForm = Omit<LodgingProfile, "max_pet_weight_kg" | "max_pets" | "pet_fee" | "check_in" | "check_out" | "pet_fee_note" | "pet_rules" | "stay_rules" | "refund_policy"> & {
+type ExtraForm = { id: string; name: string; price: string; unit: ExtraUnit; max: string; note: string };
+type ProfileForm = Omit<LodgingProfile, "max_pet_weight_kg" | "max_pets" | "pet_fee" | "check_in" | "check_out" | "pet_fee_note" | "pet_rules" | "stay_rules" | "refund_policy" | "pet_fees" | "extras"> & {
   check_in: string; check_out: string; max_pet_weight_kg: string; max_pets: string; pet_fee: string;
   pet_fee_note: string; pet_rules: string; stay_rules: string; refund_policy: string;
+  pet_fees: Partial<Record<PetFeeKey, string>>; extras: ExtraForm[];
 };
 type RoomForm = {
   name: string; room_type: string; description: string; base_price: string; weekend_price: string; std_guests: string; max_guests: string;
   extra_guest_fee: string; max_pets: string; images: string[]; amenities: string[]; is_active: boolean;
+  /** 요일별 1박 요금 [일~토] — 빈 칸은 평일·주말 요금 */
+  weekday_prices: string[];
 };
-const EMPTY_ROOM: RoomForm = { name: "", room_type: "", description: "", base_price: "", weekend_price: "", std_guests: "2", max_guests: "2", extra_guest_fee: "", max_pets: "", images: [], amenities: [], is_active: true };
+const NO_WEEKDAY = ["", "", "", "", "", "", ""];
+const EMPTY_ROOM: RoomForm = { name: "", room_type: "", description: "", base_price: "", weekend_price: "", weekday_prices: NO_WEEKDAY, std_guests: "2", max_guests: "2", extra_guest_fee: "", max_pets: "", images: [], amenities: [], is_active: true };
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const str = (v: number | string | null | undefined) => (v == null ? "" : String(v));
@@ -45,10 +51,13 @@ const toProfileForm = (p: LodgingProfile | null): ProfileForm => {
     check_in: src.check_in ?? "", check_out: src.check_out ?? "",
     max_pet_weight_kg: str(src.max_pet_weight_kg), max_pets: str(src.max_pets), pet_fee: str(src.pet_fee),
     pet_fee_note: src.pet_fee_note ?? "", pet_rules: src.pet_rules ?? "", stay_rules: src.stay_rules ?? "", refund_policy: src.refund_policy ?? "",
+    pet_fees: Object.fromEntries(Object.entries(src.pet_fees ?? {}).map(([k, v]) => [k, str(v)])),
+    extras: (src.extras ?? []).map((x) => ({ id: x.id, name: x.name, price: str(x.price), unit: x.unit, max: str(x.max), note: x.note ?? "" })),
   };
 };
 const toRoomForm = (r: Room): RoomForm => ({
   name: r.name, room_type: r.room_type ?? "", description: r.description ?? "", base_price: str(r.base_price), weekend_price: str(r.weekend_price),
+  weekday_prices: NO_WEEKDAY.map((_, d) => str(r.weekday_prices?.[d])),
   std_guests: str(r.std_guests), max_guests: str(r.max_guests), extra_guest_fee: str(r.extra_guest_fee), max_pets: str(r.max_pets),
   images: r.images ?? [], amenities: r.amenities ?? [], is_active: r.is_active,
 });
@@ -110,6 +119,10 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
 
   // ── ① 숙소 기본 정보·동반 규정 ──
   const setP = (patch: Partial<ProfileForm>) => { setProfile((prev) => ({ ...prev, ...patch })); setProfileSaved(null); };
+  const setExtra = (i: number, patch: Partial<ExtraForm>) => setP({ extras: profile.extras.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+  const addExtra = (name: string) => setP({ extras: [...profile.extras, { id: `x${Date.now().toString(36)}`, name, price: "", unit: "stay", max: "1", note: "" }] });
+  // 받는 동물·크기에 맞는 요금 칸만(대형견을 안 받으면 대형견 요금 칸 없음)
+  const feeKeys = PET_FEE_KEYS.filter((k) => (k.id === "cat" || k.id === "other" ? profile.pet_species.includes(k.id) : profile.pet_species.includes("dog") && profile.pet_sizes.includes(k.id)));
   const saveProfile = async () => {
     if (busy) return;
     setBusy("profile");
@@ -264,13 +277,54 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               </div>
             </div>
             <div>
-              <div style={label}>추가 요금(1마리·1박) <span style={optional}>무료면 0</span></div>
+              <div style={label}>기본 추가 요금(1마리·1박) <span style={optional}>무료면 0</span></div>
               <MoneyInput value={profile.pet_fee} onChange={(v) => setP({ pet_fee: v })} placeholder="안 적음" disabled={disabled} />
             </div>
           </div>
+          {feeKeys.length > 0 && (
+            <div>
+              <div style={label}>크기·종류별 추가 요금(1마리·1박) <span style={optional}>다르게 받을 때만 — 비우면 기본 요금</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
+                {feeKeys.map((k) => (
+                  <div key={k.id}>
+                    <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>{k.label}</div>
+                    <MoneyInput value={profile.pet_fees[k.id] ?? ""} onChange={(v) => setP({ pet_fees: { ...profile.pet_fees, [k.id]: v } })} placeholder={profile.pet_fee ? `기본 ${Number(profile.pet_fee).toLocaleString("ko-KR")}` : "기본 요금"} disabled={disabled} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#999", marginTop: 5 }}>손님이 예약할 때 마리마다 크기·종류에 맞는 요금이 자동으로 더해져요.</div>
+            </div>
+          )}
           <div>
             <div style={label}>추가 요금 설명 <span style={optional}>(선택)</span></div>
             <input value={profile.pet_fee_note} onChange={(e) => setP({ pet_fee_note: e.target.value })} maxLength={LODGING_SHORT_MAX} placeholder="예: 대형견은 1박 2만 원 / 3마리부터 1마리당 1만 원 추가" disabled={disabled} style={input} />
+          </div>
+
+          <div style={section}>부가 옵션</div>
+          <div style={{ fontSize: 12.5, color: "#777", marginTop: -6, lineHeight: 1.6 }}>바비큐·불멍·추가 침구처럼 따로 받는 요금이에요. 손님이 예약할 때 골라서 숙박 요금과 함께 결제해요.</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {profile.extras.map((x, i) => (
+              <div key={x.id} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", gap: 6 }}>
+                  <input value={x.name} onChange={(e) => setExtra(i, { name: e.target.value.slice(0, 30) })} placeholder="옵션 이름 — 예: 바비큐(숯·그릴)" aria-label="옵션 이름" disabled={disabled} style={input} />
+                  <MoneyInput value={x.price} onChange={(v) => setExtra(i, { price: v })} disabled={disabled} />
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  {EXTRA_UNITS.map((u) => <button key={u.id} disabled={disabled} onClick={() => setExtra(i, { unit: u.id })} aria-pressed={x.unit === u.id} title={u.hint} style={chip(x.unit === u.id)}>{u.label}</button>)}
+                  <span style={{ fontSize: 12, color: "#666", marginLeft: 4 }}>최대</span>
+                  <input value={x.max} onChange={(e) => setExtra(i, { max: digits(e.target.value, 2) })} inputMode="numeric" aria-label="최대 수량" disabled={disabled} style={{ ...input, width: 56, textAlign: "center", padding: "8px 6px" }} />
+                  <span style={{ fontSize: 12, color: "#666" }}>개</span>
+                  {canAct && <button onClick={() => setP({ extras: profile.extras.filter((_, j) => j !== i) })} aria-label="이 옵션 빼기" style={{ ...iconButton, marginLeft: "auto", borderColor: "#f3c7c5" }}><X size={13} color="#b42318" /></button>}
+                </div>
+                <input value={x.note} onChange={(e) => setExtra(i, { note: e.target.value.slice(0, 60) })} placeholder="안내(선택) — 예: 저녁 9시까지 이용, 2인 기준" aria-label="옵션 안내" disabled={disabled} style={input} />
+              </div>
+            ))}
+            {canAct && profile.extras.length < EXTRAS_MAX && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {EXTRA_PRESETS.filter((n) => !profile.extras.some((x) => x.name === n)).map((n) => <button key={n} onClick={() => addExtra(n)} style={chip(false)}>+ {n}</button>)}
+                <button onClick={() => addExtra("")} style={chip(false)}>+ 직접 만들기</button>
+              </div>
+            )}
           </div>
 
           <div style={section}>반려동물 편의시설</div>
@@ -391,6 +445,19 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                 <div style={label}>1박 요금(금·토) <span style={optional}>(선택)</span></div>
                 <MoneyInput value={room.weekend_price} onChange={(v) => setR({ weekend_price: v })} placeholder="평일과 같음" />
               </div>
+            </div>
+            <div>
+              <div style={label}>요일별 요금 <span style={optional}>(선택) 손님이 적은 요일은 낮게, 많은 요일은 높게 — 비운 요일은 위 요금</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(96px, 1fr))", gap: 6 }}>
+                {WEEKDAY_LABELS.map((d, i) => (
+                  <div key={d}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#1D4F91" : "#666", marginBottom: 3 }}>{d}요일 밤</div>
+                    <MoneyInput value={room.weekday_prices[i] ?? ""} onChange={(v) => setR({ weekday_prices: room.weekday_prices.map((x, j) => (j === i ? v : x)) })}
+                      placeholder={(i === 5 || i === 6) && room.weekend_price ? Number(room.weekend_price).toLocaleString("ko-KR") : room.base_price ? Number(room.base_price).toLocaleString("ko-KR") : "-"} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#999", marginTop: 5 }}>특정 날짜(연휴·성수기)만 바꾸려면 아래 달력에서 날짜별 요금을 정하세요. 날짜별 요금이 가장 먼저 적용돼요.</div>
             </div>
 
             <div style={section}>인원 · 반려동물</div>

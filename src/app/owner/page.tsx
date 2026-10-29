@@ -33,6 +33,8 @@ import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab, type 
 import OwnerStatsPanel, { fetchOwnerStats, type OwnerStats } from "@/components/OwnerStatsPanel";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import { OWNER_PLANS, PROMO_STEPS, PLAN_MONTHLY_PRICE, PLAN_NAME, PERIOD_DAYS, normalizePlan, periodText, quote, won, type ExtraDiscount, type PaidPlanId } from "@/lib/ownerPlans";
+import OwnerAutoRenew from "@/components/owner/OwnerAutoRenew";
+import OwnerDetailedReport, { type DetailedReport } from "@/components/owner/OwnerDetailedReport";
 import PremiumCancelDialog, { type RefundPreview } from "@/components/owner/PremiumCancelDialog";
 import { isPlacePremiumNow } from "@/lib/premium";
 import { isLodgingCategory, isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
@@ -213,6 +215,8 @@ export default function OwnerPage() {
         .owner-tabs::-webkit-scrollbar { display: none; }
         @media (min-width: 768px) { .owner-tabs { flex-wrap: wrap; overflow-x: visible; } }
       `}</style>
+      {/* 이용 기간이 14일 안으로 남았는데 자동 연장을 아직 정하지 않았으면 팝업으로 물어봅니다 */}
+      {placeId != null && <OwnerAutoRenew placeId={placeId} isPreview={isPreview} mode="prompt" />}
       <div className="owner-tabs owner-no-print">
         {TABS.filter(({ key }) => (key !== "banner" || hasBanner) && (isLodging ? key !== "products" && key !== "reservations" : key !== "lodging" && key !== "stays")).map(({ key, label: tabLabel, Icon }) => {
           const label = key === "place" ? `${isLodging ? "숙소" : "가게"} 정보` : tabLabel;
@@ -267,8 +271,13 @@ function Shell({ children }: { children: React.ReactNode }) {
         @media print {
           body { overflow: visible !important; }
           .owner-page { height: auto !important; overflow: visible !important; background: white !important; }
-          .owner-no-print, [data-guide="tabbar"] { display: none !important; }
+          .owner-no-print, .owner-screen-only, [data-guide="tabbar"] { display: none !important; }
+          .owner-print-only { display: block !important; }
+          /* 그래프·표의 배경색이 인쇄에서도 그대로 나오게 */
+          .owner-print-only, .owner-print-only * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { size: A4; margin: 14mm 12mm; }
         }
+        .owner-print-only { display: none; }
       `}</style>
       {/* 폭 1040px — 메뉴가 8개(배너 광고 포함)까지 늘어 760px에서는 메뉴 줄과 배너 미리보기가 좁았습니다 */}
       <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>
@@ -465,6 +474,9 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
         <PremiumCancelDialog plan={currentPlan} expiresText={fmtDate(place.premium_expires_at)} offerAvailable={!!cancelInfo?.offerAvailable} refund={cancelInfo?.refund ?? null} onClose={() => setShowCancel(false)} onDone={load} />
       )}
 
+      {/* 자동 연장 설정(이용 중일 때만) */}
+      {active && !cancelled && <OwnerAutoRenew placeId={placeId} isPreview={isPreview} mode="card" />}
+
       {/* 요금제 비교 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
         {OWNER_PLANS.map((plan) => {
@@ -573,6 +585,22 @@ const inputStyle: React.CSSProperties = { width: "100%", marginTop: 10, padding:
 function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean }) {
   const [stats, setStats] = useState<OwnerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 인쇄·PDF 저장용 상세 보고서(화면에는 숨기고 인쇄할 때만 보임 — OwnerDetailedReport)
+  const [detail, setDetail] = useState<DetailedReport | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const printDetailed = async () => {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/owner/report${isPreview ? `?placeId=${placeId}` : ""}`, { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {}, cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "보고서를 만들지 못했어요.");
+      setDetail(json);
+      // 상세 보고서가 그려진 다음 인쇄 창을 엽니다
+      window.setTimeout(() => { window.print(); setPrinting(false); }, 300);
+    } catch (e) { setError(e instanceof Error ? e.message : "보고서를 만들지 못했어요."); setPrinting(false); }
+  };
   useEffect(() => {
     let cancelled = false;
     fetchOwnerStats(isPreview ? placeId : undefined).then((r) => { if (!cancelled) { setStats(r.stats); setError(r.error); } });
@@ -601,15 +629,17 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
   const best = [...stats.daily].sort((a, b) => b.views - a.views)[0];
 
   return (
-    <div style={card}>
+    <>
+    {detail && <div className="owner-print-only"><OwnerDetailedReport r={detail} /></div>}
+    <div className="owner-screen-only" style={card}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "#B45309" }}>같이가개 성과 보고서</div>
           <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", marginTop: 3 }}>{stats.placeName ?? "내 가게"}</div>
           <div style={{ fontSize: 12.5, color: "#888", marginTop: 3 }}>{fmtDate(from.toISOString())} ~ {fmtDate(today.toISOString())} (최근 30일)</div>
         </div>
-        <button className="owner-no-print" onClick={() => window.print()} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 13px", borderRadius: 10, border: "1px solid #e2e4e8", background: "white", color: "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
-          <Printer size={13} />인쇄 · PDF 저장
+        <button className="owner-no-print" onClick={printDetailed} disabled={printing} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 13px", borderRadius: 10, border: "1px solid #e2e4e8", background: "white", color: "#555", fontSize: 12.5, fontWeight: 700, cursor: printing ? "default" : "pointer" }}>
+          <Printer size={13} />{printing ? "보고서 만드는 중…" : "상세 보고서 인쇄 · PDF 저장"}
         </button>
       </div>
 
@@ -649,9 +679,11 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
       <div style={{ fontSize: 11, color: "#aaa", marginTop: 12, lineHeight: 1.7 }}>
         · 같은 사람이 여러 번 보면 여러 번 세는 횟수 기준이에요. 개인을 알 수 있는 정보는 포함되지 않아요.<br />
         · 길찾기·전화·홈페이지 횟수는 2026년 10월 5일부터 집계됐어요.<br />
-        · 실제 매장 방문·매출과는 차이가 있을 수 있어요.
+        · 실제 매장 방문·매출과는 차이가 있을 수 있어요.<br />
+        · &ldquo;상세 보고서 인쇄 · PDF 저장&rdquo;을 누르면 기간 비교·무료 이용 대비(또는 비슷한 무료 업체 대비)·고객 여정·추이·개선 제안을 담은 보고서가 만들어져요.
       </div>
     </div>
+    </>
   );
 }
 const th: React.CSSProperties = { padding: "7px 8px", fontWeight: 700 };

@@ -14,7 +14,7 @@ import { AlertTriangle, BedDouble, ChevronDown, ChevronLeft, ChevronUp, Clock, C
 import StayFrame from "@/components/lodging/StayFrame";
 import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import { supabase } from "@/lib/supabase";
-import { petPolicySummary, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
+import { EXTRA_UNITS, petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
 import { stayDayLabel } from "@/lib/lodgingBooking";
 import { DANGEROUS_DOG_NOTICE } from "@/lib/lodgingConsents";
 import { REVIEW_ASPECTS, REVIEW_TEXT_MAX, REVIEW_TEXT_MIN, type ReviewAspect, type ReviewSummary, type StayReview } from "@/lib/lodgingReviews";
@@ -68,7 +68,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
 
   // 사진: 숙소 사진 + 객실 사진
   const photos = useMemo(() => [...(place.photo ? [place.photo] : []), ...rooms.flatMap((r) => r.images)].slice(0, 12), [place.photo, rooms]);
-  const minPrice = rooms.length ? Math.min(...rooms.map((r) => r.base_price)) : null;
+  const minPrice = rooms.length ? Math.min(...rooms.map(roomLowestPrice)) : null;
   const summary = reviews?.summary;
   const book = (roomId: number) => router.push(`/stay/${place.id}/book?room=${roomId}`);
   const share = async () => {
@@ -178,6 +178,19 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
               <div style={{ fontSize: 13.5, color: "#333", lineHeight: 1.7 }}>
                 {petPolicySummary(profile)}
                 {profile.pet_fee_note && <><br /><span style={{ fontSize: 12.5, color: "#666" }}>{profile.pet_fee_note}</span></>}
+                {profile.extras.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    <b style={{ fontSize: 13, color: "#333" }}>부가 옵션</b> <span style={{ fontSize: 12, color: "#999" }}>예약할 때 함께 고를 수 있어요</span>
+                    <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
+                      {profile.extras.map((x) => (
+                        <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
+                          <span>{x.name}{x.note ? <span style={{ color: "#999" }}> · {x.note}</span> : null}</span>
+                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#999" }}>{EXTRA_UNITS.find((u) => u.id === x.unit)?.label}</span></b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               {profile.pet_amenities.length > 0 && <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{profile.pet_amenities.map((a) => <span key={a} style={tag}>{a}</span>)}</div>}
               {(profile.check_in || profile.check_out) && <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "#555" }}><Clock size={13} />체크인 {profile.check_in ?? "-"} · 체크아웃 {profile.check_out ?? "-"}</div>}

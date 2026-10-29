@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
-import { getLodging, lodgingOwnerContext, ROOM_COLUMNS } from "@/lib/server/lodgingStore";
+import { getLodging, lodgingOwnerContext, ROOM_BASE_COLUMNS, ROOM_COLUMNS } from "@/lib/server/lodgingStore";
+import type { RoomInput } from "@/lib/lodgingRules";
+
+// 요일별 요금 칸(scripts/sql/lodging-fees-extras.sql) 실행 전이면 그 칸 없이 저장합니다(요일별 요금을 적었으면 안내)
+const WEEKDAY_NOT_READY = "요일별 요금은 준비 중이에요. 잠시 뒤 다시 저장해 주세요.";
+const withoutWeekday = ({ weekday_prices: _w, ...rest }: RoomInput) => rest;
 import { ownImageUrl } from "@/lib/server/ownerImage";
 import { cleanRoom, ROOMS_PER_PLACE_MAX } from "@/lib/lodgingRules";
 
@@ -25,7 +30,12 @@ export async function POST(req: NextRequest) {
   if ((existing ?? []).length >= ROOMS_PER_PLACE_MAX) return fail(`객실은 ${ROOMS_PER_PLACE_MAX}개까지 올릴 수 있어요.`, 400);
   const sort_order = (existing ?? []).reduce((max, r) => Math.max(max, Number(r.sort_order) || 0), -1) + 1;
 
-  const { data, error } = await db.from("lodging_rooms").insert([{ place_id: ctx.placeId, ...cleaned.room, sort_order }]).select(ROOM_COLUMNS).single();
+  const insert = (row: Record<string, unknown>, columns: string) => db.from("lodging_rooms").insert([{ place_id: ctx.placeId, ...row, sort_order }]).select(columns).single();
+  let { data, error } = await insert(cleaned.room, ROOM_COLUMNS);
+  if (error && isMissingSchema(error)) {
+    if (cleaned.room.weekday_prices) return fail(WEEKDAY_NOT_READY, 503);
+    ({ data, error } = await insert(withoutWeekday(cleaned.room), ROOM_BASE_COLUMNS));
+  }
   if (error) return fail(error.message, 500);
   return NextResponse.json({ room: data });
 }
@@ -58,7 +68,12 @@ export async function PATCH(req: NextRequest) {
   const cleaned = cleanRoom({ ...current, ...body });
   if ("error" in cleaned) return fail(cleaned.error, 400);
   if (!ownImages(ctx.placeId, cleaned.room.images)) return fail("사진을 다시 올려 주세요.", 400);
-  const { data, error } = await db.from("lodging_rooms").update({ ...cleaned.room, updated_at: new Date().toISOString() }).eq("id", id).eq("place_id", ctx.placeId).select(ROOM_COLUMNS).single();
+  const update = (row: Record<string, unknown>, columns: string) => db.from("lodging_rooms").update({ ...row, updated_at: new Date().toISOString() }).eq("id", id).eq("place_id", ctx.placeId).select(columns).single();
+  let { data, error } = await update(cleaned.room, ROOM_COLUMNS);
+  if (error && isMissingSchema(error)) {
+    if (cleaned.room.weekday_prices) return fail(WEEKDAY_NOT_READY, 503);
+    ({ data, error } = await update(withoutWeekday(cleaned.room), ROOM_BASE_COLUMNS));
+  }
   if (error) return fail(error.message, 500);
   return NextResponse.json({ room: data });
 }

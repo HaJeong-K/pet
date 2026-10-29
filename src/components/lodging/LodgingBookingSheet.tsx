@@ -13,16 +13,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Minus, Plus, Trash2, X } from "lucide-react";
+import { breedSize, CAT_BREEDS, DOG_BREEDS, OTHER_BREED } from "@/lib/petBreeds";
 import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
-import { addDays, daysBetween, kstToday, nightsOf, petsAllowed, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
+import { EXTRA_UNITS, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
+import { addDays, daysBetween, kstToday, nightsOf, petNightFee, petsAllowed, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
 import { refundSchedule } from "@/lib/lodgingPolicy";
 
 export type GuestRoom = RoomInput & { id: number };
 type DayInfo = { day: string; price: number; closed: boolean; booked: boolean };
-type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; kind: string };
+/** breed = 고른 견종·묘종(직접 입력이면 OTHER_BREED), breedText = 직접 입력한 이름 */
+type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; kind: string; breed: string; breedText: string };
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const shortWon = (n: number) => (n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
@@ -54,7 +56,15 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   // 숙소가 받는 동물만 고를 수 있게 합니다(동반 규정을 안 적은 숙소는 전부)
   const speciesOptions = PET_SPECIES.filter((s) => !profile || profile.pet_species.includes(s.id))
     .map((s) => ({ ...s, label: s.id === "other" && profile?.pet_others ? `그 외 (${profile.pet_others})` : s.label }));
-  const newPet = (): PetForm => ({ species: speciesOptions[0]?.id ?? "dog", size: profile?.pet_sizes?.[0] ?? "small", weight: "", kind: "" });
+  // 숙소가 받는 크기만 보여 줍니다(대형견을 안 받으면 대형견 버튼·대형 견종이 안 보임)
+  const sizeOptions = PET_SIZES.filter((s) => !profile || profile.pet_sizes.length === 0 || profile.pet_sizes.includes(s.id));
+  const dogBreeds = DOG_BREEDS.filter((b) => sizeOptions.some((s) => s.id === b.size));
+  const newPet = (): PetForm => ({ species: speciesOptions[0]?.id ?? "dog", size: sizeOptions[0]?.id ?? "small", weight: "", kind: "", breed: "", breedText: "" });
+  const setPet = (i: number, patch: Partial<PetForm>) => setPets((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  // 부가 옵션 — 고른 수량(0이면 안 고름)
+  const extraOptions = profile?.extras ?? [];
+  const [extraQty, setExtraQty] = useState<Record<string, number>>({});
+  const picks = extraOptions.filter((x) => (extraQty[x.id] ?? 0) > 0).map((x) => ({ id: x.id, qty: extraQty[x.id] }));
   const [pets, setPets] = useState<PetForm[]>(() => [newPet()]);
   const [form, setForm] = useState({ name: "", phone: "", email: "", memo: "", sameGuest: true, stayGuestName: "", stayGuestPhone: "", arrivalMethod: "" as ArrivalMethod | "", arrivalTime: "" });
   const [consents, setConsents] = useState<StayConsentId[]>([]);
@@ -102,13 +112,15 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
     setCheckOut(day);
   };
 
-  const stayPets: StayPet[] = pets.map((p) => ({ species: p.species, size: p.species === "dog" && p.size ? p.size : null, weight: p.weight ? Number(p.weight) : null, kind: p.species === "other" ? p.kind.trim() || null : null }));
+  const breedOf = (p: PetForm) => (p.breed === OTHER_BREED ? p.breedText.trim() : p.breed) || null;
+  const stayPets: StayPet[] = pets.map((p) => ({ species: p.species, size: p.species === "dog" && p.size ? p.size : null, weight: p.weight ? Number(p.weight) : null, kind: p.species === "other" ? p.kind.trim() || null : null, breed: p.species === "other" ? null : breedOf(p) }));
+  const petNightly = stayPets.reduce((sum, p) => sum + petNightFee(profile, p), 0);
   const petProblem = room ? petsAllowed(profile, room, stayPets) : null;
   const roomDays: RoomDay[] = days.map((d) => ({ day: d.day, closed: d.closed, price: d.price }));
-  const quote = room && checkIn && checkOut ? quoteStay(room, profile?.pet_fee ?? null, roomDays, checkIn, checkOut, guests, pets.length) : null;
+  const quote = room && checkIn && checkOut ? quoteStay(room, petNightly, roomDays, checkIn, checkOut, guests, picks, extraOptions) : null;
   const priced = quote && !("error" in quote) ? quote : null;
   const schedule = priced && checkIn ? refundSchedule(priced.total, checkIn, today, profile?.peak_periods) : [];
-  const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" || p.kind.trim()));
+  const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" ? !!breedOf(p) : !!p.kind.trim()));
   const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 9;
   const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && !busy
     && (form.sameGuest || (!!form.stayGuestName.trim() && phoneOk(form.stayGuestPhone)));
@@ -124,7 +136,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
       const res = await fetch("/api/lodging/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, ...form, consents }),
+        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, extras: picks, ...form, consents }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "예약하지 못했어요.");
@@ -212,27 +224,67 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                 <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /><span>{DANGEROUS_DOG_NOTICE}</span>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
-                {pets.map((p, i) => (
+                {pets.map((p, i) => {
+                  const breeds = p.species === "dog" ? dogBreeds.map((b) => b.name) : p.species === "cat" ? CAT_BREEDS : [];
+                  const fee = petNightFee(profile, { species: p.species, size: p.species === "dog" && p.size ? p.size : null });
+                  return (
                   <div key={i} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 7 }}>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {speciesOptions.map((s) => <button key={s.id} onClick={() => setPets((all) => all.map((x, j) => (j === i ? { ...x, species: s.id } : x)))} aria-pressed={p.species === s.id} style={chip(p.species === s.id)}>{s.label}</button>)}
+                      {speciesOptions.map((s) => <button key={s.id} onClick={() => setPet(i, { species: s.id, breed: "", breedText: "" })} aria-pressed={p.species === s.id} style={chip(p.species === s.id)}>{s.label}</button>)}
                       {pets.length > 1 && <button onClick={() => setPets((all) => all.filter((_, j) => j !== i))} aria-label={`${i + 1}번째 반려동물 빼기`} style={{ marginLeft: "auto", border: "none", background: "transparent", cursor: "pointer", color: "#b42318" }}><Trash2 size={15} /></button>}
                     </div>
+                    {p.species !== "other" && (
+                      <div style={{ display: "grid", gridTemplateColumns: p.breed === OTHER_BREED ? "1fr 1fr" : "1fr", gap: 6 }}>
+                        <select value={p.breed} onChange={(e) => { const breed = e.target.value; const size = breedSize(breed); setPet(i, { breed, ...(size && sizeOptions.some((s) => s.id === size) ? { size } : {}) }); }}
+                          aria-label={p.species === "dog" ? "견종" : "묘종"} style={{ ...input, color: p.breed ? "#222" : "#999" }}>
+                          <option value="">{p.species === "dog" ? "견종을 골라 주세요" : "묘종을 골라 주세요"}</option>
+                          {breeds.map((b) => <option key={b} value={b}>{b}</option>)}
+                          <option value={OTHER_BREED}>목록에 없어요 (직접 입력)</option>
+                        </select>
+                        {p.breed === OTHER_BREED && <input value={p.breedText} onChange={(e) => setPet(i, { breedText: e.target.value.slice(0, 30) })} placeholder={p.species === "dog" ? "예: 꼬똥 드 툴레아" : "예: 아비시니안"} aria-label="직접 입력한 종" style={input} />}
+                      </div>
+                    )}
                     {p.species === "dog" && (
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {PET_SIZES.map((s) => <button key={s.id} onClick={() => setPets((all) => all.map((x, j) => (j === i ? { ...x, size: s.id } : x)))} aria-pressed={p.size === s.id} style={chip(p.size === s.id)}>{s.label}</button>)}
+                        {sizeOptions.map((s) => <button key={s.id} onClick={() => setPet(i, { size: s.id })} aria-pressed={p.size === s.id} title={s.hint} style={chip(p.size === s.id)}>{s.label}</button>)}
+                        {sizeOptions.length < PET_SIZES.length && <span style={{ alignSelf: "center", fontSize: 11.5, color: "#999" }}>이 숙소는 {PET_SIZES.filter((s) => !sizeOptions.includes(s)).map((s) => s.label).join("·")}을 받지 않아요</span>}
                       </div>
                     )}
                     <div style={{ display: "grid", gridTemplateColumns: p.species === "other" ? "1fr 1fr" : "1fr", gap: 6 }}>
-                      {p.species === "other" && <input value={p.kind} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, kind: e.target.value.slice(0, 20) } : x)))} placeholder="어떤 동물인가요? 예: 토끼" aria-label="동물 종류" style={input} />}
-                      <input value={p.weight} onChange={(e) => setPets((all) => all.map((x, j) => (j === i ? { ...x, weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) } : x)))} placeholder="몸무게(kg)" inputMode="decimal" aria-label="몸무게" style={input} />
+                      {p.species === "other" && <input value={p.kind} onChange={(e) => setPet(i, { kind: e.target.value.slice(0, 20) })} placeholder="어떤 동물인가요? 예: 토끼" aria-label="동물 종류" style={input} />}
+                      <input value={p.weight} onChange={(e) => setPet(i, { weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} placeholder={profile?.max_pet_weight_kg != null ? `몸무게(kg) — ${profile.max_pet_weight_kg}kg 이하` : "몸무게(kg)"} inputMode="decimal" aria-label="몸무게" style={input} />
                     </div>
+                    {profile && <div style={{ fontSize: 11.5, color: "#888" }}>{fee > 0 ? `추가 요금 1박 ${won(fee)}` : "추가 요금 없음"}</div>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
               {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 8, border: "1px dashed #9db4d6", background: "#F2F6FC", color: "#1D4F91", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
               {petProblem && <div role="status" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{petProblem}</div>}
             </div>
+
+            {extraOptions.length > 0 && (
+              <div>
+                <div style={label}>부가 옵션 <span style={{ fontWeight: 600, color: "#aaa" }}>필요한 것만 골라 주세요</span></div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {extraOptions.map((x) => {
+                    const qty = extraQty[x.id] ?? 0;
+                    const unit = EXTRA_UNITS.find((u) => u.id === x.unit);
+                    return (
+                      <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, border: `1px solid ${qty > 0 ? "#9db4d6" : "#eee"}`, background: qty > 0 ? "#F2F6FC" : "white" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222" }}>{x.name}</div>
+                          <div style={{ fontSize: 12, color: "#777" }}>{won(x.price)} · {unit?.label}{x.note ? ` · ${x.note}` : ""}</div>
+                        </div>
+                        <button onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.max(0, qty - 1) }))} disabled={qty <= 0} aria-label={`${x.name} 줄이기`} style={{ ...stepper, opacity: qty <= 0 ? 0.4 : 1 }}><Minus size={14} /></button>
+                        <b style={{ minWidth: 18, textAlign: "center" }}>{qty}</b>
+                        <button onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.min(x.max, qty + 1) }))} disabled={qty >= x.max} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= x.max ? 0.4 : 1 }}><Plus size={14} /></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {quote && "error" in quote && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{quote.error}</div>}
             {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
@@ -255,7 +307,8 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               <div style={{ display: "grid", gap: 4, fontSize: 13, color: "#555" }}>
                 {priced.nights.map((n) => <div key={n.day} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(n.day)} 1박</span><span>{won(n.price)}</span></div>)}
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
-                {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가</span><span>{won(priced.petTotal)}</span></div>}
+                {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가({pets.length}마리 × {priced.nights.length}박)</span><span>{won(priced.petTotal)}</span></div>}
+                {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{x.name} × {x.qty}{x.unit === "night" ? ` × ${priced.nights.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#1D4F91" }}><span>총 결제 금액</span><span>{won(priced.total)}</span></div>
                 <div style={{ fontSize: 11.5, color: "#999" }}>현장에서 따로 내는 금액은 없어요.</div>
               </div>

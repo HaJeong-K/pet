@@ -15,6 +15,7 @@ import { cleanupShelterThumbs } from "@/lib/server/shelterThumbs";
 import { checkTourList, recordMapCounts, type TourListCheck } from "@/lib/server/cronState";
 import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest";
 import { runLodgingDaily } from "@/lib/server/lodgingMoney";
+import { runPremiumAutoRenew } from "@/lib/server/premiumRenew";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
 // vercel.json의 crons가 매일 UTC 18:00(한국 시간 새벽 3시)에 부릅니다.
@@ -137,6 +138,8 @@ export async function GET(req: NextRequest) {
       : { ok: true, ms: 0, skipped: "매달 1일에만 실행" };
   }
   if (want("lodging")) results.lodging = await runJob(() => runLodgingDaily());
+  // 요금제 자동 연장(만료 3일 전 연장 신청) · 아직 안 정한 사장님에게 만료 7일 전 알림
+  if (want("premium-renew")) results.premiumRenew = await runJob(() => runPremiumAutoRenew());
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
   // 오래된 오류 기록과, 줄여 둔 공고 사진 가운데 30일 지난 것을 지웁니다.
   if (want("cleanup")) results.cleanup = await runJob(async () => ({ ...(await cleanupOldErrors()), thumbs: await cleanupShelterThumbs() }));

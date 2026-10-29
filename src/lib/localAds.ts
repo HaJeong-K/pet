@@ -6,8 +6,8 @@
 // ① 누가 배너에 나올 수 있나 — 프리미엄을 이용 중인 가게 가운데
 //      · '동네 대표' 요금제이거나
 //      · 관리자가 "배너 광고 추가 제공" 혜택을 켜 준 가게(기한이 있으면 그날까지)
-// ② 누구에게 보이나 — 가게와 같은 시·군·구에 있는 사용자에게만(가게 주소에 그 시·군·구 이름이 들어 있는지로 판단).
-//      사용자의 위치를 모르면 보여 주지 않습니다.
+// ② 누구에게 보이나 — 아래 "누구에게 어느 가게를 보여 줄지(순위)"를 따릅니다
+//      (숙소: 자주 검색한 지역 → 무작위, 일반 가게: GPS를 자주 켠 동네 → 자주 검색한 지역 → 무작위).
 // ③ 한 동네에 몇 곳까지 — 제한이 없습니다. 가게가 많아지면 모든 가게가 같은 횟수만큼 나가도록 돌아가며 보여 줍니다.
 // ④ 여러 곳이면 어떤 순서로 — 10분마다 한 칸씩 돌아가며 맨 앞을 바꿉니다(모든 가게가 같은 시간만큼 앞자리에 섭니다).
 
@@ -73,23 +73,37 @@ export function pickLocalAds(
 }
 
 
-// ── 누구에게 어느 가게를 보여 줄지(단계별) ──
-// 1) local            : 보는 사람과 같은 시·군·구의 배너 가게가 있으면 그 가게들만
-// 2) adjacent         : 없으면 바로 근처(ADJACENT_KM 안)의 배너 가게
-// 3) interest         : 그것도 없으면 이 사람이 최근에 찾아보거나 둘러본 다른 지역(기기에 기억해 둔 관심 지역) 근처의 배너 가게
-// 4) interest-premium : 관심 지역 근처에 배너 가게가 없으면 그 근처의 프리미엄 가게
-// 5) random           : 아무 관련이 없으면 전국의 배너 가게 중에서 무작위
+// ── 누구에게 어느 가게를 보여 줄지(순위) ──
+// 숙소(펜션·호텔·캠핑 등)와 일반 가게(카페·식당·용품점 등)는 찾는 방식이 달라 순위를 따로 둡니다.
+//   숙소      1순위: 그 지역을 자주 검색한 사람(여행 갈 곳을 알아보는 사람) → 2순위: 아무에게나 무작위
+//   일반 가게  1순위: 그 동네에서 GPS를 자주 켠 사람(지금 있는 동네 포함) → 2순위: 그 지역을 자주 검색한 사람 → 3순위: 무작위
+// 한 사람에게는 가장 높은 순위의 후보부터 보여 줍니다:
+//   ① local  : 내 GPS 동네의 일반 가게 + 내가 자주 검색한 지역의 숙소(둘 다 1순위)
+//   ② search : 내가 자주 검색한 지역의 일반 가게(일반 가게 2순위)
+//   ③ random : 전국의 배너 가게(숙소·일반 가게) 중 무작위
 // 고른 후보(pool) 안에서 실제로 누구를 내보낼지는 서버가 "지금까지 가장 적게 나간 가게"로 정합니다(src/lib/server/bannerAds.ts).
 
-/** "인접한 지역"으로 보는 거리 */
+/** "그 지역 근처"로 보는 거리(검색한 지점에서) */
 export const ADJACENT_KM = 20;
-/** 한 번에 받아들이는 관심 지역 수 */
+/** 한 번에 받아들이는 검색 지역 수 */
 export const INTEREST_POINTS_MAX = 5;
+/** 같은 지역을 이만큼 찾아봐야 "자주 검색한 지역" */
+export const SEARCH_MIN_HITS = 2;
+/** 한 번에 받아들이는 GPS 동네 수 */
+export const GPS_AREAS_MAX = 3;
 
 export type GeoAdPlace = AdPlace & { lat: number | string | null; lng: number | string | null };
 export type GeoPoint = { lat: number; lng: number };
-export type BannerViewer = { sigungu?: string | null; lat?: number | null; lng?: number | null; interests?: GeoPoint[] };
-export type BannerTier = "local" | "adjacent" | "interest" | "interest-premium" | "random" | "none";
+export type SearchPoint = GeoPoint & { hits?: number };
+/**
+ * sigungu: 지금 GPS로 잡힌 시·군·구, gpsAreas: 이 기기에서 GPS를 자주 켠 시·군·구(src/lib/gpsAreas.ts),
+ * interests: 최근에 찾아본 지역과 찾아본 횟수(src/lib/interestRegions.ts)
+ */
+export type BannerViewer = { sigungu?: string | null; lat?: number | null; lng?: number | null; gpsAreas?: string[]; interests?: SearchPoint[] };
+export type BannerTier = "local" | "search" | "random" | "none";
+
+/** 숙소 업종인지(펜션·호텔·리조트·캠핑·글램핑·한옥·게스트하우스·민박 등) */
+export const isLodgingAd = (p: Pick<AdPlace, "category" | "name">) => /펜션|풀빌라|독채|호텔|모텔|리조트|콘도|캠핑|글램핑|카라반|한옥|스테이|게스트|민박|숙박|숙소/.test(`${p.category ?? ""}`);
 
 export function distanceKm(a: GeoPoint, b: GeoPoint): number {
   const rad = Math.PI / 180;
@@ -106,19 +120,22 @@ const nearAny = (p: GeoAdPlace, points: GeoPoint[]) => { const at = pointOf(p); 
 /** places는 "지금 프리미엄을 이용 중인 가게" 전부여야 합니다. */
 export function chooseBannerPool(places: GeoAdPlace[], perks: Map<number, BannerPerk>, viewer: BannerViewer, now = Date.now()): { tier: BannerTier; pool: GeoAdPlace[] } {
   const advertisers = places.filter((p) => bannerSource(p, perks.get(Number(p.id)), now) !== null);
-  const local = advertisers.filter((p) => isInSigungu(p.address, viewer.sigungu));
-  if (local.length > 0) return { tier: "local", pool: local };
+  const lodgings = advertisers.filter(isLodgingAd);
+  const stores = advertisers.filter((p) => !isLodgingAd(p));
 
-  const here = viewer.lat != null && viewer.lng != null ? [{ lat: viewer.lat, lng: viewer.lng }] : [];
-  const adjacent = here.length ? advertisers.filter((p) => nearAny(p, here)) : [];
-  if (adjacent.length > 0) return { tier: "adjacent", pool: adjacent };
+  // GPS 동네: 지금 있는 시·군·구 + 자주 켠 시·군·구
+  const gpsAreas = [...new Set([viewer.sigungu, ...(viewer.gpsAreas ?? []).slice(0, GPS_AREAS_MAX)].filter((a): a is string => !!a))];
+  // 자주 검색한 지역: 같은 지역을 SEARCH_MIN_HITS번 이상 찾아본 곳(많이 찾은 순)
+  const searched = (viewer.interests ?? []).filter((p) => (p.hits ?? 1) >= SEARCH_MIN_HITS)
+    .sort((a, b) => (b.hits ?? 1) - (a.hits ?? 1)).slice(0, INTEREST_POINTS_MAX);
 
-  const interests = (viewer.interests ?? []).slice(0, INTEREST_POINTS_MAX);
-  if (interests.length > 0) {
-    const byInterest = advertisers.filter((p) => nearAny(p, interests));
-    if (byInterest.length > 0) return { tier: "interest", pool: byInterest };
-    const premiumNear = places.filter((p) => p.is_premium && !!p.premium_expires_at && new Date(p.premium_expires_at).getTime() > now && nearAny(p, interests));
-    if (premiumNear.length > 0) return { tier: "interest-premium", pool: premiumNear };
-  }
+  const storesInGps = stores.filter((p) => gpsAreas.some((a) => isInSigungu(p.address, a)));
+  const lodgingsSearched = searched.length ? lodgings.filter((p) => nearAny(p, searched)) : [];
+  const first = [...storesInGps, ...lodgingsSearched];
+  if (first.length > 0) return { tier: "local", pool: first };
+
+  const storesSearched = searched.length ? stores.filter((p) => nearAny(p, searched)) : [];
+  if (storesSearched.length > 0) return { tier: "search", pool: storesSearched };
+
   return advertisers.length > 0 ? { tier: "random", pool: advertisers } : { tier: "none", pool: [] };
 }
