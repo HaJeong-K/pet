@@ -47,7 +47,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   LocateFixed, Share, MapPin, MapPinPlus, Pencil,
   Link, Upload, MessageCircle, PawPrint, X,
-  Search, Bot, List, Crown, Store, Route as RouteIcon,
+  Search, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
   Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown, Bookmark,
 } from "lucide-react";
@@ -333,6 +333,17 @@ const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   return "";
 };
 
+/** 지도 위쪽 도구 버튼 — 흰 바탕·짙은 글씨, 열려 있으면 브랜드 초록으로 채움. inBar면 도구 막대 안(테두리 없음) */
+function toolButton(active: boolean, inBar = false): React.CSSProperties {
+  return {
+    display: "flex", alignItems: "center", gap: 5, padding: inBar ? "6px 10px" : "6px 11px",
+    borderRadius: inBar ? 9 : 10, border: inBar ? "none" : "1px solid rgba(30,30,20,0.1)",
+    background: active ? "#5C7A4A" : inBar ? "transparent" : "white", color: active ? "white" : "#3a3a32",
+    fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Noto Sans KR', sans-serif",
+    boxShadow: inBar ? "none" : "0 2px 8px rgba(30,30,20,0.07)", transition: "background 0.15s ease, color 0.15s ease",
+  };
+}
+
 export default function KakaoMap() {
   const router = useRouter();
 
@@ -573,6 +584,8 @@ export default function KakaoMap() {
   // 보여주며, 신규/추천 패널을 열면 리스트 패널은 자동으로 닫힙니다(반대도 마찬가지).
   // 넓은 화면에서는 예전처럼 리스트 패널이 항상 보입니다.
   const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
+  // 도구 막대에 이름까지 넣을 만큼 넓은지 — 좁으면 같은 막대에 아이콘만(마우스를 올리면 이름)
+  const toolbarLabels = useMediaQuery("(min-width: 1240px)");
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
   // 휴대폰에서는 목록이 바텀시트로 항상 깔려 있고(지도 앱 공통 패턴), 신규·추천·AI 코스를
   // 열면 그 시트가 목록 자리를 대신합니다. (showListPanelMobile은 예전 "목록" 버튼용 — 지금은 안 씀)
@@ -3859,9 +3872,10 @@ const courseMeta = (route: RouteResult) => ({
                   aria-haspopup="dialog"
                   style={{
                     width: 38, height: 38, flexShrink: 0, borderRadius: 12,
-                    border: "1px solid rgba(91,33,182,0.25)",
-                    background: showMobileMenu ? "#5b21b6" : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
-                    color: showMobileMenu ? "white" : "#4c1d95",
+                    border: showMobileMenu ? "none" : "1px solid rgba(30,30,20,0.12)",
+                    background: showMobileMenu ? "#5C7A4A" : "white",
+                    color: showMobileMenu ? "white" : "#3a3a32",
+                    boxShadow: "0 2px 8px rgba(30,30,20,0.08)",
                     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                   }}
                 >
@@ -4013,22 +4027,9 @@ const courseMeta = (route: RouteResult) => ({
               <button
                 onClick={() => { setShowListPanelMobile((v) => !v); setShowRecentPanel(false); setShowRecommendPanel(false); setShowRoutePanel(false); }}
                 className="ggk-body"
-                style={{
-                  padding: "5px 10px",
-                  fontSize: "11px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  background: showListPanelMobile ? "linear-gradient(145deg, #2a2a2a, #111)" : "#f5f6f8",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  color: showListPanelMobile ? "white" : "#444",
-                  whiteSpace: "nowrap",
-                }}
+                style={toolButton(showListPanelMobile)}
               >
-                <List size={11} />
+                <List size={13} />
                 목록
               </button>
             )}
@@ -4040,136 +4041,42 @@ const courseMeta = (route: RouteResult) => ({
                 aria-label="메뉴 열기"
                 aria-haspopup="dialog"
                 className="ggk-body"
-                style={{
-                  padding: "5px 12px",
-                  fontSize: "11px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(91,33,182,0.3)",
-                  background: showMobileMenu ? "#5b21b6" : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
-                  color: showMobileMenu ? "white" : "#4c1d95",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  whiteSpace: "nowrap",
-                }}
+                style={toolButton(showMobileMenu)}
               >
-                <Menu size={12} />
+                <Menu size={13} />
                 메뉴
               </button>
             ) : (
             <>
-            <button
-              ref={recentBtnRef}
-              title="신규 장소"
-              aria-label="신규 장소"
-              onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
+            {/* 도구 막대 — 예전엔 노랑·연두·보라·금색·회색 그라데이션 아이콘 다섯 개가 이름 없이 붙어 있어
+                무엇인지 알기 어렵고 꾸민 티가 났습니다. 지도 앱처럼 흰 막대 하나에 아이콘+이름을 같은 색으로 두고,
+                열려 있는 기능만 초록으로 채웁니다. 제보는 따로 진한 버튼으로. */}
+            <div role="toolbar" aria-label="지도 기능" style={{ display: "flex", alignItems: "center", gap: 2, padding: 3, borderRadius: 12, background: "white", border: "1px solid rgba(30,30,20,0.09)", boxShadow: "0 2px 10px rgba(30,30,20,0.08)" }}>
+              <button ref={recentBtnRef} title="새로 등록된 장소" aria-label="새 장소" aria-pressed={showRecentPanel}
+                onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
+                className="ggk-body" style={toolButton(showRecentPanel, true)}>
+                <MapPinPlus size={14} />{toolbarLabels && "새 장소"}
+              </button>
+              <button ref={recommendBtnRef} title="취향에 맞는 추천 장소" aria-label="추천 장소" aria-pressed={showRecommendPanel}
+                onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
+                className="ggk-body" style={toolButton(showRecommendPanel, true)}>
+                <Sparkles size={14} />{toolbarLabels && "추천"}
+              </button>
+              <button ref={routeBtnRef} title="반려견과 걷기 좋은 코스" aria-label="산책·나들이 코스" aria-pressed={showRoutePanel}
+                onClick={() => { setShowRoutePanel(!showRoutePanel); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
+                className="ggk-body" style={toolButton(showRoutePanel, true)}>
+                <RouteIcon size={14} />{toolbarLabels && "코스"}
+              </button>
+              <span aria-hidden style={{ width: 1, height: 18, background: "rgba(30,30,20,0.1)", margin: "0 2px" }} />
+              <button ref={ownerBtnRef} title="우리 가게 등록·관리" aria-label="사장님" onClick={handleOwnerRegisterClick} disabled={ownerCheckLoading}
+                className="ggk-body" style={{ ...toolButton(false, true), opacity: ownerCheckLoading ? 0.6 : 1, cursor: ownerCheckLoading ? "default" : "pointer" }}>
+                <Store size={14} />{toolbarLabels && "사장님"}
+              </button>
+            </div>
+            <button ref={jeboBtnRef} title="새 장소나 바뀐 정보 알려 주기" onClick={() => router.push("/jebo")}
               className="ggk-body"
-              style={{
-                padding: "7px",
-                borderRadius: "8px",
-                border: "1px solid rgba(210,160,45,0.4)",
-                background: "linear-gradient(145deg, #FCEDB0, #F5C840)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#7A5300",
-                boxShadow: "0 1px 5px rgba(240,195,60,0.22)",
-              }}
-            >
-              <MapPinPlus size={15} />
-            </button>
-
-            <button
-              ref={recommendBtnRef}
-              title="추천 장소"
-              aria-label="추천 장소"
-              onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
-              className="ggk-body"
-              style={{
-                padding: "7px",
-                borderRadius: "8px",
-                border: "1px solid rgba(92,122,74,0.35)",
-                background: "linear-gradient(145deg, #DCE7CD, #A9C48A)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#3F5230",
-                boxShadow: "0 1px 5px rgba(92,122,74,0.22)",
-              }}
-            >
-              <Bot size={15} />
-            </button>
-
-            <button
-              ref={routeBtnRef}
-              title="AI 코스"
-              aria-label="AI 코스"
-              onClick={() => { setShowRoutePanel(!showRoutePanel); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
-              className="ggk-body"
-              style={{
-                padding: "7px",
-                borderRadius: "8px",
-                border: "1px solid rgba(139,92,246,0.35)",
-                background: showRoutePanel
-                  ? "linear-gradient(145deg, #a78bfa, #7c3aed)"
-                  : "linear-gradient(145deg, #EDE7FE, #C9B6FB)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: showRoutePanel ? "white" : "#5b21b6",
-                boxShadow: "0 1px 5px rgba(139,92,246,0.22)",
-              }}
-            >
-              <RouteIcon size={15} />
-            </button>
-
-            <button
-              ref={ownerBtnRef}
-              title="사장님 등록"
-              aria-label="사장님 등록"
-              onClick={handleOwnerRegisterClick}
-              disabled={ownerCheckLoading}
-              className="ggk-body"
-              style={{
-                padding: "7px",
-                borderRadius: "8px",
-                border: "1px solid rgba(184,134,11,0.35)",
-                background: "linear-gradient(145deg, #FFF3D6, #F0D28A)",
-                cursor: ownerCheckLoading ? "default" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#7A5300",
-                opacity: ownerCheckLoading ? 0.7 : 1,
-              }}
-            >
-              <Store size={15} />
-            </button>
-
-            <button
-              ref={jeboBtnRef}
-              title="제보하기"
-              aria-label="제보하기"
-              onClick={() => router.push("/jebo")}
-              className="ggk-body"
-              style={{
-                padding: "7px",
-                borderRadius: "8px",
-                border: "1px solid rgba(0,0,0,0.08)",
-                background: "#f5f6f8",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#444",
-              }}
-            >
-              <Pencil size={15} />
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 12, border: "none", background: "#2F3B28", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(30,30,20,0.18)", fontFamily: "'Noto Sans KR', sans-serif" }}>
+              <Pencil size={13} />{toolbarLabels ? "제보하기" : "제보"}
             </button>
             </>
             )}
@@ -4209,15 +4116,15 @@ const courseMeta = (route: RouteResult) => ({
               <div style={{ width: 40, height: 5, borderRadius: 3, background: "#d9dce1", margin: "0 auto" }} />
             </div>
             {([
-              { key: "recent", label: "신규 장소", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#7A5300", bg: "#FCEDB0",
+              { key: "recent", label: "새 장소", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRecentPanel(true); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
-              { key: "recommend", label: "추천 장소", desc: "취향에 맞는 장소를 AI가 추천해요", Icon: Bot, color: "#3F5230", bg: "#DCE7CD",
+              { key: "recommend", label: "추천 장소", desc: "취향에 맞는 장소를 골라 드려요", Icon: Sparkles, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRecommendPanel(true); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
-              { key: "route", label: "AI 코스", desc: "반려견과 걷기 좋은 코스를 짜드려요", Icon: RouteIcon, color: "#5b21b6", bg: "#EDE7FE",
+              { key: "route", label: "산책·나들이 코스", desc: "반려견과 걷기 좋은 코스를 짜 드려요", Icon: RouteIcon, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRoutePanel(true); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); } },
-              { key: "owner", label: "사장님 등록", desc: "우리 가게를 직접 등록하고 관리해요", Icon: Store, color: "#7A5300", bg: "#FFF3D6",
+              { key: "owner", label: "사장님", desc: "우리 가게를 직접 등록하고 관리해요", Icon: Store, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { handleOwnerRegisterClick(); } },
-              { key: "jebo", label: "제보하기", desc: "새로운 장소나 바뀐 정보를 알려주세요", Icon: Pencil, color: "#444", bg: "#f1f2f4",
+              { key: "jebo", label: "제보하기", desc: "새로운 장소나 바뀐 정보를 알려 주세요", Icon: Pencil, color: "white", bg: "#2F3B28",
                 run: () => { router.push("/jebo"); } },
             ] as const).map(({ key, label, desc, Icon, color, bg, run }) => (
               <button
@@ -4337,7 +4244,8 @@ const courseMeta = (route: RouteResult) => ({
             const isPark = place.__isPark === true;
             const isSelected = isPark ? selectedPark?.id === place.id : selectedPlace?.id === place.id;
             const isAd = !isPark && (ad || isPlacePremiumNow(place));
-            const badge = getCardBadge(place, isPark);
+            // 광고(프리미엄 이용 중) 카드에는 TOP·NEW·HOT을 달지 않습니다 — 광고가 끝나면 다시 붙습니다
+            const badge = isAd ? null : getCardBadge(place, isPark);
             return (
               <div
                 key={`${ad ? "ad" : isPark ? "park" : "place"}-${place.id}`}
@@ -4921,22 +4829,22 @@ const courseMeta = (route: RouteResult) => ({
         {isNarrowScreen && renderSheetHandle()}
           <div
             style={{
-              background: "linear-gradient(135deg, #EDE7FE 0%, #C9B6FB 100%)",
+              background: "linear-gradient(135deg, #F4F7EF 0%, #E3ECD8 100%)",
               // 정거장 목록이 보이는 자리를 넓히려고 위쪽 영역을 촘촘하게 둡니다.
               padding: "12px 14px 10px",
               flexShrink: 0,
-              borderBottom: "1px solid rgba(124,58,237,0.2)",
+              borderBottom: "1px solid rgba(92,122,74,0.2)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
                 <div
                   className="ggk-logo"
-                  style={{ fontSize: "15px", fontWeight: 800, color: "#4c1d95", letterSpacing: "-0.2px" }}
+                  style={{ fontSize: "15px", fontWeight: 800, color: "#2F3B28", letterSpacing: "-0.2px" }}
                 >
                   AI 맞춤 추천 경로
                 </div>
-                <div style={{ fontSize: "10px", color: "#5b21b6", marginTop: "3px", fontWeight: 500 }}>
+                <div style={{ fontSize: "10px", color: "#3F5230", marginTop: "3px", fontWeight: 500 }}>
                   {`${routeOriginLabel} 기준 추천 코스`}
                 </div>
               </div>
@@ -4946,8 +4854,8 @@ const courseMeta = (route: RouteResult) => ({
                   fontWeight: 700,
                   padding: "4px 10px",
                   borderRadius: "999px",
-                  background: "rgba(124,58,237,0.18)",
-                  color: "#5b21b6",
+                  background: "rgba(92,122,74,0.18)",
+                  color: "#3F5230",
                   letterSpacing: "0.5px",
                 }}
               >
@@ -4964,7 +4872,7 @@ const courseMeta = (route: RouteResult) => ({
                   { icon: <Footprints size={11} />, label: "예상 시간", value: formatEstimatedTime(displayRoute.estimatedMinutes) },
                 ].map((stat, i) => (
                   <span key={i} title={stat.label} style={{ display: "inline-flex", alignItems: "center", gap: "3px", whiteSpace: "nowrap" }}>
-                    <span style={{ color: "#6d28d9", display: "inline-flex" }}>{stat.icon}</span>
+                    <span style={{ color: "#48603A", display: "inline-flex" }}>{stat.icon}</span>
                     {stat.value}
                   </span>
                 ))}
@@ -4978,9 +4886,9 @@ const courseMeta = (route: RouteResult) => ({
                     className="ggk-body"
                     style={{
                       flexShrink: 0, marginLeft: "auto", padding: "3px 8px", borderRadius: "999px",
-                      border: "1px solid rgba(91,33,182,0.35)", fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
+                      border: "1px solid rgba(92,122,74,0.35)", fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
                       whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "3px",
-                      background: showRouteOptions ? "#ede4ff" : "rgba(255,255,255,0.7)", color: "#5b21b6",
+                      background: showRouteOptions ? "#E6EEDD" : "rgba(255,255,255,0.7)", color: "#3F5230",
                     }}
                   >
                     <SlidersHorizontal size={10} />
@@ -5012,8 +4920,8 @@ const courseMeta = (route: RouteResult) => ({
                       display: "flex",
                       alignItems: "center",
                       gap: "3px",
-                      background: routeTheme === theme ? "#5b21b6" : "rgba(255,255,255,0.7)",
-                      color: routeTheme === theme ? "white" : "#5b21b6",
+                      background: routeTheme === theme ? "#3F5230" : "rgba(255,255,255,0.7)",
+                      color: routeTheme === theme ? "white" : "#3F5230",
                       transition: "all 0.15s ease",
                     }}
                   >
@@ -5028,7 +4936,7 @@ const courseMeta = (route: RouteResult) => ({
 
             {/* 코스에 동물병원·약국 포함 여부 — 켜면 각각 1곳씩 정거장 자리를 차지합니다 */}
             <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "7px" }}>
-              <span style={{ fontSize: "10px", color: "#6d28d9", fontWeight: 700, marginRight: "1px" }}>코스에 포함</span>
+              <span style={{ fontSize: "10px", color: "#48603A", fontWeight: 700, marginRight: "1px" }}>코스에 포함</span>
               {([
                 { key: "vet", label: "동물병원", Icon: Stethoscope, on: routeIncludeVet, toggle: () => setRouteIncludeVet((v) => !v) },
                 { key: "pharmacy", label: "동물약국", Icon: Pill, on: routeIncludePharmacy, toggle: () => setRouteIncludePharmacy((v) => !v) },
@@ -5042,9 +4950,9 @@ const courseMeta = (route: RouteResult) => ({
                   style={{
                     display: "flex", alignItems: "center", gap: "3px",
                     padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
-                    border: on ? "1px solid #5b21b6" : "1px dashed rgba(91,33,182,0.4)",
-                    background: on ? "#ede4ff" : "rgba(255,255,255,0.5)",
-                    color: on ? "#5b21b6" : "#9ca3af",
+                    border: on ? "1px solid #3F5230" : "1px dashed rgba(92,122,74,0.4)",
+                    background: on ? "#E6EEDD" : "rgba(255,255,255,0.5)",
+                    color: on ? "#3F5230" : "#9ca3af",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -5056,7 +4964,7 @@ const courseMeta = (route: RouteResult) => ({
 
             {/* 코스 집중 모드 해제 — 켜면 코스와 무관한 장소·공원 마커도 지도에 함께 보여줍니다 */}
             <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "5px" }}>
-              <span style={{ fontSize: "10px", color: "#6d28d9", fontWeight: 700, marginRight: "1px" }}>지도 표시</span>
+              <span style={{ fontSize: "10px", color: "#48603A", fontWeight: 700, marginRight: "1px" }}>지도 표시</span>
               <button
                 role="switch"
                 aria-checked={showNearbyInCourse}
@@ -5065,9 +4973,9 @@ const courseMeta = (route: RouteResult) => ({
                 style={{
                   display: "flex", alignItems: "center", gap: "3px",
                   padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
-                  border: showNearbyInCourse ? "1px solid #5b21b6" : "1px dashed rgba(91,33,182,0.4)",
-                  background: showNearbyInCourse ? "#ede4ff" : "rgba(255,255,255,0.5)",
-                  color: showNearbyInCourse ? "#5b21b6" : "#9ca3af",
+                  border: showNearbyInCourse ? "1px solid #3F5230" : "1px dashed rgba(92,122,74,0.4)",
+                  background: showNearbyInCourse ? "#E6EEDD" : "rgba(255,255,255,0.5)",
+                  color: showNearbyInCourse ? "#3F5230" : "#9ca3af",
                   transition: "all 0.15s ease",
                 }}
               >
@@ -5103,9 +5011,9 @@ const courseMeta = (route: RouteResult) => ({
                   flex: 1,
                   padding: "7px 0",
                   borderRadius: "10px",
-                  border: "1px dashed rgba(91,33,182,0.4)",
+                  border: "1px dashed rgba(92,122,74,0.4)",
                   background: "rgba(255,255,255,0.5)",
-                  color: "#5b21b6",
+                  color: "#3F5230",
                   fontSize: "10.5px",
                   fontWeight: 700,
                   cursor: "pointer",
@@ -5124,7 +5032,7 @@ const courseMeta = (route: RouteResult) => ({
                 className="ggk-body"
                 style={{
                   flex: 1, padding: "7px 0", borderRadius: "10px",
-                  border: "1px solid rgba(91,33,182,0.3)", background: "white", color: "#5b21b6",
+                  border: "1px solid rgba(92,122,74,0.3)", background: "white", color: "#3F5230",
                   fontSize: "10.5px", fontWeight: 700, cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
                 }}
@@ -5134,12 +5042,12 @@ const courseMeta = (route: RouteResult) => ({
               </div>
             )}
             {displayRoute && pinnedStopIds.size > 0 && (
-              <div style={{ marginTop: "6px", fontSize: "10px", color: "#6d28d9", textAlign: "center" }}>
+              <div style={{ marginTop: "6px", fontSize: "10px", color: "#48603A", textAlign: "center" }}>
                 📌 고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 유지돼요
               </div>
             )}
             {displayRoute && routeAlternativesExhausted && (
-              <div style={{ marginTop: "6px", fontSize: "10px", color: "#6d28d9", textAlign: "center" }}>
+              <div style={{ marginTop: "6px", fontSize: "10px", color: "#48603A", textAlign: "center" }}>
                 이 근처에서 만들 수 있는 다른 조합이 없어 처음 코스를 다시 보여드려요
               </div>
             )}
@@ -5166,7 +5074,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
             )}
             {displayRoute && (
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#7c3aed", fontSize: "10.5px", fontWeight: 700 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#5C7A4A", fontSize: "10.5px", fontWeight: 700 }}>
                 <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#2563eb", border: "2px solid white", boxShadow: "0 0 0 1px rgba(37,99,235,0.4)", flexShrink: 0 }} />
                 출발: {routeOriginLabel}
                 <span style={{ color: "#bbb", fontWeight: 500 }}>
@@ -5214,20 +5122,20 @@ const courseMeta = (route: RouteResult) => ({
                     borderRadius: "14px",
                     cursor: "pointer",
                     border: "1px solid rgba(0,0,0,0.05)",
-                    background: "#faf7ff",
+                    background: "#F7FAF3",
                     transition: "background 0.15s ease, box-shadow 0.15s ease",
                   }}
                   onMouseEnter={(e) => {
                     (e.currentTarget as HTMLDivElement).style.background = "#f3ebff";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.background = "#faf7ff";
+                    (e.currentTarget as HTMLDivElement).style.background = "#F7FAF3";
                   }}
                 >
                   <div
                     style={{
                       width: "24px", height: "24px", borderRadius: "50%", flexShrink: 0,
-                      background: "linear-gradient(135deg,#a78bfa,#7c3aed)", color: "white",
+                      background: "linear-gradient(135deg,#7F9B67,#5C7A4A)", color: "white",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: "11px", fontWeight: 800, marginTop: "2px",
                     }}
@@ -5289,8 +5197,8 @@ const courseMeta = (route: RouteResult) => ({
                             title={pinned ? "고정 해제" : "이 장소를 코스에 고정 (다른 코스를 봐도 유지)"}
                             style={{
                               marginLeft: "auto", flexShrink: 0, width: 24, height: 24, borderRadius: "50%",
-                              border: pinned ? "1px solid #7c3aed" : "1px solid rgba(0,0,0,0.1)",
-                              background: pinned ? "#7c3aed" : "white",
+                              border: pinned ? "1px solid #5C7A4A" : "1px solid rgba(0,0,0,0.1)",
+                              background: pinned ? "#5C7A4A" : "white",
                               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
                             }}
                           >
@@ -5302,7 +5210,7 @@ const courseMeta = (route: RouteResult) => ({
                     <div style={{ fontSize: "9.5px", color: "#8b5cf6", fontWeight: 700, marginTop: "2px" }}>
                       {stop.tags.join(" · ")}
                       <span style={{ color: "#c4b5fd" }}> · </span>
-                      <span style={{ color: "#5b21b6" }}>반려견 친화도 {stop.friendliness}점</span>
+                      <span style={{ color: "#3F5230" }}>반려견 친화도 {stop.friendliness}점</span>
                     </div>
                     <div style={{ marginTop: "4px", display: "flex", flexDirection: "column", gap: "1px" }}>
                       {stop.bullets.map((b, bi) => (
@@ -5325,8 +5233,8 @@ const courseMeta = (route: RouteResult) => ({
                           aria-label={`${stop.place.name} ${app === "kakao" ? "카카오맵" : "네이버지도"} 길찾기`}
                           style={{
                             padding: "2px 7px", borderRadius: "999px", fontSize: "9.5px", fontWeight: 700, cursor: "pointer",
-                            border: app === "kakao" ? "1px solid rgba(124,58,237,0.35)" : "1px solid rgba(3,199,90,0.45)",
-                            background: "white", color: app === "kakao" ? "#6d28d9" : "#03A24A",
+                            border: app === "kakao" ? "1px solid rgba(92,122,74,0.35)" : "1px solid rgba(3,199,90,0.45)",
+                            background: "white", color: app === "kakao" ? "#48603A" : "#03A24A",
                           }}
                         >
                           {app === "kakao" ? "카카오맵" : "네이버"}
@@ -5397,8 +5305,8 @@ const courseMeta = (route: RouteResult) => ({
                         className="ggk-body"
                         style={{
                           width: "100%", padding: "9px 0", marginBottom: "6px", borderRadius: "12px",
-                          border: "1px dashed rgba(91,33,182,0.45)",
-                          background: "rgba(255,255,255,0.7)", color: "#5b21b6",
+                          border: "1px dashed rgba(92,122,74,0.45)",
+                          background: "rgba(255,255,255,0.7)", color: "#3F5230",
                           fontWeight: 700, fontSize: "11.5px", cursor: mine?.state === "saving" ? "default" : "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
                         }}
@@ -5419,10 +5327,10 @@ const courseMeta = (route: RouteResult) => ({
                   className="ggk-body"
                   style={{
                     flex: 1, padding: "11px 0", borderRadius: "12px", border: "none",
-                    background: "linear-gradient(135deg,#7c3aed,#5b21b6)", color: "white",
+                    background: "linear-gradient(135deg,#5C7A4A,#3F5230)", color: "white",
                     fontWeight: 700, fontSize: "12px", cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-                    boxShadow: "0 3px 10px rgba(124,58,237,0.3)",
+                    boxShadow: "0 3px 10px rgba(92,122,74,0.3)",
                   }}
                 >
                   <Navigation size={12} />카카오맵

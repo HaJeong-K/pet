@@ -66,6 +66,28 @@ export default function TabBar() {
   // 1분마다, 그리고 다른 창에서 돌아올 때 다시 셉니다. 사장님 센터의 예약 화면에서 처리하면 그 화면이 바로 고쳐 줍니다(ggk-owner-waiting).
   const [waitingReservations, setWaitingReservations] = useState(0);
   const [unansweredReviews, setUnansweredReviews] = useState(0);
+  // 손님 알림(숙박 예약 확정·거절·체크인 안내·후기 요청) 중 안 읽은 수 — "마이페이지" 탭에 빨간 숫자(/api/me/notifications)
+  const [unreadNotices, setUnreadNotices] = useState(0);
+  useEffect(() => {
+    if (!isLoggedIn) { setUnreadNotices(0); return; }
+    let cancelled = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch("/api/me/notifications?count=1", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const json = await res.json();
+        if (!cancelled && res.ok) setUnreadNotices(Number(json.unread) || 0);
+      } catch { /* 숫자를 못 받아도 화면은 그대로 */ }
+    };
+    check();
+    const timer = window.setInterval(check, 60_000);
+    const onRead = () => check();
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("ggk-notifications-read", onRead);
+    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener("visibilitychange", check); window.removeEventListener("ggk-notifications-read", onRead); };
+  }, [isLoggedIn]);
   const lastWaitingRef = useRef<number | null>(null);
   useEffect(() => {
     if (!isOwner) return;
@@ -200,6 +222,7 @@ export default function TabBar() {
       icon:     isLoggedIn ? User : LogIn,
       onClick:  () => router.push(isLoggedIn ? "/mypage" : "/login"),
       isReport: false,
+      badge:    isLoggedIn ? unreadNotices : 0,
     },
   ];
 
@@ -275,7 +298,7 @@ export default function TabBar() {
           {/* ── 탭 버튼들 ── */}
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const badge = isOwner ? Number((tab as { badge?: number }).badge) || 0 : 0;
+            const badge = Number((tab as { badge?: number }).badge) || 0;
             const isActive = activeTab === tab.key;
             const activeColor   = tab.isReport ? "#DC2626" : "#5C7A4A";
             const inactiveColor = "#1a1a1a";

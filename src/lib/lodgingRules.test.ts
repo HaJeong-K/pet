@@ -21,10 +21,10 @@ describe("cleanLodgingProfile", () => {
     expect("error" in cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small"], extras: [{ name: "바비큐", price: "-1" }] })).toBe(true);
   });
   it("요일별 객실 요금", () => {
-    const r = cleanRoom({ name: "스위트", base_price: 100000, std_guests: 2, max_guests: 2, weekday_prices: ["", "80000", "", "", "", "150000", ""] });
+    const r = cleanRoom({ name: "스위트", base_price: 100000, std_guests: 2, max_guests: 2, is_active: false, weekday_prices: ["", "80000", "", "", "", "150000", ""] });
     expect("room" in r && r.room.weekday_prices).toEqual([null, 80000, null, null, null, 150000, null]);
     expect("room" in r && roomPriceText(r.room)).toBe("1박 80,000원부터 · 요일별 요금");
-    const plain = cleanRoom({ name: "스탠다드", base_price: 100000, std_guests: 2, max_guests: 2 });
+    const plain = cleanRoom({ name: "스탠다드", base_price: 100000, std_guests: 2, max_guests: 2, is_active: false });
     expect("room" in plain && plain.room.weekday_prices).toBeNull();
   });
   it("그 외 동물은 어떤 동물인지 적어야 함", () => {
@@ -64,14 +64,15 @@ describe("cleanLodgingProfile", () => {
 });
 
 describe("cleanRoom", () => {
-  const ok = { name: "  오션  독채 ", base_price: 120000, std_guests: 2, max_guests: 4, extra_guest_fee: 20000 };
+  const photos = ["https://x.supabase.co/a.jpg", "https://x.supabase.co/b.jpg"];
+  const ok = { name: "  오션  독채 ", base_price: 120000, std_guests: 2, max_guests: 4, extra_guest_fee: 20000, images: photos };
   it("객실을 다듬는다", () => {
-    const r = cleanRoom({ ...ok, amenities: ["독채", "모르는 것"], images: ["https://x.supabase.co/a.jpg", "javascript:alert(1)"] });
+    const r = cleanRoom({ ...ok, amenities: ["독채", "모르는 것"], images: [...photos, "javascript:alert(1)"] });
     expect("room" in r).toBe(true);
     if (!("room" in r)) return;
     expect(r.room.name).toBe("오션 독채");
     expect(r.room.amenities).toEqual(["독채"]);
-    expect(r.room.images).toEqual(["https://x.supabase.co/a.jpg"]);
+    expect(r.room.images).toEqual(photos);
     expect(r.room.extra_guest_fee).toBe(20000);
   });
   it("기준 인원 = 최대 인원이면 인원 추가 요금은 없앤다", () => {
@@ -83,6 +84,10 @@ describe("cleanRoom", () => {
     expect("error" in cleanRoom({ ...ok, base_price: "" })).toBe(true);
     expect("error" in cleanRoom({ ...ok, std_guests: 4, max_guests: 2 })).toBe(true);
     expect("error" in cleanRoom({ ...ok, images: Array(7).fill("https://x.co/a.jpg") })).toBe(true);
+  });
+  it("판매 중이려면 사진 2장 이상(판매 중지는 사진 없이도 저장)", () => {
+    expect("error" in cleanRoom({ ...ok, images: [photos[0]] })).toBe(true);
+    expect("room" in cleanRoom({ ...ok, images: [], is_active: false })).toBe(true);
   });
 });
 

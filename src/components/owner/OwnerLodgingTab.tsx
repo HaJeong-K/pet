@@ -12,11 +12,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BedDouble, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
 import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
+import OwnerRoomIcal from "@/components/owner/OwnerRoomIcal";
 import { supabase } from "@/lib/supabase";
 import {
   EMPTY_PROFILE, LODGING_SHORT_MAX, PEAK_PERIODS_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
   ROOM_IMAGES_MAX, ROOM_NAME_MAX, ROOM_TYPE_MAX, ROOM_TYPE_SUGGESTIONS, ROOMS_PER_PLACE_MAX, petPolicySummary, roomPriceText,
-  EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, WEEKDAY_LABELS,
+  EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, ROOM_PHOTOS_MIN, WEEKDAY_LABELS,
   type ExtraUnit, type LodgingProfile, type PetFeeKey, type PetSize, type PetSpecies,
 } from "@/lib/lodgingRules";
 
@@ -90,6 +91,8 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
   const [profile, setProfile] = useState<ProfileForm>(toProfileForm(null));
   const [profileSaved, setProfileSaved] = useState<string | null>(null);
   const [editing, setEditing] = useState<Room | "new" | null>(null);
+  // 달력 연동 칸을 펼친 객실
+  const [icalFor, setIcalFor] = useState<number | null>(null);
   const [room, setRoom] = useState<RoomForm>(EMPTY_ROOM);
   const [busy, setBusy] = useState<"" | "profile" | "room" | "upload" | "list">("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -527,11 +530,12 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                   기준 {r.std_guests}명 · 최대 {r.max_guests}명{r.max_pets != null ? ` · 반려동물 최대 ${r.max_pets}마리` : ""}{r.images.length > 1 ? ` · 사진 ${r.images.length}장` : ""}
                 </div>
                 {r.amenities.length > 0 && <div style={{ fontSize: 11.5, color: "#999", marginTop: 2 }}>{r.amenities.join(" · ")}</div>}
-                {canAct && (
-                  <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => quick({ id: r.id, is_active: !r.is_active })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>{r.is_active ? "판매 중지" : "다시 판매"}</button>
-                  </div>
-                )}
+                {r.images.length < ROOM_PHOTOS_MIN && <div style={{ fontSize: 11.5, color: "#B45309", fontWeight: 700, marginTop: 4 }}>사진을 {ROOM_PHOTOS_MIN}장 이상 올려야 판매할 수 있어요(지금 {r.images.length}장)</div>}
+                <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
+                  {canAct && <button onClick={() => quick({ id: r.id, is_active: !r.is_active })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>{r.is_active ? "판매 중지" : "다시 판매"}</button>}
+                  <button onClick={() => setIcalFor(icalFor === r.id ? null : r.id)} aria-expanded={icalFor === r.id} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #d7e2f0", background: icalFor === r.id ? "#E3EDFA" : "white", fontSize: 11.5, fontWeight: 700, color: "#1D4F91", cursor: "pointer", fontFamily: "inherit" }}>달력 연동</button>
+                </div>
+                {icalFor === r.id && <OwnerRoomIcal roomId={r.id} placeId={placeId} isPreview={isPreview} canAct={canAct} />}
               </div>
               {canAct && (
                 <div style={{ display: "grid", gridTemplateColumns: "32px 32px", gap: 4, flexShrink: 0 }}>

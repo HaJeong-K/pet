@@ -59,6 +59,8 @@ export const ROOM_PRICE_MAX = 10_000_000;
 export const ROOM_GUESTS_MAX = 30;
 export const ROOM_PETS_MAX = 10;
 export const ROOM_IMAGES_MAX = 6;
+/** 판매 중으로 켜려면 필요한 객실 사진 수(사진 없는 숙소는 손님이 고르기 어렵습니다) */
+export const ROOM_PHOTOS_MIN = 2;
 /** 숙소 한 곳이 올릴 수 있는 객실 수 */
 export const ROOMS_PER_PLACE_MAX = 40;
 export const PET_FEE_MAX = 500_000;
@@ -277,6 +279,7 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
   if (pets === "bad") return { error: `최대 마릿수는 1~${ROOM_PETS_MAX}마리 사이로 적어 주세요.` };
   const images = Array.isArray(r.images) ? r.images.filter((u): u is string => typeof u === "string" && /^https:\/\/[^\s"'<>]+$/.test(u)) : [];
   if (images.length > ROOM_IMAGES_MAX) return { error: `객실 사진은 ${ROOM_IMAGES_MAX}장까지 올릴 수 있어요.` };
+  if (r.is_active !== false && images.length < ROOM_PHOTOS_MIN) return { error: `객실 사진을 ${ROOM_PHOTOS_MIN}장 이상 올려야 판매할 수 있어요. 사진을 더 올리거나 "판매 중지"로 저장해 주세요.` };
   return {
     room: {
       name,

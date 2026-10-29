@@ -4,9 +4,10 @@ import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { BOOKING_FULL_COLUMNS } from "@/lib/server/lodgingStore";
 import { applyCancel, confirmStay, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
 import { sendOwnerPush } from "@/lib/server/ownerPush";
+import { notifyGuest } from "@/lib/server/guestNotify";
 
 // 관리자 전용: 숙박 예약 관리(「같이가개 숙소 입점 계약서」 제11·14·20조)
-//   GET ?view=issues | payouts | all  → 문제 접수 / 정산 예정 / 최근 예약 + 숙소 이름
+//   GET ?view=issues | payouts | refunds | all  → 문제 접수 / 정산 예정 / 환불 처리 대기 / 최근 예약 + 숙소 이름
 //   POST { id, action, ... }
 //     "resolve"        { decision, note } : 문제 접수 판단
 //         stay_ok         → 정상 이용으로 보고 이용 확정(정산 진행)
@@ -15,16 +16,24 @@ import { sendOwnerPush } from "@/lib/server/ownerPush";
 //     "compensation"   { amount } : 기준에 배상률이 없는 구간(성수기 2일 전~당일)의 배상금을 정함
 //     "mark_paid"                 : 결제 확인(결제대행 연동 전 임시) — 이 뒤로 정산이 잡힙니다
 //     "mark_paid_out"             : 숙소 계좌로 보냄(결제대행 연동 전 임시, 직접 이체한 뒤 누름)
+//     "mark_refunded"             : 손님에게 환불을 보냄(결제대행 연동 전 임시, 직접 돌려준 뒤 누름) — 처리한 관리자·시각을 남기고 손님에게 알림
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return fail("관리자 권한 없음", 401);
   const view = req.nextUrl.searchParams.get("view") ?? "issues";
-  let q = db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, guest_auth_user_id`).order("created_at", { ascending: false }).limit(300);
-  if (view === "issues") q = q.or("issue_status.eq.open,compensation_amount.is.null");
-  else if (view === "payouts") q = q.in("payout_status", ["scheduled", "held"]);
-  const { data, error } = await q;
+  const query = (extra: string) => {
+    let q = db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, guest_auth_user_id${extra}`).order("created_at", { ascending: false }).limit(300);
+    if (view === "issues") q = q.or("issue_status.eq.open,compensation_amount.is.null");
+    else if (view === "payouts") q = q.in("payout_status", ["scheduled", "held"]);
+    // 환불 처리 대기: 결제를 받은 뒤 취소돼 돌려줄 돈이 있는데 아직 보냈다고 표시하지 않은 것
+    else if (view === "refunds") q = q.gt("refund_amount", 0).not("paid_at", "is", null).is("refund_done_at", null);
+    return q;
+  };
+  let { data, error } = await query(", refund_done_at, refund_done_by");
+  // 환불 기록 칸(scripts/sql/lodging-operations.sql) 실행 전이면 그 칸 없이(환불 처리 목록은 빈 채로)
+  if (error && isMissingSchema(error) && view !== "refunds") ({ data, error } = await query("") as never);
   if (error) return isMissingSchema(error) ? NextResponse.json({ ready: false, bookings: [] }) : fail(error.message, 500);
   const rows = (data ?? []) as Record<string, any>[];
   const ids = [...new Set(rows.map((b) => Number(b.place_id)))];
@@ -79,6 +88,14 @@ export async function POST(req: NextRequest) {
     } else if (body?.action === "mark_paid_out") {
       if (b.payout_status !== "scheduled") return fail("정산 예정인 예약이 아니에요.", 409);
       await db.from("lodging_bookings").update({ payout_status: "paid", paid_out_at: now, updated_at: now }).eq("id", id);
+    } else if (body?.action === "mark_refunded") {
+      const { data: refund, error: refundError } = await db.from("lodging_bookings").select("refund_amount, paid_at, refund_done_at, guest_auth_user_id").eq("id", id).maybeSingle();
+      if (refundError) return fail(isMissingSchema(refundError) ? "환불 기록은 준비 중이에요(lodging-operations.sql 실행 필요)." : refundError.message, 500);
+      if (!refund || Number(refund.refund_amount) <= 0 || !refund.paid_at) return fail("돌려줄 금액이 있는 예약이 아니에요.", 409);
+      if (refund.refund_done_at) return fail("이미 환불을 보냈다고 표시한 예약이에요.", 409);
+      await db.from("lodging_bookings").update({ refund_done_at: now, refund_done_by: admin.email || admin.id, updated_at: now }).eq("id", id);
+      const amount = Number(refund.refund_amount).toLocaleString("ko-KR");
+      after(() => notifyGuest(refund.guest_auth_user_id, { kind: "stay_refunded", title: "환불을 보냈어요", body: `${b.room_name} 예약 ${amount}원을 돌려드렸어요. 카드·계좌에 따라 며칠 걸릴 수 있어요.`, url: "/mypage#stays" }));
     } else return fail("요청이 올바르지 않아요.", 400);
   } catch (e) {
     return fail(e instanceof Error ? e.message : "처리하지 못했어요.", 500);

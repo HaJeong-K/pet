@@ -10,6 +10,7 @@ import type { NextRequest } from "next/server";
 import { db, isMissingSchema, ownerContext, type OwnerContext } from "@/lib/server/ownerStore";
 import { ownerKindOf } from "@/lib/ownerKind";
 import type { LodgingProfile, RoomInput } from "@/lib/lodgingRules";
+import { icalBlockedDays } from "@/lib/server/lodgingIcal";
 
 export const PROFILE_COLUMNS = "place_id, check_in, check_out, pet_species, pet_sizes, max_pet_weight_kg, max_pets, pet_fee, pet_fee_note, pet_amenities, pet_rules, stay_rules, refund_policy, updated_at";
 /** 4단계 칸(scripts/sql/lodging-settlement.sql) — 없으면 기본값으로 채웁니다 */
@@ -81,10 +82,17 @@ export const BOOKING_FULL_COLUMNS = `${BOOKING_COLUMNS}, ${SETTLEMENT_COLUMNS}`;
 export const GUEST_INFO_COLUMNS = "guest_email, stay_guest_name, stay_guest_phone, arrival_method, arrival_time";
 
 /** 그 객실의 바꾼 날(막은 날·날짜별 요금) — from 이상 to 미만 */
-export async function roomDays(roomId: number, from: string, to: string): Promise<{ day: string; closed: boolean; price: number | null }[]> {
+export async function roomDays(roomId: number, from: string, to: string, opts: { withIcal?: boolean } = {}): Promise<{ day: string; closed: boolean; price: number | null }[]> {
   const { data, error } = await db.from("lodging_room_days").select("day, closed, price").eq("room_id", roomId).gte("day", from).lt("day", to);
   if (error) throw new Error(error.message);
-  return (data ?? []) as { day: string; closed: boolean; price: number | null }[];
+  const days = (data ?? []) as { day: string; closed: boolean; price: number | null }[];
+  if (!opts.withIcal) return days;
+  // 손님용: 다른 예약 사이트에서 팔린 밤(달력 연동 — src/lib/server/lodgingIcal.ts)도 막은 날로
+  const external = await icalBlockedDays(roomId, from, to);
+  if (external.length === 0) return days;
+  const byDay = new Map(days.map((d) => [d.day, d]));
+  for (const day of external) byDay.set(day, { day, closed: true, price: byDay.get(day)?.price ?? null });
+  return [...byDay.values()];
 }
 
 /** 그 객실의 확정된 예약 중 [checkIn, checkOut)과 겹치는 것(excludeId는 빼고) */

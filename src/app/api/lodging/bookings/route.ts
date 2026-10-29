@@ -1,4 +1,6 @@
 import { STAY_CONSENT_VERSION } from "@/lib/lodgingConsents";
+import { canReviewStay } from "@/lib/lodgingReviews";
+import { ensureFreshIcal } from "@/lib/server/lodgingIcal";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
 import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, confirmedOverlaps, getLodging, roomDays } from "@/lib/server/lodgingStore";
@@ -47,10 +49,14 @@ export async function GET(req: NextRequest) {
   }
   const rows = (data ?? []) as Record<string, any>[];
   const placeIds = [...new Set(rows.map((b) => Number(b.place_id)))];
-  const [{ data: places }, { data: profiles }] = await Promise.all([
+  const bookingIds = rows.map((b) => Number(b.id));
+  const [{ data: places }, { data: profiles }, { data: reviewed }] = await Promise.all([
     placeIds.length ? db.from("places").select("id, name, address, phone").in("id", placeIds) : Promise.resolve({ data: [] as any[] }),
     placeIds.length ? db.from("lodging_profiles").select("place_id, check_in, check_out, peak_periods, refund_policy").in("place_id", placeIds) : Promise.resolve({ data: [] as any[] }),
+    // 이미 숙박 후기를 남긴 예약(표가 없으면 빈 목록)
+    bookingIds.length ? db.from("lodging_reviews").select("booking_id").in("booking_id", bookingIds) : Promise.resolve({ data: [] as any[] }),
   ]);
+  const reviewedIds = new Set((reviewed ?? []).map((r) => Number(r.booking_id)));
   const today = kstToday();
   const bookings = rows.map((b) => {
     const place = (places ?? []).find((p) => Number(p.id) === Number(b.place_id));
@@ -67,6 +73,9 @@ export async function GET(req: NextRequest) {
       schedule: open ? refundSchedule(b.total, b.check_in, bookedOn, peak).filter((r) => r.until >= today) : [],
       canConfirm: settlementReady && b.status === "confirmed" && today >= b.check_out && b.issue_status !== "open",
       canReportIssue: settlementReady && b.status === "confirmed" && today >= b.check_in && b.issue_status === "none",
+      // 숙박 후기: 체크아웃 날부터, 확정·완료 예약, 아직 안 남겼을 때
+      canReview: canReviewStay(b as { status: string; check_out: string }, today) && !reviewedIds.has(Number(b.id)),
+      reviewed: reviewedIds.has(Number(b.id)),
     };
   });
   return NextResponse.json({ ready: true, settlementReady, issueKinds: ISSUE_KINDS, bookings });
@@ -92,7 +101,9 @@ export async function POST(req: NextRequest) {
 
   const petProblem = petsAllowed(profile, room, r.pets);
   if (petProblem) return fail(petProblem, 400);
-  const days = await roomDays(r.roomId, r.checkIn, r.checkOut).catch(() => []);
+  // 다른 예약 사이트에서 막 팔렸을 수 있으니 달력 연동을 먼저 새로 고칩니다(30분 넘었을 때만)
+  await ensureFreshIcal(r.roomId).catch(() => {});
+  const days = await roomDays(r.roomId, r.checkIn, r.checkOut, { withIcal: true }).catch(() => []);
   // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
   const petNightly = r.pets.reduce((sum, p) => sum + petNightFee(profile, p), 0);
   const q = quoteStay(room, petNightly, days, r.checkIn, r.checkOut, r.guests, r.extras, profile?.extras ?? []);

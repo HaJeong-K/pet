@@ -5,6 +5,7 @@
 //   · 체크인 날부터: [문제 있어요](입실 거부·객실 다름 등) — 접수하면 이용 확정·정산이 멈추고 관리자가 확인
 //   · 체크아웃 날부터: [이용 확정] — 누르지 않으면 3일 뒤 자동 확정
 //   · 끝난 예약: 이용 완료·취소(환불 금액)·거절 이유
+//   · 체크아웃 날부터: [숙박 후기 쓰기](숙소 화면의 숙박 후기 칸으로) — 이미 남겼으면 "후기를 남겼어요"
 // 서버는 /api/lodging/bookings, 규칙은 src/lib/lodgingPolicy.ts(계약서 제10~15조).
 
 import { useCallback, useEffect, useState } from "react";
@@ -24,6 +25,8 @@ type Stay = {
   cancelNow: { refund: number; penalty: number; rate: number | null } | null;
   schedule: { until: string; refund: number; rate: number }[];
   canConfirm: boolean; canReportIssue: boolean;
+  /** 숙박 후기를 남길 수 있는지(체크아웃 날부터·아직 안 남김) / 이미 남겼는지 */
+  canReview?: boolean; reviewed?: boolean;
 };
 
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #e3eaf3", padding: "16px 16px" };
@@ -116,6 +119,8 @@ export default function MyStaysCard() {
           {s.canConfirm && <button onClick={() => act({ id: s.id, action: "confirm" }, "이용을 확정했어요. 즐거우셨길 바라요!")} disabled={busy} style={button("primary", busy)}>이용 확정</button>}
           {s.canReportIssue && <button onClick={() => { setIssueFor(issueFor === s.id ? null : s.id); setIssue({ kind: "", detail: "" }); }} style={button("plain")}>문제 있어요</button>}
           {s.cancelNow && <button onClick={() => cancel(s)} disabled={busy} style={button("danger", busy)}>예약 취소</button>}
+          {s.canReview && <a href={`/stay/${s.place_id}#stay-reviews`} style={{ ...button("primary"), background: "#B45309", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>숙박 후기 쓰기</a>}
+          {s.reviewed && <span style={{ fontSize: 12, color: "#15803D", fontWeight: 700, alignSelf: "center" }}>후기를 남겼어요</span>}
         </div>
 
         {issueFor === s.id && (

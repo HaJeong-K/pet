@@ -12,6 +12,8 @@ import { kstToday, type StayStatus } from "@/lib/lodgingBooking";
 import {
   CANCEL_FEE_RATE, cancelOutcome, nextBusinessDayAfter, settle, stayFeeRate, type CancelCause, type PeakPeriod,
 } from "@/lib/lodgingPolicy";
+import { notifyStayGuest, runGuestStayNotices } from "@/lib/server/guestNotify";
+import { syncAllRoomIcal } from "@/lib/server/lodgingIcal";
 
 export const NEED_SETTLEMENT_SQL = "예약 정산 기능을 준비하고 있어요. Supabase SQL 편집기에서 scripts/sql/lodging-settlement.sql을 실행해 주세요.";
 
@@ -91,8 +93,17 @@ export async function runLodgingDaily() {
   const { data: stale } = await db.from("lodging_bookings").select(MONEY_COLUMNS)
     .eq("status", "requested").lt("created_at", new Date(Date.now() - 24 * 3_600_000).toISOString()).limit(500);
   let expired = 0;
-  for (const b of (stale ?? []) as MoneyBooking[]) if (await applyCancel(b, "not_confirmed", "declined", "requested", { owner_note: "숙소가 24시간 안에 확정하지 않아 자동 취소" })) expired++;
-  return { autoConfirmed: confirmed, expiredRequests: expired };
+  for (const b of (stale ?? []) as MoneyBooking[]) {
+    if (await applyCancel(b, "not_confirmed", "declined", "requested", { owner_note: "숙소가 24시간 안에 확정하지 않아 자동 취소" })) {
+      expired++;
+      await notifyStayGuest(Number(b.id), "expired");
+    }
+  }
+  // 손님 알림: 내일 체크인 안내 · 체크아웃 후 후기 요청(한 번씩)
+  const notices = await runGuestStayNotices(today).catch((e) => ({ reminded: 0, reviewAsked: 0, skipped: e instanceof Error ? e.message : "실패" }));
+  // 다른 예약 사이트 달력(iCal)에서 팔린 날 가져오기
+  const ical = await syncAllRoomIcal().catch((e) => ({ synced: 0, failed: 0, skipped: e instanceof Error ? e.message : "실패" }));
+  return { autoConfirmed: confirmed, expiredRequests: expired, ...notices, ical };
 }
 
 export { MONEY_COLUMNS };

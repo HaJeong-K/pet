@@ -15,6 +15,7 @@ import AdminNav from "@/components/AdminNav";
 import LogoLoader from "@/components/LogoLoader";
 import PartnersView from "./PartnersView";
 import ReviewReportsView from "./ReviewReportsView";
+import LeadsView from "./LeadsView";
 import { won } from "@/lib/ownerPlans";
 import { petLabel, stayDayLabel, STAY_STATUS, type StayPet, type StayStatus } from "@/lib/lodgingBooking";
 import { CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
@@ -24,8 +25,9 @@ type Row = {
   guests: number; pets: StayPet[]; total: number; status: StayStatus; payment_status: string; cancel_cause: CancelCause | null; refund_amount: number; penalty_amount: number;
   compensation_amount: number | null; issue_status: string; issue_kind: string | null; issue_detail: string | null; issue_owner_reply: string | null; issue_opened_at: string | null;
   fee_rate: number | null; fee_amount: number | null; payout_amount: number | null; payout_due_on: string | null; payout_status: string; created_at: string;
+  paid_at?: string | null; refund_done_at?: string | null; refund_done_by?: string | null;
 };
-type View = "issues" | "payouts" | "all" | "partners" | "reviews";
+type View = "issues" | "payouts" | "refunds" | "all" | "partners" | "reviews" | "leads";
 
 const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
@@ -53,7 +55,7 @@ export default function AdminStays() {
     return json;
   }, []);
   const load = useCallback(async () => {
-    if (view === "partners" || view === "reviews") return;
+    if (view === "partners" || view === "reviews" || view === "leads") return;
     try { const json = await call({}, `?view=${view}`); setReady(json.ready !== false); setRows(json.bookings ?? []); }
     catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "불러오지 못했어요." }); setRows([]); }
   }, [call, view]);
@@ -78,11 +80,11 @@ export default function AdminStays() {
           결제대행 연동 전에는 결제 확인과 정산 이체를 직접 표시합니다.
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["all", "최근 예약"], ["partners", "입점 심사"], ["reviews", "후기 신고"]] as [View, string][]).map(([key, text]) => (
+          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["refunds", "환불 처리"], ["all", "최근 예약"], ["partners", "입점 심사"], ["leads", "입점 영업"], ["reviews", "후기 신고"]] as [View, string][]).map(([key, text]) => (
             <button key={key} onClick={() => { setView(key); setRows(null); }} aria-pressed={view === key} style={{ padding: "7px 13px", borderRadius: 999, border: "none", background: view === key ? "#5C7A4A" : "white", color: view === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: view === key ? "none" : "inset 0 0 0 1px #e5e0d0" }}>{text}</button>
           ))}
         </div>
-        {view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : <>
+        {view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : view === "leads" ? <LeadsView /> : <>
         {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
         {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-settlement.sql</b>을 실행해 주세요.</div>}
         {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
@@ -135,6 +137,8 @@ export default function AdminStays() {
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                 {b.payment_status === "unpaid" && b.status !== "declined" && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_paid" }, "결제를 확인했어요.", `${b.guest_name}님의 ${won(b.total)} 결제를 확인했나요?\n(결제대행 연동 전 임시 기능)`)} style={btn("plain", busy)}>결제 확인</button>}
                 {b.payout_status === "scheduled" && (b.payout_amount ?? 0) > 0 && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_paid_out" }, "정산을 보냄으로 표시했어요.", `숙소 계좌로 ${won(b.payout_amount ?? 0)}을 보냈나요?`)} style={btn("primary", busy)}>정산 보냄</button>}
+                {b.refund_amount > 0 && b.paid_at && !b.refund_done_at && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_refunded" }, "환불을 보냄으로 표시했어요. 손님에게 알렸어요.", `${b.guest_name}님에게 ${won(b.refund_amount)}을 돌려줬나요?\n(결제대행 연동 전 임시 — 직접 환불한 뒤 눌러 주세요)`)} style={btn("primary", busy)}>환불 보냄</button>}
+                {b.refund_done_at && <span style={{ fontSize: 12, color: "#15803D", fontWeight: 700, alignSelf: "center" }}>환불 보냄 · {b.refund_done_at.slice(0, 10)}{b.refund_done_by ? ` · ${b.refund_done_by}` : ""}</span>}
               </div>
             </div>
           );

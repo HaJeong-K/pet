@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (!room || !room.is_active) return NextResponse.json({ error: "객실을 찾을 수 없어요." }, { status: 404 });
   try {
     const [changed, confirmed] = await Promise.all([
-      roomDays(roomId, from, to),
+      roomDays(roomId, from, to, { withIcal: true }),
       db.from("lodging_bookings").select("check_in, check_out").eq("room_id", roomId).eq("status", "confirmed").lt("check_in", to).gt("check_out", from),
     ]);
     if (confirmed.error) throw confirmed.error;

@@ -3,6 +3,7 @@ import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, GUEST_INFO_COLUMNS, confirmedOverlaps, lodgingOwnerContext } from "@/lib/server/lodgingStore";
 import { applyCancel, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
 import { notifyAdmin } from "@/lib/server/notify";
+import { notifyStayGuest } from "@/lib/server/guestNotify";
 import { canChangeStay, kstToday, type StayStatus } from "@/lib/lodgingBooking";
 import { won } from "@/lib/ownerPlans";
 
@@ -83,6 +84,7 @@ export async function PATCH(req: NextRequest) {
         .eq("id", id).eq("place_id", ctx.placeId).eq("status", current.status).select(BOOKING_COLUMNS).maybeSingle();
       if (error) return fail(error.message, 500);
       if (!data) return fail("그 사이 예약 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
+      after(() => notifyStayGuest(id, "confirmed"));
       return NextResponse.json({ booking: data });
     }
     if (next === "no_show" && kstToday() < current.check_in) return fail("노쇼는 체크인 날부터 처리할 수 있어요.", 409);
@@ -90,6 +92,8 @@ export async function PATCH(req: NextRequest) {
     const cause = next === "declined" ? "not_confirmed" : next === "no_show" ? "guest" : "owner";
     const done = await applyCancel(current, cause, next, current.status, { ...notes, ...(current.status === "requested" ? { decided_at: now } : {}) });
     if (!done) return fail("그 사이 예약 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
+    // 손님에게 알림(거절·숙소 사정 취소) — 노쇼는 알리지 않습니다
+    if (next === "declined" || next === "cancelled_by_owner") after(() => notifyStayGuest(id, next));
     if (next === "cancelled_by_owner") {
       const comp = done.outcome.compensation;
       after(() => notifyAdmin({

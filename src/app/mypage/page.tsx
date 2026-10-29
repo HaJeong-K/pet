@@ -3,6 +3,7 @@
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
+import MyNotificationsCard from "@/components/MyNotificationsCard";
 import MyStaysCard from "@/components/lodging/MyStaysCard";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
@@ -875,6 +876,8 @@ export default function MyPage() {
           }}>
             <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
             <div style={{ flex: "1 0 auto" }}>
+						{/* ── 알림(숙박 예약 확정·거절, 체크인 전날 안내, 후기 요청 — 알림이 있을 때만) */}
+						<MyNotificationsCard />
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
 						<MyStaysCard />
 						{/* ── 찜한 장소 */}
