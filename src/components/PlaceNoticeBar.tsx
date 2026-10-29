@@ -4,17 +4,29 @@
 //   · 접힌 상태: [공지] 대표 공지(없으면 최신 공지) 제목 · 날짜 · 공지 수 ›
 //   · 누르면 펼쳐져 지난 공지까지 모두 보입니다. 공지마다 눌러서 내용을 펼칩니다(첫 공지는 펼친 채로).
 // 공지가 없으면 아무것도 그리지 않습니다. 서버는 /api/place-notices, 규칙은 src/lib/placeNotices.ts.
+// 같이가개에서 바로 예약되는 숙소(lodging)면 펼치지 않고 숙소 화면(/stay/번호)의 "숙소 소식"으로 보냅니다 —
+//   공지를 누르면 그 공지가, 머리 줄을 누르면 공지 목록이 열립니다(지도 위 창을 벗어나도록 새로 엽니다).
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp, Megaphone, Pin } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Megaphone, Pin } from "lucide-react";
 import { isNewNotice, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
 
 const NEW_BADGE: React.CSSProperties = { flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: "white", background: "#EF4444", borderRadius: 4, padding: "1px 4px", lineHeight: 1.3 };
 
-export default function PlaceNoticeBar({ placeId }: { placeId: number }) {
+export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: number; lodging?: boolean }) {
   const [notices, setNotices] = useState<PlaceNotice[]>([]);
   const [open, setOpen] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  // 바로 예약되는 숙소인지(객실이 열려 있음) — 그러면 숙소 화면에서 공지를 보여 줍니다
+  const [stayHref, setStayHref] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lodging) return;
+    let cancelled = false;
+    fetch(`/api/lodging?placeId=${placeId}`).then((r) => r.json())
+      .then((d: { rooms?: unknown[] }) => { if (!cancelled && (d.rooms ?? []).length > 0) setStayHref(`/stay/${placeId}`); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [placeId, lodging]);
 
   useEffect(() => {
     let cancelled = false;
@@ -26,6 +38,19 @@ export default function PlaceNoticeBar({ placeId }: { placeId: number }) {
 
   if (notices.length === 0) return null;
   const top = notices[0];
+  if (stayHref) {
+    return (
+      <a href={`${stayHref}?notice=${top.id}`} style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", textDecoration: "none" }}>
+        <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 6, background: "#B45309", color: "white", fontSize: 10.5, fontWeight: 800 }}>
+          <Megaphone size={11} />공지
+        </span>
+        {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
+        <span style={{ flexShrink: 0, fontSize: 11, color: "#a08a63" }}>{notices.length > 1 ? `숙소 소식 ${notices.length}` : noticeDate(top.created_at)}</span>
+        <ChevronRight size={15} color="#a08a63" />
+      </a>
+    );
+  }
 
   return (
     <div style={{ marginBottom: 10, borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", overflow: "hidden" }}>

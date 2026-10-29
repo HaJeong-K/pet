@@ -1134,7 +1134,7 @@ export default function PlaceDetail({
         })()}
 
         {/* 사장님 공지 — 친화도 점수 바로 아래(공지가 있을 때만) */}
-        {!isPublicDataPlace && !isParkPlaceId(placeId) && <PlaceNoticeBar placeId={placeId} />}
+        {!isPublicDataPlace && !isParkPlaceId(placeId) && <PlaceNoticeBar placeId={placeId} lodging={isLodgingCategory(place.category)} />}
 
         {/* 관리자 표시 배지 ★ */}
         {isAdmin && (

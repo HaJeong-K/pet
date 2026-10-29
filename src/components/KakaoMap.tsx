@@ -12,7 +12,7 @@ import { toHttps } from "@/lib/imageUrl";
 import { fetchPublicDataPlaces } from "@/lib/publicDataPlaces";
 import { fetchParks, type ParkPlace } from "@/lib/parkPlaces";
 import { ensureMapTiles, fetchCountBlocks, placeTiles, parkTiles, searchPlacesByName } from "@/lib/mapData";
-import { blocksForBounds, bubblesFromPoints, bubblesFromRows, cellDegForCloseLevel, COUNT_MIN_LEVEL, formatBubbleCount, type CountFilter } from "@/lib/tileCounts";
+import { blocksForBounds, bubblesFromPoints, bubblesFromRows, cellDegForCloseLevel, cellDegForLevel, COUNT_MIN_LEVEL, formatBubbleCount, type CountFilter } from "@/lib/tileCounts";
 import { countTilesForBounds, expandBounds, tileKey, tilesForBounds, tilesForRadius, type TileXY } from "@/lib/placeTiles";
 import { tileQuery } from "@/lib/mapTile";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -2911,6 +2911,18 @@ const courseMeta = (route: RouteResult) => ({
     () => baseFilteredPlaces.filter((p) => p.source !== "public-data").map((p) => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lng) })),
     [baseFilteredPlaces]
   );
+  // ⚠ 서버의 구역별 집계는 전체·실내·야외·실내외·동물병원·약국 기준만 있습니다. "숙소" 버튼을 골라도 맞는 기준이 없어
+  //    전체 장소 수가 그대로 떠서, 숙소가 하나도 없는 곳에도 숫자가 보였습니다. 숙소일 때는 전국 숙소 목록
+  //    (/api/lodging/list — 공공데이터 숙소 + 직접 등록된 숙소, 약 500곳)의 실제 위치로 직접 셉니다.
+  const [lodgingPoints, setLodgingPoints] = useState<{ lat: number; lng: number }[] | null>(null);
+  useEffect(() => {
+    if (selectedPetZone !== "lodging" || lodgingPoints) return;
+    let cancelled = false;
+    fetch("/api/lodging/list").then((r) => r.json())
+      .then((d: { items?: { lat: number; lng: number }[] }) => { if (!cancelled) setLodgingPoints((d.items ?? []).filter((x) => Number.isFinite(Number(x.lat)) && Number.isFinite(Number(x.lng))).map((x) => ({ lat: Number(x.lat), lng: Number(x.lng) }))); })
+      .catch(() => { if (!cancelled) setLodgingPoints([]); });
+    return () => { cancelled = true; };
+  }, [selectedPetZone, lodgingPoints]);
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.kakao?.maps) return;
     const map = mapRef.current;
@@ -2959,6 +2971,16 @@ const courseMeta = (route: RouteResult) => ({
         return;
       }
       if (intentActive) { clear(); return; }
+      // 숙소: 서버 집계에 숙소 기준이 없어 숙소 목록의 실제 위치로 셉니다(위 lodgingPoints 설명). 공원은 서버 집계 그대로.
+      if (selectedPetZone === "lodging") {
+        const lodgingBubbles = bubblesFromPoints(lodgingPoints ?? [], [], view, cellDegForLevel(level));
+        const parkRows = parksVisible ? await fetchCountBlocks(level, blocksForBounds(view, level)) : [];
+        if (mine !== run) return;
+        clear();
+        for (const item of lodgingBubbles) if (item.count > 0) bubble(item.lat, item.lng, item.count, "place");
+        if (parksVisible) for (const item of bubblesFromRows(parkRows, view, level, "all", true)) if (item.parkCount > 0) bubble(item.parkLat, item.parkLng, item.parkCount, "park");
+        return;
+      }
       const rows = await fetchCountBlocks(level, blocksForBounds(view, level));
       if (mine !== run) return; // 그 사이 지도가 또 움직였으면 최신 것만 그립니다.
       const bubbles = bubblesFromRows(rows, view, level, selectedPetZone as CountFilter, parksVisible, ownPlacePoints);
@@ -2978,7 +3000,7 @@ const courseMeta = (route: RouteResult) => ({
       window.kakao.maps.event.removeListener(map, "idle", onIdle);
       clear();
     };
-  }, [mapReady, intentActive, hideMarkersForCourse, selectedPetZone, parksVisible, ownPlacePoints, filteredPlaces, mapParks]);
+  }, [mapReady, intentActive, hideMarkersForCourse, selectedPetZone, parksVisible, ownPlacePoints, filteredPlaces, mapParks, lodgingPoints]);
 
   // ── 코스 전체가 보이도록 지도 맞추기 ──
   // 코스가 패널 뒤에 숨지 않게, 패널이 가리는 쪽만큼 여백을 더 줘서 줌을 조절합니다.
@@ -4238,14 +4260,14 @@ const courseMeta = (route: RouteResult) => ({
           position: "fixed",
           top: panelTop,
           ...(effectiveListPanelSide === "left" ? { left: "14px" } : { right: "14px" }),
-          width: isNarrowScreen ? "clamp(160px, 46vw, 210px)" : "222px",
-          height: "60vh",
-          background: "#ffffff",
-          border: "1px solid #e8eaed",
-          borderRadius: "20px",
+          width: isNarrowScreen ? "clamp(170px, 48vw, 220px)" : "240px",
+          height: "62vh",
+          background: "#FAF8F3",
+          border: "1px solid rgba(60,50,30,0.08)",
+          borderRadius: "22px",
           overflow: "hidden",
           zIndex: 20,
-          boxShadow: "0 10px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.05)",
+          boxShadow: "0 18px 44px rgba(40,32,16,0.16), 0 3px 10px rgba(40,32,16,0.06)",
           display: "flex",
           flexDirection: "column",
           ...(isNarrowScreen ? mobileSheetStyle(20) : {}),
@@ -4257,17 +4279,21 @@ const courseMeta = (route: RouteResult) => ({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "12px 13px 10px",
-            borderBottom: "1px solid #f0f1f3",
+            padding: "13px 13px 11px",
+            background: "white",
+            borderBottom: "1px solid rgba(60,50,30,0.07)",
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", minWidth: 0 }}>
-            <div className="ggk-logo" style={{ fontSize: "13px", fontWeight: 800, color: "#111" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg,#5C7A4A,#7F9B67)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <MapPin size={13} color="white" />
+            </div>
+            <div className="ggk-logo" style={{ fontSize: "13.5px", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.2px" }}>
               주변 장소
             </div>
-            <div style={{ fontSize: "10px", color: "#aaa", fontWeight: 600, flexShrink: 0 }}>
-              {displayedPlaces.length}곳
+            <div style={{ fontSize: "10px", color: "#7a6f5c", fontWeight: 700, flexShrink: 0, background: "#F1ECE1", borderRadius: 999, padding: "2px 7px" }}>
+              {displayedPlaces.length.toLocaleString("ko-KR")}곳
             </div>
             {/* 검색어를 어떻게 알아들었는지 보여 줍니다. 예: "우리동네 · HOT" */}
             {intentLabel && (
@@ -4296,77 +4322,141 @@ const courseMeta = (route: RouteResult) => ({
           )}
         </div>
 
-        {/* ⚠ 프리미엄 고정 섹션: 지금 보이는 지역 근처에 활성 프리미엄 업장이 있을 때만
-            나타납니다(pinnedPremiumPlaces가 빈 배열이면 렌더링 자체를 안 함) — 관련 없는
-            지역 업장을 노출하지 않기 위해서입니다. */}
-        {pinnedPremiumPlaces.length > 0 && (
-          <div
-            style={{
-              flexShrink: 0,
-              padding: "9px 10px 8px",
-              background: "linear-gradient(135deg,#fffaf1,#fdf1da)",
-              borderBottom: "1px solid #f5e6c4",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "9.5px", fontWeight: 800, color: "#9a6b1f", marginBottom: "6px", letterSpacing: "0.2px" }}>
-              <Crown size={10} color="#c8952e" />
-              프리미엄 업장
-            </div>
-            <div style={{ display: "flex", gap: "6px", overflowX: "auto", scrollbarWidth: "none", paddingBottom: "1px" }}>
-              {pinnedPremiumPlaces.map((place) => (
-                <div
-                  key={`premium-${place.id}`}
-                  onClick={() => {
+        {/* 목록 — 맨 위에 "광고"(근처 프리미엄 업장, 최대 3곳)를 일반 장소와 같은 카드로, 이어서 주변 장소.
+            ⚠ 예전엔 프리미엄 업장을 목록 위 작은 가로 띠(84px 카드)로만 보여 줘서 눈에 잘 띄지 않았습니다.
+            광고 카드는 사진 왼쪽 위에 "광고" 뱃지를 달고, 아래 일반 목록에서는 같은 업장을 빼서 두 번 나오지 않게 합니다.
+            pinnedPremiumPlaces는 보고 있는 곳·내 위치 근처(PREMIUM_AREA_KM)만 — 관련 없는 지역 광고는 띄우지 않습니다. */}
+        {(() => {
+          const pinnedIds = new Set(pinnedPremiumPlaces.map((p) => String(p.id)));
+          const listPlaces = displayedPlaces.filter((p) => (p as any).__isPark === true || !pinnedIds.has(String(p.id)));
+          const renderCard = (place: any, ad: boolean) => {
+            // ⚠ 공원 토글이 켜져 있으면 displayedPlaces에 공원이 __isPark 플래그를 달고
+            // 섞여 들어옵니다. 공원은 image_url/pet_zone 등 장소 전용 필드가 없어서
+            // 카드 내용과 클릭 동작(장소 상세 대신 지도 위 공원 마커와 동일한 공원
+            // 정보 카드)을 분기합니다.
+            const isPark = place.__isPark === true;
+            const isSelected = isPark ? selectedPark?.id === place.id : selectedPlace?.id === place.id;
+            const isAd = !isPark && (ad || isPlacePremiumNow(place));
+            const badge = getCardBadge(place, isPark);
+            return (
+              <div
+                key={`${ad ? "ad" : isPark ? "park" : "place"}-${place.id}`}
+                className="ggk-list-card"
+                onClick={() => {
+                  const lat = parseFloat(place.lat);
+                  const lng = parseFloat(place.lng);
+                  if (isPark) {
+                    // 지도 위 공원 마커를 눌렀을 때(selectParkRef.current)와 동일하게 동작을 통일합니다.
+                    openParkPopup(place as unknown as ParkPlace);
+                  } else {
+                    // 마커를 눌렀을 때(setSelectedPlace)와 똑같이 먼저 미리보기 카드를 띄웁니다 —
+                    // 실제 상세 모달 진입은 그 카드의 "자세히 보기" 버튼에서 이루어집니다.
                     openPlacePopup(place);
-                    const lat = parseFloat(place.lat);
-                    const lng = parseFloat(place.lng);
-                    if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
-                      mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
-                    }
-                  }}
-                  style={{
-                    flexShrink: 0, width: "84px", cursor: "pointer", borderRadius: "10px",
-                    overflow: "hidden", border: "1px solid rgba(212,162,76,0.4)", background: "white",
-                  }}
-                >
-                  <div style={{ position: "relative", width: "84px", height: "56px" }}>
+                  }
+                  // 리스트에서 고른 장소/공원이 화면 중심에 오도록 지도도 함께 이동합니다.
+                  if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
+                    mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
+                  }
+                }}
+                style={{
+                  marginBottom: "10px",
+                  background: "white",
+                  borderRadius: "16px",
+                  cursor: "pointer",
+                  border: isSelected ? "1.5px solid #5C7A4A" : isAd ? "1px solid rgba(212,162,76,0.6)" : "1px solid rgba(60,50,30,0.08)",
+                  boxShadow: isSelected ? "0 6px 18px rgba(92,122,74,0.22)" : isAd ? "0 6px 16px rgba(196,148,60,0.16)" : "0 2px 8px rgba(40,32,16,0.05)",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ position: "relative", width: "100%", height: "104px" }}>
+                  {isPark ? (
+                    <div style={{ width: "100%", height: "100%", background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: "28px" }}>🌳</span>
+                    </div>
+                  ) : (
+                    // lazy loading + 기본 이미지 fallback
                     <Image
                       src={place.image_url || "/images/default-place.png"}
                       alt={place.name}
                       fill
-                      sizes="84px"
+                      sizes="(max-width: 720px) 100vw, 320px"
                       loading="lazy"
                       onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
                       style={{ objectFit: "cover" }}
                     />
-                    <div style={{
-                      position: "absolute", top: 3, left: 3, display: "inline-flex", alignItems: "center", gap: 2,
-                      padding: "1px 5px", borderRadius: 999, fontSize: 7.5, fontWeight: 800,
-                      background: "linear-gradient(135deg,#F0D28A,#D4A24C)", color: "#5C4106",
+                  )}
+                  {/* 사진 아래쪽을 살짝 어둡게 — 위에 얹는 뱃지가 어떤 사진에서도 잘 보이게 */}
+                  <div aria-hidden style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0) 38%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.12) 100%)" }} />
+                  {/* 왼쪽 위: 광고(프리미엄 업장) */}
+                  {isAd && (
+                    <span title="프리미엄 등록 업장(광고)" style={{
+                      position: "absolute", top: "7px", left: "7px", display: "inline-flex", alignItems: "center", gap: 3,
+                      padding: "3px 8px", borderRadius: "7px", fontSize: "10px", fontWeight: 800, letterSpacing: "0.3px", lineHeight: 1.3,
+                      background: "linear-gradient(135deg,#F3DA9B,#D4A24C)", color: "#4A3405", boxShadow: "0 2px 6px rgba(0,0,0,0.22)",
                     }}>
-                      <Sparkles size={7} />AD
-                    </div>
-                  </div>
-                  <div style={{ padding: "5px 6px 6px", fontSize: "9.5px", fontWeight: 700, color: "#5C4106", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <Crown size={10} />광고
+                    </span>
+                  )}
+                  {/* 오른쪽 위: TOP·NEW·HOT */}
+                  {badge && (
+                    <span style={{
+                      position: "absolute", top: "7px", right: "7px",
+                      padding: "2px 8px", borderRadius: "999px",
+                      fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.2px",
+                      background: "rgba(255,255,255,0.96)", color: badge.color, boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+                      lineHeight: 1.4,
+                    }}>
+                      {badge.label}
+                    </span>
+                  )}
+                </div>
+                <div style={{ padding: "9px 10px 10px" }}>
+                  <div style={{ fontWeight: 800, fontSize: "12.5px", color: "#1f1a12", letterSpacing: "-0.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {place.name}
                   </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: "5px", flexWrap: "wrap" }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700,
+                      color: "#5a5141", background: "#F4F0E7", padding: "2px 7px", borderRadius: "999px",
+                    }}>
+                      {isPark ? (
+                        <>🌳 {place.category}</>
+                      ) : (
+                        <>
+                          {getPlaceEmoji(place)
+                            ? <span>{getPlaceEmoji(place)}</span>
+                            : <PawPrint size={10} color="#8a7f6a" />}
+                          {getPlaceLabel(place)}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  {place.address && (
+                    <div style={{ fontSize: "10.5px", color: "#8a8173", marginTop: "6px", display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
+                      <MapPin size={10} color="#b8ad99" style={{ flexShrink: 0 }} />
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{place.address}</span>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+              </div>
+            );
+          };
+          return (
         <div
           style={{
             overflowY: "auto",
             flex: 1,
-            marginTop: "6px",
-            marginBottom: "6px",
+            paddingTop: "10px",
+            paddingBottom: "6px",
             paddingLeft: "10px",
             paddingRight: "8px",
             scrollbarWidth: "thin",
           }}
         >
+          <style>{`
+            .ggk-list-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+            @media (hover: hover) { .ggk-list-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(40,32,16,0.12) !important; } }
+          `}</style>
           {summaryView && (
             <div data-summary-hint style={{ margin: "2px 2px 8px", padding: "8px 10px", borderRadius: 10, background: "#EEF3E8", color: "#48603A", fontSize: 11, fontWeight: 600, lineHeight: 1.5 }}>
               넓게 보는 중이에요. 지도의 숫자를 누르거나 확대하면 그 지역의 장소가 모두 나와요.
@@ -4377,7 +4467,13 @@ const courseMeta = (route: RouteResult) => ({
               {searchNotice}
             </div>
           )}
-          {displayedPlaces.length === 0 && !summaryView && (
+          {pinnedPremiumPlaces.map((place) => renderCard(place, true))}
+          {pinnedPremiumPlaces.length > 0 && listPlaces.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 2px 10px", fontSize: "10px", fontWeight: 700, color: "#a39882" }}>
+              <span style={{ flex: 1, height: 1, background: "rgba(60,50,30,0.1)" }} />주변 장소<span style={{ flex: 1, height: 1, background: "rgba(60,50,30,0.1)" }} />
+            </div>
+          )}
+          {listPlaces.length === 0 && !summaryView && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
               color: "#bbb", fontSize: "11px", lineHeight: 1.8,
@@ -4391,138 +4487,17 @@ const courseMeta = (route: RouteResult) => ({
               </div>
             </div>
           )}
-          {displayedPlaces.slice(0, listLimit).map((place) => {
-            // ⚠ 공원 토글이 켜져 있으면 displayedPlaces에 공원이 __isPark 플래그를 달고
-            // 섞여 들어옵니다. 공원은 image_url/pet_zone 등 장소 전용 필드가 없어서
-            // 카드 내용과 클릭 동작(장소 상세 대신 지도 위 공원 마커와 동일한 공원
-            // 정보 카드)을 분기합니다.
-            const isPark = (place as any).__isPark === true;
-            const isSelected = isPark ? selectedPark?.id === place.id : selectedPlace?.id === place.id;
-            return (
-            <div key={`${isPark ? "park" : "place"}-${place.id}`}>
-              <div
-                onClick={() => {
-                  const lat = parseFloat(place.lat);
-                  const lng = parseFloat(place.lng);
-                  if (isPark) {
-                    // 지도 위 공원 마커를 눌렀을 때(selectParkRef.current)와 동일하게 동작을 통일합니다.
-                    openParkPopup(place as unknown as ParkPlace);
-                  } else {
-                    // ⚠ 예전엔 리스트 항목을 누르면 바로 상세 모달로 넘어갔는데, 지도 위
-                    // 마커를 누를 때는 먼저 하단 중앙에 "자세히 보기" 미리보기 카드가 뜨는
-                    // 것과 동작이 달랐습니다. 마커를 눌렀을 때(setSelectedPlace)와 똑같이
-                    // 동작을 통일합니다 — 실제 상세 모달 진입은 그 카드의 "자세히 보기"
-                    // 버튼에서 이루어집니다.
-                    openPlacePopup(place);
-                  }
-                  // 리스트에서 고른 장소/공원이 화면 중심에 오도록 지도도 함께 이동합니다.
-                  if (mapRef.current && window.kakao?.maps && !isNaN(lat) && !isNaN(lng)) {
-                    mapRef.current.panTo(new window.kakao.maps.LatLng(lat, lng));
-                  }
-                }}
-                style={{
-                  marginBottom: "7px",
-                  background: isSelected ? "#eef6ff" : "white",
-                  borderRadius: "14px",
-                  cursor: "pointer",
-                  border: isSelected ? "1.5px solid #93c5fd" : "1px solid #eee",
-                  boxShadow: isSelected ? "0 2px 10px rgba(59,130,246,0.14)" : "0 1px 3px rgba(0,0,0,0.03)",
-                  overflow: "hidden",
-                  transition: "box-shadow 0.15s ease, border-color 0.15s ease",
-                }}
-              >
-                <div style={{ position: "relative" }}>
-                  {isPark ? (
-                    <div style={{ width: "100%", height: "88px", background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "26px" }}>🌳</span>
-                    </div>
-                  ) : (
-                    // lazy loading + 기본 이미지 fallback
-                    <div style={{ position: "relative", width: "100%", height: "88px" }}>
-                    <Image
-                      src={place.image_url || "/images/default-place.png"}
-                      alt={place.name}
-                      fill
-                      sizes="(max-width: 720px) 100vw, 320px"
-                      loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
-                      style={{ objectFit: "cover" }}
-                    />
-                    </div>
-                  )}
-                  {(() => {
-                    const badge = getCardBadge(place, isPark);
-                    if (!badge) return null;
-                    return (
-                      <span
-                        style={{
-                          position: "absolute", top: "6px", right: "6px",
-                          padding: "2px 8px", borderRadius: "999px",
-                          fontSize: "9.5px", fontWeight: 800, letterSpacing: "0.2px",
-                          background: "rgba(255,255,255,0.96)", color: badge.color, boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {badge.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <div style={{ padding: "7px 9px 8px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "11px", color: "#111", display: "flex", alignItems: "center", gap: 4 }}>
-                    {place.name}
-                    {!isPark && isPlacePremiumNow(place) && (
-                      <span title="프리미엄 등록 업장" style={{
-                        display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
-                        background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
-                      }}>
-                        <Crown size={8} color="#5C4106" />
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#666", marginTop: "3px" }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: "3px",
-                      background: "#f5f6f8", padding: "2px 6px", borderRadius: "999px",
-                    }}>
-                      {isPark ? (
-                        <>🌳 {place.category}</>
-                      ) : (
-                        <>
-                          {getPlaceEmoji(place)
-                            ? <span>{getPlaceEmoji(place)}</span>
-                            : <PawPrint size={10} color="#888" />}
-                          {getPlaceLabel(place)}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#999",
-                      marginTop: "4px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "3px",
-                    }}
-                  >
-                    <MapPin size={10} color="#bbb" />
-                    {place.address}
-                  </div>
-                </div>
-              </div>
-            </div>
-            );
-          })}
+          {listPlaces.slice(0, listLimit).map((place) => renderCard(place, false))}
           {/* 목록 끝 감지 — 여기까지 내려오면 카드를 더 그립니다(listLimit 설명 참고) */}
-          {displayedPlaces.length > listLimit && (
+          {listPlaces.length > listLimit && (
             <div ref={listMoreRef} style={{ padding: "14px 0 6px", textAlign: "center", fontSize: 11, color: "#bbb" }}>
-              더 불러오는 중… ({listLimit} / {displayedPlaces.length})
+              더 불러오는 중… ({listLimit} / {listPlaces.length})
             </div>
           )}
           <div style={{ height: "8px" }} />
         </div>
+          );
+        })()}
       </div>
       )}
 

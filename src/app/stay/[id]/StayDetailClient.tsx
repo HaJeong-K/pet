@@ -1,7 +1,7 @@
 "use client";
 
 // 숙소 화면(손님용, /stay/번호) — 숙박 예약 앱과 같은 구성입니다.
-//   ① 사진(옆으로 넘김) ② 이름·분류·프리미엄·별점·주소 ③ 바로가기(객실·동반 조건·숙박 후기·위치)
+//   ① 사진(옆으로 넘김) ② 이름·분류·프리미엄·별점·주소 ②-1 숙소 소식(사장님 공지 — StayNotices) ③ 바로가기(객실·동반 조건·숙박 후기·위치)
 //   ④ 객실: 요금·인원·마릿수·편의시설 → [예약하기](/stay/번호/book?room=)
 //   ⑤ 동반 조건: 요약·편의시설·체크인/아웃·수칙·환불 기준
 //   ⑥ 숙박 후기: 평균 별점·항목별 별점·별점별 개수, 묵은 손님의 후기 쓰기, 후기 목록(사장님 답글)
@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, BedDouble, ChevronDown, ChevronLeft, ChevronUp, Clock, Copy, Crown, MapPin, Navigation, PawPrint, Phone, Share2, Star, Users } from "lucide-react";
 import StayFrame from "@/components/lodging/StayFrame";
+import StayNotices from "@/components/lodging/StayNotices";
 import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import { supabase } from "@/lib/supabase";
 import { EXTRA_UNITS, petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
@@ -126,6 +127,9 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
           <div style={{ marginTop: 6 }}><OwnerManagedBadge placeId={place.id} /></div>
           {profile && <div style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12, background: "#E3EDFA", color: BLUE, fontSize: 13, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}><PawPrint size={15} style={{ flexShrink: 0, marginTop: 3 }} />{petPolicySummary(profile)}</div>}
         </div>
+
+        {/* 숙소 소식(사장님 공지) — 이름 바로 아래, 공지가 있을 때만 */}
+        <StayNotices placeId={place.id} placeName={place.name} />
 
         {/* 바로가기 — 스크롤해도 위에 붙어 있음 */}
         <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 -16px", padding: "8px 16px", background: "rgba(247,243,232,0.96)", backdropFilter: "blur(6px)", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>

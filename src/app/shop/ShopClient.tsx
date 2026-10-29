@@ -5,11 +5,13 @@
 //   · /shop?store=번호 로 들어오면(지도 상세의 "예약하러 가기") 그 가게를 펼쳐서 보여 줍니다.
 //   · 가게를 펼치면: 장소 상세와 같은 "상품 · 예약 포장" 칸(PlaceStoreSection)이 그대로 열립니다 — 예약 방법이 두 군데서 달라지지 않게.
 // 결제는 받지 않습니다(가게에서 결제).
+// 바깥 틀은 숙소 탭과 같은 StayFrame — 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, MapPin, Search, ShoppingBag, Store } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import StayFrame from "@/components/lodging/StayFrame";
 import PlaceStoreSection from "@/components/PlaceStoreSection";
 import { supabase } from "@/lib/supabase";
 import { useUserArea } from "@/lib/useUserRegion";
@@ -75,25 +77,24 @@ export default function ShopClient() {
     (!term || s.name.toLowerCase().includes(term) || s.preview.some((p) => p.name.toLowerCase().includes(term)) || s.categories.some((c) => c.toLowerCase().includes(term))));
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", wordBreak: "keep-all" }}>
-      {/* 머리 띠 */}
-      <div style={{ background: "#5C7A4A", padding: "24px 20px 22px" }}>
-        <div style={{ maxWidth: 760, margin: "0 auto" }}>
-          <div className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 22, fontWeight: 700, color: "white" }}><ShoppingBag size={21} />쇼핑</div>
-          <div style={{ marginTop: 6, fontSize: 13, color: "rgba(255,255,255,0.9)", lineHeight: 1.7 }}>
-            동네 반려동물 가게의 간식·용품을 미리 예약하고<br />가게에서 받아 가세요. 결제는 가게에서 해요.
-          </div>
+    <StayFrame>
+      {/* 머리말 + 검색 — 숙소 탭과 같은 모양(색만 쇼핑의 초록) */}
+      <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#3F5A30 0%,#5C7A4A 65%,#83A06B 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
+          <ShoppingBag size={12} />동네 가게 예약 포장
+        </div>
+        <h1 className="ggk-logo" style={{ margin: "10px 0 0", fontSize: 24, fontWeight: 800, lineHeight: 1.35 }}>우리 아이 간식·용품,<br />미리 예약하고 받아 가세요</h1>
+        <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6, lineHeight: 1.6 }}>결제는 가게에서 해요.</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, padding: "12px 14px", borderRadius: 14, background: "white", boxShadow: "0 6px 18px rgba(0,0,0,0.12)" }}>
+          <Search size={17} color="#8a96a8" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="가게나 상품 이름으로 찾기 — 예: 수제 간식, 하네스" aria-label="가게·상품 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
         </div>
       </div>
 
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "14px 14px var(--ggk-tabbar-space)" }}>
-        {/* 검색 · 분류 */}
-        <div style={{ position: "relative" }}>
-          <Search size={15} color="#999" style={{ position: "absolute", left: 13, top: "50%", transform: "translateY(-50%)" }} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="가게나 상품 이름으로 찾기" style={{ width: "100%", padding: "12px 12px 12px 36px", borderRadius: 12, border: "1px solid #e2dcc8", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" }} />
-        </div>
+      <div style={{ padding: "14px 16px 0" }}>
+        {/* 분류 */}
         {categories.length > 0 && (
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginTop: 10, paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
             {[null, ...categories].map((name) => {
               const active = category === name;
               return <button key={name ?? "전체"} onClick={() => setCategory(name)} aria-pressed={active} style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 999, border: `1px solid ${active ? "#5C7A4A" : "#e2dcc8"}`, background: active ? "#5C7A4A" : "white", color: active ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>{name ?? "전체"}</button>;
@@ -114,8 +115,8 @@ export default function ShopClient() {
             </div>
           </div>
         ) : (
-          <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
-            {!here && area.status !== "pending" && <div style={{ fontSize: 12, color: "#999" }}>위치를 알 수 없어 가게 이름순으로 보여 드려요.</div>}
+          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 400px), 1fr))", gap: 12, alignItems: "start" }}>
+            {!here && area.status !== "pending" && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#999" }}>위치를 알 수 없어 가게 이름순으로 보여 드려요.</div>}
             {visible.map((s) => {
               const open = openId === s.id;
               return (
@@ -167,6 +168,6 @@ export default function ShopClient() {
           상품 정보와 가격은 각 가게가 직접 올린 것이에요.<br />예약을 넣으면 가게에서 확인한 뒤 확정돼요.
         </div>
       </div>
-    </div>
+    </StayFrame>
   );
 }

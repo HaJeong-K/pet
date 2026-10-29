@@ -589,18 +589,21 @@ export default function MyPage() {
 							flexShrink: 0,
 						}}
 					>
-						<div
-							style={{
-								width: "100%",
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-								gap: "18px",
-								position: "relative",
-							}}
-						>
+						{/* 프로필 · 내 레벨 · 설정 — 넓은 화면은 한 줄(프로필 | 내 레벨 | 설정), 좁은 화면은 내 레벨이 아래로 꽉 차게 */}
+						<style>{`
+							.mp-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; position: relative; width: 100%; }
+							.mp-hero-profile { order: 1; flex: 1 1 auto; min-width: 0; }
+							.mp-hero-settings { order: 2; }
+							.mp-hero-level { order: 3; flex: 1 1 100%; min-width: 0; }
+							@media (min-width: 900px) {
+								.mp-hero-level { order: 2; flex: 0 1 460px; }
+								.mp-hero-settings { order: 3; }
+							}
+						`}</style>
+						<div className="mp-hero-row">
 							{/* 좌측 */}
 							<div
+								className="mp-hero-profile"
 								style={{
 									display: "flex",
 									alignItems: "center",
@@ -703,8 +706,14 @@ export default function MyPage() {
 								</div>
 							</div>
 
+							{/* 내 레벨 — 예전엔 아래 목록 칸에 따로 있어 좁고 답답해 보였습니다. 초록색 프로필 칸 안으로 옮겼습니다. */}
+							<div className="mp-hero-level">
+								<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} variant="hero" />
+							</div>
+
 							{/* 설정 버튼 */}
 							<button
+								className="mp-hero-settings"
 								data-guide="mypage-settings"
 								onClick={() => setShowSettings(true)}
 								style={{
@@ -866,10 +875,6 @@ export default function MyPage() {
           }}>
             <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
             <div style={{ flex: "1 0 auto" }}>
-						{/* ── 내 레벨(회원 레벨 표가 있을 때만 보입니다 — scripts/sql/member-level.sql) */}
-						<div style={{ margin: "0 -16px" }}>
-							<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} />
-						</div>
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
 						<MyStaysCard />
 						{/* ── 찜한 장소 */}

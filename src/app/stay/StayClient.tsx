@@ -1,7 +1,8 @@
 "use client";
 
 // 숙소 탭 화면(/stay) — 숙박 예약 앱처럼 반려동물 동반 숙소를 찾고, 같이가개에서 바로 예약할 수 있는 곳을 먼저 보여 줍니다.
-//   · 위: 검색(숙소 이름·지역) + 지역 고르기(내 주변·강원·제주…) + 조건(바로 예약·대형견·펜션·호텔…)
+//   · 위: 검색(숙소 이름·지역) + 지역 고르기(내 주변·강원·제주…) → 세부 지역(강릉시·속초시… 숙소 수 많은 순) + 조건(바로 예약·대형견·펜션·호텔…)
+//     검색·지역·조건 줄은 화면을 내려도 위에 붙어 있습니다.
 //   · "같이가개에서 바로 예약": 사장님이 객실을 올린 숙소 — 최저가·동반 조건 요약
 //   · 아래: 전체 숙소(가까운 순). 바로 예약 숙소는 숙소 화면(/stay/번호 — 객실·동반 조건·숙박 후기·예약),
 //     그 밖의 숙소는 장소 상세로 갑니다.
@@ -15,6 +16,7 @@ import LogoLoader from "@/components/LogoLoader";
 import StayFrame from "@/components/lodging/StayFrame";
 import { useUserArea } from "@/lib/useUserRegion";
 import { haversineKm } from "@/lib/geo";
+import { normalizeSidoName } from "@/lib/shelterNotices";
 import type { PetSize } from "@/lib/lodgingRules";
 
 type Stay = {
@@ -45,6 +47,8 @@ const FILTERS: { id: Filter; label: string; test: (s: Stay) => boolean }[] = [
 ];
 const PAGE = 30;
 const regionOf = (address: string | null) => (address ?? "").split(" ").slice(0, 2).join(" ");
+/** 세부 지역 열쇠 — 시·도는 짧은 이름으로 맞춥니다("강원도"·"강원특별자치도" → "강원")("강원 강릉시") */
+const subKeyOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/); return t.length >= 2 ? `${normalizeSidoName(t[0])} ${t[1]}` : null; };
 const realImage = (src: string | null) => (src && !src.includes("default-place") ? src : null);
 
 function StayImage({ stay, height }: { stay: Stay; height: number }) {
@@ -67,6 +71,8 @@ export default function StayClient() {
   const [stays, setStays] = useState<Stay[] | null>(null);
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("내 주변");
+  // 세부 지역(시·군·구) — 권역을 고르면 그 안의 시·군·구를 숙소가 많은 순으로 보여 줍니다
+  const [subRegion, setSubRegion] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filter[]>([]);
   const [limit, setLimit] = useState(PAGE);
 
@@ -85,10 +91,25 @@ export default function StayClient() {
     return stays
       .filter((s) => !q || `${s.name}${s.address ?? ""}${s.category ?? ""}`.replace(/\s+/g, "").includes(q))
       .filter((s) => r.match.length === 0 || r.match.some((m) => (s.address ?? "").startsWith(m)))
+      .filter((s) => !subRegion || subKeyOf(s.address) === subRegion)
       .filter((s) => filters.every((f) => FILTERS.find((x) => x.id === f)!.test(s)))
       .map((s) => ({ ...s, distance: hereLat != null && hereLng != null ? haversineKm(hereLat, hereLng, s.lat, s.lng) : null }))
       .sort((a, b) => Number(b.bookable) - Number(a.bookable) || (a.distance ?? 0) - (b.distance ?? 0) || a.name.localeCompare(b.name));
-  }, [stays, query, region, filters, hereLat, hereLng]);
+  }, [stays, query, region, subRegion, filters, hereLat, hereLng]);
+  // 고른 권역 안의 세부 지역(숙소 수 많은 순). 두 시·도가 섞인 권역(서울·인천 등)은 이름 앞에 시·도를 붙입니다.
+  const subRegions = useMemo(() => {
+    const r = REGIONS.find((x) => x.label === region)!;
+    if (!stays || r.match.length === 0) return [];
+    const counts = new Map<string, number>();
+    for (const st of stays) {
+      if (!r.match.some((m) => (st.address ?? "").startsWith(m))) continue;
+      const key = subKeyOf(st.address);
+      if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const sidos = new Set([...counts.keys()].map((k) => k.split(" ")[0]));
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"))
+      .map(([key, count]) => ({ key, count, label: sidos.size > 1 ? key : key.split(" ")[1] }));
+  }, [stays, region]);
   const bookable = list.filter((s) => s.bookable);
   const toggle = (f: Filter) => { setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f])); setLimit(PAGE); };
   const open = (s: Stay) => router.push(s.bookable ? `/stay/${s.id}` : `/place/${s.id}`);
@@ -109,21 +130,35 @@ export default function StayClient() {
           </div>
           <h1 className="ggk-logo" style={{ margin: "10px 0 0", fontSize: 24, fontWeight: 800, lineHeight: 1.35 }}>우리 아이도 환영하는<br />숙소를 찾아보세요</h1>
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6, lineHeight: 1.6 }}>동반 조건을 미리 확인하고, 바로 예약까지.</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, padding: "12px 14px", borderRadius: 14, background: "white", boxShadow: "0 6px 18px rgba(0,0,0,0.12)" }}>
-            <Search size={17} color="#8a96a8" />
-            <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 애월, 가평" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
-          </div>
         </div>
 
-        {/* 지역·조건 */}
-        <div style={{ padding: "14px 16px 0" }}>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2 }}>
+        {/* 검색 · 지역 · 세부 지역 · 조건 — 화면을 내려도 위에 붙어 있음 */}
+        <div style={{ position: "sticky", top: 0, zIndex: 5, padding: "12px 16px 10px", background: "rgba(247,243,232,0.97)", backdropFilter: "blur(6px)", borderBottom: "1px solid rgba(60,50,30,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 13px", borderRadius: 14, background: "white", border: "1px solid #e3e6ec", boxShadow: "0 3px 10px rgba(29,79,145,0.08)" }}>
+            <Search size={17} color="#8a96a8" />
+            <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 애월, 가평" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
+            {query && <button onClick={() => { setQuery(""); setLimit(PAGE); }} aria-label="검색어 지우기" style={{ border: "none", background: "#eef0f3", borderRadius: 999, width: 22, height: 22, cursor: "pointer", color: "#666", fontSize: 13, lineHeight: "22px", padding: 0 }}>×</button>}
+          </div>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, marginTop: 10 }}>
             {REGIONS.map((r) => (
-              <button key={r.label} onClick={() => { setRegion(r.label); setLimit(PAGE); }} aria-pressed={region === r.label} style={chip(region === r.label)}>
+              <button key={r.label} onClick={() => { setRegion(r.label); setSubRegion(null); setLimit(PAGE); }} aria-pressed={region === r.label} style={chip(region === r.label)}>
                 {r.label === "내 주변" && <MapPin size={12} />}{r.label}
               </button>
             ))}
           </div>
+          {subRegions.length > 1 && (
+            <div style={{ display: "flex", gap: 5, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
+              {[{ key: null as string | null, label: `${region} 전체`, count: subRegions.reduce((n, x) => n + x.count, 0) }, ...subRegions].map((x) => {
+                const on = subRegion === x.key;
+                return (
+                  <button key={x.key ?? "all"} onClick={() => { setSubRegion(x.key); setLimit(PAGE); }} aria-pressed={on}
+                    style={{ flexShrink: 0, padding: "6px 11px", borderRadius: 10, border: `1px solid ${on ? BLUE : "#dfe5ee"}`, background: on ? "#E3EDFA" : "white", color: on ? BLUE : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    {x.label} <span style={{ fontWeight: 600, color: on ? BLUE : "#aaa" }}>{x.count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
             {FILTERS.map((f) => (
               <button key={f.id} onClick={() => toggle(f.id)} aria-pressed={filters.includes(f.id)} style={{ ...chip(false), border: `1px solid ${filters.includes(f.id) ? "#B45309" : "#e3e6ec"}`, background: filters.includes(f.id) ? "#FEF3C7" : "white", color: filters.includes(f.id) ? "#92400E" : "#555" }}>
@@ -164,7 +199,7 @@ export default function StayClient() {
             {/* 전체 숙소 */}
             <section style={{ marginTop: 18, padding: "0 16px", minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6, padding: "0 2px" }}>
-                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : `${region} 숙소`}</h2>
+                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : `${subRegion ? subRegions.find((x) => x.key === subRegion)?.label ?? region : region} 숙소`}</h2>
                 <span style={{ fontSize: 12.5, color: "#999" }}>{list.length.toLocaleString("ko-KR")}곳</span>
               </div>
               {list.length === 0 && (
