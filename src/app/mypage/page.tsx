@@ -6,8 +6,9 @@ import MemberLevelCard from "@/components/MemberLevelCard";
 import MyNotificationsCard from "@/components/MyNotificationsCard";
 import OwnerBadge from "@/components/OwnerBadge";
 import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
-import MyStaysCard from "@/components/lodging/MyStaysCard";
+import { ReceiptText } from "lucide-react";
 import MemoryStampsCard from "@/components/stamps/MemoryStampsCard";
+import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
 import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
@@ -884,8 +885,15 @@ export default function MyPage() {
 						{/* ── 알림(숙박 예약 확정·거절, 체크인 전날 안내, 후기 요청 — 알림이 있을 때만) */}
 						<MyNotificationsCard />
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
-						<MemoryStampsCard />
-						<MyStaysCard />
+						{STAMPS_ENABLED && <MemoryStampsCard />}
+						<a href="/orders" className="ggk-body" style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 16px", padding: "15px 16px", borderRadius: 16, background: "white", border: "1px solid #e3eaf3", color: "#222", textDecoration: "none" }}>
+							<ReceiptText size={18} color="#8C5E3A" />
+							<span style={{ flex: 1, minWidth: 0 }}>
+								<b style={{ display: "block", fontSize: 15, fontWeight: 800 }}>주문·예약 내역</b>
+								<span style={{ fontSize: 12.5, color: "#555" }}>숙소·쇼핑 결제 내역, 취소 신청, 후기 쓰기</span>
+							</span>
+							<ChevronRight size={18} color="#777" />
+						</a>
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>

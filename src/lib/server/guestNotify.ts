@@ -35,7 +35,7 @@ export async function notifyStayGuest(bookingId: number, event: StayEvent): Prom
   const { data: place } = await db.from("places").select("name").eq("id", b.place_id).maybeSingle();
   const name = place?.name ?? "숙소";
   const when = `${stayDayLabel(b.check_in)} ~ ${stayDayLabel(b.check_out)}`;
-  const my = "/mypage#stays";
+  const my = "/orders?tab=stay";
   const map: Record<StayEvent, GuestNotice> = {
     confirmed: { kind: "stay_confirmed", title: "숙박 예약이 확정됐어요", body: `${name} · ${b.room_name} · ${when}`, url: my },
     declined: { kind: "stay_declined", title: "숙소가 예약을 받지 못했어요", body: `${name} · ${when} 예약은 전액 환불돼요.`, url: my },

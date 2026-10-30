@@ -1,3 +1,4 @@
+import { redactSecrets } from "@/lib/redact";
 import { pickNearbyNotices, type NearbyInput } from "@/lib/sigungu";
 // ── 국가동물보호정보시스템(animal.go.kr) 보호동물 공고 연동 ──
 //
@@ -255,9 +256,7 @@ export function parseOpenApiItems(items: any[]): ShelterNotice[] {
 // URLSearchParams에 넣으면 %가 %25로 이중 인코딩되어 역시 인증 실패가 납니다. 어떤 걸
 // 붙여넣었는지 자동 판별해서 항상 딱 한 번만 인코딩되도록 처리합니다.
 // 로그에 요청 주소를 남길 때 인증키를 가립니다(호스팅 로그에 키가 그대로 남지 않게).
-function redactKey(url: string): string {
-  return url.replace(/serviceKey=[^&]+/i, "serviceKey=***");
-}
+const redactKey = redactSecrets;
 
 function encodeServiceKey(key: string): string {
   const looksAlreadyEncoded = /%[0-9A-Fa-f]{2}/.test(key);
@@ -348,7 +347,7 @@ async function fetchFromOpenApi(sidoCode: string | null, pageSize: number): Prom
       return notices;
     } catch (e) {
       lastAttemptDebug = { attempted: true, ok: false, error: String(e) };
-      console.error("[shelterNotices] open API 호출 예외:", redactKey(url), e);
+      console.error("[shelterNotices] open API 호출 예외:", redactKey(url), redactSecrets(e));
     }
   }
 
@@ -499,7 +498,7 @@ export async function fetchShelterNoticeDetail(desertionNo: string): Promise<She
       detailCache.set(desertionNo, { data: detail, expires: Date.now() + NOTICE_CACHE_TTL_MS });
       return detail;
     } catch (e) {
-      console.error("[shelterNotices] detail open API 예외:", desertionNo, e);
+      console.error("[shelterNotices] detail open API 예외:", desertionNo, redactSecrets(e));
     }
   }
   return null;

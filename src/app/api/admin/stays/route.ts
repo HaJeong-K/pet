@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return fail("관리자 권한 없음", 401);
   const view = req.nextUrl.searchParams.get("view") ?? "issues";
   const query = (extra: string) => {
-    let q = db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, guest_auth_user_id${extra}`).order("created_at", { ascending: false }).limit(300);
+    let q = db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, guest_auth_user_id${extra}`).neq("status", "pending_payment").order("created_at", { ascending: false }).limit(300);
     if (view === "issues") q = q.or("issue_status.eq.open,compensation_amount.is.null");
     else if (view === "payouts") q = q.in("payout_status", ["scheduled", "held"]);
     // 환불 처리 대기: 결제를 받은 뒤 취소돼 돌려줄 돈이 있는데 아직 보냈다고 표시하지 않은 것
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       if (b.payout_status !== "scheduled") return fail("정산 예정인 예약이 아니에요.", 409);
       await db.from("lodging_bookings").update({ payout_status: "paid", paid_out_at: now, updated_at: now }).eq("id", id);
     } else if (body?.action === "mark_refunded") {
+      // 카드 결제 건은 취소할 때 자동 환불됩니다. 여기 남은 것은 자동 환불이 실패했거나 직접 결제 확인한 예약입니다.
       const { data: refund, error: refundError } = await db.from("lodging_bookings").select("refund_amount, paid_at, refund_done_at, guest_auth_user_id").eq("id", id).maybeSingle();
       if (refundError) return fail(isMissingSchema(refundError) ? "환불 기록은 준비 중이에요(lodging-operations.sql 실행 필요)." : refundError.message, 500);
       if (!refund || Number(refund.refund_amount) <= 0 || !refund.paid_at) return fail("돌려줄 금액이 있는 예약이 아니에요.", 409);

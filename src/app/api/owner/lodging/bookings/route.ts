@@ -32,12 +32,12 @@ export async function GET(req: NextRequest) {
   }
   let settlementReady = true;
   let { data, error } = await db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, ${GUEST_INFO_COLUMNS}`)
-    .eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT);
+    .eq("place_id", ctx.placeId).neq("status", "pending_payment").order("created_at", { ascending: false }).limit(LIST_LIMIT);
   // 이용자 정보 칸이 아직 없으면 그 칸 없이
-  if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").select(BOOKING_FULL_COLUMNS).eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);
+  if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").select(BOOKING_FULL_COLUMNS).eq("place_id", ctx.placeId).neq("status", "pending_payment").order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);
   if (error && isMissingSchema(error)) {
     settlementReady = false;
-    ({ data, error } = await db.from("lodging_bookings").select(BOOKING_COLUMNS).eq("place_id", ctx.placeId).order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);
+    ({ data, error } = await db.from("lodging_bookings").select(BOOKING_COLUMNS).eq("place_id", ctx.placeId).neq("status", "pending_payment").order("created_at", { ascending: false }).limit(LIST_LIMIT) as never);
   }
   if (error) {
     if (isMissingSchema(error)) return NextResponse.json({ ready: false, bookings: [] });

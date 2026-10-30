@@ -14,6 +14,8 @@ import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import LogoLoader from "@/components/LogoLoader";
 import PartnersView from "./PartnersView";
+import StorePartnersView from "./StorePartnersView";
+import StoreOrdersView from "./StoreOrdersView";
 import ReviewReportsView from "./ReviewReportsView";
 import LeadsView from "./LeadsView";
 import { won } from "@/lib/ownerPlans";
@@ -27,7 +29,7 @@ type Row = {
   fee_rate: number | null; fee_amount: number | null; payout_amount: number | null; payout_due_on: string | null; payout_status: string; created_at: string;
   paid_at?: string | null; refund_done_at?: string | null; refund_done_by?: string | null;
 };
-type View = "issues" | "payouts" | "refunds" | "all" | "partners" | "reviews" | "leads";
+type View = "issues" | "payouts" | "refunds" | "all" | "partners" | "reviews" | "leads" | "store" | "orders";
 
 const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
@@ -55,7 +57,7 @@ export default function AdminStays() {
     return json;
   }, []);
   const load = useCallback(async () => {
-    if (view === "partners" || view === "reviews" || view === "leads") return;
+    if (view === "partners" || view === "reviews" || view === "leads" || view === "store" || view === "orders") return;
     try { const json = await call({}, `?view=${view}`); setReady(json.ready !== false); setRows(json.bookings ?? []); }
     catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "불러오지 못했어요." }); setRows([]); }
   }, [call, view]);
@@ -80,11 +82,11 @@ export default function AdminStays() {
           결제대행 연동 전에는 결제 확인과 정산 이체를 직접 표시합니다.
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["refunds", "환불 처리"], ["all", "최근 예약"], ["partners", "입점 심사"], ["leads", "입점 영업"], ["reviews", "후기 신고"]] as [View, string][]).map(([key, text]) => (
+          {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["refunds", "환불 처리"], ["all", "최근 예약"], ["partners", "입점 심사"], ["leads", "입점 영업"], ["reviews", "후기 신고"], ["store", "쇼핑 입점"], ["orders", "쇼핑 주문"]] as [View, string][]).map(([key, text]) => (
             <button key={key} onClick={() => { setView(key); setRows(null); }} aria-pressed={view === key} style={{ padding: "7px 13px", borderRadius: 999, border: "none", background: view === key ? "#5C7A4A" : "white", color: view === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: view === key ? "none" : "inset 0 0 0 1px #e5e0d0" }}>{text}</button>
           ))}
         </div>
-        {view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : view === "leads" ? <LeadsView /> : <>
+        {view === "orders" ? <StoreOrdersView /> : view === "store" ? <StorePartnersView /> : view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : view === "leads" ? <LeadsView /> : <>
         {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
         {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-settlement.sql</b>을 실행해 주세요.</div>}
         {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}

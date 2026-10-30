@@ -3,7 +3,7 @@ import { db, isMissingSchema, PRODUCT_BASE_COLUMNS, PRODUCT_COLUMNS, type Produc
 import { normalizePlan, planAtLeast } from "@/lib/ownerPlans";
 
 // GET /api/store/list
-// 쇼핑 탭(/shop)에 보여 줄 가게와 상품 — '프리미엄 스토어' 이상을 이용 중이고 판매 중인 상품이 하나라도 있는 가게 전부.
+// 쇼핑 탭(/shop)에 보여 줄 가게와 상품 — 쇼핑 입점 승인 또는 '프리미엄 스토어' 이상이고 판매 중인 상품이 하나라도 있는 가게 전부.
 // 가까운 순 정렬은 화면에서 합니다(이 응답은 누구에게나 같아서 CDN이 잠깐 대신 응답할 수 있게).
 // 예약은 가게별 화면(/api/store/{가게 번호} · /api/store/reserve)에서 합니다.
 
@@ -17,7 +17,16 @@ export async function GET() {
       .eq("is_premium", true).gt("premium_expires_at", new Date().toISOString()).limit(1000);
     // 요금제 단계 칸이 아직 없으면 스토어 가게도 없습니다.
     if (error) return NextResponse.json({ stores: [] }, { headers: isMissingSchema(error) ? headers : undefined });
-    const storePlaces = (places ?? []).filter((p) => planAtLeast(normalizePlan(p.premium_plan), "store"));
+    // 입점 승인된 가게(표가 없으면 빈 목록)
+    const { data: partners } = await db.from("store_partners").select("linked_place_id, order_modes").eq("status", "approved").not("linked_place_id", "is", null).limit(1000);
+    const modesOf = new Map((partners ?? []).map((p) => [Number(p.linked_place_id), p.order_modes as string[]]));
+    const planPlaces = (places ?? []).filter((p) => planAtLeast(normalizePlan(p.premium_plan), "store"));
+    const planIds = new Set(planPlaces.map((p) => Number(p.id)));
+    const extraIds = [...modesOf.keys()].filter((id) => !planIds.has(id));
+    const { data: partnerPlaces } = extraIds.length
+      ? await db.from("places").select("id, name, address, category, image_url, lat, lng, premium_plan").in("id", extraIds)
+      : { data: [] };
+    const storePlaces = [...planPlaces, ...(partnerPlaces ?? [])];
     if (storePlaces.length === 0) return NextResponse.json({ stores: [] }, { headers });
 
     const ids = storePlaces.map((p) => p.id);
@@ -41,6 +50,7 @@ export async function GET() {
           id: Number(p.id), name: p.name, address: p.address, category: p.category, image: p.image_url,
           lat: p.lat != null ? Number(p.lat) : null, lng: p.lng != null ? Number(p.lng) : null,
           productCount: list.length,
+          orderModes: modesOf.get(Number(p.id)) ?? ["pickup"],
           categories: [...new Set(list.map((x) => x.category).filter(Boolean))],
           preview: sorted.slice(0, 6).map((x) => ({ id: x.id, name: x.name, price: x.price, image: x.image_url ?? null, soldOut: !!x.sold_out, featured: !!x.is_featured })),
         };

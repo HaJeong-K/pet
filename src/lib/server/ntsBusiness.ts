@@ -8,6 +8,7 @@
 // ⚠ 공공데이터포털에서 이 API를 "활용신청"해야 키가 동작합니다(보통 즉시 자동 승인).
 //    신청 전에는 -401(유효하지 않은 인증키)이 오고, 그때는 자동 인증 대신 관리자 검토로 넘어갑니다.
 
+import { redactSecrets } from "@/lib/redact";
 import type { OwnerBizInfo } from "@/lib/ownerBizInfo";
 
 const VALIDATE_URL = "https://api.odcloud.kr/api/nts-businessman/v1/validate";
@@ -50,7 +51,7 @@ export async function validateBusiness(info: OwnerBizInfo, extra: NtsExtra = {})
     const sttCd = row.status?.b_stt_cd ?? "";
     return { ok: true, valid, active: sttCd === "01", statusText: row.status?.b_stt || "" };
   } catch (e) {
-    console.error("[ntsBusiness] 국세청 호출 실패", e);
+    console.error("[ntsBusiness] 국세청 호출 실패", redactSecrets(e));
     return { ok: false, reason: "api_error" };
   }
 }
@@ -98,7 +99,7 @@ export async function fetchBusinessStatuses(
         statuses.push({ bizNo: String(row.b_no || ""), code: (row.b_stt_cd || "") as BizStatus["code"], text: row.b_stt || "" });
       }
     } catch (e) {
-      console.error("[ntsBusiness] 상태조회 실패", e);
+      console.error("[ntsBusiness] 상태조회 실패", redactSecrets(e));
       return { ok: false, reason: "api_error" };
     }
   }

@@ -242,8 +242,9 @@ export function quoteStay(
 
 // ── 예약 상태 ──
 
-export type StayStatus = "requested" | "confirmed" | "declined" | "cancelled_by_guest" | "cancelled_by_owner" | "completed" | "no_show";
+export type StayStatus = "pending_payment" | "requested" | "confirmed" | "declined" | "cancelled_by_guest" | "cancelled_by_owner" | "completed" | "no_show";
 export const STAY_STATUS: Record<StayStatus, { label: string; color: string; background: string }> = {
+  pending_payment: { label: "결제 대기", color: "#B91C1C", background: "#FEE2E2" },
   requested: { label: "확인 대기", color: "#B45309", background: "#FEF3C7" },
   confirmed: { label: "예약 확정", color: "#15803D", background: "#DCFCE7" },
   declined: { label: "거절", color: "#777", background: "#f1f2f4" },

@@ -1,10 +1,10 @@
 "use client";
 
-// 쇼핑 탭 화면 — 동네 가게의 상품을 가까운 순으로 보여 주고, 가게를 펼치면 그 자리에서 예약 포장을 넣습니다.
+// 쇼핑 탭 화면 — 입점한 동네 가게(카페·식당·수제 간식 등)를 가까운 순으로 보여 주고, 가게를 펼치면 그 자리에서 포장 주문이나 매장 식사 예약을 넣습니다.
 //   · 가게 목록·미리보기: /api/store/list (가까운 순 정렬은 여기서)
 //   · /shop?store=번호 로 들어오면(지도 상세의 "예약하러 가기") 그 가게를 펼쳐서 보여 줍니다.
 //   · 가게를 펼치면: 장소 상세와 같은 "상품 · 예약 포장" 칸(PlaceStoreSection)이 그대로 열립니다 — 예약 방법이 두 군데서 달라지지 않게.
-// 결제는 받지 않습니다(가게에서 결제).
+// 선결제 방식입니다(결제대행 연동 전에는 주문만 접수).
 // 바깥 틀은 숙소 탭과 같은 StayFrame — 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 
 import { useEffect, useMemo, useState } from "react";
@@ -81,10 +81,10 @@ export default function ShopClient() {
       {/* 머리말 + 검색 — 숙소 탭과 같은 모양(색만 쇼핑의 초록) */}
       <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#3F5A30 0%,#5C7A4A 65%,#83A06B 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
-          <ShoppingBag size={12} />동네 가게 예약 포장
+          <ShoppingBag size={12} />동네 가게 포장·매장 식사
         </div>
         <h1 className="ggk-logo" style={{ margin: "10px 0 0", fontSize: 24, fontWeight: 800, lineHeight: 1.35 }}>우리 아이 간식·용품,<br />미리 예약하고 받아 가세요</h1>
-        <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6, lineHeight: 1.6 }}>결제는 가게에서 해요.</div>
+        <div style={{ fontSize: 13, marginTop: 6, lineHeight: 1.6 }}>포장으로 받거나, 매장에서 먹고 가도록 미리 예약하세요.</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, padding: "12px 14px", borderRadius: 14, background: "white", boxShadow: "0 6px 18px rgba(0,0,0,0.12)" }}>
           <Search size={17} color="#8a96a8" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="가게나 상품 이름으로 찾기 — 예: 수제 간식, 하네스" aria-label="가게·상품 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
@@ -154,7 +154,7 @@ export default function ShopClient() {
                     )}
 
                     <button onClick={() => setOpenId(open ? null : s.id)} aria-expanded={open} style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 0", borderRadius: 11, border: open ? "1px solid #ddd" : "none", background: open ? "white" : "#B45309", color: open ? "#666" : "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
-                      {open ? <>접기 <ChevronUp size={15} /></> : <>상품 {s.productCount}개 보고 예약하기 <ChevronDown size={15} /></>}
+                      {open ? <>접기 <ChevronUp size={15} /></> : <>메뉴 {s.productCount}개 보고 주문하기 <ChevronDown size={15} /></>}
                     </button>
                   </div>
                   {open && <div style={{ padding: "0 12px 14px" }}><PlaceStoreSection placeId={s.id} isLoggedIn={isLoggedIn} /></div>}
@@ -165,7 +165,7 @@ export default function ShopClient() {
         )}
 
         <div style={{ marginTop: 18, fontSize: 11.5, color: "#6e6e6e", lineHeight: 1.7, textAlign: "center" }}>
-          상품 정보와 가격은 각 가게가 직접 올린 것이에요.<br />예약을 넣으면 가게에서 확인한 뒤 확정돼요.
+          메뉴와 가격은 각 가게가 직접 올린 것이에요.<br />주문을 넣으면 가게에서 확인한 뒤 확정돼요.
         </div>
       </div>
     </StayFrame>

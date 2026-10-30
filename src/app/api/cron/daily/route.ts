@@ -15,6 +15,7 @@ import { cleanupShelterThumbs } from "@/lib/server/shelterThumbs";
 import { checkTourList, recordMapCounts, type TourListCheck } from "@/lib/server/cronState";
 import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest";
 import { runLodgingDaily } from "@/lib/server/lodgingMoney";
+import { runStoreOrderChores } from "@/lib/server/storeOrders";
 import { runPremiumAutoRenew } from "@/lib/server/premiumRenew";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
@@ -138,6 +139,8 @@ export async function GET(req: NextRequest) {
       : { ok: true, ms: 0, skipped: "매달 1일에만 실행" };
   }
   if (want("lodging")) results.lodging = await runJob(() => runLodgingDaily());
+  // 쇼핑 주문 — 결제 안 한 주문 정리, 가게 미확인 주문 자동 취소·환불, 시간 지난 주문 자동 이용 완료
+  if (want("lodging")) results.storeOrders = await runJob(() => runStoreOrderChores());
   // 요금제 자동 연장(만료 3일 전 연장 신청) · 아직 안 정한 사장님에게 만료 7일 전 알림
   if (want("premium-renew")) results.premiumRenew = await runJob(() => runPremiumAutoRenew());
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());

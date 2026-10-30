@@ -8,6 +8,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { normalizePlan, planAtLeast, type PaidPlanId } from "@/lib/ownerPlans";
+import type { OrderType } from "@/lib/storeRules";
 
 export const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -58,9 +59,22 @@ export async function activePlanOf(placeId: number): Promise<PaidPlanId | null> 
   return normalizePlan(place.premium_plan);
 }
 
-/** 그 가게가 상품·예약 기능을 쓸 수 있는지('프리미엄 스토어' 이상) */
+/** 쇼핑 입점 승인된 가게의 받을 방식 — 입점 전이면 null(표가 없어도 null) */
+export async function storePartnerModes(placeId: number): Promise<OrderType[] | null> {
+  const { data, error } = await db.from("store_partners").select("order_modes").eq("linked_place_id", placeId).eq("status", "approved").maybeSingle();
+  if (error || !data) return null;
+  return (data.order_modes ?? ["pickup"]) as OrderType[];
+}
+
+/** 그 가게가 주문을 받을 수 있는지 — 쇼핑 입점 승인 또는 '프리미엄 스토어' 이상 */
 export async function storeEnabled(placeId: number): Promise<boolean> {
+  if (await storePartnerModes(placeId)) return true;
   return planAtLeast(await activePlanOf(placeId), "store");
+}
+
+/** 손님이 고를 수 있는 방식 — 입점 가게는 사장님이 고른 방식, 요금제로 열린 가게는 포장만 */
+export async function storeOrderModes(placeId: number): Promise<OrderType[]> {
+  return (await storePartnerModes(placeId)) ?? ["pickup"];
 }
 
 export type ProductRow = {
@@ -95,4 +109,4 @@ export async function listProducts(placeId: number, onlyActive: boolean): Promis
   return { ready: true, detailReady: false, products: ((base.data ?? []) as unknown as ProductRow[]).map((p) => ({ ...EMPTY_DETAIL, ...p })) };
 }
 
-export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at";
+export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at, order_type, party_size, payment_status, refund_amount, cancel_request_status, cancel_request_reason, cancel_request_answer";

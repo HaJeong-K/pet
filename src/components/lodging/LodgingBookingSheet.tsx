@@ -10,7 +10,7 @@
 //      필수 동의(이용 규칙·취소 환불 / 개인정보 수집·이용 / 숙소에 제공 / 만 14세 이상 — src/lib/lodgingConsents.ts) → 예약
 //   ③ 완료: 숙소 확정을 기다리거나(24시간), 즉시 확정 숙소면 바로 확정
 // variant="page"면 덮는 창 없이 숙소 예약 화면(/stay/번호/book)에 그대로 그립니다.
-// 금액은 서버가 다시 계산합니다(/api/lodging/bookings). 결제대행 연동 전에는 결제 단계 없이 접수되고, 결제는 따로 안내합니다.
+// 금액은 서버가 다시 계산합니다(/api/lodging/bookings). 결제 키가 있으면 예약 뒤 결제창으로 넘어가고, 없으면 결제 단계 없이 접수되고, 결제는 따로 안내합니다.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Minus, Plus, Search, Stamp, Trash2, X } from "lucide-react";
@@ -18,10 +18,12 @@ import { breedSize, CAT_BREEDS, DOG_BREEDS, OTHER_BREED } from "@/lib/petBreeds"
 import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
+import { paymentsReady } from "@/lib/payments";
+import { startPayment } from "@/lib/startPayment";
 import { EXTRA_UNITS, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
 import { addDays, daysBetween, kstToday, nightsOf, petNightFee, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
 import { refundSchedule } from "@/lib/lodgingPolicy";
-import { maxUsableStamps, STAMP_VALUE_WON, stampDiscount } from "@/lib/memoryStamps";
+import { maxUsableStamps, STAMP_VALUE_WON, STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
 
 export type GuestRoom = RoomInput & { id: number };
 type DayInfo = { day: string; price: number; closed: boolean; booked: boolean };
@@ -124,6 +126,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   const [stampsOwned, setStampsOwned] = useState(0);
   const [stampsWanted, setStampsWanted] = useState(0);
   useEffect(() => {
+    if (!STAMPS_ENABLED) return;
     let cancelled = false;
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -207,6 +210,8 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
       // 그 사이 다른 손님이 먼저 예약했으면 달력을 새로 받아 날짜 고르기로 돌아갑니다
       if (res.status === 409 && /먼저 예약/.test(json.error ?? "")) { await load(); setCheckIn(null); setCheckOut(null); setStep(1); }
       if (!res.ok) throw new Error(json.error || "예약하지 못했어요.");
+      // 선결제: 결제창으로 넘어갑니다. 끝나면 /pay/success로 돌아옵니다
+      if (json.needsPayment) { await startPayment("lodging", Number(json.booking.id)); return; }
       setResult({ status: json.booking?.status ?? "requested" });
       setStep(3);
     } catch (e) { setError(e instanceof Error ? e.message : "예약하지 못했어요."); }
@@ -478,11 +483,11 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
             </div>
 
             <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
-              카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요.<br />
+              {paymentsReady() ? "결제를 마쳐야 예약이 접수돼요. 20분 안에 결제하지 않으면 날짜가 풀려요." : "카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요."}<br />
               같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
             </div>
             {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-            <button onClick={submit} disabled={!step2Ready} style={primary(!step2Ready)}>{busy ? "예약하는 중…" : `${won(payTotal)} 예약하기`}</button>
+            <button onClick={submit} disabled={!step2Ready} style={primary(!step2Ready)}>{busy ? "예약하는 중…" : `${won(payTotal)} ${paymentsReady() ? "결제하기" : "예약하기"}`}</button>
           </div>
         )}
 
@@ -494,7 +499,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               {result?.status === "confirmed" ? "즐거운 여행 되세요!" : "숙소가 24시간 안에 확정해요.\n확정되지 않으면 자동으로 취소되고 전액 돌려드려요.".split("\n").map((l) => <span key={l}>{l}<br /></span>)}
               마이페이지 &ldquo;내 숙박 예약&rdquo;에서 확인할 수 있어요.
             </div>
-            <a href="/mypage#stays" style={{ ...primary(false), textDecoration: "none", display: "block" }}>내 숙박 예약 보기</a>
+            <a href="/orders?tab=stay" style={{ ...primary(false), textDecoration: "none", display: "block" }}>내 숙박 예약 보기</a>
             <button onClick={onClose} style={{ border: "none", background: "transparent", color: "#5c5c5c", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>닫기</button>
           </div>
         )}

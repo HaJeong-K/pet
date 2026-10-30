@@ -6,20 +6,23 @@ import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
 import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, getLodging, heldOverlaps, roomDays } from "@/lib/server/lodgingStore";
 import { applyCancel, confirmStay, expireStaleRequests, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
 import { availableStamps, releaseStamps, spendStamps } from "@/lib/server/memoryStamps";
-import { stampDiscount } from "@/lib/memoryStamps";
+import { STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
 import { sendOwnerPush } from "@/lib/server/ownerPush";
 import { notifyAdmin } from "@/lib/server/notify";
 import { createRateLimiter } from "@/lib/server/rateLimit";
 import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
 import { cancelOutcome, refundSchedule, type PeakPeriod } from "@/lib/lodgingPolicy";
 import { won } from "@/lib/ownerPlans";
+import { paymentInfoOf, paymentsEnabled } from "@/lib/server/payments";
 
 // 손님의 숙박 예약 — 로그인한 회원만(「같이가개 숙소 입점 계약서」 제8~15조).
 //   GET   → 내 숙박 예약 목록 + 숙소 이름 + 지금 취소하면 돌려받는 금액·날짜별 환불 안내
 //   POST  → 예약 { roomId, checkIn, checkOut, guests, pets, name, phone, memo, agreed }
-//           손님은 전액을 결제합니다. 결제대행(PG) 연동 전에는 결제 단계 없이 예약만 접수되고 payment_status = 'unpaid'로 남습니다.
+//           손님은 전액을 미리 결제합니다. 'pending_payment'로 만들고 needsPayment를 돌려주면 화면이 결제창을 엽니다.
+//           결제를 마쳐야 사장님에게 보이고 알림이 갑니다(/api/payments/confirm). 결제 키를 넣기 전에는 결제 단계 없이 접수됩니다.
 //   PATCH → { id, action }
-//           "cancel"  : 내 예약 취소. 확정 전이면 전액, 확정 뒤면 소비자분쟁해결기준(별표 1)대로 환불(이용일 당일까지)
+//           "cancel"  : 내 예약 취소. 확정 전이면 전액, 확정 뒤면 소비자분쟁해결기준(별표 1)대로 환불(이용일 당일까지). 카드 결제는 바로 환불됩니다
+//           "abandon" : 결제하지 않은 예약 지우기
 //           "confirm" : 이용 확정(체크아웃 날부터). 누르지 않으면 3일 뒤 자동 확정(매일 새벽 작업)
 //           "issue"   : 문제 있어요 { kind, detail } — 체크인 날부터 이용 확정 전까지. 확정·정산이 멈추고 관리자가 판단
 // 요금은 손님이 보낸 값이 아니라 숙소가 올린 요금으로 다시 계산합니다. 동반 규정에 맞지 않거나 막은 날·이미 찬 날이 끼면 받지 않습니다.
@@ -54,11 +57,12 @@ export async function GET(req: NextRequest) {
   const rows = (data ?? []) as Record<string, any>[];
   const placeIds = [...new Set(rows.map((b) => Number(b.place_id)))];
   const bookingIds = rows.map((b) => Number(b.id));
-  const [{ data: places }, { data: profiles }, { data: reviewed }] = await Promise.all([
+  const [{ data: places }, { data: profiles }, { data: reviewed }, payments] = await Promise.all([
     placeIds.length ? db.from("places").select("id, name, address, phone").in("id", placeIds) : Promise.resolve({ data: [] as any[] }),
     placeIds.length ? db.from("lodging_profiles").select("place_id, check_in, check_out, peak_periods, refund_policy").in("place_id", placeIds) : Promise.resolve({ data: [] as any[] }),
     // 이미 숙박 후기를 남긴 예약(표가 없으면 빈 목록)
     bookingIds.length ? db.from("lodging_reviews").select("booking_id").in("booking_id", bookingIds) : Promise.resolve({ data: [] as any[] }),
+    paymentInfoOf("lodging", bookingIds).catch(() => new Map()),
   ]);
   const reviewedIds = new Set((reviewed ?? []).map((r) => Number(r.booking_id)));
   const today = kstToday();
@@ -71,6 +75,7 @@ export async function GET(req: NextRequest) {
     return {
       ...b,
       place: place ? { name: place.name, address: place.address, phone: place.phone } : null,
+      payment: payments.get(Number(b.id)) ?? null,
       checkInTime: profile?.check_in ?? null, checkOutTime: profile?.check_out ?? null,
       // 지금 취소하면(확정 전이면 전액)
       cancelNow: open && today <= b.check_in ? cancelOutcome(b.total, b.status === "requested" ? "not_confirmed" : "guest", { checkIn: b.check_in, bookedOn, cancelOn: today, peakPeriods: peak }) : null,
@@ -107,8 +112,10 @@ export async function POST(req: NextRequest) {
   if (petProblem) return fail(petProblem, 400);
   // 다른 예약 사이트에서 막 팔렸을 수 있으니 달력 연동을 항상 먼저 새로 받습니다
   await ensureFreshIcal(r.roomId, 0).catch(() => {});
-  // 24시간이 지난 확인 대기는 먼저 풀어 줍니다
+  // 24시간이 지난 확인 대기·20분 안에 결제하지 않은 예약은 먼저 풀어 줍니다
   await expireStaleRequests(r.roomId).catch(() => 0);
+  // 같은 손님이 결제창을 닫고 다시 예약하는 경우 — 먼저 넣은 결제 대기 예약이 날짜를 막지 않게 지웁니다
+  await db.from("lodging_bookings").delete().eq("room_id", r.roomId).eq("guest_auth_user_id", user.id).eq("status", "pending_payment");
   const days = await roomDays(r.roomId, r.checkIn, r.checkOut, { withIcal: true }).catch(() => []);
   // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
   const petNightly = petsNightlyTotal(profile, r.pets);
@@ -123,13 +130,14 @@ export async function POST(req: NextRequest) {
   // 즉시 확정 숙소는 결제와 함께 바로 확정됩니다(계약서 제8조 제3항).
   const { data: flags } = await db.from("lodging_profiles").select("instant_confirm").eq("place_id", placeId).maybeSingle();
   const instant = flags?.instant_confirm === true;
+  const needsPayment = paymentsEnabled();
   // 추억 스탬프 할인 — 가진 개수·한도로 서버가 다시 계산합니다. 할인분은 같이가개가 부담합니다.
-  const { used: stampsUsed, discount } = r.stamps > 0 ? stampDiscount(q.total, r.stamps, await availableStamps(user.id)) : { used: 0, discount: 0 };
+  const { used: stampsUsed, discount } = STAMPS_ENABLED && r.stamps > 0 ? stampDiscount(q.total, r.stamps, await availableStamps(user.id)) : { used: 0, discount: 0 };
   const base = {
     place_id: placeId, room_id: room.id, room_name: room.name, guest_auth_user_id: user.id,
     guest_name: r.name, guest_phone: r.phone, check_in: r.checkIn, check_out: r.checkOut, nights: q.nights.length, guests: r.guests,
     pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal, extras: q.extras, extrasTotal: q.extrasTotal, listTotal: q.total, stampCount: stampsUsed, stampDiscount: discount },
-    total: q.total - discount, stamp_discount: discount, payment: "online", memo: r.memo, status: instant ? "confirmed" : "requested", ...(instant ? { decided_at: new Date().toISOString() } : {}),
+    total: q.total - discount, stamp_discount: discount, payment: "online", memo: r.memo, status: needsPayment ? "pending_payment" : instant ? "confirmed" : "requested", ...(instant && !needsPayment ? { decided_at: new Date().toISOString() } : {}),
   };
   // 이용자 정보·방문 수단·동의 기록(scripts/sql/lodging-guest-review-reports.sql)
   const guestInfo = {
@@ -155,6 +163,9 @@ export async function POST(req: NextRequest) {
       return fail("스탬프 개수가 바뀌었어요. 다시 확인해 주세요.", 409);
     }
   }
+
+  // 결제가 끝나면 그때 숙소에 알립니다
+  if (needsPayment) return NextResponse.json({ booking: data, needsPayment: true });
 
   // 달력 연동을 안 한 객실이면, 다른 사이트에서도 파는 경우 그쪽을 막아 달라고 알립니다
   const { data: icalRow } = await db.from("lodging_rooms").select("ical_import_url").eq("id", r.roomId).maybeSingle();
@@ -184,6 +195,12 @@ export async function PATCH(req: NextRequest) {
   const b = current as MoneyBooking & { guest_name: string; room_name: string; issue_status: string; stay_confirmed_at: string | null };
   const today = kstToday();
   const notifyOwner = (title: string, text: string) => after(() => sendOwnerPush(b.place_id, { title, body: `${b.guest_name}님 · ${b.room_name} · ${shortDay(b.check_in)} 체크인\n${text}`, tag: `ggk-stay-${id}`, url: "/owner#stays" }));
+
+  if (action === "abandon") {
+    if (b.status !== "pending_payment") return fail("결제하지 않은 예약만 지울 수 있어요.", 409);
+    await db.from("lodging_bookings").delete().eq("id", id).eq("status", "pending_payment");
+    return NextResponse.json({ ok: true });
+  }
 
   if (action === "cancel") {
     if (!canChangeStay("guest", b.status, "cancelled_by_guest")) return fail("지금 상태에서는 취소할 수 없어요.", 409);

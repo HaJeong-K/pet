@@ -1,3 +1,4 @@
+import { redactSecrets } from "@/lib/redact";
 import { NextRequest, NextResponse } from "next/server";
 import { loadTourDetails, tourMemo, tidyLines, petZoneFrom, largeDogFrom, extractPhone, type TourDetail } from "@/lib/server/tourDetails";
 
@@ -84,7 +85,7 @@ async function fetchListPage(
     rawText = await res.text();
   } catch (e) {
     // 시간 초과·네트워크 오류 — 이 페이지만 건너뜁니다(나머지 페이지는 그대로 씁니다).
-    console.error(`TourAPI 목록 ${pageNo}페이지 조회 실패:`, e instanceof Error ? e.message : e);
+    console.error(`TourAPI 목록 ${pageNo}페이지 조회 실패:`, redactSecrets(e));
     return null;
   }
   let data: any = null;
@@ -168,7 +169,7 @@ export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<a
       };
     });
   } catch (e) {
-    console.error("TourAPI fetch 실패:", e);
+    console.error("TourAPI fetch 실패:", redactSecrets(e));
     return [];
   }
 }

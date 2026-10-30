@@ -3,8 +3,9 @@
 // 숙박 예약의 돈 흐름(서버 전용) — 취소 환불·위약금·배상, 이용 확정, 정산 금액을 계산해 예약에 적습니다.
 // 규칙은 src/lib/lodgingPolicy.ts(계약서 제12~21조), 표는 scripts/sql/lodging-settlement.sql.
 //
-// 결제대행(PG) 연동 전에는 실제로 돈이 오가지 않습니다 — 금액은 계산해 적어 두고, 결제가 확인된 예약(payment_status = 'paid')만
-// 정산 예정(payout_status = 'scheduled')이 됩니다. 연동 후에는 여기서 결제 취소·지급 요청을 함께 부르면 됩니다.
+// 결제가 확인된 예약(payment_status = 'paid')만 정산 예정(payout_status = 'scheduled')이 됩니다.
+// 카드로 결제한 예약을 취소하면 여기서 환불까지 합니다(src/lib/server/payments.ts). 환불이 실패하거나 관리자가 직접 결제 확인한 예약은 관리자 환불 대기에 남습니다.
+// 숙소 지급은 지급대행 계약 전이라 관리자가 직접 처리합니다.
 
 import { db, activePlanOf } from "@/lib/server/ownerStore";
 import { BOOKING_FULL_COLUMNS, partnerOf } from "@/lib/server/lodgingStore";
@@ -15,6 +16,7 @@ import {
 import { notifyStayGuest, runGuestStayNotices } from "@/lib/server/guestNotify";
 import { syncAllRoomIcal } from "@/lib/server/lodgingIcal";
 import { issueStayStamp, releaseStamps } from "@/lib/server/memoryStamps";
+import { expireUnpaid, refundPayment } from "@/lib/server/payments";
 
 export const NEED_SETTLEMENT_SQL = "예약 정산 기능을 준비하고 있어요. Supabase SQL 편집기에서 scripts/sql/lodging-settlement.sql을 실행해 주세요.";
 
@@ -24,6 +26,8 @@ export type MoneyBooking = {
   /** 추억 스탬프 할인액 — total은 할인 후 금액. 할인분은 같이가개 부담이라 정산은 total + stamp_discount 기준 */
   stamp_discount?: number | null;
 };
+
+const CANCEL_REASON: Partial<Record<CancelCause, string>> = { guest: "손님 취소", not_confirmed: "숙소 미확정·거절", owner: "숙소 사정 취소" };
 
 async function peakPeriodsOf(placeId: number): Promise<PeakPeriod[] | null> {
   const { data } = await db.from("lodging_profiles").select("peak_periods").eq("place_id", placeId).maybeSingle();
@@ -59,6 +63,11 @@ export async function applyCancel(b: MoneyBooking, cause: CancelCause, nextStatu
   }).eq("id", b.id).eq("status", fromStatus).select(BOOKING_FULL_COLUMNS).maybeSingle();
   if (error) throw new Error(error.message);
   if (data) await releaseStamps(Number(b.id)); // 쓴 스탬프는 돌려줍니다
+  // 카드로 결제한 예약이면 바로 환불합니다
+  if (data && paid && out.refund > 0 && (await refundPayment("lodging", Number(b.id), out.refund, CANCEL_REASON[cause] ?? "예약 취소")) === "done") {
+    await db.from("lodging_bookings").update({ refund_done_at: new Date().toISOString(), refund_done_by: "자동 환불" }).eq("id", b.id);
+    (data as unknown as Record<string, unknown>).refund_done_at = now;
+  }
   return data ? { booking: data, outcome: out } : null;
 }
 
@@ -82,6 +91,7 @@ const MONEY_COLUMNS = "id, place_id, check_in, check_out, total, status, booked_
 
 /** 24시간 안에 확정되지 않은 예약 요청을 자동 취소합니다(roomId를 주면 그 객실만) — 잡아 둔 날짜를 풀어 줍니다 */
 export async function expireStaleRequests(roomId?: number): Promise<number> {
+  await expireUnpaid(roomId).catch(() => 0); // 결제하지 않은 예약이 잡아 둔 날짜부터 풉니다
   let q = db.from("lodging_bookings").select(MONEY_COLUMNS).eq("status", "requested").lt("created_at", new Date(Date.now() - STAY_HOLD_MS).toISOString()).limit(500);
   if (roomId != null) q = q.eq("room_id", roomId);
   const { data: stale } = await q;

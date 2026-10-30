@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const holdSince = new Date(Date.now() - STAY_HOLD_MS).toISOString();
     const [changed, confirmed] = await Promise.all([
       roomDays(roomId, from, to, { withIcal: true }),
-      db.from("lodging_bookings").select("check_in, check_out").eq("room_id", roomId).or(`status.eq.confirmed,and(status.eq.requested,created_at.gte.${holdSince})`).lt("check_in", to).gt("check_out", from),
+      db.from("lodging_bookings").select("check_in, check_out").eq("room_id", roomId).or(`status.eq.confirmed,and(status.eq.requested,created_at.gte.${holdSince}),status.eq.pending_payment`).lt("check_in", to).gt("check_out", from),
     ]);
     if (confirmed.error) throw confirmed.error;
     const byDay = new Map(changed.map((d) => [d.day, d]));

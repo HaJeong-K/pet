@@ -5,7 +5,7 @@ import { canReviewStay, cleanReview, maskName, summarizeReviews, type StayReview
 
 // 숙박 후기(별점) — scripts/sql/lodging-reviews.sql
 //   GET  ?placeId=  → 후기 목록 + 평균 별점. 로그인해서 부르면 내가 후기를 쓸 수 있는 예약(writable)도 함께
-//   POST { bookingId, rating, clean_rating?, service_rating?, pet_rating?, content } → 후기 남기기(묵은 손님만, 예약 한 건에 한 개)
+//   POST { bookingId, rating, clean_rating?, service_rating?, pet_rating?, content } → 후기 남기기(이용한 손님만, 예약 한 건에 한 개)
 //        신고 검토로 후기 작성이 제한된 계정(lodging_review_bans)은 막습니다.
 // 사장님 답글·신고는 /api/owner/lodging/reviews, 관리자 검토는 /api/admin/lodging-reviews.
 // 표가 아직 없으면 ready: false(빈 목록)로 돌려줍니다.
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const ready = !error;
   const reviews = (data ?? []) as StayReview[];
 
-  // 로그인한 손님이면 아직 후기를 안 쓴, 묵은 예약을 알려 줍니다
+  // 로그인한 손님이면 아직 후기를 안 쓴, 이용을 마친 예약을 알려 줍니다
   const user = req.headers.get("authorization") ? await userOf(req) : null;
   let writable: { id: number; room_name: string; check_in: string; check_out: string }[] = [];
   const banned = user ? !!(await db.from("lodging_review_bans").select("auth_user_id").eq("auth_user_id", user.id).maybeSingle()).data : false;

@@ -1,9 +1,10 @@
 // src/lib/storeRules.ts
 //
-// "상품 등록 · 예약 포장"의 규칙 — 입력값 다듬기, 예약 상태가 어떻게 바뀔 수 있는지.
+// "상품 등록 · 포장 주문 · 매장 식사 예약"의 규칙 — 입력값 다듬기, 예약 상태가 어떻게 바뀔 수 있는지.
 // 화면(브라우저)과 서버가 같은 규칙을 쓰도록 글자·숫자만 다루는 함수로 모았습니다(테스트하기 쉽게).
 //
-// 결제는 받지 않습니다 — 손님은 예약만 하고 가게에서 결제합니다(결제대행 연동 전 단계).
+// 선결제 방식입니다 — 손님이 주문할 때 미리 결제합니다(src/lib/server/payments.ts). 결제 키를 넣기 전에는 주문만 접수되고 payment_status = 'unpaid'로 남습니다.
+// 취소: 가게가 확정하기 전에는 바로 취소·전액 환불, 거절도 전액 환불. 확정 뒤에는 손님이 취소 요청을 보내고 사장님이 받아 주면 전액 환불. 노쇼는 환불 없이 가게에 정산.
 
 export const PRODUCT_NAME_MAX = 40;
 export const PRODUCT_DESC_MAX = 200;
@@ -90,34 +91,90 @@ export function groupProducts<T extends { category?: string | null; is_featured?
   return groups;
 }
 
-export type ReservationStatus = "requested" | "accepted" | "ready" | "completed" | "rejected" | "cancelled";
+export type ReservationStatus = "pending_payment" | "requested" | "accepted" | "ready" | "completed" | "rejected" | "cancelled" | "no_show";
+
+/** 주문 방식 — 포장 / 매장 식사 */
+export type OrderType = "pickup" | "dine_in";
+export const ORDER_TYPE_LABEL: Record<OrderType, string> = { pickup: "포장 주문", dine_in: "매장 식사 예약" };
+export const PARTY_SIZE_MAX = 30;
+/** 가게가 확인하지 않으면 자동 취소·전액 환불되는 시간 */
+export const STORE_CONFIRM_LIMIT_MS = 12 * 3_600_000;
+/** 약속 시간에서 이만큼 지나면 자동 이용 완료 */
+export const STORE_AUTO_COMPLETE_MS = 24 * 3_600_000;
+/** 이용 완료 뒤 후기를 쓸 수 있는 기간 */
+export const STORE_REVIEW_DAYS = 30;
+export const PAYMENT_STATUS_LABEL: Record<string, string> = { paid: "결제 완료", refunded: "환불 완료", refund_failed: "환불 처리 중" };
+
+/** 확정 뒤에 취소 요청을 보낼 수 있는지 */
+export function canRequestCancel(status: ReservationStatus, requestStatus: string | null | undefined): boolean {
+  return (status === "accepted" || status === "ready") && (requestStatus ?? "none") === "none";
+}
+/** 후기를 쓸 수 있는지 — 이용 완료 후 30일 안 */
+export function canReviewOrder(status: ReservationStatus, finishedAt: string, now: number): boolean {
+  return status === "completed" && now - new Date(finishedAt).getTime() <= STORE_REVIEW_DAYS * 86_400_000;
+}
+/** 손님의 후기를 다듬습니다 */
+export function cleanStoreReview(raw: unknown): { reservationId: number; rating: number; content: string } | { error: string } {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const reservationId = Number(r.reservationId);
+  const rating = Number(r.rating);
+  const content = typeof r.content === "string" ? r.content.trim() : "";
+  if (!Number.isInteger(reservationId) || reservationId <= 0) return { error: "후기를 남길 주문을 찾을 수 없어요." };
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return { error: "별점을 골라 주세요." };
+  if (content.length < 10) return { error: "후기는 10자 이상 적어 주세요." };
+  return { reservationId, rating, content: content.slice(0, 1000) };
+}
+
+/** 사장님이 고른 받을 방식을 다듬습니다 */
+export function cleanOrderModes(raw: unknown): OrderType[] {
+  if (!Array.isArray(raw)) return [];
+  return (["pickup", "dine_in"] as OrderType[]).filter((m) => raw.includes(m));
+}
+
+/** 손님 주문의 방식·인원을 다듬습니다. 매장 식사는 인원과 방문 시간이 꼭 있어야 합니다. */
+export function cleanOrderOptions(raw: unknown, allowed: OrderType[], pickupAt: string | null): { orderType: OrderType; partySize: number | null } | { error: string } {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const orderType: OrderType = r.orderType === "dine_in" ? "dine_in" : "pickup";
+  if (!allowed.includes(orderType)) return { error: `이 가게는 ${ORDER_TYPE_LABEL[orderType]}을 받지 않아요.` };
+  if (orderType === "pickup") return { orderType, partySize: null };
+  const partySize = Number(r.partySize);
+  if (!Number.isInteger(partySize) || partySize < 1 || partySize > PARTY_SIZE_MAX) return { error: "방문 인원을 확인해 주세요." };
+  if (!pickupAt) return { error: "방문 시간을 골라 주세요." };
+  return { orderType, partySize };
+}
 
 export const STATUS_LABEL: Record<ReservationStatus, string> = {
+  pending_payment: "결제 대기",
   requested: "확인 대기",
   accepted: "예약 확정",
   ready: "준비 완료",
   completed: "수령 완료",
   rejected: "거절됨",
   cancelled: "취소됨",
+  no_show: "노쇼",
 };
 
 /** 사장님이 바꿀 수 있는 다음 상태 */
 const OWNER_NEXT: Record<ReservationStatus, ReservationStatus[]> = {
+  pending_payment: [],
   requested: ["accepted", "rejected"],
-  accepted: ["ready", "completed", "cancelled"],
-  ready: ["completed", "cancelled"],
+  accepted: ["ready", "completed", "no_show", "cancelled"],
+  ready: ["completed", "no_show", "cancelled"],
   completed: [],
   rejected: [],
   cancelled: [],
+  no_show: [],
 };
-/** 손님이 바꿀 수 있는 다음 상태 — 가게가 준비를 마치기 전까지만 취소할 수 있습니다 */
+/** 손님이 바꿀 수 있는 다음 상태 — 선결제라 가게가 확정(준비 시작)하기 전까지만 취소할 수 있습니다 */
 const CUSTOMER_NEXT: Record<ReservationStatus, ReservationStatus[]> = {
+  pending_payment: [],
   requested: ["cancelled"],
-  accepted: ["cancelled"],
+  accepted: [],
   ready: [],
   completed: [],
   rejected: [],
   cancelled: [],
+  no_show: [],
 };
 
 export function canChangeStatus(by: "owner" | "customer", from: ReservationStatus, to: ReservationStatus): boolean {

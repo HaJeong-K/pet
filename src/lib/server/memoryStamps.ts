@@ -4,7 +4,7 @@
 
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { kstToday } from "@/lib/lodgingBooking";
-import { courseCompleted } from "@/lib/memoryStamps";
+import { courseCompleted, STAMPS_ENABLED } from "@/lib/memoryStamps";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { isParkPlaceId } from "@/lib/parkPlace";
 import { getParkAsPlace } from "@/lib/server/parkAsPlace";
@@ -50,6 +50,7 @@ export async function releaseStamps(bookingId: number): Promise<void> {
 
 /** 숙박 이용이 끝나면 스탬프 1개(예약 하나에 한 번) */
 export async function issueStayStamp(bookingId: number): Promise<void> {
+  if (!STAMPS_ENABLED) return;
   const { data: b } = await db.from("lodging_bookings").select("guest_auth_user_id, place_id, room_name").eq("id", bookingId).maybeSingle();
   if (!b?.guest_auth_user_id) return;
   const key = `stay:${bookingId}`;

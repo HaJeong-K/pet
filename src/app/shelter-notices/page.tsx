@@ -1,3 +1,4 @@
+import { redactSecrets } from "@/lib/redact";
 import { unstable_cache } from "next/cache";
 import ShelterNoticesClient from "./ShelterNoticesClient";
 import { getRegionShelterNotices } from "@/lib/shelterNotices";
@@ -29,7 +30,7 @@ async function loadInitial(): Promise<ShelterNoticeLite[] | null> {
       breed: n.breed, imageUrl: n.imageUrl, daysLeft: n.daysLeft,
     }));
   } catch (e) {
-    console.error("[shelter-notices] 첫 목록 준비 실패:", e);
+    console.error("[shelter-notices] 첫 목록 준비 실패:", redactSecrets(e));
     // ⚠ 운영 중에 5분마다 화면을 새로 만들다가 실패한 경우: 여기서 오류를 내면 "공고가 채워진 직전 화면"을 계속
     // 보여 줍니다. 빈 화면을 새로 만들어 덮어쓰면, 다음에 성공할 때까지 모든 방문자가 빈 화면부터 보게 됩니다
     // (실제로 배포 직후 한 번 그렇게 됐습니다). 화면에 남은 공고가 조금 오래됐더라도 브라우저가 띄운 뒤 최신으로 바꿉니다.

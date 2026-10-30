@@ -11,6 +11,7 @@
 // ⚠ 예전엔 목록 앞쪽 50곳만 그 자리에서 상세를 받아, 나머지 9,600여 곳은 영업시간·전화가 비어 있었습니다.
 // 공공누리 공공데이터라 저장해 두고 쓰는 데 제약이 없습니다(카카오 장소 API와 다른 점).
 
+import { redactSecrets } from "@/lib/redact";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -80,7 +81,7 @@ export async function loadTourDetails(force = false): Promise<TourDetailMap> {
     mem = { map, at: Date.now() };
     return map;
   } catch (e) {
-    console.error("[tourDetails] 읽기 실패:", e);
+    console.error("[tourDetails] 읽기 실패:", redactSecrets(e));
     return mem?.map ?? {};
   }
 }

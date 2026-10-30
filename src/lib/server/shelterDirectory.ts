@@ -9,6 +9,7 @@
 // 동물을 버리려는 사람이 가까운 보호소를 찾기 쉬워집니다. 여기서는 지역(시·군·구)과 전화만 보여 줍니다.
 // (입양하러 찾아가야 하는 공고 상세 화면에는 주소가 그대로 있습니다.)
 
+import { redactSecrets } from "@/lib/redact";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -77,7 +78,7 @@ async function readSnapshot(): Promise<Cached | null> {
     if (!Array.isArray(json?.list) || json.list.length === 0) return null;
     return { at: Number(json.builtAt) || 0, list: json.list, notices: new Map(Object.entries(json.notices ?? {})) as Map<string, ShelterNoticeBrief[]> };
   } catch (e) {
-    console.error("[shelterDirectory] 보관해 둔 목록을 읽지 못했습니다:", e instanceof Error ? e.message : e);
+    console.error("[shelterDirectory] 보관해 둔 목록을 읽지 못했습니다:", redactSecrets(e));
     return null;
   }
 }
@@ -90,7 +91,7 @@ async function writeSnapshot(built: Cached): Promise<void> {
     const { error } = await client.storage.from(SNAPSHOT_BUCKET).upload(SNAPSHOT_PATH, body, { upsert: true, contentType: "application/gzip" });
     if (error) console.error("[shelterDirectory] 목록을 보관하지 못했습니다:", error.message);
   } catch (e) {
-    console.error("[shelterDirectory] 목록을 보관하지 못했습니다:", e instanceof Error ? e.message : e);
+    console.error("[shelterDirectory] 목록을 보관하지 못했습니다:", redactSecrets(e));
   }
 }
 
@@ -151,7 +152,7 @@ function refresh(): Promise<Cached | null> {
         await writeSnapshot(next);
         return next;
       })
-      .catch((e) => { console.error("[shelterDirectory] 목록을 만들지 못했습니다:", e instanceof Error ? e.message : e); return null; })
+      .catch((e) => { console.error("[shelterDirectory] 목록을 만들지 못했습니다:", redactSecrets(e)); return null; })
       .finally(() => { refreshing = null; });
   }
   return refreshing;

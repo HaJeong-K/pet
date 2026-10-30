@@ -2,6 +2,7 @@
 
 import OwnerBadge from "@/components/OwnerBadge";
 import PlaceStampButton from "@/components/stamps/PlaceStampButton";
+import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
@@ -1102,8 +1103,8 @@ export default function PlaceDetail({
               reviewCount={reviews.filter((r) => !r.deleted).length} />
           </div>
         )}
-        {/* 쇼핑 입점 가게: "상품 보고 예약하러 가기"(/shop?store=번호) */}
-        {!isPublicDataPlace && !isParkPlaceId(placeId) && !isLodgingCategory(place.category) && <PlaceStoreCta placeId={placeId} />}
+        {/* 쇼핑: 입점 가게는 "주문하러 가기", 아직 입점 전인 카페·식당·간식 가게는 사장님 입점 상담 안내(공원·병원·숙소 제외) */}
+        {!isParkPlaceId(placeId) && !isLodgingCategory(place.category) && <PlaceStoreCta placeId={placeId} category={place.category} />}
 
         {/* 반려동물 친화도 점수 — 0~100점 + 신호등(초록/노랑/빨강) 배지 */}
         {affinity && (() => {
@@ -1477,7 +1478,7 @@ export default function PlaceDetail({
           </button>
         </div>
         {/* 다녀온 인증 — 장소 근처에서 누르면 추억 스탬프 */}
-        <PlaceStampButton placeId={placeId} />
+        {STAMPS_ENABLED && <PlaceStampButton placeId={placeId} />}
         {showRouteSheet && Number.isFinite(placeLat) && Number.isFinite(placeLng) && (
           <AddToRouteSheet stop={{ id: placeId, name: place.name, lat: placeLat, lng: placeLng, category: place.category ?? null, address: place.address ?? null }} onClose={() => setShowRouteSheet(false)} />
         )}

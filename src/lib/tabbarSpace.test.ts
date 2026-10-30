@@ -24,6 +24,7 @@ const all = files(SRC).map((path) => ({ path: rel(path), text: readFileSync(path
 
 // 탭바가 떠 있는 채로 세로로 길게 스크롤되는 화면들 — 새 화면을 만들면 여기에 추가하세요.
 const PAGES_UNDER_TABBAR = [
+  "app/orders/OrdersClient.tsx", "app/pay/success/page.tsx", "app/pay/fail/page.tsx", "app/partner/store/page.tsx",
   "app/admin/page.tsx", "app/admin/reports/page.tsx", "app/admin/tips/page.tsx", "app/admin/review/page.tsx",
   "app/admin/owners/page.tsx", "app/admin/premium/page.tsx", "app/admin/analytics/page.tsx", "app/admin/traffic/page.tsx", "app/admin/kpi/page.tsx",
   "app/admin/quality/page.tsx", "app/admin/errors/page.tsx", "app/admin/members/page.tsx", "app/admin/support/page.tsx", "app/admin/inquiries/page.tsx", "app/admin/business/page.tsx", "app/admin/stays/page.tsx", "app/partnership/page.tsx", "app/partner/lodging/page.tsx", "components/lodging/StayFrame.tsx",

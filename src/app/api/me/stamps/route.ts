@@ -3,7 +3,7 @@ import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
 import { createRateLimiter } from "@/lib/server/rateLimit";
 import { haversineKm } from "@/lib/geo";
 import { kstToday, addDays } from "@/lib/lodgingBooking";
-import { STAMP_PLACE_COOLDOWN_DAYS, STAMP_RADIUS_M, STAMP_VALUE_WON, STAMPS_PER_DAY, stampInRange } from "@/lib/memoryStamps";
+import { STAMPS_ENABLED, STAMP_PLACE_COOLDOWN_DAYS, STAMP_RADIUS_M, STAMP_VALUE_WON, STAMPS_PER_DAY, stampInRange } from "@/lib/memoryStamps";
 import { placeLocation, syncCourseStamps } from "@/lib/server/memoryStamps";
 
 // 추억 스탬프 — 로그인한 회원만.
@@ -15,6 +15,7 @@ const fail = (error: string, status: number) => NextResponse.json({ error }, { s
 const allow = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 export async function GET(req: NextRequest) {
+  if (!STAMPS_ENABLED) return NextResponse.json({ ready: false, stamps: [], available: 0, courses: [] });
   const user = await userOf(req);
   if (!user) return fail("로그인이 필요해요.", 401);
   const { data, error } = await db.from("memory_stamps").select("id, kind, place_key, title, issued_on, spent_booking_id").eq("auth_user_id", user.id).order("issued_on", { ascending: false }).order("id", { ascending: false }).limit(300);
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!STAMPS_ENABLED) return fail("지금은 스탬프를 받을 수 없어요.", 404);
   const user = await userOf(req);
   if (!user) return fail("로그인한 뒤 받을 수 있어요.", 401);
   if (!allow(user.id)) return fail("잠시 후 다시 시도해 주세요.", 429);

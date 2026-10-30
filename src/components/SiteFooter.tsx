@@ -6,6 +6,7 @@
 // 문제(예: 마이페이지엔 운영정책 링크가 없었음, 문의 이메일이 서로 다른 값이었음)가
 // 있었는데, 이 컴포넌트 하나만 각 페이지에서 불러다 쓰면 항상 똑같습니다.
 
+import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import { useState } from "react";
 import { X, Mail, Check, Copy } from "lucide-react";
 
@@ -149,7 +150,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
         • <strong>위치정보:</strong> 브라우저 위치정보 제공에 동의한 경우, 현재 위치(위도·경도) — 주변 장소 추천, 지도 중심 이동, 인근 보호소 공고 표시에 사용되며 별도 서버 저장 없이 그때그때 조회에만 사용됩니다<br />
         • <strong>이용자가 업로드하는 이미지:</strong> 장소 사진, 제보 첨부 사진, 사업자등록증 이미지<br />
         • <strong>서비스 이용 시 자동 수집:</strong> 접속 기록, 검색어, 조회한 장소, 길찾기·전화·홈페이지 버튼 이용 여부, 접속 지역(주소 기반 시/도·시/군/구 단위)<br />
-        • <strong>추억 스탬프를 받는 경우:</strong> 다녀온 장소와 날짜. 인증할 때 현재 위치는 장소와의 거리 확인에만 쓰고 저장하지 않습니다<br />
+        {STAMPS_ENABLED && <>• <strong>추억 스탬프를 받는 경우:</strong> 다녀온 장소와 날짜. 인증할 때 현재 위치는 장소와의 거리 확인에만 쓰고 저장하지 않습니다<br /></>}
         • <strong>새 공고 알림을 켠 경우:</strong> 브라우저 알림 수신 주소(푸시 구독 정보), 알림을 받을 지역<br />
         • <strong>코스를 저장한 경우:</strong> 저장한 코스의 장소 목록<br />
         • <strong>사장님 광고 상품 신청 시:</strong> 신청 기간, 입금자명, 요청 메모<br />

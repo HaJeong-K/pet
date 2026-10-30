@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReservationLines, canChangeStatus, cleanProduct, groupProducts, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
+import { buildReservationLines, canChangeStatus, canRequestCancel, canReviewOrder, cleanOrderModes, cleanOrderOptions, cleanStoreReview, cleanProduct, groupProducts, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
 import { normalizePlan, planAtLeast, PLAN_MONTHLY_PRICE, quote } from "./ownerPlans";
 import { BANNER_ROTATE_MS, bannerRegionOf, bannerSource, isInSigungu, pickLocalAds, rotateByTime, type AdPlace, type BannerPerk } from "./localAds";
 import { adjustExpiry } from "./premiumPeriod";
@@ -46,7 +46,22 @@ describe("예약 상태가 바뀌는 순서", () => {
   });
   it("손님은 가게가 준비를 마치기 전까지만 취소할 수 있다", () => {
     expect(canChangeStatus("customer", "requested", "cancelled")).toBe(true);
-    expect(canChangeStatus("customer", "accepted", "cancelled")).toBe(true);
+    expect(canChangeStatus("customer", "accepted", "cancelled")).toBe(false); // 선결제: 확정 뒤에는 취소 불가
+    expect(canChangeStatus("owner", "ready", "no_show")).toBe(true);
+    expect(cleanOrderOptions({ orderType: "dine_in", partySize: 2 }, ["pickup", "dine_in"], "2026-11-01T03:00:00Z")).toEqual({ orderType: "dine_in", partySize: 2 });
+    expect("error" in cleanOrderOptions({ orderType: "dine_in", partySize: 2 }, ["pickup"], "2026-11-01T03:00:00Z")).toBe(true);
+    expect("error" in cleanOrderOptions({ orderType: "dine_in", partySize: 2 }, ["dine_in"], null)).toBe(true);
+    expect(cleanOrderOptions({}, ["pickup"], null)).toEqual({ orderType: "pickup", partySize: null });
+    expect(cleanOrderModes(["dine_in", "x"])).toEqual(["dine_in"]);
+    expect(canRequestCancel("accepted", "none")).toBe(true);
+    expect(canRequestCancel("accepted", "denied")).toBe(false);
+    expect(canRequestCancel("requested", "none")).toBe(false);
+    const now = new Date("2026-11-30T00:00:00Z").getTime();
+    expect(canReviewOrder("completed", "2026-11-20T00:00:00Z", now)).toBe(true);
+    expect(canReviewOrder("completed", "2026-10-20T00:00:00Z", now)).toBe(false);
+    expect(canReviewOrder("no_show", "2026-11-29T00:00:00Z", now)).toBe(false);
+    expect("error" in cleanStoreReview({ reservationId: 1, rating: 5, content: "짧아요" })).toBe(true);
+    expect(cleanStoreReview({ reservationId: 1, rating: 5, content: "강아지와 편하게 먹었어요" })).toEqual({ reservationId: 1, rating: 5, content: "강아지와 편하게 먹었어요" });
     expect(canChangeStatus("customer", "ready", "cancelled")).toBe(false);
     expect(canChangeStatus("customer", "requested", "accepted")).toBe(false);
   });

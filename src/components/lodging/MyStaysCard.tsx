@@ -1,6 +1,8 @@
 "use client";
 
-// 마이페이지의 "내 숙박 예약"(손님용) — 예약이 하나라도 있을 때만 보입니다(/mypage#stays).
+// 주문·예약 내역의 "숙소 예약"(손님용, /orders?tab=stay)
+//   · 결제 대기: [결제하기]·[예약 지우기] — 20분 안에 결제하지 않으면 날짜가 풀립니다
+//   · 결제 수단·영수증·환불 금액
 //   · 진행 중: 상태, 날짜·객실·금액, 숙소 연락처, 날짜별 환불 안내, [예약 취소](돌려받는 금액을 먼저 보여 줌)
 //   · 체크인 날부터: [문제 있어요](입실 거부·객실 다름 등) — 접수하면 이용 확정·정산이 멈추고 관리자가 확인
 //   · 체크아웃 날부터: [이용 확정] — 누르지 않으면 3일 뒤 자동 확정
@@ -11,6 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BedDouble, Phone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { startPayment } from "@/lib/startPayment";
 import { won } from "@/lib/ownerPlans";
 import { petLabel, stayDayLabel, STAY_STATUS, type StayPet, type StayStatus } from "@/lib/lodgingBooking";
 import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
@@ -21,6 +24,8 @@ type Stay = {
   payment_status?: string; cancel_cause?: CancelCause | null; refund_amount?: number; compensation_amount?: number | null;
   issue_status?: string; issue_kind?: string | null; issue_resolution?: string | null; stay_confirmed_at?: string | null;
   place: { name: string; address: string | null; phone: string | null } | null;
+  payment?: { method: string | null; receiptUrl: string | null; paidAt: string | null; refunded: number } | null;
+  refund_done_at?: string | null;
   checkInTime: string | null; checkOutTime: string | null;
   cancelNow: { refund: number; penalty: number; rate: number | null } | null;
   schedule: { until: string; refund: number; rate: number }[];
@@ -36,7 +41,7 @@ const button = (kind: "primary" | "plain" | "danger", disabled = false): React.C
   background: disabled ? "#d6d3c9" : kind === "primary" ? "#1D4F91" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
-export default function MyStaysCard() {
+export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean }) {
   const [stays, setStays] = useState<Stay[] | null>(null);
   const [issueKinds, setIssueKinds] = useState<Record<string, string>>({});
   const [issueFor, setIssueFor] = useState<number | null>(null);
@@ -74,9 +79,23 @@ export default function MyStaysCard() {
     act({ id: s.id, action: "cancel" }, "예약을 취소했어요.");
   };
 
-  if (!stays || stays.length === 0) return null;
-  const open = stays.filter((s) => s.status === "requested" || s.status === "confirmed");
-  const done = stays.filter((s) => !(s.status === "requested" || s.status === "confirmed"));
+  const pay = async (s: Stay) => {
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
+    try { await startPayment("lodging", s.id); }
+    catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "결제를 시작하지 못했어요." }); }
+    finally { setBusy(false); }
+  };
+
+  if (!stays) return null;
+  if (stays.length === 0) {
+    if (!showEmpty) return null;
+    return <div style={{ ...card, textAlign: "center", fontSize: 14, color: "#5F4D3A", lineHeight: 1.7 }}>아직 숙소 예약이 없어요.<br /><a href="/stay" style={{ color: "#8C5E3A", fontWeight: 800 }}>동반 숙소 둘러보기</a></div>;
+  }
+  const isOpen = (s: Stay) => s.status === "pending_payment" || s.status === "requested" || s.status === "confirmed";
+  const open = stays.filter(isOpen);
+  const done = stays.filter((s) => !isOpen(s));
 
   const row = (s: Stay) => {
     const st = STAY_STATUS[s.status];
@@ -95,6 +114,9 @@ export default function MyStaysCard() {
           <b style={{ fontSize: 14, color: "#1D4F91" }}>{won(s.total)}</b>
           {(s.stamp_discount ?? 0) > 0 && <span style={{ fontSize: 11.5, color: "#8A6D1F" }}>스탬프 {won(s.stamp_discount ?? 0)} 할인</span>}
           {s.payment_status === "unpaid" && (s.status === "requested" || s.status === "confirmed") && <span style={{ fontSize: 11.5, color: "#B45309" }}>결제 안내를 기다리는 중</span>}
+          {s.payment_status === "paid" && <span style={{ fontSize: 12, color: "#555" }}>결제 완료{s.payment?.method ? ` · ${s.payment.method}` : ""}</span>}
+          {(s.payment_status === "refunded" || s.payment_status === "partially_refunded") && <span style={{ fontSize: 12, color: "#555" }}>{s.refund_done_at ? "환불 완료" : "환불 처리 중"}</span>}
+          {s.payment?.receiptUrl && <a href={s.payment.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#1D4F91" }}>영수증</a>}
           {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#1D4F91", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
         </div>
 
@@ -117,6 +139,8 @@ export default function MyStaysCard() {
           <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 4 }}>체크아웃 날부터 이용 확정할 수 있어요. 누르지 않으면 {stayDayLabel(autoConfirmOn(s.check_out))}에 자동 확정돼요.</div>
         )}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {s.status === "pending_payment" && <button onClick={() => pay(s)} disabled={busy} style={button("primary", busy)}>결제하기</button>}
+          {s.status === "pending_payment" && <button onClick={() => act({ id: s.id, action: "abandon" }, "예약을 지웠어요.")} disabled={busy} style={button("plain", busy)}>예약 지우기</button>}
           {s.canConfirm && <button onClick={() => act({ id: s.id, action: "confirm" }, "이용을 확정했어요. 즐거우셨길 바라요!")} disabled={busy} style={button("primary", busy)}>이용 확정</button>}
           {s.canReportIssue && <button onClick={() => { setIssueFor(issueFor === s.id ? null : s.id); setIssue({ kind: "", detail: "" }); }} style={button("plain")}>문제 있어요</button>}
           {s.cancelNow && <button onClick={() => cancel(s)} disabled={busy} style={button("danger", busy)}>예약 취소</button>}

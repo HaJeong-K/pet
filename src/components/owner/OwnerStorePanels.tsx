@@ -2,9 +2,9 @@
 
 // 사장님 센터의 "상품" · "예약" 화면.
 //   · 상품: 이름·설명·가격을 올리고, 잠시 안 파는 상품은 꺼 둘 수 있습니다.
-//   · 예약: 손님이 넣은 예약 포장 요청을 확정·거절하고, 준비 완료·수령 완료로 넘깁니다.
-// 손님에게 보이는 것은 '프리미엄 스토어' 이상일 때입니다(상품을 미리 올려 두는 것은 언제든 가능).
-// 결제는 받지 않습니다 — 손님은 가게에서 결제합니다.
+//   · 예약: 손님의 포장 주문·매장 식사 예약을 확정·거절하고, 준비 완료·이용 완료·노쇼로 넘깁니다.
+// 손님에게 보이는 것은 쇼핑 입점 승인 또는 '프리미엄 스토어' 이상일 때입니다(상품을 미리 올려 두는 것은 언제든 가능).
+// 선결제 방식입니다 — 손님이 결제를 마친 주문만 보입니다. 거절·가게 취소·취소 요청 승인은 전액 환불, 노쇼는 환불 없음.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Phone, X } from "lucide-react";
@@ -13,14 +13,16 @@ import OwnerAlertCard from "@/components/owner/OwnerAlertCard";
 import { playBark } from "@/lib/ownerAlertSound";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
-import { isOpenStatus, ownerNextStatuses, STATUS_LABEL, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
+import OwnerStoreReviews from "@/components/owner/OwnerStoreReviews";
+import { isOpenStatus, ORDER_TYPE_LABEL, PAYMENT_STATUS_LABEL, ownerNextStatuses, STATUS_LABEL, type OrderType, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
 
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
 
 type Reservation = {
   id: number; customer_name: string; customer_phone: string; items: ReservationLine[]; total: number;
-  pickup_at: string | null; memo: string | null; status: ReservationStatus; owner_note: string | null; created_at: string;
+  pickup_at: string | null; memo: string | null; status: ReservationStatus; owner_note: string | null; created_at: string; order_type?: OrderType | null; party_size?: number | null;
+  payment_status?: string; cancel_request_status?: string; cancel_request_reason?: string | null;
 };
 
 async function call(path: string, method: string, body?: unknown) {
@@ -49,14 +51,14 @@ function NotReady({ isPreview }: { isPreview: boolean }) {
   );
 }
 
-/** 요금제 안내 — 상품·예약은 '프리미엄 스토어' 이상에서 손님에게 보입니다 */
-function PlanNotice({ onGoAds }: { onGoAds: () => void }) {
+/** 입점 안내 — 쇼핑 입점 승인(또는 '프리미엄 스토어') 뒤에 손님에게 보입니다 */
+function PlanNotice({ onGoAds: _onGoAds }: { onGoAds: () => void }) {
   return (
     <div style={{ ...card, background: "#FFFBEB", borderColor: "#FDE68A", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 240px", fontSize: 13, color: "#78350F", lineHeight: 1.65 }}>
-        <b>프리미엄 스토어</b> 요금제부터 상품이 쇼핑 탭에 진열되고, 손님이 직접 예약 주문을 넣을 수 있어요.<br />상품은 지금 미리 올려 둘 수 있어요.
+        <b>쇼핑 입점</b>을 하면 메뉴가 쇼핑 탭에 진열되고, 손님이 포장 주문이나 매장 식사 예약을 넣을 수 있어요.<br />메뉴는 지금 미리 올려 둘 수 있어요.
       </div>
-      <button onClick={onGoAds} style={primaryButton(false)}>요금제 보기</button>
+      <a href="/partner/store" style={{ ...primaryButton(false), textDecoration: "none" }}>입점 상담 받기</a>
     </div>
   );
 }
@@ -72,8 +74,10 @@ const STATUS_STYLE: Record<ReservationStatus, { bg: string; color: string }> = {
   completed: { bg: "#f1f5f9", color: "#64748b" },
   rejected: { bg: "#FEE2E2", color: "#B91C1C" },
   cancelled: { bg: "#f1f5f9", color: "#5f6672" },
+  pending_payment: { bg: "#FEE2E2", color: "#B91C1C" },
+  no_show: { bg: "#FEE2E2", color: "#B91C1C" },
 };
-const ACTION_LABEL: Partial<Record<ReservationStatus, string>> = { accepted: "예약 확정", rejected: "거절", ready: "준비 완료", completed: "수령 완료", cancelled: "예약 취소" };
+const ACTION_LABEL: Partial<Record<ReservationStatus, string>> = { accepted: "확정", rejected: "거절", ready: "준비 완료", completed: "이용 완료", no_show: "노쇼", cancelled: "예약 취소" };
 
 export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }: { placeId: number; isPreview: boolean; canAct: boolean; onGoAds: () => void; onCount?: (waiting: number) => void }) {
   const [state, setState] = useState<{ ready: boolean; reservations: Reservation[] } | null>(null);
@@ -128,10 +132,26 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
 
   const open = state.reservations.filter((r) => isOpenStatus(r.status));
   const done = state.reservations.filter((r) => !isOpenStatus(r.status));
+  const answerCancel = async (r: Reservation, cancelAnswer: "approve" | "deny") => {
+    const ownerNote = cancelAnswer === "deny" ? window.prompt("받지 못하는 이유를 적어 주세요. 손님에게 보여요.") : "";
+    if (cancelAnswer === "deny" && !ownerNote?.trim()) return;
+    if (cancelAnswer === "approve" && !window.confirm(`${won(r.total)}을 손님에게 전액 환불할까요?`)) return;
+    setBusyId(r.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/owner/reservations?placeId=${placeId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ id: r.id, cancelAnswer, ownerNote }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "처리하지 못했어요.");
+      await load();
+    } catch (e) { window.alert(e instanceof Error ? e.message : "처리하지 못했어요."); }
+    finally { setBusyId(null); }
+  };
+
   const renderOne = (r: Reservation) => (
     <div key={r.id} style={{ padding: "13px 14px", borderRadius: 14, border: `1px solid ${r.status === "requested" ? "#FDE68A" : "#f0ece0"}`, background: r.status === "requested" ? "#FFFDF5" : "white" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: STATUS_STYLE[r.status].bg, color: STATUS_STYLE[r.status].color }}>{STATUS_LABEL[r.status]}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: "#F3E7D8", color: "#6B4426" }}>{ORDER_TYPE_LABEL[r.order_type ?? "pickup"]}{r.party_size ? ` ${r.party_size}명` : ""}</span>
         <b style={{ fontSize: 13.5, color: "#222" }}>{r.customer_name}</b>
         <a href={`tel:${r.customer_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 700, color: "#3F5230", textDecoration: "none" }}><Phone size={12} />{fmtPhone(r.customer_phone)}</a>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "#6e6e6e" }}>{fmtDateTime(r.created_at)} 접수</span>
@@ -145,15 +165,27 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
         ))}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px dashed #eee", fontSize: 12.5, color: "#555", flexWrap: "wrap" }}>
-        {r.pickup_at && <span>가지러 올 시간 <b style={{ color: "#B45309" }}>{fmtDateTime(r.pickup_at)}</b></span>}
+        {r.pickup_at && <span>{r.order_type === "dine_in" ? "방문 시간" : "가지러 올 시간"} <b style={{ color: "#B45309" }}>{fmtDateTime(r.pickup_at)}</b></span>}
+        {PAYMENT_STATUS_LABEL[r.payment_status ?? ""] && <span style={{ fontWeight: 700, color: "#15803D" }}>{PAYMENT_STATUS_LABEL[r.payment_status ?? ""]}</span>}
         <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color: "#222" }}>합계 {won(r.total)}</span>
       </div>
       {r.memo && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>요청: {r.memo}</div>}
       {r.owner_note && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}
+      {r.cancel_request_status === "open" && (
+        <div style={{ marginTop: 9, padding: "10px 12px", borderRadius: 10, background: "#FFF7ED", fontSize: 13, color: "#92400E", lineHeight: 1.6 }}>
+          <b>손님이 취소를 요청했어요.</b> {r.cancel_request_reason}
+          {canAct && (
+            <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
+              <button onClick={() => answerCancel(r, "approve")} disabled={busyId === r.id} style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#B45309", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>받아 주기(전액 환불)</button>
+              <button onClick={() => answerCancel(r, "deny")} disabled={busyId === r.id} style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid #f3c7c5", background: "white", color: "#b42318", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>받지 않기</button>
+            </div>
+          )}
+        </div>
+      )}
       {canAct && ownerNextStatuses(r.status).length > 0 && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {ownerNextStatuses(r.status).map((next) => {
-            const negative = next === "rejected" || next === "cancelled";
+            const negative = next === "rejected" || next === "cancelled" || next === "no_show";
             return (
               <button key={next} onClick={() => change(r, next)} disabled={busyId === r.id} style={{
                 flex: negative ? "0 0 auto" : "1 1 120px", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: busyId === r.id ? "default" : "pointer",
@@ -197,6 +229,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
           {showDone && <div style={{ marginTop: 12, display: "grid", gap: 10 }}>{done.map(renderOne)}</div>}
         </div>
       )}
+      <OwnerStoreReviews placeId={placeId} />
     </div>
   );
 }

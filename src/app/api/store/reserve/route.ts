@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { db, listProducts, storeEnabled, userOf, RESERVATION_COLUMNS } from "@/lib/server/ownerStore";
-import { buildReservationLines, canChangeStatus, cleanReservationContact, type ReservationStatus } from "@/lib/storeRules";
+import { db, listProducts, storeEnabled, storeOrderModes, userOf, RESERVATION_COLUMNS } from "@/lib/server/ownerStore";
+import { buildReservationLines, canChangeStatus, cleanOrderOptions, cleanReservationContact, type ReservationStatus } from "@/lib/storeRules";
 import { createRateLimiter } from "@/lib/server/rateLimit";
 import { notifyOwnerNewReservation } from "@/lib/server/ownerPush";
+import { paymentsEnabled } from "@/lib/server/payments";
+import { refundStoreOrder } from "@/lib/server/storeOrders";
+import { PAYMENT_MIN_AMOUNT } from "@/lib/payments";
 
-// 손님의 예약(포장) 요청 — 로그인한 회원만. 결제는 받지 않고, 가게에서 결제합니다.
-//   POST  → 예약 넣기 { placeId, items: [{ productId, qty }], name, phone, pickupAt, memo }
-//   PATCH → 내 예약 취소 { id }  (가게가 준비를 마치기 전까지만)
+// 손님의 포장 주문·매장 식사 예약 — 로그인한 회원만. 선결제: 'pending_payment'로 만들고 needsPayment를 돌려주면 화면이 결제창을 엽니다.
+// 결제를 마쳐야 사장님에게 보이고 알림이 갑니다(/api/payments/confirm). 결제 키를 넣기 전에는 결제 단계 없이 접수됩니다.
+//   POST  → 주문 넣기 { placeId, orderType, partySize, items: [{ productId, qty }], name, phone, pickupAt, memo }
+//   PATCH → 내 주문 취소 { id }  (가게가 확정하기 전까지만, 전액 환불. 확정 뒤에는 /api/me/orders의 취소 요청)
 // 상품 이름·가격은 손님이 보낸 값이 아니라 가게가 올린 값으로 다시 계산합니다.
 // 예약이 들어가면 그 가게 사장님의 기기로 알림을 보냅니다(src/lib/server/ownerPush.ts).
 
@@ -28,6 +32,8 @@ export async function POST(req: NextRequest) {
 
   const contact = cleanReservationContact(body);
   if ("error" in contact) return fail(contact.error, 400);
+  const options = cleanOrderOptions(body, await storeOrderModes(placeId), contact.pickupAt);
+  if ("error" in options) return fail(options.error, 400);
   const { products } = await listProducts(placeId, true);
   const built = buildReservationLines(body?.items, products);
   if ("error" in built) return fail(built.error, 400);
@@ -36,7 +42,9 @@ export async function POST(req: NextRequest) {
     .eq("place_id", placeId).eq("customer_auth_user_id", user.id).in("status", ["requested", "accepted", "ready"]);
   if ((count ?? 0) >= OPEN_PER_PLACE_MAX) return fail("이 가게에 진행 중인 예약이 이미 있어요. 먼저 그 예약을 확인해 주세요.", 409);
 
+  const needsPayment = paymentsEnabled() && built.total >= PAYMENT_MIN_AMOUNT;
   const { data, error } = await db.from("place_reservations").insert([{
+    ...(needsPayment ? { status: "pending_payment" } : {}),
     place_id: placeId,
     customer_auth_user_id: user.id,
     customer_name: contact.name,
@@ -45,12 +53,14 @@ export async function POST(req: NextRequest) {
     total: built.total,
     pickup_at: contact.pickupAt,
     memo: contact.memo,
+    order_type: options.orderType,
+    party_size: options.partySize,
   }]).select(RESERVATION_COLUMNS).single();
   if (error) return fail(error.message, 500);
   // 사장님 기기로 "멍멍! 새 예약" 알림 — 응답을 보낸 뒤에 보내서 손님을 기다리게 하지 않습니다.
-  after(() => notifyOwnerNewReservation(placeId, data));
+  if (!needsPayment) after(() => notifyOwnerNewReservation(placeId, data));
   const { customer_auth_user_id: _hidden, ...rest } = data;
-  return NextResponse.json({ reservation: rest });
+  return NextResponse.json({ reservation: rest, needsPayment });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -60,9 +70,9 @@ export async function PATCH(req: NextRequest) {
   const id = Number(body?.id);
   if (!Number.isInteger(id) || id <= 0) return fail("예약을 찾을 수 없어요.", 400);
 
-  const { data: current } = await db.from("place_reservations").select("status").eq("id", id).eq("customer_auth_user_id", user.id).maybeSingle();
+  const { data: current } = await db.from("place_reservations").select("status, total, payment_status").eq("id", id).eq("customer_auth_user_id", user.id).maybeSingle();
   if (!current) return fail("예약을 찾을 수 없어요.", 404);
-  if (!canChangeStatus("customer", current.status as ReservationStatus, "cancelled")) return fail("가게에서 이미 준비를 마쳐 취소할 수 없어요. 가게에 직접 연락해 주세요.", 409);
+  if (!canChangeStatus("customer", current.status as ReservationStatus, "cancelled")) return fail("가게에서 이미 확정해 준비를 시작했어요. 취소는 가게에 직접 연락해 주세요.", 409);
 
   const { data, error } = await db.from("place_reservations")
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
@@ -70,6 +80,7 @@ export async function PATCH(req: NextRequest) {
     .select(RESERVATION_COLUMNS).maybeSingle();
   if (error) return fail(error.message, 500);
   if (!data) return fail("그 사이 예약 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
+  await refundStoreOrder({ id, total: current.total, payment_status: current.payment_status }, "손님 취소(가게 확정 전)");
   const { customer_auth_user_id: _hidden, ...rest } = data;
   return NextResponse.json({ reservation: rest });
 }
