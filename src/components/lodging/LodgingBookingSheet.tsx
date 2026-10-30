@@ -15,10 +15,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, Minus, Plus, Search, Stamp, Trash2, X } from "lucide-react";
 import { breedSize, CAT_BREEDS, DOG_BREEDS, OTHER_BREED } from "@/lib/petBreeds";
-import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
+import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, FREE_CANCEL_NOTICE, RULE_AGREEMENT_LABEL, RULE_SANCTIONS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
 import { paymentsReady } from "@/lib/payments";
+import { petRequirementItems } from "@/lib/petRequirements";
 import { startPayment } from "@/lib/startPayment";
 import { EXTRA_UNITS, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
 import { addDays, daysBetween, kstToday, nightsOf, petNightFee, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
@@ -119,6 +120,11 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   const [consents, setConsents] = useState<StayConsentId[]>([]);
   const [openConsent, setOpenConsent] = useState<StayConsentId | null>(null);
   const allAgreed = consents.length === STAY_CONSENTS.length;
+  // 숙소가 정한 입실 조건 — 항목마다 확인해야 예약할 수 있습니다
+  const petItems = petRequirementItems(profile?.pet_requirements);
+  const [petAcks, setPetAcks] = useState<string[]>([]);
+  const allPetAcked = petItems.every((i) => petAcks.includes(i.id));
+  const [ruleAgreed, setRuleAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ status: string } | null>(null);
@@ -190,7 +196,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
   const schedule = priced && checkIn ? refundSchedule(payTotal, checkIn, today, profile?.peak_periods) : [];
   const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" ? !!breedOf(p) : !!p.kind.trim()));
   const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 9;
-  const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && !busy
+  const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && allPetAcked && ruleAgreed && !busy
     && (form.sameGuest || (!!form.stayGuestName.trim() && phoneOk(form.stayGuestPhone)));
   const maxPets = room?.max_pets ?? profile?.max_pets ?? 10;
 
@@ -204,7 +210,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
       const res = await fetch("/api/lodging/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, extras: picks, ...form, consents, stamps: stampUse.used }),
+        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, extras: picks, ...form, consents, petAcks, ruleAgreed, stamps: stampUse.used }),
       });
       const json = await res.json().catch(() => ({}));
       // 그 사이 다른 손님이 먼저 예약했으면 달력을 새로 받아 날짜 고르기로 돌아갑니다
@@ -461,6 +467,33 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               <textarea value={form.memo} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value.slice(0, 300) }))} rows={2} placeholder="숙소에 전할 말(선택) — 예: 늦게 도착해요, 노견이라 1층 객실 부탁드려요" aria-label="요청 사항" style={{ ...input, resize: "vertical" }} />
             </div>
 
+            <div data-guide="stay-rule-agreement" style={{ borderRadius: 12, border: "1px solid #D5E0EE", overflow: "hidden" }}>
+              <div style={{ padding: "11px 12px", background: "#F2F6FB", fontSize: 14, fontWeight: 800, color: "#1D4F91" }}>
+                숙소 규정을 확실히 읽어 보셨나요?
+                <div style={{ fontSize: 11.5, fontWeight: 500, color: "#555", marginTop: 2 }}>예약 전에 꼭 확인해 주세요.</div>
+              </div>
+              {petItems.map((i) => (
+                <label key={i.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "9px 12px", borderTop: "1px solid #eef1f5", fontSize: 12.5, color: "#444", lineHeight: 1.55, cursor: "pointer" }}>
+                  <input type="checkbox" checked={petAcks.includes(i.id)} onChange={(e) => { setRuleAgreed(false); setPetAcks((all) => (e.target.checked ? [...all, i.id] : all.filter((x) => x !== i.id))); }} style={{ marginTop: 3, flexShrink: 0 }} />
+                  {i.text}
+                </label>
+              ))}
+              {(profile?.pet_rules || profile?.stay_rules) && (
+                <div style={{ padding: "9px 12px", borderTop: "1px solid #eef1f5", display: "grid", gap: 7, fontSize: 12.5, color: "#444", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+                  {profile?.pet_rules && <div><b style={{ color: "#333" }}>반려동물 동반 수칙</b><br />{profile.pet_rules}</div>}
+                  {profile?.stay_rules && <div><b style={{ color: "#333" }}>숙소 이용 수칙</b><br />{profile.stay_rules}</div>}
+                </div>
+              )}
+              <div style={{ padding: "10px 12px", borderTop: "1px solid #eef1f5", background: "#FFF8F6", display: "grid", gap: 6 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면</div>
+                {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}><b>{x.title}</b> · {x.text}</div>)}
+              </div>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "11px 12px", borderTop: "1px solid #D5E0EE", fontSize: 13, fontWeight: 700, color: allPetAcked ? "#222" : "#6e6e6e", lineHeight: 1.55, cursor: allPetAcked ? "pointer" : "default" }}>
+                <input type="checkbox" checked={ruleAgreed} disabled={!allPetAcked} onChange={(e) => setRuleAgreed(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
+                {RULE_AGREEMENT_LABEL}
+              </label>
+            </div>
+
             <div style={{ borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
               <label style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 12px", background: "#f8fafc", fontSize: 14, fontWeight: 800, color: "#222", cursor: "pointer" }}>
                 <input type="checkbox" checked={allAgreed} onChange={(e) => setConsents(e.target.checked ? STAY_CONSENTS.map((c) => c.id) : [])} style={{ width: 17, height: 17 }} />
@@ -484,6 +517,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
 
             <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
               {paymentsReady() ? "결제를 마쳐야 예약이 접수돼요. 20분 안에 결제하지 않으면 날짜가 풀려요." : "카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요."}<br />
+              {FREE_CANCEL_NOTICE}<br />
               같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
             </div>
             {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}

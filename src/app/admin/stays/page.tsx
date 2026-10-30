@@ -9,6 +9,7 @@
 //   · 후기 신고: 숙소 사장님이 신고한 숙박 후기 검토 — 유지·가리기·삭제, 작성자 후기 제한(ReviewReportsView)
 // 서버는 /api/admin/stays, 규칙은 src/lib/lodgingPolicy.ts.
 
+import { isOwnerViolation, OWNER_VIOLATION_KINDS } from "@/lib/lodgingPolicy";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
@@ -31,7 +32,7 @@ type Row = {
 };
 type View = "issues" | "payouts" | "refunds" | "all" | "partners" | "reviews" | "leads" | "store" | "orders";
 
-const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
+const ISSUE_LABEL: Record<string, string> = { ...OWNER_VIOLATION_KINDS, refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
 const btn = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
@@ -113,13 +114,19 @@ export default function AdminStays() {
               {b.issue_status === "open" && (
                 <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "#FEF2F2", display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 12.5, lineHeight: 1.65 }}>
-                    <b style={{ color: "#B91C1C" }}>손님 접수 · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}</b><br />
+                    <b style={{ color: "#B91C1C" }}>{isOwnerViolation(b.issue_kind) ? "숙소 접수" : "손님 접수"} · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}</b><br />
                     <span style={{ whiteSpace: "pre-line" }}>{b.issue_detail}</span>
                   </div>
                   <div style={{ fontSize: 12.5, lineHeight: 1.65, color: b.issue_owner_reply ? "#333" : "#666" }}>
                     <b>사장님 의견</b><br />{b.issue_owner_reply ?? "아직 없음 — 3영업일이 지나면 접수 자료만으로 판단할 수 있어요(계약서 제11조)."}
                   </div>
                   <textarea value={notes[b.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [b.id]: e.target.value }))} rows={2} placeholder="판단 이유(손님·사장님에게 보여요)" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />
+                  {isOwnerViolation(b.issue_kind) && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button disabled={busy} onClick={() => act({ id: b.id, action: "resolve", decision: "violation_upheld", note: notes[b.id] }, "위반으로 판단했어요.", "위반으로 판단할까요? 판단 이유에 남은 숙박일 정산이나 배상 내용을 적어 주세요. 금액 처리는 직접 진행합니다.")} style={btn("primary", busy)}>위반 인정</button>
+                      <button disabled={busy} onClick={() => act({ id: b.id, action: "resolve", decision: "violation_dismissed", note: notes[b.id] }, "위반이 아닌 것으로 판단했어요.", "위반이 아닌 것으로 판단할까요? 멈춘 정산이 다시 진행됩니다.")} style={btn("plain", busy)}>위반 아님</button>
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button disabled={busy} onClick={() => act({ id: b.id, action: "resolve", decision: "stay_ok", note: notes[b.id] }, "정상 이용으로 확정했어요.", "정상 이용으로 보고 이용 확정·정산을 진행할까요?")} style={btn("plain", busy)}>정상 이용 → 이용 확정</button>
                     <button disabled={busy} onClick={() => act({ id: b.id, action: "resolve", decision: "owner_refused", note: notes[b.id] }, "숙소 사정으로 처리했어요.", "숙소 사정으로 보고 손님에게 전액 환불 + 배상할까요?")} style={btn("danger", busy)}>숙소 사정 → 전액 환불 + 배상</button>

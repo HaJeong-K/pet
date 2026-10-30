@@ -18,7 +18,7 @@ export const PROFILE_EXTRA_COLUMNS = "peak_periods, instant_confirm";
 /** 그 외 동반 동물 칸(scripts/sql/lodging-reviews.sql) */
 export const PROFILE_OTHERS_COLUMN = "pet_others";
 /** 크기·종류별 반려동물 추가 요금·부가 옵션 칸(scripts/sql/lodging-fees-extras.sql) */
-export const PROFILE_FEES_COLUMNS = "pet_fees, extras, pet_free_count";
+export const PROFILE_FEES_COLUMNS = "pet_fees, extras, pet_free_count, pet_requirements";
 export const ROOM_BASE_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
 /** 요일별 요금 칸(scripts/sql/lodging-fees-extras.sql)까지 */
 export const ROOM_COLUMNS = `${ROOM_BASE_COLUMNS}, weekday_prices`;

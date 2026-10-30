@@ -507,6 +507,8 @@ export default function KakaoMap() {
 
   // ── AI 맞춤 추천 경로(산책 코스) ──
   const [showRoutePanel, setShowRoutePanel] = useState(false);
+  // 위치 권한이 없고 검색도 안 했으면, 산책 코스·취향 추천 창을 연 순간의 지도 중심을 기준으로 씁니다(지도를 옮겨도 코스가 흔들리지 않게 고정).
+  const [routeFallbackCenter, setRouteFallbackCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [routeTheme, setRouteTheme] = useState<RouteTheme>("walk");
   const routePolylineRef = useRef<any>(null);
   const routeMarkerOverlaysRef = useRef<any[]>([]);
@@ -1713,8 +1715,8 @@ export default function KakaoMap() {
     }
     if (userLocation) add(tilesForRadius(userLocation, DATA_HOME_KM));
     // 코스는 내 위치 우선, 추천은 검색한 곳 우선(각 계산의 기준점과 같게)
-    if (showRoutePanel && (userLocation || searchCenter)) wide = userLocation || searchCenter;
-    else if (showRecommendPanel && (searchCenter || userLocation)) wide = searchCenter || userLocation;
+    if (showRoutePanel && (userLocation || searchCenter || routeFallbackCenter)) wide = userLocation || searchCenter || routeFallbackCenter;
+    else if (showRecommendPanel && (searchCenter || userLocation || routeFallbackCenter)) wide = searchCenter || userLocation || routeFallbackCenter;
 
     const focus = searchCenter || userLocation || viewCenter;
     if (!wide && !summaryView && !zoneCenter && inViewEmpty && focus) add(tilesForRadius(focus, DATA_FALLBACK_KM));
@@ -1722,7 +1724,7 @@ export default function KakaoMap() {
     const list = [...tiles.values()];
     const wideKey = wide ? tileQuery(wide.lat, wide.lng) : "";
     return { tiles: list, wide, wideKey, focus, key: `${[...tiles.keys()].sort().join(",")}|${wideKey}` };
-  }, [mapBounds, userLocation, searchCenter, showRoutePanel, showRecommendPanel, inViewEmpty, summaryView, zoneCenter]);
+  }, [mapBounds, userLocation, searchCenter, routeFallbackCenter, showRoutePanel, showRecommendPanel, inViewEmpty, summaryView, zoneCenter]);
 
   // 넓은 범위(반경 30km) 데이터 — 필요할 때만 들고 있습니다.
   const wideDataRef = useRef<{ center: { lat: number; lng: number }; places: any[]; parks: ParkPlace[] } | null>(null);
@@ -1985,7 +1987,7 @@ export default function KakaoMap() {
     // 때마다 주변 1만여 곳의 점수(공원까지의 거리 포함)를 계산해서 화면이 떠 있는 채로 한동안 멈칫했습니다.
     // 패널을 열 때만 계산합니다.
     if (!showRecommendPanel || wideLoading) return { list: [], ad: null };
-    const center = searchCenter || userLocation;
+    const center = searchCenter || userLocation || routeFallbackCenter;
 
     // ⚠ 성능 안전장치: center(내 위치/검색 중심)가 아직 전혀 없는 상태(위치 권한 대기 중인
     // 첫 방문 등)에서는 "내 주변 추천"이라는 개념 자체가 의미가 없을뿐더러, 이 아래 로직이
@@ -2126,7 +2128,7 @@ export default function KakaoMap() {
     return { list, ad: adCandidate ? { place: adCandidate.place, score: adCandidate.score } : null };
   }, [
     filteredPlaces, userLocation, searchCenter, selectedPetZone, parks, popularityMap,
-    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf, showRecommendPanel, wideLoading,
+    activeRecVariant, placeSignals, preferenceProfile, impressionCounts, affinityOf, showRecommendPanel, wideLoading, routeFallbackCenter,
   ]);
   const recommendedPlaces = recommendation.list;
   const recommendedAd = recommendation.ad;
@@ -2183,7 +2185,7 @@ export default function KakaoMap() {
     if (!showRoutePanel || wideLoading) return { route: null, exhausted: false };
     // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
     // 우선순위). searchCenter는 위치 권한이 없을 때만 대체로 씁니다.
-    const center = userLocation || searchCenter;
+    const center = userLocation || searchCenter || routeFallbackCenter;
     if (!center) return { route: null, exhausted: false };
 
     // ⚠ 공원(parks)은 places와 별개 테이블/state라 id 체계가 다릅니다(둘 다 숫자 id라
@@ -2277,7 +2279,7 @@ export default function KakaoMap() {
       exhausted: true,
     };
   }, [
-    showRoutePanel, wideLoading, places, parks, userLocation, searchCenter, routeTheme, popularityMap, routeExcludedIds,
+    showRoutePanel, wideLoading, places, parks, userLocation, searchCenter, routeFallbackCenter, routeTheme, popularityMap, routeExcludedIds,
     preferenceProfile, placeSignals, affinityOf, routeIncludeVet, routeIncludePharmacy, recentViewCounts, appliedPinnedIds,
   ]);
   const currentRoute = routeBuild.route;
@@ -3061,6 +3063,11 @@ const courseMeta = (route: RouteResult) => ({
 
   // 창 크기가 바뀌거나(패널 배치가 달라짐) 목록 패널이 열리고 닫히면 코스를 다시 맞춥니다.
   useEffect(() => {
+    if (!showRoutePanel && !showRecommendPanel) { setRouteFallbackCenter(null); return; }
+    const center = mapRef.current?.getCenter?.();
+    if (center) setRouteFallbackCenter({ lat: center.getLat(), lng: center.getLng() });
+  }, [showRoutePanel, showRecommendPanel]);
+  useEffect(() => {
     if (!showRoutePanel) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const onResize = () => {
@@ -3134,9 +3141,9 @@ const courseMeta = (route: RouteResult) => ({
       const lng = parseFloat(String(stop.place.lng));
       if (isNaN(lat) || isNaN(lng)) return;
       // 방문 순서 번호 — 가게 정보는 위쪽의 원래 가게 마커(이름표)가 보여주므로, 번호는 그 바로
-      // 아래(장소 좌표 기준 아래쪽)에 붙여 겹치지 않게 합니다. 고정(핀)한 정거장은 📌를 붙입니다.
+      // 아래(장소 좌표 기준 아래쪽)에 붙여 겹치지 않게 합니다. 고정(핀)한 정거장은 핀 표시를 붙입니다.
       const pinned = pinnedStopIds.has(stop.place.id);
-      const pinMark = pinned ? '<span style="position:absolute; top:-8px; right:-9px; font-size:11px;">📌</span>' : "";
+      const pinMark = pinned ? '<span style="position:absolute; top:-8px; right:-9px; width:16px; height:16px; border-radius:50%; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3F5230" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>' : "";
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lat, lng),
         content: `
@@ -4633,7 +4640,7 @@ const courseMeta = (route: RouteResult) => ({
               <div>
                 <div
                   className="ggk-logo"
-                  style={{ fontSize: "15px", fontWeight: 800, color: "#3b0764", letterSpacing: "-0.2px" }}
+                  style={{ fontSize: "15px", fontWeight: 800, color: "#2F3B28", letterSpacing: "-0.2px" }}
                 >
                   추천 장소
                 </div>
@@ -4643,11 +4650,239 @@ const courseMeta = (route: RouteResult) => ({
                     : "위치·선호·편의시설 기반 AI 추천순"}
                 </div>
               </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(92,122,74,0.18)",
+                  color: "#3F5230",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                HOT
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              padding: "10px 10px",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#ddd transparent",
+            }}
+          >
+            {recommendedPlaces.length === 0 && !recommendedAd && (
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#707070", fontSize: "11px" }}>
+                {wideLoading ? <LogoLoader label="주변 장소를 모으는 중…" /> : "추천할 장소가 없습니다"}
+              </div>
+            )}
+            {/* 광고 슬롯 — 프리미엄 업장은 추천 순위에 섞지 않고 여기 한 칸에만, "광고"로
+                명확히 구분해 보여줍니다(추천 목록의 신뢰도 유지). */}
+            {recommendedAd && (
+              <div
+                onClick={() => handleRecommendClick(recommendedAd.place, 0, recommendedAd.score, "ad")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "11px",
+                  padding: "10px 11px",
+                  borderRadius: "14px",
+                  marginBottom: "8px",
+                  cursor: "pointer",
+                  border: "1px solid rgba(212,162,76,0.35)",
+                  background: "#fffaf0",
+                }}
+              >
+                <div
+                  style={{
+                    width: "28px", height: "28px", borderRadius: "9px", flexShrink: 0,
+                    background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <Crown size={13} color="#5C4106" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    className="ggk-logo"
+                    style={{ fontWeight: 700, fontSize: "13px", color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {recommendedAd.place.name}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#8a6d2b", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <span
+                      style={{
+                        fontSize: "9px", fontWeight: 800, padding: "1px 5px", borderRadius: 4,
+                        border: "1px solid #D4A24C", color: "#8a6d2b", lineHeight: "12px",
+                      }}
+                    >
+                      광고
+                    </span>
+                    <span>{getPlaceLabel(recommendedAd.place)}</span>
+                  </div>
+                </div>
+                <div style={{ color: "#d9c28f", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
+              </div>
+            )}
+            {recommendedPlaces.map(({ place, score, reason, distanceKm }, idx) => (
+              <div
+                key={place.id}
+                onClick={() => handleRecommendClick(place, idx + 1, score, "organic")}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "11px",
+                  padding: "10px 11px",
+                  borderRadius: "14px",
+                  marginBottom: "6px",
+                  cursor: "pointer",
+                  border: "1px solid rgba(0,0,0,0.05)",
+                  background: "#FBFAF5",
+                  transition: "background 0.15s ease, box-shadow 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "#EEF3E8";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 10px rgba(92,122,74,0.10)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "#FBFAF5";
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+                }}
+              >
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "9px",
+                    background: "rgba(92,122,74,0.18)",
+                    color: "#3F5230",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    fontSize: "11px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {idx + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    className="ggk-logo"
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "13px",
+                      color: "#111",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      letterSpacing: "-0.1px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{place.name}</span>
+                    {isPlacePremiumNow(place) && (
+                      <span title="프리미엄 등록 업장" style={{
+                        display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
+                        background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
+                      }}>
+                        <Crown size={8} color="#5C4106" />
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#555", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <PlaceIcon place={place} size={11} />
+                    <span>{getPlaceLabel(place)}</span>
+                    <span style={{ color: "#A9C48A" }}>·</span>
+                    {activeRecVariant === "v2" ? (
+                      // v2는 다양성 재정렬 때문에 점수가 순서와 꼭 일치하지 않아서, 숫자 대신
+                      // 거리와 "왜 추천됐는지"를 보여줍니다(점수는 마우스를 올리면 확인).
+                      <span title={`추천점수 ${score}`} style={{ color: "#5C7A4A", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {distanceKm != null && (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`)}
+                        {distanceKm != null && reason && " · "}
+                        {reason}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#5C7A4A", fontWeight: 700 }}>추천점수 {score}</span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── AI 맞춤 추천 경로(산책 코스) 패널 ── */}
+      {showRoutePanel && (
+        <div
+          className="ggk-body"
+          style={{
+            position: "fixed",
+            top: panelTop,
+            // ⚠ 리스트 패널이 우측으로 도킹되면(listPanelSide) 이 패널들과 자리가
+            // 겹치므로, 항상 리스트 패널의 반대편(otherPanelsSide)에 붙습니다.
+            ...(otherPanelsSide === "left" ? { left: "14px" } : { right: "14px" }),
+            width: isNarrowScreen ? "clamp(240px, 82vw, 320px)" : "320px",
+            maxHeight: "76vh",
+            background: "#ffffff",
+            borderRadius: "22px",
+            overflow: "hidden",
+            zIndex: 30,
+            boxShadow: "0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            display: "flex",
+            flexDirection: "column",
+            ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
+}}
+        >
+        {isNarrowScreen && renderSheetHandle()}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #F4F7EF 0%, #E3ECD8 100%)",
+              // 정거장 목록이 보이는 자리를 넓히려고 위쪽 영역을 촘촘하게 둡니다.
+              padding: "12px 14px 10px",
+              flexShrink: 0,
+              borderBottom: "1px solid rgba(92,122,74,0.2)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div
+                  className="ggk-logo"
+                  style={{ fontSize: "15px", fontWeight: 800, color: "#2F3B28", letterSpacing: "-0.2px" }}
+                >
+                  산책 코스
+                </div>
+                <div style={{ fontSize: "10px", color: "#3F5230", marginTop: "3px", fontWeight: 500 }}>
+                  {`${routeOriginLabel} 기준 추천 코스`}
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  borderRadius: "999px",
+                  background: "rgba(92,122,74,0.18)",
+                  color: "#3F5230",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                베타
+              </div>
             </div>
 
             {displayRoute && (
               // 친화도·거리·시간을 박스 3개 대신 한 줄로(세로 공간 절약)
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px", fontSize: "11px", color: "#3b0764", fontWeight: 700 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px", fontSize: "11px", color: "#2F3B28", fontWeight: 700 }}>
                 {[
                   { icon: <PawPrint size={11} />, label: "친화도", value: `${displayRoute.avgFriendliness}점` },
                   { icon: <Navigation size={11} />, label: "총 거리", value: `${displayRoute.totalDistanceKm}km` },
@@ -4825,7 +5060,7 @@ const courseMeta = (route: RouteResult) => ({
             )}
             {displayRoute && pinnedStopIds.size > 0 && (
               <div style={{ marginTop: "6px", fontSize: "10px", color: "#48603A", textAlign: "center" }}>
-                📌 고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 유지돼요
+                고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 유지돼요
               </div>
             )}
             {displayRoute && routeAlternativesExhausted && (
@@ -4848,7 +5083,7 @@ const courseMeta = (route: RouteResult) => ({
               <div style={{ textAlign: "center", padding: "30px 10px", color: "#707070", fontSize: "11px" }}>
                 {wideLoading
                   ? <LogoLoader label="주변 장소를 모으는 중…" />
-                  : !(userLocation || searchCenter)
+                  : !(userLocation || searchCenter || routeFallbackCenter)
                   ? "위치 정보를 확인하는 중입니다"
                   : routeTheme === "attraction"
                     ? "근처 5km 안에 반려동물과 갈 수 있는 관광지가 없어 관광 코스를 만들 수 없어요"

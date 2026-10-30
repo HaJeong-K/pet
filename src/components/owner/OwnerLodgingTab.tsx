@@ -8,6 +8,7 @@
 // 동반 조건이 틀리면 손님이 현장에서 입실을 거부당하므로, 손님 화면에는 이 값을 그대로 크게 보여 줍니다.
 // 규칙(글자 수·다듬기)은 src/lib/lodgingRules.ts, 서버는 /api/owner/lodging(…/rooms, …/image).
 
+import { PET_AGE_MONTHS_MAX, PET_HEIGHT_CM_MAX, PET_REQUIREMENT_FLAGS, PET_REQUIREMENT_GROUPS, PET_VACCINES, VACCINE_YEARS_MAX, type PetRequirements, type PetVaccine } from "@/lib/petRequirements";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, BedDouble, ImagePlus, Pencil, Plus, Trash2, X } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
@@ -213,6 +214,11 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
   const hasDog = profile.pet_species.includes("dog");
   const summary = state.profile ? petPolicySummary(state.profile) : null;
   const canSaveRoom = room.name.trim() !== "" && room.base_price !== "" && busy === "";
+  const setReq = (change: Partial<PetRequirements>) => setP({ pet_requirements: { ...profile.pet_requirements, ...change } });
+  const setReqNumber = (key: "vaccine_years" | "min_age_months" | "max_height_cm", value: string, max: number) => {
+    const digits = value.replace(/\D/g, "");
+    setReq({ [key]: digits ? Math.min(Number(digits), max) : null });
+  };
   const area = (key: "pet_rules" | "stay_rules" | "refund_policy", title: string, placeholder: string) => (
     <div>
       <div style={label}>{title} <span style={optional}>(선택) {profile[key].length}/{LODGING_TEXT_MAX}</span></div>
@@ -337,6 +343,46 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               </div>
             )}
           </div>
+
+          <div style={section}>입실 조건 · 동반 규칙</div>
+          <div style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6, margin: "-6px 0 0" }}>
+            고른 항목은 숙소 화면에 표시되고, 손님이 예약할 때 하나씩 확인합니다.<br />현장 입실 거부와 분쟁을 줄일 수 있습니다.
+          </div>
+          <div>
+            <div style={label}>필요한 접종 증명 <span style={optional}>(수첩·확인서 지참)</span></div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {PET_VACCINES.map((v) => {
+                const on = (profile.pet_requirements.vaccines ?? []).includes(v.id);
+                return <button key={v.id} disabled={disabled} onClick={() => setReq({ vaccines: toggle<PetVaccine>(profile.pet_requirements.vaccines ?? [], v.id) })} aria-pressed={on} style={chip(on)}>{v.label}</button>;
+              })}
+              {(profile.pet_requirements.vaccines ?? []).length > 0 && (
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#444" }}>
+                  <input value={profile.pet_requirements.vaccine_years ?? ""} onChange={(e) => setReqNumber("vaccine_years", e.target.value, VACCINE_YEARS_MAX)} disabled={disabled} inputMode="numeric" aria-label="접종 인정 기간(년)" style={{ ...input, width: 56, padding: "7px 9px" }} />년 안의 접종
+                </label>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            <div>
+              <div style={label}>입실 가능 나이 <span style={optional}>(개월 이상)</span></div>
+              <input value={profile.pet_requirements.min_age_months ?? ""} onChange={(e) => setReqNumber("min_age_months", e.target.value, PET_AGE_MONTHS_MAX)} disabled={disabled} inputMode="numeric" placeholder="예: 5" style={input} />
+            </div>
+            <div>
+              <div style={label}>최대 체고 <span style={optional}>(cm)</span></div>
+              <input value={profile.pet_requirements.max_height_cm ?? ""} onChange={(e) => setReqNumber("max_height_cm", e.target.value, PET_HEIGHT_CM_MAX)} disabled={disabled} inputMode="numeric" placeholder="예: 40" style={input} />
+            </div>
+          </div>
+          {PET_REQUIREMENT_GROUPS.map((g) => (
+            <div key={g.id}>
+              <div style={label}>{g.title}</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {PET_REQUIREMENT_FLAGS.filter((f) => f.group === g.id).map((f) => {
+                  const on = profile.pet_requirements[f.id] === true;
+                  return <button key={f.id} disabled={disabled} onClick={() => setReq({ [f.id]: !on })} aria-pressed={on} style={chip(on)}>{f.owner}</button>;
+                })}
+              </div>
+            </div>
+          ))}
 
           <div style={section}>반려동물 편의시설</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

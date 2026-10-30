@@ -75,6 +75,10 @@ export type StayTiming = {
   bookedOn: string;
   /** 취소하는 날(한국 날짜) */
   cancelOn: string;
+  /** 계약 시각 — 있으면 "계약 후 24시간 이내"로 판단합니다 */
+  bookedAt?: string | null;
+  /** 취소 시각(밀리초). 기본값은 지금 — 테스트에서 고정할 때 씁니다 */
+  cancelAt?: number;
   peakPeriods?: PeakPeriod[] | null;
 };
 
@@ -84,9 +88,14 @@ function pick(table: Bracket[], t: StayTiming): number | null {
   return isWeekendStay(t.checkIn) ? row.weekend : row.weekday;
 }
 
-/** 손님 사정 취소의 공제율(%). 예약한 날 안에 취소하면 0 */
+/** 위약금 없이 취소할 수 있는 시간(소비자분쟁해결기준 2024.12.27 개정) */
+export const FREE_CANCEL_MS = 24 * 3_600_000;
+
+/** 손님 사정 취소의 공제율(%). 계약 후 24시간 안, 이용일 0시 전까지는 0 */
 export function guestPenaltyRate(t: StayTiming): number {
-  if (t.cancelOn === t.bookedOn) return 0;
+  if (t.cancelOn < t.checkIn) {
+    if (t.bookedAt ? (t.cancelAt ?? Date.now()) - new Date(t.bookedAt).getTime() <= FREE_CANCEL_MS : t.cancelOn === t.bookedOn) return 0;
+  }
   return pick(isPeakDay(t.checkIn, t.peakPeriods) ? PEAK_PENALTY : OFF_PENALTY, t) ?? 0;
 }
 /** 숙소 사정 취소의 배상률(%). null이면 기준에 비율이 없어 관리자가 정해야 함 */
@@ -135,6 +144,22 @@ export function refundSchedule(total: number, checkIn: string, bookedOn: string,
     } else rows[rows.length - 1].until = cancelOn;
   }
   return rows;
+}
+
+// ── 손님의 규정 위반 접수(숙소 → 같이가개) ──
+
+export const OWNER_VIOLATION_KINDS: Record<string, string> = {
+  violation_entry: "입실 조건에 맞지 않아요",
+  violation_stay: "이용 중 규칙을 어겼어요",
+  violation_damage: "시설 파손·오염이 있어요",
+};
+export const VIOLATION_CLAIM_DAYS = 14;
+export const isOwnerViolation = (kind: string | null | undefined) => !!kind && kind in OWNER_VIOLATION_KINDS;
+/** 체크인 날부터 체크아웃 후 14일까지, 확인 중인 문제가 없을 때만 */
+export function canReportViolation(b: { status: string; check_in: string; check_out: string; issue_status?: string | null }, today: string): boolean {
+  if (b.status !== "confirmed" && b.status !== "completed") return false;
+  if ((b.issue_status ?? "none") !== "none") return false;
+  return today >= b.check_in && daysBetween(b.check_out, today) <= VIOLATION_CLAIM_DAYS;
 }
 
 // ── 수수료·정산(별표 3) ──

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import { canReportViolation,
   addMonths, autoConfirmOn, cancelOutcome, guestPenaltyRate, isPeakDay, isWeekendStay, nextBusinessDayAfter, ownerCompensationRate,
   refundSchedule, settle, stayFeeRate,
 } from "./lodgingPolicy";
@@ -57,6 +57,25 @@ describe("숙소 사정 배상률(별표 2)", () => {
 });
 
 describe("취소 결과", () => {
+  it("계약 후 24시간 안, 이용일 0시 전까지는 위약금이 없다", () => {
+    const at = (iso: string) => new Date(iso).getTime();
+    const base = { checkIn: "2027-07-20", bookedOn: "2027-07-10", cancelOn: "2027-07-11", bookedAt: "2027-07-10T01:00:00Z" };
+    expect(guestPenaltyRate({ ...base, cancelAt: at("2027-07-11T00:59:00Z") })).toBe(0);
+    expect(guestPenaltyRate({ ...base, cancelAt: at("2027-07-11T01:01:00Z") })).toBeGreaterThan(0);
+    // 12/30 오전 10시에 12/31 숙박 예약 → 12/31 0시부터는 위약금 적용
+    const near = { checkIn: "2026-12-31", bookedOn: "2026-12-30", bookedAt: "2026-12-30T01:00:00Z" };
+    expect(guestPenaltyRate({ ...near, cancelOn: "2026-12-30", cancelAt: at("2026-12-30T14:00:00Z") })).toBe(0);
+    expect(guestPenaltyRate({ ...near, cancelOn: "2026-12-31", cancelAt: at("2026-12-30T16:00:00Z") })).toBeGreaterThan(0);
+  });
+  it("규정 위반은 체크인 날부터 체크아웃 후 14일까지 접수한다", () => {
+    const b = { status: "confirmed", check_in: "2026-11-01", check_out: "2026-11-03", issue_status: "none" };
+    expect(canReportViolation(b, "2026-10-31")).toBe(false);
+    expect(canReportViolation(b, "2026-11-01")).toBe(true);
+    expect(canReportViolation({ ...b, status: "completed" }, "2026-11-17")).toBe(true);
+    expect(canReportViolation({ ...b, status: "completed" }, "2026-11-18")).toBe(false);
+    expect(canReportViolation({ ...b, issue_status: "open" }, "2026-11-02")).toBe(false);
+    expect(canReportViolation({ ...b, status: "cancelled_by_guest" }, "2026-11-02")).toBe(false);
+  });
   it("손님 사정 → 환불 + 위약금", () => {
     expect(cancelOutcome(200000, "guest", t("2027-07-21", "2027-07-21"))).toMatchObject({ refund: 40000, penalty: 160000, compensation: 0 });
   });

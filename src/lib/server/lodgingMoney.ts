@@ -45,7 +45,7 @@ const bookedOnOf = (b: MoneyBooking) => b.booked_on ?? kstToday(new Date(b.creat
  */
 export async function applyCancel(b: MoneyBooking, cause: CancelCause, nextStatus: StayStatus, fromStatus: StayStatus, extra: Record<string, unknown> = {}) {
   const today = kstToday();
-  const out = cancelOutcome(b.total, cause, { checkIn: b.check_in, bookedOn: bookedOnOf(b), cancelOn: today, peakPeriods: await peakPeriodsOf(b.place_id) });
+  const out = cancelOutcome(b.total, cause, { checkIn: b.check_in, bookedOn: bookedOnOf(b), bookedAt: b.created_at, cancelOn: today, peakPeriods: await peakPeriodsOf(b.place_id) });
   const paid = b.payment_status === "paid";
   let money: Record<string, unknown> = { fee_rate: 0, fee_amount: 0, payout_amount: 0, payout_due_on: null, payout_status: "none" };
   if (out.penalty > 0) {

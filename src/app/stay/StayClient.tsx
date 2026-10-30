@@ -143,7 +143,7 @@ export default function StayClient() {
             <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 애월, 가평" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
             {query && <button onClick={() => { setQuery(""); setLimit(PAGE); }} aria-label="검색어 지우기" style={{ border: "none", background: "#eef0f3", borderRadius: 999, width: 22, height: 22, cursor: "pointer", color: "#666", fontSize: 13, lineHeight: "22px", padding: 0 }}>×</button>}
           </div>
-          <div data-guide="stay-regions" style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, marginTop: 10 }}>
+          <div data-guide="stay-regions" style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "thin", scrollbarColor: "#B7C4D6 transparent", paddingBottom: 7, marginTop: 10 }}>
             {REGION_LABELS.map((label) => (
               <button key={label} onClick={() => { setRegion(label); setSubRegion(null); setLimit(PAGE); }} aria-pressed={region === label} style={chip(region === label)}>
                 {label === NEARBY && <MapPin size={12} />}{label}
@@ -151,7 +151,7 @@ export default function StayClient() {
             ))}
           </div>
           {subRegions.length > 1 && (
-            <div style={{ display: "flex", gap: 5, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
+            <div style={{ display: "flex", gap: 5, overflowX: "auto", scrollbarWidth: "thin", scrollbarColor: "#B7C4D6 transparent", marginTop: 8, paddingBottom: 7 }}>
               {[{ key: null as string | null, label: region === ALL_REGIONS ? "전국" : `${region} 전체`, count: subRegions.reduce((n, x) => n + x.count, 0) }, ...subRegions].map((x) => {
                 const on = subRegion === x.key;
                 return (
@@ -163,7 +163,7 @@ export default function StayClient() {
               })}
             </div>
           )}
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "thin", scrollbarColor: "#B7C4D6 transparent", marginTop: 8, paddingBottom: 7 }}>
             {FILTERS.map((f) => (
               <button key={f.id} onClick={() => toggle(f.id)} aria-pressed={filters.includes(f.id)} style={{ ...chip(false), border: `1px solid ${filters.includes(f.id) ? "#B45309" : "#e3e6ec"}`, background: filters.includes(f.id) ? "#FEF3C7" : "white", color: filters.includes(f.id) ? "#92400E" : "#555" }}>
                 {f.id === "bookable" && <CalendarCheck size={12} />}{f.label}

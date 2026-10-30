@@ -10,14 +10,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, BedDouble, ChevronDown, ChevronLeft, ChevronUp, Clock, Copy, Crown, MapPin, Navigation, PawPrint, Phone, Share2, Star, Users } from "lucide-react";
+import { AlertTriangle, BedDouble, Check, ChevronDown, ChevronLeft, ChevronUp, ClipboardCheck, Clock, Copy, Crown, MapPin, Navigation, PawPrint, Phone, Share2, Star, Users } from "lucide-react";
 import StayFrame from "@/components/lodging/StayFrame";
 import StayNotices from "@/components/lodging/StayNotices";
 import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import { supabase } from "@/lib/supabase";
 import { EXTRA_UNITS, petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
 import { stayDayLabel } from "@/lib/lodgingBooking";
-import { DANGEROUS_DOG_NOTICE } from "@/lib/lodgingConsents";
+import { DANGEROUS_DOG_NOTICE, RULE_SANCTIONS } from "@/lib/lodgingConsents";
+import { PET_REQUIREMENT_GROUPS, petRequirementItems } from "@/lib/petRequirements";
 import { REVIEW_ASPECTS, REVIEW_TEXT_MAX, REVIEW_TEXT_MIN, type ReviewAspect, type ReviewSummary, type StayReview } from "@/lib/lodgingReviews";
 import type { GuestRoom } from "@/components/lodging/LodgingBookingSheet";
 
@@ -196,6 +197,28 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                   </div>
                 )}
               </div>
+              {petRequirementItems(profile.pet_requirements).length > 0 && (
+                <div data-guide="stay-requirements" style={{ padding: "12px 13px", borderRadius: 12, background: "#F7F9FC", border: "1px solid #E3EAF3" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 800, color: "#1D4F91" }}><ClipboardCheck size={15} />같이가개 입실 체크리스트</div>
+                  <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 2 }}>숙소가 정한 조건을 같은 기준으로 정리했어요. 예약할 때 다시 확인해요.</div>
+                  {PET_REQUIREMENT_GROUPS.map((g) => {
+                    const items = petRequirementItems(profile.pet_requirements).filter((i) => i.group === g.id);
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={g.id} style={{ marginTop: 9 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#333" }}>{g.title}</div>
+                        {items.map((i) => <div key={i.id} style={{ display: "flex", gap: 5, marginTop: 3, fontSize: 12.5, color: "#444", lineHeight: 1.55 }}><Check size={13} color="#1D4F91" style={{ flexShrink: 0, marginTop: 3 }} />{i.text}</div>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <details style={{ borderRadius: 12, border: "1px solid #F3D9D2", background: "#FFF8F6", padding: "0 12px" }}>
+                <summary style={{ cursor: "pointer", padding: "11px 0", fontSize: 13, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면 어떻게 되나요?</summary>
+                <div style={{ display: "grid", gap: 6, paddingBottom: 11 }}>
+                  {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 12.5, color: "#5A4A44", lineHeight: 1.6 }}><b>{x.title}</b> · {x.text}</div>)}
+                </div>
+              </details>
               {profile.pet_amenities.length > 0 && <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>{profile.pet_amenities.map((a) => <span key={a} style={tag}>{a}</span>)}</div>}
               {(profile.check_in || profile.check_out) && <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "#555" }}><Clock size={13} />체크인 {profile.check_in ?? "-"} · 체크아웃 {profile.check_out ?? "-"}</div>}
               <div style={{ borderRadius: 12, border: "1px solid #eee" }}>

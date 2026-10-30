@@ -8,6 +8,7 @@
 // 틀리면 현장에서 입실을 거부당하므로, 손님 화면(이후 단계)에서는 이 값을 그대로 크게 보여 줍니다.
 
 import type { PeakPeriod } from "@/lib/lodgingPolicy";
+import { cleanPetRequirements, type PetRequirements } from "@/lib/petRequirements";
 
 // ── 동반 조건 ──
 
@@ -89,6 +90,8 @@ export type LodgingProfile = {
   /** 요금 관련 안내 문구 — ⚠ 결제에는 들어가지 않습니다. 실제 요금은 위 칸으로만 받습니다 */
   pet_fee_note: string | null;
   pet_amenities: string[];
+  /** 입실 조건·동반 규칙(접종·동물등록·나이·체고·혼자 두기 등) — 손님이 예약할 때 항목마다 확인합니다 */
+  pet_requirements: PetRequirements;
   /** 반려동물 동반 수칙(예: 침대·소파 위 금지, 객실 내 배변 시 청소비) */
   pet_rules: string | null;
   /** 숙소 이용 수칙(소음·바비큐·흡연 등) */
@@ -118,7 +121,7 @@ export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
   check_in: null, check_out: null, pet_species: ["dog"], pet_others: null, pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
-  pet_fee: null, pet_fees: {}, pet_free_count: null, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
+  pet_fee: null, pet_fees: {}, pet_free_count: null, pet_fee_note: null, pet_amenities: [], pet_requirements: {}, pet_rules: null, stay_rules: null, refund_policy: null,
   peak_periods: [], instant_confirm: false, extras: [],
 };
 
@@ -207,6 +210,8 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   }
   const extras = cleanExtras(r.extras);
   if ("error" in extras) return extras;
+  const petRequirements = cleanPetRequirements(r.pet_requirements);
+  if ("error" in petRequirements) return petRequirements;
   const peak = cleanPeakPeriods(r.peak_periods);
   if (peak === "bad") return { error: `성수기 기간을 다시 확인해 주세요(예: 07-15 ~ 08-24, 최대 ${PEAK_PERIODS_MAX}구간).` };
   return {
@@ -219,6 +224,7 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
       max_pet_weight_kg: weight, max_pets: maxPets, pet_fee: fee,
       pet_fee_note: text(r.pet_fee_note, LODGING_SHORT_MAX),
       pet_amenities: Array.isArray(r.pet_amenities) ? PET_AMENITIES.filter((a) => (r.pet_amenities as unknown[]).includes(a)) : [],
+      pet_requirements: petRequirements.requirements,
       pet_rules: text(r.pet_rules, LODGING_TEXT_MAX),
       stay_rules: text(r.stay_rules, LODGING_TEXT_MAX),
       refund_policy: text(r.refund_policy, LODGING_TEXT_MAX),

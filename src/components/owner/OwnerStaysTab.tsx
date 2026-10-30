@@ -8,6 +8,7 @@
 // 결제는 숙소에서 직접 받습니다(온라인 결제는 PG 계약 후). 규칙은 src/lib/lodgingBooking.ts,
 // 서버는 /api/owner/lodging/bookings · /api/owner/lodging/calendar.
 
+import { canReportViolation, isOwnerViolation, OWNER_VIOLATION_KINDS } from "@/lib/lodgingPolicy";
 import { ARRIVAL_METHODS } from "@/lib/lodgingConsents";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Phone, PawPrint } from "lucide-react";
@@ -31,7 +32,7 @@ type Booking = {
   issue_status?: string; issue_kind?: string | null; issue_detail?: string | null; issue_owner_reply?: string | null; issue_resolution?: string | null;
   fee_rate?: number | null; fee_amount?: number | null; payout_amount?: number | null; payout_due_on?: string | null; payout_status?: string; paid_out_at?: string | null;
 };
-const ISSUE_LABEL: Record<string, string> = { refused: "반려동물과 함께 입실을 거부당했어요", different_room: "예약한 객실·시설과 달라요", pet_condition: "반려동물 동반 조건이 안내와 달라요", facility: "시설·위생 문제", other: "기타" };
+const ISSUE_LABEL: Record<string, string> = { ...OWNER_VIOLATION_KINDS, refused: "반려동물과 함께 입실을 거부당했어요", different_room: "예약한 객실·시설과 달라요", pet_condition: "반려동물 동반 조건이 안내와 달라요", facility: "시설·위생 문제", other: "기타" };
 const PAYOUT_LABEL: Record<string, string> = { scheduled: "정산 예정", held: "정산 보류(문제 확인 중)", paid: "정산 완료" };
 type Room = { id: number; name: string; base_price: number; weekend_price: number | null; is_active: boolean };
 type CalBooking = { id: number; guest_name: string; check_in: string; check_out: string; status: StayStatus };
@@ -62,6 +63,8 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
   const [settlementReady, setSettlementReady] = useState(true);
   const [replyFor, setReplyFor] = useState<number | null>(null);
   const [reply, setReply] = useState("");
+  const [violationFor, setViolationFor] = useState<number | null>(null);
+  const [violation, setViolation] = useState({ kind: "", detail: "" });
 
   const call = useCallback(async (path: string, init: RequestInit = {}, extra = "") => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -101,6 +104,14 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
     setBusy(true);
     try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, status, ownerNote }) }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "바꾸지 못했어요."); }
+    finally { setBusy(false); }
+  };
+
+  const sendViolation = async (b: Booking) => {
+    if (busy) return;
+    setBusy(true);
+    try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, violation }) }); setViolationFor(null); setViolation({ kind: "", detail: "" }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "접수하지 못했어요."); }
     finally { setBusy(false); }
   };
 
@@ -211,13 +222,31 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                 {b.status === "confirmed" && settlementReady && today >= b.check_out && b.issue_status !== "open" && (
                   <div style={{ marginTop: 6, fontSize: 12, color: "#5c5c5c" }}>손님의 이용 확정을 기다리는 중 — {dayLabel(autoConfirmOn(b.check_out))}에 자동 확정돼요.</div>
                 )}
+                {canAct && settlementReady && canReportViolation(b, today) && (violationFor === b.id ? (
+                  <div style={{ marginTop: 8, padding: 11, borderRadius: 10, background: "#FFF8F6", border: "1px solid #F3D9D2", display: "grid", gap: 7 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 800, color: "#9A3B27" }}>규정 위반 접수</div>
+                    <div style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}>같이가개가 양쪽 의견을 확인한 뒤 처리합니다. 등록하지 않은 조건으로는 접수할 수 없습니다.<br />입실 거부·퇴실 요청 전에 접수하고, 사진 등 증빙을 준비해 주십시오.</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                      {Object.entries(OWNER_VIOLATION_KINDS).map(([key, text]) => (
+                        <button key={key} onClick={() => setViolation((v) => ({ ...v, kind: key }))} aria-pressed={violation.kind === key} style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${violation.kind === key ? "#9A3B27" : "#e2dcc8"}`, background: violation.kind === key ? "#FBE9E4" : "white", color: violation.kind === key ? "#9A3B27" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{text}</button>
+                      ))}
+                    </div>
+                    <textarea value={violation.detail} onChange={(e) => setViolation((v) => ({ ...v, detail: e.target.value.slice(0, 600) }))} rows={3} placeholder="언제, 무슨 일이 있었는지 적어 주십시오(10자 이상)" aria-label="위반 내용" style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 13, fontFamily: "inherit", resize: "vertical" }} />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => sendViolation(b)} disabled={busy || !violation.kind || violation.detail.trim().length < 10} style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#9A3B27", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", opacity: busy || !violation.kind || violation.detail.trim().length < 10 ? 0.5 : 1 }}>같이가개에 접수</button>
+                      <button onClick={() => setViolationFor(null)} style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid #ddd", background: "white", color: "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>닫기</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setViolationFor(b.id); setViolation({ kind: "", detail: "" }); }} style={{ marginTop: 8, padding: "6px 10px", borderRadius: 9, border: "1px solid #F3D9D2", background: "white", color: "#9A3B27", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>손님 규정 위반 접수</button>
+                ))}
                 {b.issue_status && b.issue_status !== "none" && (
                   <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: b.issue_status === "open" ? "#FFF7ED" : "#f8fafc", border: `1px solid ${b.issue_status === "open" ? "#FED7AA" : "#eee"}`, fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
-                    <b style={{ color: b.issue_status === "open" ? "#B45309" : "#555" }}>{b.issue_status === "open" ? "손님이 문제를 접수했어요" : "문제 처리 완료"}</b> · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}
+                    <b style={{ color: b.issue_status === "open" ? "#B45309" : "#555" }}>{b.issue_status === "open" ? (isOwnerViolation(b.issue_kind) ? "규정 위반을 접수했어요" : "손님이 문제를 접수했어요") : "문제 처리 완료"}</b> · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}
                     {b.issue_detail && <div style={{ marginTop: 3, whiteSpace: "pre-line" }}>{b.issue_detail}</div>}
                     {b.issue_owner_reply && <div style={{ marginTop: 5, color: "#666" }}>내 의견: {b.issue_owner_reply}</div>}
                     {b.issue_resolution && <div style={{ marginTop: 5, color: "#666" }}>같이가개 판단: {b.issue_resolution}</div>}
-                    {b.issue_status === "open" && !b.issue_owner_reply && canAct && (replyFor === b.id ? (
+                    {b.issue_status === "open" && !b.issue_owner_reply && !isOwnerViolation(b.issue_kind) && canAct && (replyFor === b.id ? (
                       <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
                         <textarea value={reply} onChange={(e) => setReply(e.target.value.slice(0, 600))} rows={3} placeholder="그때 상황을 적어 주세요. 예: 예약 정보와 달리 25kg 대형견이 와서 동반 규정에 따라 입실이 어려웠어요." style={{ width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
                         <div style={{ display: "flex", gap: 6 }}>

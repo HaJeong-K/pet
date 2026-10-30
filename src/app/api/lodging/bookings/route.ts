@@ -1,4 +1,4 @@
-import { STAY_CONSENT_VERSION } from "@/lib/lodgingConsents";
+import { RULE_AGREEMENT_LABEL, RULE_SANCTIONS, STAY_CONSENT_VERSION } from "@/lib/lodgingConsents";
 import { canReviewStay } from "@/lib/lodgingReviews";
 import { ensureFreshIcal } from "@/lib/server/lodgingIcal";
 import { NextRequest, NextResponse, after } from "next/server";
@@ -14,6 +14,7 @@ import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petsAl
 import { cancelOutcome, refundSchedule, type PeakPeriod } from "@/lib/lodgingPolicy";
 import { won } from "@/lib/ownerPlans";
 import { paymentInfoOf, paymentsEnabled } from "@/lib/server/payments";
+import { missingPetAcks, petRequirementItems } from "@/lib/petRequirements";
 
 // 손님의 숙박 예약 — 로그인한 회원만(「같이가개 숙소 입점 계약서」 제8~15조).
 //   GET   → 내 숙박 예약 목록 + 숙소 이름 + 지금 취소하면 돌려받는 금액·날짜별 환불 안내
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
       payment: payments.get(Number(b.id)) ?? null,
       checkInTime: profile?.check_in ?? null, checkOutTime: profile?.check_out ?? null,
       // 지금 취소하면(확정 전이면 전액)
-      cancelNow: open && today <= b.check_in ? cancelOutcome(b.total, b.status === "requested" ? "not_confirmed" : "guest", { checkIn: b.check_in, bookedOn, cancelOn: today, peakPeriods: peak }) : null,
+      cancelNow: open && today <= b.check_in ? cancelOutcome(b.total, b.status === "requested" ? "not_confirmed" : "guest", { checkIn: b.check_in, bookedOn, bookedAt: b.created_at, cancelOn: today, peakPeriods: peak }) : null,
       schedule: open ? refundSchedule(b.total, b.check_in, bookedOn, peak).filter((r) => r.until >= today) : [],
       canConfirm: settlementReady && b.status === "confirmed" && today >= b.check_out && b.issue_status !== "open",
       canReportIssue: settlementReady && b.status === "confirmed" && today >= b.check_in && b.issue_status === "none",
@@ -110,6 +111,10 @@ export async function POST(req: NextRequest) {
 
   const petProblem = petsAllowed(profile, room, r.pets);
   if (petProblem) return fail(petProblem, 400);
+  // 숙소가 정한 입실 조건을 손님이 항목마다 확인했는지 — 확인 기록은 동의 기록과 함께 남깁니다
+  if (missingPetAcks(profile?.pet_requirements, body?.petAcks).length > 0) return fail("숙소의 입실 조건을 모두 확인해 주세요.", 400);
+  if (body?.ruleAgreed !== true) return fail("숙소 규정을 읽고 준수 동의에 체크해 주세요.", 400);
+  const petConditions = petRequirementItems(profile?.pet_requirements).map((i) => i.text);
   // 다른 예약 사이트에서 막 팔렸을 수 있으니 달력 연동을 항상 먼저 새로 받습니다
   await ensureFreshIcal(r.roomId, 0).catch(() => {});
   // 24시간이 지난 확인 대기·20분 안에 결제하지 않은 예약은 먼저 풀어 줍니다
@@ -143,7 +148,7 @@ export async function POST(req: NextRequest) {
   const guestInfo = {
     guest_email: r.email, stay_guest_name: r.stayGuestName, stay_guest_phone: r.stayGuestPhone,
     arrival_method: r.arrivalMethod, arrival_time: r.arrivalTime,
-    consents: { version: STAY_CONSENT_VERSION, at: new Date().toISOString(), items: r.consents },
+    consents: { version: STAY_CONSENT_VERSION, at: new Date().toISOString(), items: r.consents, petConditions, ruleAgreement: { label: RULE_AGREEMENT_LABEL, sanctions: RULE_SANCTIONS.map((x) => x.text), petRules: profile?.pet_rules ?? null, stayRules: profile?.stay_rules ?? null } },
   };
   let { data, error } = await db.from("lodging_bookings").insert([{ ...base, ...guestInfo, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single();
   // 그 칸들이 아직 없으면 빼고 접수합니다

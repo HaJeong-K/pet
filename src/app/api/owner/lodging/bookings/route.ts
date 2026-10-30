@@ -1,3 +1,5 @@
+import { canReportViolation, OWNER_VIOLATION_KINDS } from "@/lib/lodgingPolicy";
+import { notifyGuest } from "@/lib/server/guestNotify";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, GUEST_INFO_COLUMNS, confirmedOverlaps, lodgingOwnerContext } from "@/lib/server/lodgingStore";
@@ -54,6 +56,25 @@ export async function PATCH(req: NextRequest) {
   if (!Number.isInteger(id) || id <= 0) return fail("예약을 찾을 수 없어요.", 400);
   const ownerNote = typeof body?.ownerNote === "string" && body.ownerNote.trim() ? body.ownerNote.trim().slice(0, 200) : null;
   const now = new Date().toISOString();
+
+  // 손님의 규정 위반 접수 — 숙소가 혼자 처리하지 않고 같이가개가 양쪽을 확인합니다. 접수하면 정산이 멈춥니다.
+  if (body?.violation) {
+    const kind = typeof body.violation.kind === "string" && OWNER_VIOLATION_KINDS[body.violation.kind] ? body.violation.kind : null;
+    const detail = typeof body.violation.detail === "string" ? body.violation.detail.trim().slice(0, 600) : "";
+    if (!kind) return fail("어떤 위반인지 골라 주세요.", 400);
+    if (detail.length < 10) return fail("무슨 일이 있었는지 10자 이상 적어 주세요. 사진 등 증빙은 같이가개가 연락할 때 보내 주세요.", 400);
+    const { data: stay } = await db.from("lodging_bookings").select("status, check_in, check_out, guest_auth_user_id, room_name, guest_name, issue_status").eq("id", id).eq("place_id", ctx.placeId).maybeSingle();
+    if (!stay) return fail("예약을 찾을 수 없어요.", 404);
+    if (!canReportViolation(stay, kstToday())) return fail("체크인 날부터 체크아웃 후 14일까지, 확인 중인 문제가 없는 예약만 접수할 수 있어요.", 409);
+    const { data, error } = await db.from("lodging_bookings").update({
+      issue_status: "open", issue_kind: kind, issue_detail: detail, issue_owner_reply: "숙소가 직접 접수했어요.", issue_opened_at: now, payout_status: "held", updated_at: now,
+    }).eq("id", id).eq("place_id", ctx.placeId).eq("issue_status", "none").select(BOOKING_FULL_COLUMNS).maybeSingle();
+    if (error) return fail(error.message, 500);
+    if (!data) return fail("그 사이 예약 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
+    after(() => notifyAdmin({ title: "🚩 숙소의 규정 위반 접수", lines: [`예약 #${id} · ${stay.room_name} · ${stay.guest_name}님`, OWNER_VIOLATION_KINDS[kind], detail.slice(0, 80)], path: "/admin/stays" }));
+    if (stay.guest_auth_user_id) after(() => notifyGuest(stay.guest_auth_user_id, { kind: "stay_violation", title: "숙소가 규정 위반을 접수했어요", body: `${OWNER_VIOLATION_KINDS[kind]} — 같이가개가 확인한 뒤 알려 드려요. 이의가 있으면 내역에서 확인해 주세요.`, url: "/orders?tab=stay" }));
+    return NextResponse.json({ booking: data });
+  }
 
   // 문제 접수에 대한 의견
   if (typeof body?.issueReply === "string") {

@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { startPayment } from "@/lib/startPayment";
 import { won } from "@/lib/ownerPlans";
 import { petLabel, stayDayLabel, STAY_STATUS, type StayPet, type StayStatus } from "@/lib/lodgingBooking";
-import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
+import { autoConfirmOn, CANCEL_CAUSE_LABEL, isOwnerViolation, OWNER_VIOLATION_KINDS, type CancelCause } from "@/lib/lodgingPolicy";
 
 type Stay = {
   id: number; place_id: number; room_name: string; check_in: string; check_out: string; nights: number; guests: number; pets: StayPet[];
@@ -127,6 +127,12 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
           </div>
         )}
         {s.owner_note && <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>숙소: {s.owner_note}</div>}
+        {isOwnerViolation(s.issue_kind) && (
+          <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 10, background: "#FFF8F6", border: "1px solid #F3D9D2", fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}>
+            <b style={{ color: "#9A3B27" }}>숙소가 규정 위반을 접수했어요</b> · {OWNER_VIOLATION_KINDS[s.issue_kind ?? ""]}
+            {s.issue_status === "open" && <><br />같이가개가 양쪽 의견을 확인하고 있어요. 이의가 있으면 <a href={`mailto:infoker12@naver.com?subject=${encodeURIComponent(`[같이가개] 예약 #${s.id} 이의 제기`)}`} style={{ color: "#9A3B27", fontWeight: 700 }}>메일로 알려 주세요</a>.</>}
+          </div>
+        )}
         {s.issue_resolution && <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>처리 결과: {s.issue_resolution}</div>}
 
         {/* 진행 중인 예약 */}

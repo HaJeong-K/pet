@@ -2,7 +2,20 @@
 // 모두 필수이고, 손님이 동의한 판(STAY_CONSENT_VERSION)과 시각을 예약에 함께 남깁니다(lodging_bookings.consents).
 // 문구를 바꾸면 판을 올려 주세요.
 
-export const STAY_CONSENT_VERSION = "2026-10-28";
+export const STAY_CONSENT_VERSION = "2026-10-30";
+
+/** 소비자분쟁해결기준(2024.12.27 개정) — 계약 후 24시간 이내, 이용일 0시 전까지 위약금 없음 */
+export const FREE_CANCEL_NOTICE = "결제 후 24시간 안에 취소하면 전액 환불해요. 단, 이용일 0시 전까지만 가능해요.";
+
+// 규정 준수 동의 — 약관법 제3조에 따라 중요한 내용은 접지 않고 그대로 보여 주고, 다른 동의와 따로 받습니다.
+// 제6·8·9조(부당하게 불리한 조항, 과중한 배상, 원상회복 의무 경감)를 피하려고 "위반 시 전액 환불 불가"나 정액 벌금은 쓰지 않습니다.
+export const RULE_AGREEMENT_LABEL = "위 규정을 모두 읽었고, 지키는 데 동의합니다. 위반하면 아래 조치가 적용될 수 있다는 것도 확인했습니다.";
+export const RULE_SANCTIONS: { title: string; text: string }[] = [
+  { title: "입실 거부", text: "입실할 때 조건에 맞지 않으면 숙소가 입실을 거부할 수 있어요. 이때는 손님 사정 당일 취소로 보고, 소비자분쟁해결기준에 따라 공제한 뒤 환불해요." },
+  { title: "퇴실 요청", text: "이용 중 다른 손님의 안전을 위협하거나 시설을 훼손하는 등 위반이 중대하면, 숙소가 시정을 요청한 뒤 퇴실을 요청할 수 있어요. 남은 숙박일 요금은 실제 손해를 뺀 뒤 같이가개가 확인해 정산해요." },
+  { title: "파손·오염 배상", text: "실제 손해 범위에서만 배상해요. 숙소는 체크아웃 후 14일 안에 사진 등 증빙과 함께 접수해야 하고, 일반 청소와 자연스러운 마모는 포함되지 않아요." },
+  { title: "이의 제기", text: "조치에 이의가 있으면 같이가개에 알려 주세요. 양쪽 의견을 확인한 뒤 판단해요. 숙소가 등록하지 않은 조건으로는 입실을 거부할 수 없어요." },
+];
 
 export type StayConsentId = "rules" | "privacy" | "third_party" | "age14";
 export const STAY_CONSENTS: { id: StayConsentId; label: string; detail: string[] }[] = [
@@ -12,7 +25,7 @@ export const STAY_CONSENTS: { id: StayConsentId; label: string; detail: string[]
     detail: [
       "숙소의 반려동물 동반 조건·이용 수칙을 지킵니다.",
       "취소·환불은 공정거래위원회 소비자분쟁해결기준(숙박업)에 따릅니다.",
-      "반려동물 정보를 사실과 다르게 적어 입실이 거부되면 당일 취소로 처리됩니다.",
+      FREE_CANCEL_NOTICE,
     ],
   },
   {

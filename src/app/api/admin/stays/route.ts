@@ -72,6 +72,13 @@ export async function POST(req: NextRequest) {
         result = await applyCancel(b, "owner_pet_refused", "cancelled_by_owner", "confirmed", resolved);
       } else if (body.decision === "guest_mismatch") {
         result = await applyCancel(b, "guest_pet_mismatch", "cancelled_by_guest", "confirmed", resolved);
+      } else if (body.decision === "violation_upheld" || body.decision === "violation_dismissed") {
+        // 숙소의 위반 접수 판단. 남은 숙박일 정산·파손 배상 금액은 판단 이유에 적고 관리자가 처리합니다.
+        if (body.decision === "violation_upheld" && !note) return fail("판단 이유와 정산 내용을 적어 주세요.", 400);
+        const { data } = await db.from("lodging_bookings").update({ ...resolved, payout_status: b.status === "completed" && b.payment_status === "paid" ? "scheduled" : "none", updated_at: now }).eq("id", id).eq("issue_status", "open").select("id").maybeSingle();
+        result = data;
+        const { data: guest } = await db.from("lodging_bookings").select("guest_auth_user_id").eq("id", id).maybeSingle();
+        if (guest?.guest_auth_user_id) after(() => notifyGuest(guest.guest_auth_user_id, { kind: "stay_violation", title: body.decision === "violation_upheld" ? "규정 위반으로 판단했어요" : "규정 위반이 아니라고 판단했어요", body: note || "같이가개가 양쪽 의견을 확인했어요.", url: "/orders?tab=stay" }));
       } else return fail("판단을 골라 주세요.", 400);
       if (!result) return fail("그 사이 예약 상태가 바뀌었어요. 새로 고쳐 주세요.", 409);
       after(() => sendOwnerPush(b.place_id, { title: "문제 접수 처리 결과", body: `${b.guest_name}님 · ${b.room_name}\n${note || "관리자가 처리했어요."}`, tag: `ggk-stay-${id}`, url: "/owner#stays" }));
