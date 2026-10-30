@@ -55,8 +55,8 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: "#FEF3C7" }}><Megaphone size={14} color="#B45309" /></span>
           <h2 className="ggk-logo" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#222" }}>숙소 소식</h2>
-          <span style={{ fontSize: 12, color: "#aaa", fontWeight: 700 }}>{notices.length}</span>
-          <button onClick={() => show(null)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 2, border: "none", background: "transparent", color: "#888", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          <span style={{ fontSize: 12, color: "#6e6e6e", fontWeight: 700 }}>{notices.length}</span>
+          <button onClick={() => show(null)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 2, border: "none", background: "transparent", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             전체 보기<ChevronRight size={14} />
           </button>
         </div>
@@ -66,7 +66,7 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
               {n.pinned && <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 2, fontSize: 10.5, fontWeight: 800, color: "#B45309", background: "#FEF3C7", borderRadius: 5, padding: "1px 5px" }}><Pin size={9} />대표</span>}
               {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}
               <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
-              <span style={{ flexShrink: 0, fontSize: 11.5, color: "#aaa" }}>{noticeDate(n.created_at)}</span>
+              <span style={{ flexShrink: 0, fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
             </button>
           ))}
         </div>
@@ -80,7 +80,7 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px", background: "white", borderBottom: "1px solid #f0ebe0" }}>
               {open && <button onClick={() => setOpenId(null)} aria-label="목록으로" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={16} /></button>}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{placeName}</div>
+                <div style={{ fontSize: 12, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{placeName}</div>
                 <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{open ? "공지" : `숙소 소식 ${notices.length}`}</div>
               </div>
               <button onClick={() => { setViewer(false); setOpenId(null); }} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
@@ -94,7 +94,7 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
                     {isNewNotice(open.created_at) && <span style={NEW_BADGE}>N</span>}
                   </div>
                   <h3 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 800, color: "#222", lineHeight: 1.45 }}>{open.title}</h3>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                     {noticeDate(open.created_at)} 게시{open.updated_at.slice(0, 16) !== open.created_at.slice(0, 16) ? ` · ${noticeDate(open.updated_at)} 수정` : ""}
                   </div>
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f3efe3", fontSize: 14.5, color: "#333", lineHeight: 1.85, whiteSpace: "pre-line" }}>{open.content}</div>
@@ -104,9 +104,9 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
                     const prev = notices[i - 1], next = notices[i + 1];
                     return (
                       <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-                        <button disabled={!prev} onClick={() => prev && setOpenId(prev.id)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: prev ? "#555" : "#ccc", fontSize: 12.5, fontWeight: 700, cursor: prev ? "pointer" : "default", fontFamily: "inherit" }}>‹ 이전 공지</button>
+                        <button disabled={!prev} onClick={() => prev && setOpenId(prev.id)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: prev ? "#555" : "#707070", fontSize: 12.5, fontWeight: 700, cursor: prev ? "pointer" : "default", fontFamily: "inherit" }}>‹ 이전 공지</button>
                         <button onClick={() => setOpenId(null)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: BLUE, color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>목록</button>
-                        <button disabled={!next} onClick={() => next && setOpenId(next.id)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: next ? "#555" : "#ccc", fontSize: 12.5, fontWeight: 700, cursor: next ? "pointer" : "default", fontFamily: "inherit" }}>다음 공지 ›</button>
+                        <button disabled={!next} onClick={() => next && setOpenId(next.id)} style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: next ? "#555" : "#707070", fontSize: 12.5, fontWeight: 700, cursor: next ? "pointer" : "default", fontFamily: "inherit" }}>다음 공지 ›</button>
                       </div>
                     );
                   })()}
@@ -119,9 +119,9 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
                         {n.pinned && <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 2, fontSize: 10.5, fontWeight: 800, color: "#B45309" }}><Pin size={10} />대표</span>}
                         {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}
                         <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 800, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
-                        <span style={{ flexShrink: 0, fontSize: 11.5, color: "#aaa" }}>{noticeDate(n.created_at)}</span>
+                        <span style={{ flexShrink: 0, fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
                       </div>
-                      <div style={{ fontSize: 12.5, color: "#777", marginTop: 5, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-line" }}>{n.content}</div>
+                      <div style={{ fontSize: 12.5, color: "#555", marginTop: 5, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-line" }}>{n.content}</div>
                     </button>
                   ))}
                 </div>

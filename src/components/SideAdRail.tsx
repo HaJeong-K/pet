@@ -166,7 +166,7 @@ export function AdRailLeft() {
             <PremiumAdCard key={`ad-${i}`} place={p} />
           ) : (
             <div key={`ad-${i}`} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-              <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{loaded ? "광고" : ""}</span>
+              <span style={{ fontSize: 11, color: "#6e6e6e", fontWeight: 600 }}>{loaded ? "광고" : ""}</span>
             </div>
           )
         )}
@@ -207,7 +207,7 @@ export function AdRailRight({
               <PremiumAdCard key={`ad-${i}`} place={p} />
             ) : (
               <div key={`ad-${i}`} style={{ ...adPanelStyle, flex: 1, minHeight: 0 }}>
-                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{adLoaded ? "광고" : ""}</span>
+                <span style={{ fontSize: 11, color: "#6e6e6e", fontWeight: 600 }}>{adLoaded ? "광고" : ""}</span>
               </div>
             )
           )}
@@ -235,12 +235,12 @@ export function AdRailRight({
           ) : (
             <>
               <div style={{ ...adPanelStyle, flex: 1 }}>
-                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
+                <span style={{ fontSize: 11, color: "#6e6e6e", fontWeight: 600 }}>
                   {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
                 </span>
               </div>
               <div style={{ ...adPanelStyle, flex: 1 }}>
-                <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>
+                <span style={{ fontSize: 11, color: "#6e6e6e", fontWeight: 600 }}>
                   {loaded ? "표시할 공고가 없습니다" : "공고 불러오는 중"}
                 </span>
               </div>

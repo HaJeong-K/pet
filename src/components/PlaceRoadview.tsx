@@ -82,7 +82,7 @@ export default function PlaceRoadview({
   return (
     <div style={{ position: "relative", width, height, borderRadius, overflow: "hidden", background: "#f5f6f8", flexShrink: 0 }}>
       {status === "loading" && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#aaa" }}>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#6e6e6e" }}>
           로드뷰 확인 중...
         </div>
       )}

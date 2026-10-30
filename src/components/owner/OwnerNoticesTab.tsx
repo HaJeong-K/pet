@@ -73,7 +73,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
           <Megaphone size={17} color="#B45309" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{editId ? "공지 고치기" : "새 공지 쓰기"}</div>
         </div>
-        <div style={{ fontSize: 12.5, color: "#777", marginTop: 6, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
           가게 상세 화면의 친화도 점수 바로 아래에 보입니다.<br />
           휴무 안내, 이벤트, 메뉴·요금 변경, 반려동물 동반 규정 변경을 알려 주세요.
         </div>
@@ -86,7 +86,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
               <input type="checkbox" checked={form.pinned} onChange={(e) => setForm((f) => ({ ...f, pinned: e.target.checked }))} disabled={disabled} style={{ width: 16, height: 16 }} />
               대표 공지로 고정(맨 위에 보임)
             </label>
-            <span style={{ marginLeft: "auto", fontSize: 11.5, color: "#aaa" }}>{form.content.length}/{NOTICE_CONTENT_MAX}자</span>
+            <span style={{ marginLeft: "auto", fontSize: 11.5, color: "#6e6e6e" }}>{form.content.length}/{NOTICE_CONTENT_MAX}자</span>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             {editId && <button onClick={() => { setEditId(null); setForm(EMPTY); }} style={{ ...small(), padding: "12px 16px" }}>취소</button>}
@@ -95,20 +95,20 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
             </button>
           </div>
           {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
-          {!canAct && <div style={{ fontSize: 12, color: "#999" }}>보기 전용이에요.</div>}
+          {!canAct && <div style={{ fontSize: 12, color: "#666" }}>보기 전용이에요.</div>}
         </div>
       </div>
 
       <div style={card}>
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>올린 공지 {notices ? notices.length : ""}</div>
-        {notices?.length === 0 && <div style={{ marginTop: 10, fontSize: 13, color: "#aaa" }}>아직 올린 공지가 없어요.</div>}
+        {notices?.length === 0 && <div style={{ marginTop: 10, fontSize: 13, color: "#6e6e6e" }}>아직 올린 공지가 없어요.</div>}
         <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
           {notices?.map((n) => (
             <div key={n.id} style={{ padding: "12px 13px", borderRadius: 12, border: `1px solid ${n.pinned ? "#F3D58A" : "#eee"}`, background: n.pinned ? "#FFFBF0" : "white" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {n.pinned && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, color: "#B45309" }}><Pin size={11} />대표</span>}
                 <b style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</b>
-                <span style={{ fontSize: 11.5, color: "#aaa" }}>{noticeDate(n.created_at)}</span>
+                <span style={{ fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "#666", marginTop: 5, lineHeight: 1.6, whiteSpace: "pre-line", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{n.content}</div>
               {canAct && (

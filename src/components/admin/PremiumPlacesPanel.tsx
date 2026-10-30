@@ -47,7 +47,7 @@ const dateInput = (s: string | null) => (s ? new Date(new Date(s).getTime() + 9 
 const field: React.CSSProperties = { height: 38, padding: "0 10px", borderRadius: 9, border: "1px solid #e2e4e8", fontSize: 13, fontFamily: "inherit", background: "white", boxSizing: "border-box" };
 const smallBtn = (bg: string, color: string, border = "none"): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" });
 const chip = (bg: string, color: string): React.CSSProperties => ({ fontSize: 11.5, fontWeight: 700, color, background: bg, padding: "4px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4 });
-const sectionTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "#8a7a55", letterSpacing: "0.2px", marginBottom: 7 };
+const sectionTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "#655a3c", letterSpacing: "0.2px", marginBottom: 7 };
 const section: React.CSSProperties = { padding: "13px 16px", borderTop: "1px solid #f3ecd9" };
 const PLAN_COLOR: Record<PaidPlanId, { bg: string; color: string }> = { premium: { bg: "#ffe9c2", color: "#92650a" }, store: { bg: "#DBEAFE", color: "#1D4ED8" }, local: { bg: "#f3e8ff", color: "#7c3aed" } };
 const DAY_PRESETS = [1, 7, 30, 90];
@@ -101,13 +101,13 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#111", wordBreak: "break-all" }}>{place.name}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: place.active ? (soon ? "#FEF3C7" : "#dcfce7") : "#f1f2f4", color: place.active ? (soon ? "#92400E" : "#15803d") : "#777" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: place.active ? (soon ? "#FEF3C7" : "#dcfce7") : "#f1f2f4", color: place.active ? (soon ? "#92400E" : "#15803d") : "#555" }}>
                 {place.active ? (soon ? `만료 임박 · ${place.daysLeft}일 남음` : `이용 중 · ${place.daysLeft}일 남음`) : "만료됨"}
               </span>
               <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: PLAN_COLOR[place.plan].bg, color: PLAN_COLOR[place.plan].color }}>{PLAN_NAME[place.plan]}</span>
               {place.pendingRequests > 0 && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#ffe9c2", color: "#92650a" }}>새 신청 {place.pendingRequests}건</span>}
             </div>
-            <div style={{ fontSize: 11.5, color: "#888", marginTop: 3, display: "flex", alignItems: "center", gap: 4, wordBreak: "break-all" }}><MapPin size={11} />{place.address || "주소 없음"}</div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 3, display: "flex", alignItems: "center", gap: 4, wordBreak: "break-all" }}><MapPin size={11} />{place.address || "주소 없음"}</div>
           </div>
           <a href={`/place/${place.id}`} target="_blank" rel="noreferrer" title="장소 화면 열기" style={{ flexShrink: 0, color: "#5C7A4A", padding: 4 }}><ExternalLink size={15} /></a>
         </div>
@@ -128,7 +128,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={chip("#f5f6f8", "#333")}><CalendarClock size={11} color="#5C7A4A" />만료 {fmt(place.expiresAt)}</span>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 0, borderRadius: 10, border: "1px solid #ddd", overflow: "hidden", background: "white" }}>
-            <button disabled={busy || !place.active} onClick={() => adjust(-1)} aria-label={`${dayCount}일 줄이기`} title={place.active ? `${dayCount}일 줄이기` : "이미 끝난 프리미엄은 줄일 수 없어요"} style={{ width: 40, height: 38, border: "none", background: place.active ? "#fff5f5" : "#f5f5f5", color: place.active ? "#dc2626" : "#bbb", cursor: place.active ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={15} /></button>
+            <button disabled={busy || !place.active} onClick={() => adjust(-1)} aria-label={`${dayCount}일 줄이기`} title={place.active ? `${dayCount}일 줄이기` : "이미 끝난 프리미엄은 줄일 수 없어요"} style={{ width: 40, height: 38, border: "none", background: place.active ? "#fff5f5" : "#f5f5f5", color: place.active ? "#dc2626" : "#707070", cursor: place.active ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={15} /></button>
             <input type="number" min={1} max={PREMIUM_ADJUST_DAYS_MAX} value={days} onChange={(e) => setDays(e.target.value)} aria-label="조절할 날짜 수" style={{ width: 62, height: 38, border: "none", borderLeft: "1px solid #eee", textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "inherit", padding: "0 2px 0 6px", boxSizing: "border-box" }} />
             <span style={{ height: 38, lineHeight: "38px", fontSize: 13, color: "#666", padding: "0 10px 0 2px", borderRight: "1px solid #eee" }}>일</span>
             <button disabled={busy} onClick={() => adjust(1)} aria-label={`${dayCount}일 늘리기`} title={`${dayCount}일 늘리기`} style={{ width: 40, height: 38, border: "none", background: "#f0fdf4", color: "#15803d", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={15} /></button>
@@ -139,7 +139,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
             ))}
           </div>
         </div>
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: 7, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: 7, lineHeight: 1.6 }}>
           {dayCount > 0 && plus && !("error" in plus) && <>+ 누르면 만료 <b style={{ color: "#15803d" }}>{fmt(plus.expiresAt)}</b></>}
           {dayCount > 0 && place.active && minus && !("error" in minus) && <> · − 누르면 {minus.ended ? <b style={{ color: "#dc2626" }}>바로 종료</b> : <>만료 <b style={{ color: "#dc2626" }}>{fmt(minus.expiresAt)}</b></>}</>}
           {!place.active && <> · 끝난 가게는 + 를 누르면 오늘부터 다시 시작해요</>}
@@ -160,7 +160,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           </select>
           <button disabled={busy || plan === place.plan || !data.planReady} onClick={() => run({ action: "setPlan", plan }, `요금제를 ${PLAN_NAME[plan]}(으)로 바꿨어요.`, `"${place.name}"의 요금제를 ${PLAN_NAME[place.plan]} → ${PLAN_NAME[plan]}(으)로 바꿀까요?`)} style={{ ...smallBtn(plan === place.plan ? "#eee" : "#B8860B", plan === place.plan ? "#aaa" : "white"), cursor: plan === place.plan ? "default" : "pointer" }}>요금제 바꾸기</button>
         </div>
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: 7, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: 7, lineHeight: 1.6 }}>
           {data.planReady
             ? "프리미엄: 목록 위 노출·AI 코스 / 프리미엄 스토어: + 상품·예약 포장 / 동네 대표: + 배너 광고. 기간은 그대로 두고 단계만 바뀌어요."
             : <>요금제 단계를 저장할 칸이 아직 없어요. Supabase SQL 편집기에서 <b>scripts/sql/owner-store.sql</b>을 실행해 주세요.</>}
@@ -177,7 +177,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           <span style={chip("#f5f6f8", "#444")}>{place.bannerRegion} · 배너 가게 {regionUsed}곳</span>
           <button onClick={() => setOpen((v) => !v)} style={{ ...smallBtn("white", "#555", "1px solid #ddd"), marginLeft: "auto" }}>{open ? "혜택 설정 닫기" : "혜택 설정(배너·할인·메모)"}</button>
         </div>
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: 7, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: 7, lineHeight: 1.6 }}>
           {place.bannerRegion} 사용자의 커뮤니티·마이페이지에 보여요(PC 양옆 2자리, 휴대폰 위쪽 1자리). 같은 동네에 여러 곳이면 모든 가게가 같은 횟수만큼 나가도록 돌아가며 보여 줘요.
         </div>
       </div>
@@ -197,7 +197,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "#666" }}>제공 기한</span>
               <input type="date" value={bannerUntil} onChange={(e) => setBannerUntil(e.target.value)} style={field} />
-              <span style={{ fontSize: 11.5, color: "#999" }}>비워 두면 프리미엄 기간 동안</span>
+              <span style={{ fontSize: 11.5, color: "#666" }}>비워 두면 프리미엄 기간 동안</span>
             </div>
           )}
 
@@ -226,14 +226,14 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
       {(place.changes.length > 0 || !data.historyReady) && (
         <div style={{ ...section, background: "#fcfcfb" }}>
           <div style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: 4 }}><History size={11} />최근 변경 기록</div>
-          {!data.historyReady && <div style={{ fontSize: 11.5, color: "#999" }}>scripts/sql/owner-store.sql을 실행하면 누가 언제 바꿨는지 여기에 남아요.</div>}
+          {!data.historyReady && <div style={{ fontSize: 11.5, color: "#666" }}>scripts/sql/owner-store.sql을 실행하면 누가 언제 바꿨는지 여기에 남아요.</div>}
           <div style={{ display: "grid", gap: 4 }}>
             {place.changes.map((c, i) => (
               <div key={i} style={{ display: "flex", gap: 8, fontSize: 11.5, color: "#555", lineHeight: 1.5, flexWrap: "wrap" }}>
-                <span style={{ color: "#aaa", flexShrink: 0 }}>{fmtTime(c.created_at)}</span>
+                <span style={{ color: "#6e6e6e", flexShrink: 0 }}>{fmtTime(c.created_at)}</span>
                 <b style={{ flexShrink: 0, color: c.action === "end" || c.action === "shorten" ? "#dc2626" : "#333" }}>{CHANGE_LABEL[c.action] ?? c.action}</b>
                 <span style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{c.detail}</span>
-                <span style={{ color: "#bbb" }}>{c.changed_by}</span>
+                <span style={{ color: "#707070" }}>{c.changed_by}</span>
               </div>
             ))}
           </div>
@@ -262,7 +262,7 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
   }, []);
   useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, [load, refreshKey]);
 
-  if (data === null) return <div style={{ textAlign: "center", padding: "60px 0", color: "#bbb", fontSize: 13 }}><LogoLoader /></div>;
+  if (data === null) return <div style={{ textAlign: "center", padding: "60px 0", color: "#707070", fontSize: 13 }}><LogoLoader /></div>;
   const { places } = data;
   const active = places.filter((p) => p.active);
   const expired = places.filter((p) => !p.active);
@@ -284,7 +284,7 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, margin: "2px 0 12px" }}>
         {summary.map((s) => (
           <div key={s.label} style={{ background: "white", borderRadius: 14, border: "1px solid #ece6d6", padding: "11px 13px" }}>
-            <div style={{ fontSize: 11.5, color: "#888", fontWeight: 600 }}>{s.label}</div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", fontWeight: 600 }}>{s.label}</div>
             <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: s.color, marginTop: 2 }}>{s.value}</div>
           </div>
         ))}
@@ -293,7 +293,7 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
       <div style={{ background: "white", borderRadius: 14, border: "1px solid #ece6d6", padding: "12px 14px", marginBottom: 14 }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, color: "#333", display: "flex", alignItems: "center", gap: 5 }}><Megaphone size={13} color="#7c3aed" />동네별 배너 가게</div>
         {data.bannerRegions.length === 0
-          ? <div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>지금 배너를 내는 가게가 없어요. 가게를 &lsquo;동네 대표&rsquo; 요금제로 바꾸거나 혜택 설정에서 배너를 켜면 그 동네 사용자에게 보여요.</div>
+          ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>지금 배너를 내는 가게가 없어요. 가게를 &lsquo;동네 대표&rsquo; 요금제로 바꾸거나 혜택 설정에서 배너를 켜면 그 동네 사용자에게 보여요.</div>
           : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
               {data.bannerRegions.map((r) => (
@@ -305,9 +305,9 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
           )}
       </div>
 
-      {places.length === 0 && !error && <div style={{ textAlign: "center", padding: "60px 0", color: "#888", fontSize: 13.5, fontWeight: 600 }}>아직 프리미엄을 이용한 가게가 없어요.</div>}
+      {places.length === 0 && !error && <div style={{ textAlign: "center", padding: "60px 0", color: "#5c5c5c", fontSize: 13.5, fontWeight: 600 }}>아직 프리미엄을 이용한 가게가 없어요.</div>}
       {active.map((p) => <PlaceCard key={cardKey(p)} place={p} data={data} onChanged={load} />)}
-      {expired.length > 0 && <div style={{ fontSize: 13, fontWeight: 800, color: "#777", margin: "22px 0 10px" }}>만료된 가게 {expired.length}곳</div>}
+      {expired.length > 0 && <div style={{ fontSize: 13, fontWeight: 800, color: "#555", margin: "22px 0 10px" }}>만료된 가게 {expired.length}곳</div>}
       {expired.map((p) => <PlaceCard key={cardKey(p)} place={p} data={data} onChanged={load} />)}
     </div>
   );

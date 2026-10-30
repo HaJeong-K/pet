@@ -61,7 +61,7 @@ export default function HomeNoticeBar({ compact = false }: { compact?: boolean }
       <span style={{ flexShrink: 0, padding: "2px 8px", borderRadius: 6, background: "#2F3B28", color: "white", fontSize: 11, fontWeight: 800, lineHeight: "17px" }}>공지</span>
       <span style={{ flex: 1, minWidth: 0, fontSize: compact ? 13 : 13.5, fontWeight: 700, color: "#2a2520", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{notice.title}</span>
       <ChevronRight size={15} color="#7a8a6c" style={{ flexShrink: 0 }} />
-      <button onClick={dismiss} aria-label="이 공지 닫기" style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 999, border: "none", background: "transparent", color: "#9aa290", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
+      <button onClick={dismiss} aria-label="이 공지 닫기" style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 999, border: "none", background: "transparent", color: "#5f6456", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}>
         <X size={14} />
       </button>
     </div>

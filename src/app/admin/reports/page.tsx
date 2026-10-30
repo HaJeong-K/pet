@@ -100,13 +100,13 @@ const TYPE_BADGE: Record<
 
   review: {
     bg: "#ffedd5",
-    color: "#ea580c",
+    color: "#c2410c",
     label: "장소 댓글",
   },
 
   reply: {
     bg: "#fff7ed",
-    color: "#f97316",
+    color: "#c2410c",
     label: "장소 답글",
   },
 
@@ -124,7 +124,7 @@ const TYPE_BADGE: Record<
 
   community_reply: {
     bg: "#eff6ff",
-    color: "#60a5fa",
+    color: "#2563eb",
     label: "게시글 답글",
   },
 };
@@ -664,8 +664,8 @@ export default function AdminReportsPage() {
           <div style={{ padding:"16px 28px 8px", flexShrink:0, display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", flex: 1 }}>
               {([
-                { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#ef4444" },
-                { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#22c55e" },
+                { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#dc2626" },
+                { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#15803d" },
               ] as const).map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeFilter === tab.key;
@@ -678,7 +678,7 @@ export default function AdminReportsPage() {
                       flex:1, padding:"9px 14px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
                       fontWeight:700, fontSize:12,
-                      color: isActive ? "#111" : "#888",
+                      color: isActive ? "#111" : "#5c5c5c",
                       cursor:"pointer",
                       boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                       transition:"all 0.15s ease",
@@ -690,7 +690,7 @@ export default function AdminReportsPage() {
                     <span style={{
                       fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
                       background: isActive ? (tab.key === "pending" ? "#fee2e2" : "#dcfce7") : "#f0f2f5",
-                      color: isActive ? (tab.key === "pending" ? "#dc2626" : "#16a34a") : "#999",
+                      color: isActive ? (tab.key === "pending" ? "#dc2626" : "#15803d") : "#666",
                     }}>
                       {tab.count}
                     </span>
@@ -717,7 +717,7 @@ export default function AdminReportsPage() {
                     padding:"7px 12px", borderRadius:999,
                     border:`1.5px solid ${isActive ? accent : "#e8eaed"}`,
                     background: isActive ? `${accent}14` : "white",
-                    color: isActive ? accent : "#777",
+                    color: isActive ? accent : "#555",
                     fontWeight:700, fontSize:11.5, cursor:"pointer",
                     transition:"all 0.15s ease",
                   }}
@@ -727,7 +727,7 @@ export default function AdminReportsPage() {
                   <span style={{
                     fontSize:10, fontWeight:800, padding:"1px 6px", borderRadius:999,
                     background: isActive ? accent : "#f0f2f5",
-                    color: isActive ? "white" : "#999",
+                    color: isActive ? "white" : "#666",
                   }}>
                     {count}
                   </span>
@@ -747,7 +747,7 @@ export default function AdminReportsPage() {
           }}>
 
             {loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayReports.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background: activeFilter === "pending" ? "#fee2e2" : "#dcfce7", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
@@ -758,7 +758,7 @@ export default function AdminReportsPage() {
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222", marginBottom:6 }}>
                   {activeFilter === "pending" ? "미처리 신고가 없습니다" : "처리완료 내역이 없습니다"}
                 </div>
-                <div style={{ fontSize:12, color:"#999", display:"flex", alignItems:"center", justifyContent:"center", gap:4 }}>
+                <div style={{ fontSize:12, color:"#666", display:"flex", alignItems:"center", justifyContent:"center", gap:4 }}>
                   {activeFilter === "pending" ? (<>모든 신고가 처리되었습니다 <PartyPopper size={12} color="#999" /></>) : "처리된 신고가 여기에 표시됩니다"}
                 </div>
               </div>
@@ -805,7 +805,7 @@ export default function AdminReportsPage() {
                   >
                     {/* 여러 건 한꺼번에 처리할 때 고르는 칸(카드를 눌러 이동하는 동작과 겹치지 않게 따로 둠) */}
                     {bulkActions.length > 0 && (
-                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#888", cursor:"default" }}>
+                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#5c5c5c", cursor:"default" }}>
                         <SelectBox selection={selection} id={report.id} /> 선택
                       </div>
                     )}
@@ -865,7 +865,7 @@ export default function AdminReportsPage() {
                       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                         <span style={{
                           fontSize:10,
-                          color:"#aaa",
+                          color:"#6e6e6e",
                           whiteSpace:"nowrap",
                           flexShrink:0
                         }}>
@@ -912,7 +912,7 @@ export default function AdminReportsPage() {
                           <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>
                             {report.place_name || report.post_title || "—"}
                           </div>
-                          <div style={{ fontSize:11, color:"#888", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                          <div style={{ fontSize:11, color:"#5c5c5c", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                             {report.place_address || (report.board_id ? `${report.board_id} 게시판` : "—")}
                           </div>
                         </div>
@@ -920,7 +920,7 @@ export default function AdminReportsPage() {
 
                       {/* 신고된 내용 */}
                       <div style={{ marginBottom:10 }}>
-                        <div style={{ fontSize:10, color:"#aaa", fontWeight:700, letterSpacing:"0.3px", marginBottom:4, textTransform:"uppercase" }}>신고된 내용</div>
+                        <div style={{ fontSize:10, color:"#6e6e6e", fontWeight:700, letterSpacing:"0.3px", marginBottom:4, textTransform:"uppercase" }}>신고된 내용</div>
                         <div style={{ padding:"10px 12px", background:"#fafafa", borderRadius:10, border:"1px solid #eee" }}>
                           <div style={{ fontSize:12, fontWeight:700, color:"#333", marginBottom:4 }}>{report.nickname}</div>
                           {(report.type === "community_comment" ||
@@ -946,7 +946,7 @@ export default function AdminReportsPage() {
                                   style={{
                                     fontSize: "11px",
                                     fontWeight: 700,
-                                    color: "#888",
+                                    color: "#5c5c5c",
                                     marginBottom: "4px",
                                   }}
                                 >
@@ -979,7 +979,7 @@ export default function AdminReportsPage() {
                                   style={{
                                     fontSize: "11px",
                                     fontWeight: 700,
-                                    color: "#999",
+                                    color: "#666",
                                     marginBottom: "5px",
                                   }}
                                 >
@@ -1028,7 +1028,7 @@ export default function AdminReportsPage() {
                                     style={{
                                       fontSize: "11px",
                                       fontWeight: 700,
-                                      color: "#888",
+                                      color: "#5c5c5c",
                                       marginBottom: "4px",
                                     }}
                                   >
@@ -1051,7 +1051,7 @@ export default function AdminReportsPage() {
                                   <div
                                     style={{
                                       fontSize: "12px",
-                                      color: "#888",
+                                      color: "#5c5c5c",
                                       lineHeight: 1.4,
                                       wordBreak: "break-word",
                                     }}
@@ -1073,7 +1073,7 @@ export default function AdminReportsPage() {
                                   style={{
                                     fontSize: "11px",
                                     fontWeight: 700,
-                                    color: "#999",
+                                    color: "#666",
                                     marginBottom: "5px",
                                   }}
                                 >

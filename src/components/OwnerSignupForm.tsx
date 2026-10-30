@@ -307,7 +307,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
           style={{
             padding: "0 14px", borderRadius: 10, border: "none",
             background: !email || !isValidEmail(email) || isCheckingEmail ? "#ccc" : "#111",
-            color: "white", fontWeight: 700, fontSize: 13,
+            color: !email || !isValidEmail(email) || isCheckingEmail ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 13,
             cursor: !email || !isValidEmail(email) || isCheckingEmail ? "default" : "pointer",
             whiteSpace: "nowrap",
           }}
@@ -364,7 +364,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
           readOnly
           placeholder="주소 검색 버튼을 눌러 도로명주소를 찾아주세요"
           value={roadAddress}
-          style={{ ...inputStyle, marginBottom: 0, flex: 1, background: "#f7f8f9", color: roadAddress ? "#333" : "#999", cursor: "pointer" }}
+          style={{ ...inputStyle, marginBottom: 0, flex: 1, background: "#f7f8f9", color: roadAddress ? "#333" : "#666", cursor: "pointer" }}
           onClick={openAddressSearch}
         />
         <button type="button" onClick={openAddressSearch} style={{ ...searchBtnStyle, width: 96, gap: 6, fontSize: 12.5, fontWeight: 700 }}>
@@ -449,7 +449,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "#f0f9f4", border: "1px solid #bbf0d1", marginBottom: 10, fontSize: 12 }}>
           <Check size={14} color="#22c55e" />
           <span style={{ flex: 1 }}>{selectedPlace.name} · {selectedPlace.address}</span>
-          <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#999", cursor: "pointer", fontSize: 11 }}>취소</button>
+          <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#666", cursor: "pointer", fontSize: 11 }}>취소</button>
         </div>
       )}
 
@@ -462,12 +462,12 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
               onClick={() => { setSelectedPlace(p); setPlaceResults([]); }}
               style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", border: "none", background: "white", cursor: "pointer", fontSize: 12, borderBottom: "1px solid #f2f2f2" }}
             >
-              {p.name} <span style={{ color: "#777" }}>· {p.address}</span>
+              {p.name} <span style={{ color: "#555" }}>· {p.address}</span>
             </button>
           ))}
         </div>
       )}
-      <p style={{ fontSize: 11, color: "#777", marginBottom: 18, lineHeight: 1.5 }}>
+      <p style={{ fontSize: 11, color: "#555", marginBottom: 18, lineHeight: 1.5 }}>
         검색해도 안 나오면 가입 후 마이페이지에서 &apos;제보하기&apos;로 신규 등록을 요청해주세요 —
         사장님 계정으로 제보하면 관리자 검토 시 최우선으로 표시됩니다.
       </p>
@@ -514,7 +514,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
         width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
-        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: "white",
+        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: isSubmitDisabled ? "#4f4a3f" : "white",
         fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
         boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>
@@ -533,12 +533,12 @@ const inputStyle = {
   width: "100%", padding: 14, marginBottom: 12, borderRadius: 10,
   border: "1px solid #ddd", boxSizing: "border-box" as const, fontSize: 14,
 };
-const errorTextStyle = { color: "#ef4444", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
-const successTextStyle = { color: "#22c55e", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
+const errorTextStyle = { color: "#dc2626", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
+const successTextStyle = { color: "#15803d", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
 const eyeButtonStyle = {
   position: "absolute" as const, right: 14, top: "50%", transform: "translateY(-50%)",
   border: "none", background: "transparent", cursor: "pointer", padding: 0,
-  display: "flex", alignItems: "center", justifyContent: "center", color: "#777",
+  display: "flex", alignItems: "center", justifyContent: "center", color: "#555",
 };
 const searchBtnStyle = {
   width: 46, borderRadius: 10, border: "1px solid #ddd", background: "white",

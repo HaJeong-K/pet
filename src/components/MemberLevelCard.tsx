@@ -49,7 +49,7 @@ export default function MemberLevelCard({ accessToken, onLevel, variant = "card"
         background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.24)", color: "white", cursor: onOpen ? "pointer" : "default",
       }}>
         <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800 }}>내 레벨</span>
-        {level != null ? <LevelBadge level={level} size="large" onDark /> : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>확인 중…</span>}
+        {level != null ? <LevelBadge level={level} size="large" onDark /> : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.88)" }}>확인 중…</span>}
       </button>
     );
   }

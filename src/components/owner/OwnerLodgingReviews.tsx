@@ -72,13 +72,13 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>숙박 후기</div>
         {unanswered > 0 && <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#DC2626", color: "white" }}>답글 기다림 {unanswered}</span>}
       </div>
-      <div style={{ fontSize: 12.5, color: "#777", marginTop: 6, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
         같이가개에서 예약하고 묵은 손님의 별점 후기예요.<br />
         답글은 숙소 화면에 &ldquo;사장님 답글&rdquo;로 보이고, 문제 있는 후기는 신고하면 관리자가 검토해요.
       </div>
       {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
-      {reviews === null && <div style={{ marginTop: 12, fontSize: 13, color: "#aaa" }}>불러오는 중…</div>}
-      {reviews?.length === 0 && <div style={{ marginTop: 12, fontSize: 13, color: "#aaa" }}>아직 숙박 후기가 없어요.</div>}
+      {reviews === null && <div style={{ marginTop: 12, fontSize: 13, color: "#6e6e6e" }}>불러오는 중…</div>}
+      {reviews?.length === 0 && <div style={{ marginTop: 12, fontSize: 13, color: "#6e6e6e" }}>아직 숙박 후기가 없어요.</div>}
 
       <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
         {reviews?.map((r) => {
@@ -88,8 +88,8 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={13} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#d6d3c9"} />)}</span>
                 <b style={{ fontSize: 13 }}>{r.guest_display_name ?? "손님"}</b>
-                <span style={{ fontSize: 11.5, color: "#999" }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</span>
-                <span style={{ marginLeft: "auto", fontSize: 11.5, color: "#aaa" }}>{stayDayLabel(r.created_at.slice(0, 10))}</span>
+                <span style={{ fontSize: 11.5, color: "#666" }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</span>
+                <span style={{ marginLeft: "auto", fontSize: 11.5, color: "#6e6e6e" }}>{stayDayLabel(r.created_at.slice(0, 10))}</span>
               </div>
               <div style={{ fontSize: 13.5, color: "#333", marginTop: 7, lineHeight: 1.7, whiteSpace: "pre-line" }}>{r.content}</div>
               {status && (
@@ -126,7 +126,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
                     ))}
                   </div>
                   <textarea value={report.detail} onChange={(e) => setReport((p) => ({ ...p, detail: e.target.value.slice(0, 500) }))} rows={2} placeholder={report.reason === "etc" ? "신고 사유를 적어 주세요(필수)" : "관리자에게 전할 설명(선택) — 예: 실제 예약 내역과 다른 내용이에요"} aria-label="신고 설명" style={{ ...input, resize: "vertical" }} />
-                  <div style={{ fontSize: 11.5, color: "#888", lineHeight: 1.6 }}>관리자가 검토해 유지·가리기·삭제를 결정해요. 단순히 낮은 별점이라는 이유로는 가려지지 않아요.</div>
+                  <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6 }}>관리자가 검토해 유지·가리기·삭제를 결정해요. 단순히 낮은 별점이라는 이유로는 가려지지 않아요.</div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => sendReport(r)} disabled={busy} style={{ ...small("primary", busy), background: busy ? "#d6d3c9" : "#b42318" }}>신고하기</button>
                     <button onClick={() => setReportFor(null)} style={small("plain")}>취소</button>

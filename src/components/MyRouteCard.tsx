@@ -52,7 +52,7 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
               <button onClick={() => { setDraft(title); setEditingTitle(true); }} aria-label="경로 이름 바꾸기" style={{ ...iconButton, width: 24, height: 24, border: "none" }}><Pencil size={12} color="#999" /></button>
             </div>
           )}
-          <div style={{ marginTop: 3, fontSize: 11, color: "#999" }}>{stops.length}곳{stops.length >= 2 ? ` · 순서대로 직선 약 ${km}km` : ""}</div>
+          <div style={{ marginTop: 3, fontSize: 11, color: "#666" }}>{stops.length}곳{stops.length >= 2 ? ` · 순서대로 직선 약 ${km}km` : ""}</div>
         </div>
         <button onClick={() => onDelete(route.id)} aria-label="내 경로 삭제" style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: "none", background: "#f5f6f8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Trash2 size={13} color="#999" />
@@ -65,7 +65,7 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
             <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#5C7A4A", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
             <button onClick={() => router.push(`/place/${st.id}`)} style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.name}</span>
-              {(st.category || st.address) && <span style={{ display: "block", fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[st.category, st.address].filter(Boolean).join(" · ")}</span>}
+              {(st.category || st.address) && <span style={{ display: "block", fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[st.category, st.address].filter(Boolean).join(" · ")}</span>}
             </button>
             <button onClick={() => save(moveStop(stops, i, -1))} disabled={busy || i === 0} aria-label={`${st.name} 위로`} style={{ ...iconButton, opacity: i === 0 ? 0.35 : 1 }}><ArrowUp size={12} color="#666" /></button>
             <button onClick={() => save(moveStop(stops, i, 1))} disabled={busy || i === stops.length - 1} aria-label={`${st.name} 아래로`} style={{ ...iconButton, opacity: i === stops.length - 1 ? 0.35 : 1 }}><ArrowDown size={12} color="#666" /></button>
@@ -74,7 +74,7 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
         ))}
       </div>
       {error && <div role="status" style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-      <div style={{ marginTop: 8, fontSize: 11.5, color: "#999" }}>장소 상세의 &ldquo;내 경로에 추가&rdquo;로 장소를 더 담을 수 있어요.</div>
+      <div style={{ marginTop: 8, fontSize: 11.5, color: "#666" }}>장소 상세의 &ldquo;내 경로에 추가&rdquo;로 장소를 더 담을 수 있어요.</div>
 
       {points.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", gap: 6 }}>

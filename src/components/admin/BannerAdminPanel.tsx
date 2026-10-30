@@ -71,12 +71,12 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
       {error && <div style={{ ...card, background: "#fff7ed", borderColor: "#fed7aa", fontSize: 13, color: "#9a3412" }}>{error}</div>}
 
       <div style={title}>한도 변경 요청 {pending.length > 0 && <span style={chip("#FEF3C7", "#92400E")}>{pending.length}건 대기</span>}</div>
-      {pending.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#999" }}>기다리는 요청이 없어요. 사장님은 배너를 2주에 한 번 바꿀 수 있고, 그 전에 바꿔야 하면 여기로 요청이 와요.</div>}
+      {pending.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#666" }}>기다리는 요청이 없어요. 사장님은 배너를 2주에 한 번 바꿀 수 있고, 그 전에 바꿔야 하면 여기로 요청이 와요.</div>}
       {pending.map((r) => (
         <div key={r.id} style={{ ...card, borderColor: "#FDE68A", background: "#FFFDF5" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <b className="ggk-logo" style={{ fontSize: 14.5, color: "#111" }}>{r.placeName}</b>
-            <span style={{ fontSize: 11, color: "#aaa", marginLeft: "auto" }}>{fmt(r.created_at)} 요청</span>
+            <span style={{ fontSize: 11, color: "#6e6e6e", marginLeft: "auto" }}>{fmt(r.created_at)} 요청</span>
           </div>
           <div style={{ marginTop: 7, fontSize: 13, color: "#444", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.reason}</div>
           <div style={{ display: "flex", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
@@ -92,14 +92,14 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
               <span style={chip(r.status === "approved" ? "#DCFCE7" : "#FEE2E2", r.status === "approved" ? "#15803D" : "#B91C1C")}>{r.status === "approved" ? "승인" : "거절"}</span>
               <b style={{ color: "#333" }}>{r.placeName}</b>
               <span style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{r.reason}{r.admin_note ? ` → ${r.admin_note}` : ""}</span>
-              <span style={{ color: "#bbb" }}>{r.processed_at ? fmt(r.processed_at) : ""}</span>
+              <span style={{ color: "#707070" }}>{r.processed_at ? fmt(r.processed_at) : ""}</span>
             </div>
           ))}
         </div>
       )}
 
       <div style={{ ...title, marginTop: 22 }}>가게별 배너 {data.banners.length}곳</div>
-      {data.banners.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#999" }}>아직 배너를 만든 가게가 없어요. 사장님 화면의 &ldquo;광고&rdquo;에서 문구·사진·글꼴을 골라 만들 수 있어요.</div>}
+      {data.banners.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#666" }}>아직 배너를 만든 가게가 없어요. 사장님 화면의 &ldquo;광고&rdquo;에서 문구·사진·글꼴을 골라 만들 수 있어요.</div>}
       {data.banners.map((b) => {
         const view = { name: b.placeName, address: b.address, headline: b.headline, body: b.body, image: b.imageUrl || b.placeImage, font: b.font };
         return (
@@ -115,7 +115,7 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
               <div style={{ width: 150, height: 210, display: "flex", flexShrink: 0 }}><BannerCreativeView banner={view} shape="rail" /></div>
               <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                 <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #eadfbf", maxWidth: 380 }}><BannerCreativeView banner={view} shape="strip" style={{ borderBottom: "none" }} /></div>
-                <div style={{ marginTop: 9, fontSize: 11.5, color: "#888", lineHeight: 1.7 }}>
+                <div style={{ marginTop: 9, fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.7 }}>
                   글꼴 {bannerFont(b.font).label} · 마지막 변경 {fmt(b.changedAt)}<br />
                   {b.allowance.allowed ? (b.allowance.usesExtra ? `한도가 풀려 있음(추가 변경 ${b.extraChanges}회 남음)` : "지금 바꿀 수 있음") : `${b.allowance.daysLeft}일 뒤에 바꿀 수 있음`}
                   {b.hidden && b.hiddenReason && <><br />내린 이유: {b.hiddenReason}</>}

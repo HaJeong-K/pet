@@ -1,5 +1,6 @@
 "use client";
 
+import PlaceStampButton from "@/components/stamps/PlaceStampButton";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
@@ -969,7 +970,7 @@ export default function PlaceDetail({
 
   if (!place) {
     if (loadState === "loading") return (
-      <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#888", fontSize: "13px" }}><LogoLoader /></div>
+      <div className="ggk-body" style={{ padding: "40px 16px", textAlign: "center", color: "#5c5c5c", fontSize: "13px" }}><LogoLoader /></div>
     );
     const notFound = loadState === "notFound";
     return (
@@ -978,7 +979,7 @@ export default function PlaceDetail({
         <div style={{ fontSize: "14px", fontWeight: 700, color: "#222" }}>
           {notFound ? "장소 정보를 찾을 수 없어요" : "장소 정보를 불러오지 못했어요"}
         </div>
-        <div style={{ fontSize: "12px", color: "#888", marginTop: "6px", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "#5c5c5c", marginTop: "6px", lineHeight: 1.6 }}>
           {notFound
             ? "삭제되었거나 정보가 바뀐 장소일 수 있어요."
             : "인터넷 연결이 잠시 불안정했을 수 있어요. 다시 시도해 주세요."}
@@ -1073,7 +1074,7 @@ export default function PlaceDetail({
                   <button
                     onClick={handleDeletePlace}
                     disabled={deletingPlace}
-                    style={{ ...dropdownBtnStyle, color: "#ef4444", display: "flex", alignItems: "center", gap: 5 }}
+                    style={{ ...dropdownBtnStyle, color: "#dc2626", display: "flex", alignItems: "center", gap: 5 }}
                   >
                     <Trash2 size={12} color="#ef4444" />
                     {deletingPlace ? "처리 중..." : (isPublicDataPlace && !isCsvSourcedPublicData) ? "숨기기" : "삭제하기"}
@@ -1085,7 +1086,7 @@ export default function PlaceDetail({
         </div>
 
         {/* 주소 */}
-        <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#888", display: "flex", alignItems: "center", gap: "3px" }}>
+        <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#5c5c5c", display: "flex", alignItems: "center", gap: "3px" }}>
           <MapPin size={11} color="#bbb" />
           {place.address}
         </p>
@@ -1125,7 +1126,7 @@ export default function PlaceDetail({
                 <div className="ggk-title" style={{ fontSize: 12, fontWeight: 800, color: "#222" }}>
                   반려동물 친화도 {affinity.total}점 · {AFFINITY_TIER_LABEL[tier]}
                 </div>
-                <div className="ggk-body" style={{ fontSize: 10, color: "#888", marginTop: 2 }}>
+                <div className="ggk-body" style={{ fontSize: 10, color: "#5c5c5c", marginTop: 2 }}>
                   리뷰 만족도 {affinity.reviewSatisfaction} · 공공데이터 검증 {affinity.governmentVerification} · 사용자 반응 {affinity.userReaction} · 편의시설 {affinity.amenity}
                 </div>
               </div>
@@ -1165,12 +1166,12 @@ export default function PlaceDetail({
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
           {!hasRealPhoto ? (
             <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px" }}>
-              <div style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #d0d3d9", background:"#f5f6f8", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", color:"#bbb" }}>
+              <div style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #d0d3d9", background:"#f5f6f8", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"6px", color:"#707070" }}>
                 <ImageOff size={26} color="#ccc" />
-                <span style={{ fontSize:"10px", color:"#bbb", textAlign:"center", lineHeight:1.4 }}>이미지를<br />추가해주세요</span>
+                <span style={{ fontSize:"10px", color:"#707070", textAlign:"center", lineHeight:1.4 }}>이미지를<br />추가해주세요</span>
               </div>
-              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
-                {isUploading ? <span style={{ fontSize:"11px", color:"#aaa" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
+              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#6e6e6e", fontSize:"11px" }}>
+                {isUploading ? <span style={{ fontSize:"11px", color:"#6e6e6e" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
               </button>
             </div>
           ) : (
@@ -1199,8 +1200,8 @@ export default function PlaceDetail({
                   </button>
                 </div>
               ))}
-              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#aaa", fontSize:"11px" }}>
-                {isUploading ? <span style={{ fontSize:"11px", color:"#aaa" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
+              <button data-guide="place-photo-add" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ flexShrink:0, width:"130px", height:"130px", borderRadius:"12px", border:"1.5px dashed #ccc", background:"#fafafa", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"5px", cursor:isUploading?"default":"pointer", color:"#6e6e6e", fontSize:"11px" }}>
+                {isUploading ? <span style={{ fontSize:"11px", color:"#6e6e6e" }}>업로드 중...</span> : <><Plus size={22} color="#bbb" /><span>사진 추가</span></>}
               </button>
             </div>
           )}
@@ -1213,7 +1214,7 @@ export default function PlaceDetail({
             {/* 공원 전용 정보: 구분 / 면적, 관리기관 / 전화번호, 시설 */}
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
               <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <Trees size={10} />구분
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1221,7 +1222,7 @@ export default function PlaceDetail({
                 </div>
               </div>
               <div style={{ padding:"10px 12px" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <LandPlot size={10} />면적
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1231,7 +1232,7 @@ export default function PlaceDetail({
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
               <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <Shield size={10} />관리기관
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1239,7 +1240,7 @@ export default function PlaceDetail({
                 </div>
               </div>
               <div style={{ padding:"10px 12px" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <Phone size={10} />전화번호
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1248,7 +1249,7 @@ export default function PlaceDetail({
               </div>
             </div>
             <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <MapPin size={10} />시설
               </div>
               {/* 시설 메모는 "운동시설: 축구장+야구장 · 편익시설: 매점" 형태 — 종류별로 한 줄, 항목은 낱개 칩으로 나눠 보여줍니다 */}
@@ -1276,7 +1277,7 @@ export default function PlaceDetail({
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>—</div>
               )}
             </div>
-            <div className="ggk-body" style={{ padding:"10px 12px", fontSize:"11px", color:"#888", lineHeight:1.7, display:"flex", gap:"5px" }}>
+            <div className="ggk-body" style={{ padding:"10px 12px", fontSize:"11px", color:"#5c5c5c", lineHeight:1.7, display:"flex", gap:"5px" }}>
               <PawPrint size={11} style={{ flexShrink:0, marginTop:"3px" }} />
               <div>
                 <div>공원에서는 목줄(2m 이내)과 배변 봉투를 꼭 챙겨 주세요.</div>
@@ -1288,7 +1289,7 @@ export default function PlaceDetail({
           {/* 행1: 카테고리 / 동반 가능 범위 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
                 <ChefHat size={10} />카테고리
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1296,7 +1297,7 @@ export default function PlaceDetail({
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, letterSpacing:"0.2px", display:"flex", alignItems:"center", gap:"3px" }}>
                 <LandPlot size={10} />동반 가능 범위
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1308,7 +1309,7 @@ export default function PlaceDetail({
           {/* 행2: 영업시간 / 대형견 가능 여부 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Clock size={10} />영업시간
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6 }}>
@@ -1316,7 +1317,7 @@ export default function PlaceDetail({
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Dog size={10} />대형견 가능 여부
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1329,7 +1330,7 @@ export default function PlaceDetail({
           {isVetHospital && (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
               <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <Stethoscope size={10} />진료과목
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1337,7 +1338,7 @@ export default function PlaceDetail({
                 </div>
               </div>
               <div style={{ padding:"10px 12px" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <PawPrint size={10} />가능 동물
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1350,7 +1351,7 @@ export default function PlaceDetail({
           {/* 행3: 전화번호 (+ 동물병원이 아닌 일반 장소는 옆의 빈 공간에 가능 동물도 함께 표시) */}
           {isVetHospital ? (
             <div style={{ padding:"10px 12px", borderBottom:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Phone size={10} />전화번호
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1365,7 +1366,7 @@ export default function PlaceDetail({
           ) : (
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
               <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <Phone size={10} />전화번호
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1378,7 +1379,7 @@ export default function PlaceDetail({
                 </div>
               </div>
               <div style={{ padding:"10px 12px" }}>
-                <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                   <PawPrint size={10} />가능 동물
                 </div>
                 <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1391,7 +1392,7 @@ export default function PlaceDetail({
           {/* 행4: 홈페이지 / 휴무일  ← 신규 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Globe size={10} />홈페이지
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", fontWeight:500 }}>
@@ -1405,7 +1406,7 @@ export default function PlaceDetail({
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <CalendarOff size={10} />휴무일
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1417,7 +1418,7 @@ export default function PlaceDetail({
           {/* 행5: 주차 / 입장료  ← 신규 */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:"1px solid #eee" }}>
             <div style={{ padding:"10px 12px", borderRight:"1px solid #eee" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Car size={10} />주차
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1425,7 +1426,7 @@ export default function PlaceDetail({
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
-              <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+              <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
                 <Ticket size={10} />입장료
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
@@ -1436,7 +1437,7 @@ export default function PlaceDetail({
 
           {/* 행6: 메모 (단독) */}
           <div style={{ padding:"10px 12px", borderTop:"1px solid #eee" }}>
-            <div className="ggk-title" style={{ fontSize:"10px", color:"#aaa", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+            <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
               <MessageCircle size={10} />메모
             </div>
             <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
@@ -1466,7 +1467,7 @@ export default function PlaceDetail({
           </button>
           <button onClick={() => handleVote("dislike")} className="ggk-body" style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:`1px solid ${voteReaction==="dislike"?"#ef4444":"#e2e4e8"}`, background:voteReaction==="dislike"?"#fff1f1":"linear-gradient(145deg,#fafbfc,#f2f3f5)", cursor:"pointer", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
             <ThumbsDown size={14} color={voteReaction==="dislike"?"#ef4444":"#666"} fill={voteReaction==="dislike"?"#ef4444":"none"} />
-            <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="dislike"?"#ef4444":"#555" }}>비추천 {dislikesCount}</span>
+            <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="dislike"?"#dc2626":"#555" }}>비추천 {dislikesCount}</span>
           </button>
           {/* 내 경로에 추가 — 가고 싶은 곳을 순서대로 엮어 두는 여행 경로(마이페이지 "코스·내 경로"에서 순서 변경) */}
           <button onClick={() => { if (!isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(`/place/${placeId}`)}`); return; } setShowRouteSheet(true); }} className="ggk-body" style={{ gridColumn:"1 / -1", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:"1px solid #cfdcc3", background:"linear-gradient(145deg,#f6faf2,#edf4e6)", cursor:"pointer", color:"#48603A", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
@@ -1474,6 +1475,8 @@ export default function PlaceDetail({
             <span style={{ fontSize:"12px", fontWeight:700 }}>내 경로에 추가</span>
           </button>
         </div>
+        {/* 다녀온 인증 — 장소 근처에서 누르면 추억 스탬프 */}
+        <PlaceStampButton placeId={placeId} />
         {showRouteSheet && Number.isFinite(placeLat) && Number.isFinite(placeLng) && (
           <AddToRouteSheet stop={{ id: placeId, name: place.name, lat: placeLat, lng: placeLng, category: place.category ?? null, address: place.address ?? null }} onClose={() => setShowRouteSheet(false)} />
         )}
@@ -1492,9 +1495,9 @@ export default function PlaceDetail({
                 </button>
               </div>
             ) : (
-              <div style={{ fontSize:"11px", color:"#999" }}>이 장소는 좌표 정보가 없어 길찾기를 열 수 없어요.</div>
+              <div style={{ fontSize:"11px", color:"#666" }}>이 장소는 좌표 정보가 없어 길찾기를 열 수 없어요.</div>
             )}
-            <div style={{ marginTop:"7px", fontSize:"10px", color:"#999", lineHeight:1.4 }}>
+            <div style={{ marginTop:"7px", fontSize:"10px", color:"#666", lineHeight:1.4 }}>
               · 카카오맵·네이버지도를 누를 시 현재 위치에서 도보 길찾기로 열려요.<br />
               · 휴대폰에서 네이버지도를 누를 시 네이버지도 앱으로 연결돼요.
             </div>
@@ -1542,7 +1545,7 @@ export default function PlaceDetail({
           </div>
           <div style={{ display:"flex", gap:"7px", alignItems:"stretch" }}>
             <textarea placeholder="댓글을 입력하세요" value={content} onChange={(e) => setContent(e.target.value)} style={{ flex:1, minHeight:"58px", padding:"8px 10px", borderRadius:"7px", background:"white", border:"1px solid #ddd", fontSize:"12px", resize:"none" }} />
-            <button onClick={handleSubmit} disabled={(!session && !password) || !content} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:((!session && !password)||!content)?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color:"white", cursor:((!session && !password)||!content)?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
+            <button onClick={handleSubmit} disabled={(!session && !password) || !content} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:((!session && !password)||!content)?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: ((!session && !password)||!content) ? "#4f4a3f" : "white", cursor:((!session && !password)||!content)?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
               등록
             </button>
           </div>
@@ -1595,7 +1598,7 @@ export default function PlaceDetail({
                           {isOwner(r) ? (
                             <>
                               <button onClick={() => { closeAll(); startEdit(r); }} style={dropdownBtnStyle}>수정</button>
-                              <button onClick={() => { closeAll(); startDelete(r.id); }} style={{ ...dropdownBtnStyle, color:"#ef4444" }}>삭제</button>
+                              <button onClick={() => { closeAll(); startDelete(r.id); }} style={{ ...dropdownBtnStyle, color:"#dc2626" }}>삭제</button>
                             </>
                           ) : isAdmin ? (
                             /* ★ 관리자: 삭제만 */
@@ -1621,7 +1624,7 @@ export default function PlaceDetail({
                       </div>
                     </div>
                   ) : (
-                    <div style={{ marginTop:"4px", fontSize:"12px", fontStyle:(r.deleted||r.is_admin_deleted)?"italic":"normal", opacity:(r.deleted||r.is_admin_deleted)?0.6:1, color:r.is_admin_deleted?"#ef4444":"#333", lineHeight:1.5, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                    <div style={{ marginTop:"4px", fontSize:"12px", fontStyle:(r.deleted||r.is_admin_deleted)?"italic":"normal", opacity:(r.deleted||r.is_admin_deleted)?0.6:1, color:r.is_admin_deleted?"#dc2626":"#333", lineHeight:1.5, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
                       {r.is_admin_deleted ? "부적절한 내용으로 관리자에 의해 삭제되었습니다." : r.deleted ? "삭제된 댓글입니다." : r.content}
                     </div>
                   )}
@@ -1632,14 +1635,14 @@ export default function PlaceDetail({
                       <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
                         <button onClick={() => likeReview(r.id)} style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
                           <Heart size={13} color={likedReviewIds.has(String(r.id))?"#ef4444":"#bbb"} fill={likedReviewIds.has(String(r.id))?"#ef4444":"none"} />
-                          <span style={{ fontSize:"11px", color:"#777" }}>{r.likes||0}</span>
+                          <span style={{ fontSize:"11px", color:"#555" }}>{r.likes||0}</span>
                         </button>
-                        <button onClick={() => { closeAll(); setReplyingId(replyingId===r.id?null:r.id); }} style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0, color:"#777", fontSize:"11px" }}>
+                        <button onClick={() => { closeAll(); setReplyingId(replyingId===r.id?null:r.id); }} style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0, color:"#555", fontSize:"11px" }}>
                           <MessageCircle size={13} />답글
                         </button>
                       </div>
-                      <span style={{ fontSize:"10px", color:"#bbb" }}>
-                        {formatDate(r.created_at)}{r.is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                      <span style={{ fontSize:"10px", color:"#707070" }}>
+                        {formatDate(r.created_at)}{r.is_edited && <span style={{ marginLeft:"3px", color:"#707070" }}>(수정됨)</span>}
                       </span>
                     </div>
                   )}
@@ -1659,7 +1662,7 @@ export default function PlaceDetail({
                       </div>
                       <div style={{ display:"flex", gap:"7px" }}>
                         <textarea placeholder={isPlaceOwner ? "방문해 주신 고객께 답글을 남겨 보세요" : "답글을 입력하세요"} value={replyContent} onChange={(e) => setReplyContent(e.target.value)} style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box" }} />
-                        <button disabled={!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())} onClick={() => handleReplySubmit(r.id)} className="ggk-body" style={{ width:"46px", borderRadius:"6px", border:"none", background:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color:"white", cursor:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"default":"pointer", fontSize:"11px", fontWeight:700 }}>등록</button>
+                        <button disabled={!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())} onClick={() => handleReplySubmit(r.id)} className="ggk-body" style={{ width:"46px", borderRadius:"6px", border:"none", background:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: (!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())) ? "#4f4a3f" : "white", cursor:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"default":"pointer", fontSize:"11px", fontWeight:700 }}>등록</button>
                       </div>
                     </div>
                   )}
@@ -1692,7 +1695,7 @@ export default function PlaceDetail({
                               {isOwnerReply(reply) ? (
                                 <>
                                   <button onClick={() => { closeAll(); setEditingReplyId(reply.id); setEditReplyContent(reply.content); }} style={dropdownBtnStyle}>수정</button>
-                                  <button onClick={() => { closeAll(); setDeletingReplyId(reply.id); }} style={{ ...dropdownBtnStyle, color:"#ef4444" }}>삭제</button>
+                                  <button onClick={() => { closeAll(); setDeletingReplyId(reply.id); }} style={{ ...dropdownBtnStyle, color:"#dc2626" }}>삭제</button>
                                 </>
                               ) : isAdmin ? (
                                 /* ★ 관리자: 삭제만 */
@@ -1717,7 +1720,7 @@ export default function PlaceDetail({
                           </div>
                         </div>
                       ) : (
-                        <div style={{ marginTop:"4px", fontSize:"11px", lineHeight:1.5, color:reply.is_admin_deleted?"#ef4444":"#333", fontStyle:reply.is_admin_deleted?"italic":"normal", opacity:reply.is_admin_deleted?0.6:1, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
+                        <div style={{ marginTop:"4px", fontSize:"11px", lineHeight:1.5, color:reply.is_admin_deleted?"#dc2626":"#333", fontStyle:reply.is_admin_deleted?"italic":"normal", opacity:reply.is_admin_deleted?0.6:1, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>
                           {reply.is_admin_deleted
                             ? "부적절한 내용으로 관리자에 의해 삭제되었습니다."
                             : reply.deleted
@@ -1729,10 +1732,10 @@ export default function PlaceDetail({
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"6px" }}>
                         <button onClick={() => likeReply(reply.id)} style={{ display:"flex", alignItems:"center", gap:"3px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
                           <Heart size={12} color={likedReplyIds.has(String(reply.id))?"#ef4444":"#bbb"} fill={likedReplyIds.has(String(reply.id))?"#ef4444":"none"} />
-                          <span style={{ fontSize:"10px", color:"#777" }}>{reply.likes||0}</span>
+                          <span style={{ fontSize:"10px", color:"#555" }}>{reply.likes||0}</span>
                         </button>
-                        <span style={{ fontSize:"10px", color:"#bbb" }}>
-                          {formatDate(reply.created_at)}{reply.is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                        <span style={{ fontSize:"10px", color:"#707070" }}>
+                          {formatDate(reply.created_at)}{reply.is_edited && <span style={{ marginLeft:"3px", color:"#707070" }}>(수정됨)</span>}
                         </span>
                       </div>
 
@@ -1845,7 +1848,7 @@ export default function PlaceDetail({
                     alert("신고가 정상적으로 접수되었습니다.");
                     setReportingId(null); setReportingReplyId(null); setReportTargetType(null); setReportTargetId(null); setReportCategory(""); setReportReason("");
                   }}
-                  style={{ flex:1, padding:"11px", borderRadius:"8px", border:"none", background:(!reportCategory||!reportReason.trim())?"#ccc":"#ef4444", color:"white", cursor:(!reportCategory||!reportReason.trim())?"default":"pointer", fontWeight:700, fontSize:"12px" }}
+                  style={{ flex:1, padding:"11px", borderRadius:"8px", border:"none", background:(!reportCategory||!reportReason.trim())?"#ccc":"#ef4444", color: (!reportCategory||!reportReason.trim()) ? "#4f4a3f" : "white", cursor:(!reportCategory||!reportReason.trim())?"default":"pointer", fontWeight:700, fontSize:"12px" }}
                 >신고하기</button>
               </div>
             </div>

@@ -374,7 +374,7 @@ export default function JeboModal() {
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}>
                 <MapPin size={11} color="#8b5cf6" />
-                장소명 <span style={{ color: "#ef4444" }}>*</span>
+                장소명 <span style={{ color: "#dc2626" }}>*</span>
               </div>
               <input
                 className="jebo-input"
@@ -389,7 +389,7 @@ export default function JeboModal() {
             <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}>
                 <MapPin size={11} color="#8b5cf6" />
-                주소 <span style={{ color: "#ef4444" }}>*</span>
+                주소 <span style={{ color: "#dc2626" }}>*</span>
               </div>
 
               {/* 검색 버튼 */}
@@ -564,7 +564,7 @@ export default function JeboModal() {
 
             {/* ────── 동반 가능 범위 * (이모티콘 유지) ────── */}
             <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}><LandPlot size={11} color="#8b5cf6" /> 동반 가능 범위 <span style={{ color: "#ef4444" }}>*</span></div>
+              <div style={labelStyle}><LandPlot size={11} color="#8b5cf6" /> 동반 가능 범위 <span style={{ color: "#dc2626" }}>*</span></div>
               <div style={{ display: "flex", gap: 7 }}>
                 {([
                   { value: "indoor",  label: "실내 가능", icon: Home },
@@ -666,8 +666,8 @@ export default function JeboModal() {
             <div style={{ marginBottom: 24 }}>
               <div style={{ ...labelStyle, marginBottom: 8 }}>
                 <MapPinPlus size={11} color="#8b5cf6" />
-                사진 첨부 <span style={{ color: "#ef4444" }}>*</span>
-                <span style={{ fontWeight: 500, color: "#999", marginLeft: 4 }}>({imageFiles.length} / 10장)</span>
+                사진 첨부 <span style={{ color: "#dc2626" }}>*</span>
+                <span style={{ fontWeight: 500, color: "#666", marginLeft: 4 }}>({imageFiles.length} / 10장)</span>
               </div>
 
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
@@ -708,7 +708,7 @@ export default function JeboModal() {
                       border: "1.5px dashed #c4b5fd", background: "#faf5ff",
                       cursor: "pointer", display: "flex", flexDirection: "column",
                       alignItems: "center", justifyContent: "center", gap: 4,
-                      color: "#a78bfa", fontSize: 10, fontWeight: 600,
+                      color: "#7c3aed", fontSize: 10, fontWeight: 600,
                       fontFamily: "'Noto Sans KR', sans-serif",
                     }}
                   >
@@ -728,7 +728,7 @@ export default function JeboModal() {
                     사진은 반드시 <strong>가게 내부 사진 1장</strong>과 <strong>반려동물과 함께 방문한 사진 1장</strong>을 포함해 <strong>최소 2장 이상</strong> 첨부하셔야 검토 후 승인이 가능합니다.
                   </p>
                 </div>
-                <p style={{ margin: "7px 0 0 21px", fontSize: 11, color: "#ef4444", lineHeight: 1.6, fontFamily: "'Noto Sans KR', sans-serif", fontWeight: 500 }}>
+                <p style={{ margin: "7px 0 0 21px", fontSize: 11, color: "#dc2626", lineHeight: 1.6, fontFamily: "'Noto Sans KR', sans-serif", fontWeight: 500 }}>
                   · 1번 사진: 가게 내부 전경 사진<br />
                   · 2번 사진: 반려동물과 함께 방문한 사진
                 </p>
@@ -756,7 +756,7 @@ export default function JeboModal() {
             {missingItems.length > 0 && (
               <div style={{ marginTop: 10, padding: "10px 13px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                 {missingItems.map((item, i) => (
-                  <div key={i} style={{ fontSize: 11, color: "#999", lineHeight: 1.8, fontFamily: "'Noto Sans KR', sans-serif" }}>• {item}</div>
+                  <div key={i} style={{ fontSize: 11, color: "#666", lineHeight: 1.8, fontFamily: "'Noto Sans KR', sans-serif" }}>• {item}</div>
                 ))}
               </div>
             )}

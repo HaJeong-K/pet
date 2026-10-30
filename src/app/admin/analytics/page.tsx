@@ -50,10 +50,10 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: any; label: string;
         <div style={{ width: 28, height: 28, borderRadius: 9, background: "#E4EBDC", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Icon size={14} color="#48603A" />
         </div>
-        <span style={{ fontSize: 11.5, color: "#888", fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 11.5, color: "#5c5c5c", fontWeight: 700 }}>{label}</span>
       </div>
       <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 700, color: "#111" }}>{value}</div>
-      {sub && <div style={{ fontSize: 10.5, color: "#aaa", marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 10.5, color: "#6e6e6e", marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -77,7 +77,7 @@ function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: nu
         >
           <span style={{
             fontSize: 9, fontWeight: 700, lineHeight: "12px",
-            color: hoverIdx === i ? "#111" : "#999",
+            color: hoverIdx === i ? "#111" : "#666",
           }}>
             {d.count}
           </span>
@@ -92,7 +92,7 @@ function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: nu
               transition: "background 0.1s ease",
             }}
           />
-          <span style={{ fontSize: 9, lineHeight: "12px", whiteSpace: "nowrap", color: hoverIdx === i ? "#555" : "#aaa", fontWeight: hoverIdx === i ? 700 : 400 }}>{fmtDate(d.date)}</span>
+          <span style={{ fontSize: 9, lineHeight: "12px", whiteSpace: "nowrap", color: hoverIdx === i ? "#555" : "#6e6e6e", fontWeight: hoverIdx === i ? 700 : 400 }}>{fmtDate(d.date)}</span>
         </div>
       ))}
     </div>
@@ -182,13 +182,13 @@ export default function AdminAnalytics() {
             "scroll"로 고정해 스크롤바 자리를 항상 확보해둡니다. */}
         <div style={{ flex: 1, minHeight: 0, overflowY: "scroll", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth: "thin" as any }}>
           {error && (
-            <div style={{ padding: 14, borderRadius: 12, background: "#fff1f1", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>
+            <div style={{ padding: 14, borderRadius: 12, background: "#fff1f1", color: "#dc2626", fontSize: 13, marginBottom: 16 }}>
               {error}
             </div>
           )}
 
           {!data && loading && (
-            <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}><LogoLoader /></div>
+            <div style={{ padding: 40, textAlign: "center", color: "#666", fontSize: 13 }}><LogoLoader /></div>
           )}
 
           {data && (
@@ -208,9 +208,9 @@ export default function AdminAnalytics() {
                 display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap",
                 background: "white", borderRadius: 12, border: "1px solid rgba(0,0,0,0.06)", padding: "10px 14px",
               }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#888", whiteSpace: "nowrap" }}>추이 조회 기간</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: "#5c5c5c", whiteSpace: "nowrap" }}>추이 조회 기간</span>
                 <input type="date" value={trendFrom} max={trendTo} onChange={(e) => setTrendFrom(e.target.value)} style={dateInputStyle} />
-                <span style={{ color: "#ccc" }}>~</span>
+                <span style={{ color: "#707070" }}>~</span>
                 <input type="date" value={trendTo} min={trendFrom} max={daysAgo(0)} onChange={(e) => setTrendTo(e.target.value)} style={dateInputStyle} />
                 <button onClick={applyTrendRange} style={{
                   padding: "6px 12px", borderRadius: 8, border: "none", background: "#5C7A4A", color: "white",
@@ -220,7 +220,7 @@ export default function AdminAnalytics() {
                 </button>
                 <button onClick={resetTrendRange} style={{
                   display: "flex", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 8,
-                  border: "1px solid #ddd", background: "white", color: "#777", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                  border: "1px solid #ddd", background: "white", color: "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   <RotateCcw size={11} />최근 14일
                 </button>
@@ -248,14 +248,14 @@ export default function AdminAnalytics() {
                     <Search size={14} color="#5C7A4A" /> 인기 검색어 TOP 10 (최근 30일)
                   </div>
                   {data.topSearches.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "#aaa" }}>아직 데이터가 쌓이지 않았습니다.</div>
+                    <div style={{ fontSize: 12, color: "#6e6e6e" }}>아직 데이터가 쌓이지 않았습니다.</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {data.topSearches.map((s, i) => (
                         <div key={s.query} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#aaa" }}>{i + 1}</span>
+                          <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#6e6e6e" }}>{i + 1}</span>
                           <span style={{ flex: 1, fontSize: 12.5, color: "#333" }}>{s.query}</span>
-                          <span style={{ fontSize: 11, color: "#888", fontWeight: 700 }}>{s.count}회</span>
+                          <span style={{ fontSize: 11, color: "#5c5c5c", fontWeight: 700 }}>{s.count}회</span>
                         </div>
                       ))}
                     </div>
@@ -284,20 +284,20 @@ export default function AdminAnalytics() {
                     </div>
                   </div>
                   {data.topPlaces.length === 0 ? (
-                    <div style={{ fontSize: 12, color: "#aaa" }}>
+                    <div style={{ fontSize: 12, color: "#6e6e6e" }}>
                       {sido ? "해당 지역의 데이터가 아직 없습니다." : "아직 데이터가 쌓이지 않았습니다."}
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {data.topPlaces.map((p, i) => (
                         <div key={`${p.region}-${p.subRegion}-${p.placeName}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#aaa" }}>{i + 1}</span>
+                          <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#6e6e6e" }}>{i + 1}</span>
                           <span style={{
                             fontSize: 10, fontWeight: 700, color: "#48603A", background: "#E4EBDC",
                             padding: "2px 6px", borderRadius: 999, flexShrink: 0, whiteSpace: "nowrap",
                           }}>{p.region} {p.subRegion !== "기타" ? p.subRegion : ""}</span>
                           <span style={{ flex: 1, fontSize: 12.5, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.placeName}</span>
-                          <span style={{ fontSize: 11, color: "#888", fontWeight: 700 }}>{p.count}회</span>
+                          <span style={{ fontSize: 11, color: "#5c5c5c", fontWeight: 700 }}>{p.count}회</span>
                         </div>
                       ))}
                     </div>

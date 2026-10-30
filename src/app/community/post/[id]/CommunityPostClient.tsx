@@ -673,7 +673,7 @@ export default function CommunityDetailPage() {
       {heldFromView && (
         <div className="ggk-body" style={{ position: "fixed", inset: 0, zIndex: 300, background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#333" }}>확인 중인 글이에요</div>
-          <div style={{ fontSize: 13, color: "#777", lineHeight: 1.7 }}>관리자 확인이 끝나면 볼 수 있어요.</div>
+          <div style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>관리자 확인이 끝나면 볼 수 있어요.</div>
           <button onClick={() => router.replace("/community")} style={{ marginTop: 6, padding: "11px 20px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>커뮤니티로 돌아가기</button>
         </div>
       )}
@@ -998,7 +998,7 @@ export default function CommunityDetailPage() {
                               }}
                               style={{
                                 ...dropdownBtnStyleCom,
-                                color: "#ef4444"
+                                color: "#dc2626"
                               }}
                             >
                               삭제
@@ -1079,7 +1079,7 @@ export default function CommunityDetailPage() {
                         marginTop: "2px",
                         width: "100%",
                         fontSize: "11px",
-                        color: "#999",
+                        color: "#666",
                       }}
                     >
                       <span>{formatDate(post.created_at)}</span>
@@ -1096,7 +1096,7 @@ export default function CommunityDetailPage() {
                           style={{
                             display: "flex", alignItems: "center", gap: "3px",
                             border: "none", background: "transparent", padding: 0, cursor: "pointer",
-                            color: likedPost ? "#e0574c" : "#999",
+                            color: likedPost ? "#e0574c" : "#666",
                           }}
                         >
                           <Heart size={12} fill={likedPost ? "#e0574c" : "none"} color={likedPost ? "#e0574c" : "#999"} />
@@ -1379,7 +1379,7 @@ export default function CommunityDetailPage() {
                   }}>
                     <span style={{
                       fontSize: "12px",
-                      color: "#c0c4cc",
+                      color: "#6b7078",
                       fontFamily: "'Noto Sans KR', sans-serif",
                       textAlign: "center",
                       lineHeight: 1.7,
@@ -1439,7 +1439,7 @@ export default function CommunityDetailPage() {
                                     {isCommentOwner(item) ? (
                                       <>
                                         <button onClick={() => { setOpenedCommentMenuId(null); setEditingCommentId(item.id); setEditCommentContent(item.content); }} style={dropdownBtnStyleCom}>수정</button>
-                                        <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
+                                        <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#dc2626" }}>삭제</button>
                                       </>
                                     ) : isAdmin ? (
                                       <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
@@ -1473,7 +1473,7 @@ export default function CommunityDetailPage() {
                             whiteSpace: "pre-wrap",
                             wordBreak: "break-word",
 
-                            color: (item as any).is_admin_deleted ? "#ef4444" : "#333",
+                            color: (item as any).is_admin_deleted ? "#dc2626" : "#333",
                             fontStyle: (item as any).is_admin_deleted ? "italic" : "normal",
                             opacity: (item as any).is_admin_deleted ? 0.8 : 1,
                           }}>
@@ -1499,19 +1499,19 @@ export default function CommunityDetailPage() {
                           <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
                             <button onClick={() => likeComment(item.id)} style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
                               <Heart size={13} color={likedCommentIds.has(String(item.id)) ? "#ef4444" : "#bbb"} fill={likedCommentIds.has(String(item.id)) ? "#ef4444" : "none"} />
-                              <span style={{ fontSize:"11px", color:"#777" }}>{item.likes || 0}</span>
+                              <span style={{ fontSize:"11px", color:"#555" }}>{item.likes || 0}</span>
                             </button>
                             {session && (
                               <button
                                 onClick={() => setReplyTarget(replyTarget === item.id ? null : item.id)}
-                                style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0, color:"#777", fontSize:"11px" }}>
+                                style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"none", cursor:"pointer", padding:0, color:"#555", fontSize:"11px" }}>
                                 <MessageCircle size={13} />답글
                               </button>
                             )}
                           </div>
-                          <span style={{ fontSize:"10px", color:"#bbb" }}>
+                          <span style={{ fontSize:"10px", color:"#707070" }}>
                             {formatDate(item.created_at)}
-                            {(item as any).is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                            {(item as any).is_edited && <span style={{ marginLeft:"3px", color:"#707070" }}>(수정됨)</span>}
                           </span>
                         </div>
 
@@ -1528,7 +1528,7 @@ export default function CommunityDetailPage() {
                               <button
                                 disabled={!(replyMap[item.id] || "").trim()}
                                 onClick={() => handleReply(item.id)}
-                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
+                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#5C7A4A,#48603A)", color: !(replyMap[item.id] || "").trim() ? "#4f4a3f" : "white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
                                 등록
                               </button>
                             </div>
@@ -1566,7 +1566,7 @@ export default function CommunityDetailPage() {
                                         {isCommentOwner(reply) ? (
                                           <>
                                             <button onClick={() => { setOpenedReplyMenuId2(null); setEditingReplyId2(reply.id); setEditReplyContent2(reply.content); }} style={dropdownBtnStyleCom}>수정</button>
-                                            <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#ef4444" }}>삭제</button>
+                                            <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#dc2626" }}>삭제</button>
                                           </>
                                         ) : isAdmin ? (
                                           <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
@@ -1600,7 +1600,7 @@ export default function CommunityDetailPage() {
                                 whiteSpace: "pre-wrap",
                                 wordBreak: "break-word",
 
-                                color: (reply as any).is_admin_deleted ? "#ef4444" : "#333",
+                                color: (reply as any).is_admin_deleted ? "#dc2626" : "#333",
                                 fontStyle: (reply as any).is_admin_deleted ? "italic" : "normal",
                                 opacity: (reply as any).is_admin_deleted ? 0.8 : 1,
                               }}>
@@ -1625,11 +1625,11 @@ export default function CommunityDetailPage() {
                             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:"6px" }}>
                               <button onClick={() => likeComment(reply.id)} style={{ display:"flex", alignItems:"center", gap:"3px", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>
                                 <Heart size={12} color={likedCommentIds.has(String(reply.id)) ? "#ef4444" : "#bbb"} fill={likedCommentIds.has(String(reply.id)) ? "#ef4444" : "none"} />
-                                <span style={{ fontSize:"10px", color:"#777" }}>{reply.likes || 0}</span>
+                                <span style={{ fontSize:"10px", color:"#555" }}>{reply.likes || 0}</span>
                               </button>
-                              <span style={{ fontSize:"10px", color:"#bbb" }}>
+                              <span style={{ fontSize:"10px", color:"#707070" }}>
                                 {formatDate(reply.created_at)}
-                                {(reply as any).is_edited && <span style={{ marginLeft:"3px", color:"#ccc" }}>(수정됨)</span>}
+                                {(reply as any).is_edited && <span style={{ marginLeft:"3px", color:"#707070" }}>(수정됨)</span>}
                               </span>
                             </div>
                           </div>
@@ -1703,7 +1703,7 @@ export default function CommunityDetailPage() {
                       style={{
                         flex: 1, padding: 11, borderRadius: 8, border: "none",
                         background: (!postReportCategory || !postReportReason.trim()) ? "#ccc" : "#ef4444",
-                        color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        color: (!postReportCategory || !postReportReason.trim()) ? "#4f4a3f" : "white", cursor: "pointer", fontWeight: 700, fontSize: 12,
                       }}>신고하기</button>
             </div>
           </div>
@@ -1919,7 +1919,7 @@ export default function CommunityDetailPage() {
                       style={{ flex: 1, padding: 11, borderRadius: 8, border: "1px solid #ddd", background: "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>취소</button>
               <button onClick={handleCommentReport}
                       disabled={!commentReportCategory || !commentReportReason.trim()}
-                      style={{ flex: 1, padding: 11, borderRadius: 8, border: "none", background: (!commentReportCategory || !commentReportReason.trim()) ? "#ccc" : "#ef4444", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>신고하기</button>
+                      style={{ flex: 1, padding: 11, borderRadius: 8, border: "none", background: (!commentReportCategory || !commentReportReason.trim()) ? "#ccc" : "#ef4444", color: (!commentReportCategory || !commentReportReason.trim()) ? "#4f4a3f" : "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>신고하기</button>
             </div>
           </div>
         </>

@@ -60,7 +60,7 @@ export default function AdminQuality() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <ShieldCheck size={18} color="#5C7A4A" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>데이터 품질</div>
-          <span style={{ fontSize: 12, color: "#888" }}>
+          <span style={{ fontSize: 12, color: "#5c5c5c" }}>
             {report ? `마지막 점검 ${new Date(report.checkedAt).toLocaleString("ko-KR")} · 장소 ${report.placesChecked}곳 · 사진 ${report.imagesChecked}장` : "직접 등록·제보된 장소를 매주 자동 점검해요"}
           </span>
           <button onClick={runNow} disabled={running} style={{
@@ -87,9 +87,9 @@ export default function AdminQuality() {
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
+          <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}><LogoLoader /></div>
         ) : !report ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>아직 점검 기록이 없어요. &quot;지금 점검&quot;을 눌러 보세요.</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}>아직 점검 기록이 없어요. &quot;지금 점검&quot;을 눌러 보세요.</div>
         ) : issues.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#5C7A4A", fontSize: 13, fontWeight: 700 }}>문제가 발견되지 않았어요 👍</div>
         ) : (
@@ -103,8 +103,8 @@ export default function AdminQuality() {
                   {KIND_LABEL[i.kind].label}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#222" }}>{i.placeName}</span>
-                <span style={{ fontSize: 12, color: "#777" }}>{i.detail}</span>
-                <span style={{ marginLeft: "auto", fontSize: 11, color: "#aaa", flexShrink: 0 }}>#{i.placeId}</span>
+                <span style={{ fontSize: 12, color: "#555" }}>{i.detail}</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "#6e6e6e", flexShrink: 0 }}>#{i.placeId}</span>
               </a>
             ))}
           </div>
@@ -114,15 +114,15 @@ export default function AdminQuality() {
         {report && !loading && (
           <div style={{ marginTop: 22 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: "#222", marginBottom: 4 }}>점검한 장소 {report.placesChecked}곳</div>
-            <div style={{ fontSize: 11.5, color: "#888", lineHeight: 1.6, marginBottom: 10, wordBreak: "keep-all" }}>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, marginBottom: 10, wordBreak: "keep-all" }}>
               직접 등록했거나 제보로 들어온 장소만 점검해요. 지도에 보이는 공공데이터 장소(관광공사·식품안전나라 등)는 원본 기관 데이터라 여기서 고칠 수 없어 대상에서 빠져요.
             </div>
             {!report.checkedPlaces ? (
-              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#888" }}>
+              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#5c5c5c" }}>
                 이 점검 기록에는 장소 내역이 없어요. &quot;지금 점검&quot;을 한 번 누르면 내역이 보여요.
               </div>
             ) : report.checkedPlaces.length === 0 ? (
-              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#888" }}>아직 직접 등록·제보된 장소가 없어요.</div>
+              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#5c5c5c" }}>아직 직접 등록·제보된 장소가 없어요.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {report.checkedPlaces.map((p) => {
@@ -137,15 +137,15 @@ export default function AdminQuality() {
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                        <div style={{ fontSize: 11.5, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.address || "주소 없음"}</div>
+                        <div style={{ fontSize: 11.5, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.address || "주소 없음"}</div>
                       </div>
                       <span style={{ fontSize: 11.5, color: "#666", flexShrink: 0 }}>사진 {p.photos}장</span>
-                      <span style={{ fontSize: 11, color: "#aaa", flexShrink: 0 }}>#{p.id}</span>
+                      <span style={{ fontSize: 11, color: "#6e6e6e", flexShrink: 0 }}>#{p.id}</span>
                     </a>
                   );
                 })}
                 {report.placesChecked > report.checkedPlaces.length && (
-                  <div style={{ fontSize: 11.5, color: "#888", textAlign: "center", padding: 6 }}>처음 {report.checkedPlaces.length}곳만 보여요.</div>
+                  <div style={{ fontSize: 11.5, color: "#5c5c5c", textAlign: "center", padding: 6 }}>처음 {report.checkedPlaces.length}곳만 보여요.</div>
                 )}
               </div>
             )}

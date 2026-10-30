@@ -93,7 +93,7 @@ export default function OwnerPlaceEditPanel({
             disabled={saving}
             style={{
               marginTop: 4, padding: "10px", borderRadius: 10, border: "none",
-              background: saving ? "#ccc" : "#5C7A4A", color: "white", fontWeight: 700, fontSize: 12.5,
+              background: saving ? "#ccc" : "#5C7A4A", color: saving ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 12.5,
               cursor: saving ? "default" : "pointer",
             }}
           >
@@ -108,7 +108,7 @@ export default function OwnerPlaceEditPanel({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "#888", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "#5c5c5c", marginBottom: 3 }}>{label}</div>
       {children}
     </div>
   );

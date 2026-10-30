@@ -27,6 +27,7 @@ type Stay = {
 const BLUE = "#1D4F91";
 const REGIONS: { label: string; match: string[] }[] = [
   { label: "내 주변", match: [] },
+  { label: "전체 지역", match: [] },
   { label: "강원", match: ["강원"] },
   { label: "제주", match: ["제주"] },
   { label: "경기", match: ["경기"] },
@@ -49,6 +50,9 @@ const PAGE = 30;
 const regionOf = (address: string | null) => (address ?? "").split(" ").slice(0, 2).join(" ");
 /** 세부 지역 열쇠 — 시·도는 짧은 이름으로 맞춥니다("강원도"·"강원특별자치도" → "강원")("강원 강릉시") */
 const subKeyOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/); return t.length >= 2 ? `${normalizeSidoName(t[0])} ${t[1]}` : null; };
+/** 시·도 이름("강원특별자치도" → "강원") — 전체 지역에서 시·도별로 나눌 때 */
+const sidoOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/)[0]; return t ? normalizeSidoName(t) : null; };
+const ALL_REGIONS = "전체 지역";
 const realImage = (src: string | null) => (src && !src.includes("default-place") ? src : null);
 
 function StayImage({ stay, height }: { stay: Stay; height: number }) {
@@ -59,7 +63,7 @@ function StayImage({ stay, height }: { stay: Stay; height: number }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} style={{ width: "100%", height, objectFit: "cover", display: "block" }} />
   ) : (
-    <div aria-hidden style={{ width: "100%", height, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#7d97bd" }}>
+    <div aria-hidden style={{ width: "100%", height, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#4a6a99" }}>
       <BedDouble size={height > 120 ? 30 : 22} /><PawPrint size={height > 120 ? 20 : 15} />
     </div>
   );
@@ -91,7 +95,7 @@ export default function StayClient() {
     return stays
       .filter((s) => !q || `${s.name}${s.address ?? ""}${s.category ?? ""}`.replace(/\s+/g, "").includes(q))
       .filter((s) => r.match.length === 0 || r.match.some((m) => (s.address ?? "").startsWith(m)))
-      .filter((s) => !subRegion || subKeyOf(s.address) === subRegion)
+      .filter((s) => !subRegion || (region === ALL_REGIONS ? sidoOf(s.address) : subKeyOf(s.address)) === subRegion)
       .filter((s) => filters.every((f) => FILTERS.find((x) => x.id === f)!.test(s)))
       .map((s) => ({ ...s, distance: hereLat != null && hereLng != null ? haversineKm(hereLat, hereLng, s.lat, s.lng) : null }))
       .sort((a, b) => Number(b.bookable) - Number(a.bookable) || (a.distance ?? 0) - (b.distance ?? 0) || a.name.localeCompare(b.name));
@@ -99,8 +103,14 @@ export default function StayClient() {
   // 고른 권역 안의 세부 지역(숙소 수 많은 순). 두 시·도가 섞인 권역(서울·인천 등)은 이름 앞에 시·도를 붙입니다.
   const subRegions = useMemo(() => {
     const r = REGIONS.find((x) => x.label === region)!;
-    if (!stays || r.match.length === 0) return [];
+    if (!stays) return [];
     const counts = new Map<string, number>();
+    // 전체 지역: 시·도별(숙소 많은 순)
+    if (region === ALL_REGIONS) {
+      for (const st of stays) { const key = sidoOf(st.address); if (key) counts.set(key, (counts.get(key) ?? 0) + 1); }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).map(([key, count]) => ({ key, count, label: key }));
+    }
+    if (r.match.length === 0) return [];
     for (const st of stays) {
       if (!r.match.some((m) => (st.address ?? "").startsWith(m))) continue;
       const key = subKeyOf(st.address);
@@ -148,12 +158,12 @@ export default function StayClient() {
           </div>
           {subRegions.length > 1 && (
             <div style={{ display: "flex", gap: 5, overflowX: "auto", scrollbarWidth: "none", marginTop: 8, paddingBottom: 2 }}>
-              {[{ key: null as string | null, label: `${region} 전체`, count: subRegions.reduce((n, x) => n + x.count, 0) }, ...subRegions].map((x) => {
+              {[{ key: null as string | null, label: region === ALL_REGIONS ? "전국" : `${region} 전체`, count: subRegions.reduce((n, x) => n + x.count, 0) }, ...subRegions].map((x) => {
                 const on = subRegion === x.key;
                 return (
                   <button key={x.key ?? "all"} onClick={() => { setSubRegion(x.key); setLimit(PAGE); }} aria-pressed={on}
                     style={{ flexShrink: 0, padding: "6px 11px", borderRadius: 10, border: `1px solid ${on ? BLUE : "#dfe5ee"}`, background: on ? "#E3EDFA" : "white", color: on ? BLUE : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    {x.label} <span style={{ fontWeight: 600, color: on ? BLUE : "#aaa" }}>{x.count}</span>
+                    {x.label} <span style={{ fontWeight: 600, color: on ? BLUE : "#6e6e6e" }}>{x.count}</span>
                   </button>
                 );
               })}
@@ -179,16 +189,16 @@ export default function StayClient() {
                   <Sparkles size={16} color={BLUE} />
                   <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>같이가개에서 바로 예약</h2>
                 </div>
-                <div style={{ fontSize: 12.5, color: "#888", padding: "3px 18px 0" }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.</div>
+                <div style={{ fontSize: 12.5, color: "#5c5c5c", padding: "3px 18px 0" }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.</div>
                 <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "12px 18px 4px", scrollSnapType: "x mandatory" }}>
                   {bookable.slice(0, 12).map((s) => (
                     <button key={s.id} onClick={() => open(s)} style={{ flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: 0, border: "none", borderRadius: 18, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(29,79,145,0.12)", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
                       <StayImage stay={s} height={140} />
                       <div style={{ padding: "11px 13px 13px" }}>
-                        <div style={{ fontSize: 11.5, color: "#888" }}>{[s.category, regionOf(s.address)].filter(Boolean).join(" · ")}</div>
+                        <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>{[s.category, regionOf(s.address)].filter(Boolean).join(" · ")}</div>
                         <div style={{ fontSize: 15, fontWeight: 800, color: "#222", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
                         {s.petSummary && <div style={{ fontSize: 11.5, color: BLUE, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>🐾 {s.petSummary}</div>}
-                        {s.minPrice != null && <div style={{ fontSize: 16, fontWeight: 800, color: "#222", marginTop: 6 }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 12, fontWeight: 600, color: "#888" }}> /1박~</span></div>}
+                        {s.minPrice != null && <div style={{ fontSize: 16, fontWeight: 800, color: "#222", marginTop: 6 }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 12, fontWeight: 600, color: "#5c5c5c" }}> /1박~</span></div>}
                       </div>
                     </button>
                   ))}
@@ -199,11 +209,11 @@ export default function StayClient() {
             {/* 전체 숙소 */}
             <section style={{ marginTop: 18, padding: "0 16px", minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6, padding: "0 2px" }}>
-                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : `${subRegion ? subRegions.find((x) => x.key === subRegion)?.label ?? region : region} 숙소`}</h2>
-                <span style={{ fontSize: 12.5, color: "#999" }}>{list.length.toLocaleString("ko-KR")}곳</span>
+                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : region === ALL_REGIONS && !subRegion ? "전국 숙소" : `${subRegion ? subRegions.find((x) => x.key === subRegion)?.label ?? region : region} 숙소`}</h2>
+                <span style={{ fontSize: 12.5, color: "#666" }}>{list.length.toLocaleString("ko-KR")}곳</span>
               </div>
               {list.length === 0 && (
-                <div style={{ marginTop: 12, padding: "32px 16px", borderRadius: 18, background: "white", textAlign: "center", color: "#999", fontSize: 13, lineHeight: 1.7 }}>
+                <div style={{ marginTop: 12, padding: "32px 16px", borderRadius: 18, background: "white", textAlign: "center", color: "#666", fontSize: 13, lineHeight: 1.7 }}>
                   조건에 맞는 숙소가 없어요.<br />지역이나 조건을 바꿔 보세요.
                 </div>
               )}
@@ -219,12 +229,12 @@ export default function StayClient() {
                         {(s.largeDog || s.petSizes.includes("large")) && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>대형견 가능</span>}
                       </div>
                       <div style={{ fontSize: 14.5, fontWeight: 800, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
-                      <div style={{ fontSize: 12, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 12, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {[km(s.distance), regionOf(s.address)].filter(Boolean).join(" · ")}
                       </div>
                       {s.bookable && s.minPrice != null
-                        ? <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 11.5, fontWeight: 600, color: "#888" }}> /1박~</span></div>
-                        : <div style={{ fontSize: 11.5, color: "#9aa5b5" }}>전화로 예약 · 동반 조건은 숙소에 확인</div>}
+                        ? <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{s.minPrice.toLocaleString("ko-KR")}원<span style={{ fontSize: 11.5, fontWeight: 600, color: "#5c5c5c" }}> /1박~</span></div>
+                        : <div style={{ fontSize: 11.5, color: "#5f6672" }}>전화로 예약 · 동반 조건은 숙소에 확인</div>}
                     </div>
                   </button>
                 ))}
@@ -234,7 +244,7 @@ export default function StayClient() {
                   숙소 더 보기 ({(list.length - limit).toLocaleString("ko-KR")}곳 남음)
                 </button>
               )}
-              <div style={{ margin: "20px 4px 8px", fontSize: 11.5, color: "#a0a0a0", lineHeight: 1.7, textAlign: "center" }}>
+              <div style={{ margin: "20px 4px 8px", fontSize: 11.5, color: "#666", lineHeight: 1.7, textAlign: "center" }}>
                 숙소 정보는 한국관광공사·한국문화정보원 공공데이터와 숙소 사장님이 올린 내용이에요.<br />
                 반려동물 동반 조건은 바뀔 수 있으니 예약 전에 확인해 주세요.
               </div>

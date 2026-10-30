@@ -125,7 +125,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 export function PrivacyModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="개인정보 처리방침" onClose={onClose}>
-      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 10월 30일</p>
+      <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>최종 수정일: 2026년 10월 30일</p>
 
       <FooterSection title="1. 개인정보의 수집 및 이용 목적">
         같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
@@ -149,6 +149,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
         • <strong>위치정보:</strong> 브라우저 위치정보 제공에 동의한 경우, 현재 위치(위도·경도) — 주변 장소 추천, 지도 중심 이동, 인근 보호소 공고 표시에 사용되며 별도 서버 저장 없이 그때그때 조회에만 사용됩니다<br />
         • <strong>이용자가 업로드하는 이미지:</strong> 장소 사진, 제보 첨부 사진, 사업자등록증 이미지<br />
         • <strong>서비스 이용 시 자동 수집:</strong> 접속 기록, 검색어, 조회한 장소, 길찾기·전화·홈페이지 버튼 이용 여부, 접속 지역(주소 기반 시/도·시/군/구 단위)<br />
+        • <strong>추억 스탬프를 받는 경우:</strong> 다녀온 장소와 날짜. 인증할 때 현재 위치는 장소와의 거리 확인에만 쓰고 저장하지 않습니다<br />
         • <strong>새 공고 알림을 켠 경우:</strong> 브라우저 알림 수신 주소(푸시 구독 정보), 알림을 받을 지역<br />
         • <strong>코스를 저장한 경우:</strong> 저장한 코스의 장소 목록<br />
         • <strong>사장님 광고 상품 신청 시:</strong> 신청 기간, 입금자명, 요청 메모<br />
@@ -203,7 +204,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       </FooterSection>
 
       <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
-        <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
+        <div style={{ fontSize: 11, color: "#5c5c5c", lineHeight: 1.7 }}>
           본 개인정보 처리방침은 <strong>2026년 10월 5일</strong>부터 적용됩니다.<br />
           문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
         </div>
@@ -215,7 +216,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
 export function TermsModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="이용약관" onClose={onClose}>
-          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
+          <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="제1조 (목적)">
             본 약관은 같이가개(이하 "회사")가 제공하는 반려동물 동반 장소 정보 및 커뮤니티 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
@@ -268,7 +269,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
           </FooterSection>
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
-            <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 11, color: "#5c5c5c", lineHeight: 1.7 }}>
               본 이용약관은 <strong>2026년 10월 5일</strong>부터 적용됩니다.<br />
               문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
             </div>
@@ -280,7 +281,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
 function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="커뮤니티 운영정책" onClose={onClose}>
-          <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
+          <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="1. 목적">
             같이가개 커뮤니티는 반려인과 반려동물 관련 사업자가 함께 정보를 나누고 소통하는 공간입니다. 모두가 안전하고 즐겁게 이용할 수 있도록 아래 운영정책을 준수해 주세요.
@@ -323,7 +324,7 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
           </FooterSection>
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
-            <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
+            <div style={{ fontSize: 11, color: "#5c5c5c", lineHeight: 1.7 }}>
               본 운영정책은 <strong>2026년 10월 5일</strong>부터 시행됩니다.
             </div>
           </div>
@@ -348,30 +349,30 @@ export default function SiteFooter() {
           <a href="/about" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
             서비스 소개
           </a>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <button onClick={() => setShowTerms(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
             이용약관
           </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <button onClick={() => setShowPrivacy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", fontWeight: 700 }}>
             개인정보 처리방침
           </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <button onClick={() => setShowPolicy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
             커뮤니티 운영정책
           </button>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <a href="/partnership" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
             광고·제휴 문의
           </a>
-          <span style={{ fontSize: 10, color: "#c5c9cf" }}>|</span>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <button onClick={() => setShowContact(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
             <Mail size={11} color="#6b7280" />
             문의하기
           </button>
         </div>
 
-        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.9, marginBottom: 10, paddingTop: 10, borderTop: "1px solid #e2e5ea", maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+        <div style={{ fontSize: 10, color: "#5f6672", lineHeight: 1.9, marginBottom: 10, paddingTop: 10, borderTop: "1px solid #e2e5ea", maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
           상호명: 같이가개&nbsp;|&nbsp;대표자: 김하정&nbsp;|&nbsp;사업자등록번호: [등록 예정]
           <br />
           사업장 주소: [주소 등록 예정]&nbsp;|&nbsp;고객센터: {ADMIN_EMAIL}
@@ -379,7 +380,7 @@ export default function SiteFooter() {
           통신판매업신고번호: [해당 시 등록 예정]
         </div>
 
-        <div style={{ fontSize: 10, color: "#9aa1aa", lineHeight: 1.7 }}>
+        <div style={{ fontSize: 10, color: "#5f6672", lineHeight: 1.7 }}>
           © 2026 같이가개. All rights reserved.
         </div>
       </div>

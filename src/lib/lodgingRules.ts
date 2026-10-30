@@ -84,7 +84,9 @@ export type LodgingProfile = {
   pet_fee: number | null;
   /** 크기·종류별 추가 요금(1마리·1박) — 비어 있는 칸은 pet_fee(기본)를 씁니다 */
   pet_fees: PetFees;
-  /** 추가 요금 설명(예: "2마리부터 1만 원 추가", "대형견 2만 원") */
+  /** 기본 포함 마릿수 — 이 마릿수까지는 반려동물 추가 요금 없음(예: 1이면 둘째부터 요금) */
+  pet_free_count: number | null;
+  /** 요금 관련 안내 문구 — ⚠ 결제에는 들어가지 않습니다. 실제 요금은 위 칸으로만 받습니다 */
   pet_fee_note: string | null;
   pet_amenities: string[];
   /** 반려동물 동반 수칙(예: 침대·소파 위 금지, 객실 내 배변 시 청소비) */
@@ -116,7 +118,7 @@ export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
   check_in: null, check_out: null, pet_species: ["dog"], pet_others: null, pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null,
-  pet_fee: null, pet_fees: {}, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
+  pet_fee: null, pet_fees: {}, pet_free_count: null, pet_fee_note: null, pet_amenities: [], pet_rules: null, stay_rules: null, refund_policy: null,
   peak_periods: [], instant_confirm: false, extras: [],
 };
 
@@ -194,6 +196,8 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
   if (maxPets === "bad") return { error: `최대 마릿수는 1~${ROOM_PETS_MAX}마리 사이로 적어 주세요.` };
   const fee = number(r.pet_fee, 0, PET_FEE_MAX);
   if (fee === "bad") return { error: "반려동물 추가 요금을 다시 확인해 주세요." };
+  const freeCount = number(r.pet_free_count, 0, ROOM_PETS_MAX);
+  if (freeCount === "bad") return { error: `기본 포함 마릿수는 0~${ROOM_PETS_MAX}마리 사이로 적어 주세요.` };
   const petFees: PetFees = {};
   const rawFees = (r.pet_fees ?? {}) as Record<string, unknown>;
   for (const k of PET_FEE_KEYS) {
@@ -221,6 +225,7 @@ export function cleanLodgingProfile(raw: unknown): { profile: LodgingProfile } |
       peak_periods: peak,
       instant_confirm: r.instant_confirm === true,
       pet_fees: petFees,
+      pet_free_count: freeCount,
       extras: extras.extras,
     },
   };
@@ -302,7 +307,7 @@ export function cleanRoom(raw: unknown): { room: RoomInput } | { error: string }
 // ── 손님에게 보여 줄 요약 ──
 
 /** "강아지(소형견·중형견, 10kg 이하)·고양이 · 최대 2마리 · 1마리 1박 1만 원" 같은 한 줄 요약 */
-export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee"> & { pet_others?: string | null; pet_fees?: PetFees }): string {
+export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets" | "pet_fee"> & { pet_others?: string | null; pet_fees?: PetFees; pet_free_count?: number | null }): string {
   const parts: string[] = [];
   const animals = p.pet_species.map((s) => {
     if (s === "other") return p.pet_others || "그 외 동물";
@@ -318,6 +323,7 @@ export function petPolicySummary(p: Pick<LodgingProfile, "pet_species" | "pet_si
   if (byKind.length > 0) parts.push(`1마리 1박 ${p.pet_fee != null ? `기본 ${p.pet_fee.toLocaleString("ko-KR")}원·` : ""}${byKind.join("·")}`);
   else if (p.pet_fee === 0) parts.push("추가 요금 없음");
   else if (p.pet_fee != null) parts.push(`1마리 1박 ${p.pet_fee.toLocaleString("ko-KR")}원`);
+  if ((p.pet_free_count ?? 0) > 0 && p.pet_fee !== 0) parts.push(`${p.pet_free_count}마리까지 추가 요금 없음`);
   return parts.join(" · ");
 }
 

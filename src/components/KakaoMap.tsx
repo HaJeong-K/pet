@@ -50,6 +50,7 @@ import {
   Search, List, Crown, Store, Route as RouteIcon,
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
   Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown, Bookmark,
+  Home, Trees, HousePlus, BedDouble, Sprout,
 } from "lucide-react";
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
@@ -111,6 +112,16 @@ const SHEET_TAB_SPACE_PX = 92;
 const SHEET_PEEK_CONTENT_PX = 64;
 // 휴대폰 필터 칩 — 손가락으로 누르기 편한 크기(높이 약 32px)
 const MOBILE_CHIP_STYLE: React.CSSProperties = { padding: "7px 12px", fontSize: "12.5px", flexShrink: 0 };
+// 지도 필터 — 이모지 대신 같은 모양의 선 아이콘
+const ZONE_FILTERS: { key: string; label: string; Icon?: typeof Home }[] = [
+  { key: "all", label: "전체" },
+  { key: "indoor", label: "실내 동반", Icon: Home },
+  { key: "terrace", label: "야외 동반", Icon: Trees },
+  { key: "both", label: "실내·야외", Icon: HousePlus },
+  { key: "lodging", label: "숙소", Icon: BedDouble },
+  { key: "vet", label: "동물병원", Icon: Stethoscope },
+  { key: "pharmacy", label: "동물약국", Icon: Pill },
+];
 
 declare global {
   interface Window {
@@ -153,7 +164,7 @@ const ROUTE_HIGHLIGHT_BADGE: Record<StopHighlight, { label: string; title: strin
   // ⚠ 예전 이름 "후기 HOT"은 후기가 0개인 곳에도 붙었습니다 — 판정이 후기 수뿐 아니라 최근 찜·좋아요,
   // 조회 수까지 합친 점수라서요(2026-09-30 사용자 지적). 기준은 그대로 두고 이름을 실제 의미에 맞게 바꿨습니다.
   hot: { label: "요즘 인기", title: "최근 후기·찜·조회가 많은 곳", color: "#FF7A5C" },
-  pick: { label: "추천", title: "근처에 요즘 인기인 곳이 아직 없어 친화도가 높은 곳을 추천했어요", color: "#8b5cf6" },
+  pick: { label: "추천", title: "근처에 요즘 인기인 곳이 아직 없어 친화도가 높은 곳을 추천했어요", color: "#7c3aed" },
 };
 
 // 지도 검색어 — 같은 페이지 세션 안에서만 유지(새로고침하면 초기화). 아래 KakaoMap 참고.
@@ -347,6 +358,7 @@ export default function KakaoMap() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mapReady, setMapReady] = useState(false);
+  const focusRequestedRef = useRef(searchParams.has("focusLat"));
   const mapRef = useRef<any>(null);
   const [session, setSession] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -832,6 +844,9 @@ export default function KakaoMap() {
   };
 
   const getButtonStyle = (type: string) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
     padding: "4px 9px",
     fontSize: "11px",
     borderRadius: "999px",
@@ -1049,7 +1064,7 @@ export default function KakaoMap() {
           // 사용자가 그사이 지도를 옮기지 않았을 때만(지도 중심이 직전 위치 그대로일 때만) 따라갑니다.
           const center = map?.getCenter?.();
           const mapStillOnMe =
-            isFirst || !center || !applied || getDistance(center.getLat(), center.getLng(), applied.lat, applied.lng) * 1000 < 30;
+            !focusRequestedRef.current && (isFirst || !center || !applied || getDistance(center.getLat(), center.getLng(), applied.lat, applied.lng) * 1000 < 30);
           applied = { lat: fix.lat, lng: fix.lng };
           setUserLocation(applied);
           pendingLocationRef.current = applied;
@@ -1135,6 +1150,25 @@ export default function KakaoMap() {
       accuracyCircleRef.current = circle;
     }
   }, [userLocation, mapReady, locationAccuracy, locationSource]);
+
+  // 숙소 화면의 "지도에서 근처 동반 장소 보기" — 그 숙소를 가운데 두고 지도를 보여 줍니다(/?focusLat=&focusLng=&focusName=).
+  // 숙소가 지도 목록에 없어도 좌표로 옮기고, 이름표를 띄웁니다. 내 위치(GPS)가 나중에 잡혀도 지도를 끌고 가지 않습니다.
+  useEffect(() => {
+    const lat = Number(searchParams.get("focusLat")), lng = Number(searchParams.get("focusLng"));
+    if (!mapReady || !mapRef.current || !window.kakao?.maps || !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
+    const position = new window.kakao.maps.LatLng(lat, lng);
+    jumpMapTo(mapRef.current, position, 5);
+    mapRef.current.relayout();
+    setSearchCenter({ lat, lng });
+    const name = searchParams.get("focusName");
+    if (!name) return;
+    const label = document.createElement("div");
+    label.textContent = name;
+    label.style.cssText = "padding:7px 12px;border-radius:999px;background:#1D4F91;color:white;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;font-family:inherit";
+    const overlay = new window.kakao.maps.CustomOverlay({ position, content: label, yAnchor: 1.4, zIndex: 20 });
+    overlay.setMap(mapRef.current);
+    return () => overlay.setMap(null);
+  }, [mapReady, searchParams]);
 
   const hasOpenedRef = useRef(false);
   useEffect(() => {
@@ -3499,7 +3533,7 @@ const courseMeta = (route: RouteResult) => ({
             <button
               onClick={() => setLocationNoticeDismissed(true)}
               aria-label="안내 닫기"
-              style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", padding: 2, color: "#999", display: "flex" }}
+              style={{ flexShrink: 0, border: "none", background: "none", cursor: "pointer", padding: 2, color: "#666", display: "flex" }}
             >
               <X size={14} />
             </button>
@@ -3528,7 +3562,7 @@ const courseMeta = (route: RouteResult) => ({
               }}
             >
               <div style={{ fontSize: 12.5, fontWeight: 800, color: "#222" }}>지도를 움직여 핀을 내 위치에 맞춰주세요</div>
-              <div style={{ fontSize: 10.5, color: "#888", marginTop: 3 }}>정한 위치는 24시간 동안 추천·AI 코스의 기준이 돼요.</div>
+              <div style={{ fontSize: 10.5, color: "#5c5c5c", marginTop: 3 }}>정한 위치는 24시간 동안 추천·AI 코스의 기준이 돼요.</div>
               <div style={{ display: "flex", gap: 7, marginTop: 10 }}>
                 <button
                   onClick={() => setPickingLocation(false)}
@@ -3687,7 +3721,7 @@ const courseMeta = (route: RouteResult) => ({
                 </span>{" "}
                 {getPlaceLabel(selectedPlace)}
               </div>
-              <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
+              <div style={{ fontSize: "11px", color: "#666", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
                 <MapPin size={10} color="#bbb" />
                 {selectedPlace.address}
               </div>
@@ -3754,12 +3788,12 @@ const courseMeta = (route: RouteResult) => ({
                   ? ` · 약 ${Number(selectedPark.area).toLocaleString()}㎡`
                   : ""}
               </div>
-              <div style={{ fontSize: "11px", color: "#999", marginTop: "1px", display: "flex", alignItems: "flex-start", gap: "3px" }}>
+              <div style={{ fontSize: "11px", color: "#666", marginTop: "1px", display: "flex", alignItems: "flex-start", gap: "3px" }}>
                 <MapPin size={10} color="#bbb" style={{ marginTop: "2px", flexShrink: 0 }} />
                 {selectedPark.address || "주소 정보 없음"}
               </div>
               {selectedPark.facilityNote && (
-                <div style={{ fontSize: "11px", color: "#7a7a7a", marginTop: "8px", padding: "8px 10px", background: "#f7f7f5", borderRadius: "10px", lineHeight: 1.6 }}>
+                <div style={{ fontSize: "11px", color: "#555", marginTop: "8px", padding: "8px 10px", background: "#f7f7f5", borderRadius: "10px", lineHeight: 1.6 }}>
                   {/* facilityNote는 import-parks.mjs의 buildFacilityNote()가 "운동시설: ... · 편익시설: ..."
                       처럼 " · "로 이어붙여 저장합니다 — 한 줄로 뭉쳐 있으면 시설이 여러 개일 때 읽기 어려워서,
                       시설 종류별로 한 줄씩 줄바꿈해서 보여줍니다. */}
@@ -3884,12 +3918,9 @@ const courseMeta = (route: RouteResult) => ({
                   WebkitOverflowScrolling: "touch",
                 }}
               >
-                {([
-                  ["all", "전체"], ["indoor", "🏠 실내 가능"], ["terrace", "🌿 야외 가능"], ["both", "🏡 실내외 모두"],
-                  ["lodging", "🛏️ 숙소"], ["vet", "🏥 동물병원"], ["pharmacy", "💊 동물약국"],
-                ] as const).map(([key, label]) => (
-                  <button key={key} onClick={() => setSelectedPetZone(key)} style={{ ...getButtonStyle(key), ...MOBILE_CHIP_STYLE }}>
-                    {label}
+                {ZONE_FILTERS.map(({ key, label, Icon }) => (
+                  <button key={key} onClick={() => setSelectedPetZone(key as typeof selectedPetZone)} style={{ ...getButtonStyle(key), ...MOBILE_CHIP_STYLE }}>
+                    {Icon && <Icon size={14} />}{label}
                   </button>
                 ))}
                 <button
@@ -3898,6 +3929,7 @@ const courseMeta = (route: RouteResult) => ({
                   aria-pressed={showParks}
                   style={{
                     ...MOBILE_CHIP_STYLE,
+                    display: "inline-flex", alignItems: "center", gap: 3,
                     borderRadius: "999px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
                     border: showParks ? "none" : "1px solid #d8dcd6",
                     background: showParks ? "#3a7438" : "white",
@@ -3905,7 +3937,7 @@ const courseMeta = (route: RouteResult) => ({
                     fontFamily: "'Noto Sans KR', sans-serif",
                   }}
                 >
-                  🌳 공원
+                  <Sprout size={14} />공원
                 </button>
               </div>
               <style>{`.ggk-chip-row::-webkit-scrollbar { display: none; }`}</style>
@@ -3924,7 +3956,7 @@ const courseMeta = (route: RouteResult) => ({
             />
             <div
               className="ggk-body"
-              style={{ fontSize: "10px", color: "#888", fontWeight: 400, marginTop: "6px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}
+              style={{ fontSize: "10px", color: "#5c5c5c", fontWeight: 400, marginTop: "6px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}
             >
               나의 가족인 반려동물과 함께 맛있는 추억을 나눌 장소 찾기
             </div>
@@ -3978,13 +4010,11 @@ const courseMeta = (route: RouteResult) => ({
             </div>
 
             <div data-guide="filters" style={{ display: "flex", gap: "4px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-              <button onClick={() => setSelectedPetZone("all")} style={getButtonStyle("all")}>전체</button>
-              <button onClick={() => setSelectedPetZone("indoor")} style={getButtonStyle("indoor")}>🏠 실내 가능</button>
-              <button onClick={() => setSelectedPetZone("terrace")} style={getButtonStyle("terrace")}>🌿 야외 가능</button>
-              <button onClick={() => setSelectedPetZone("both")} style={getButtonStyle("both")}>🏡 실내외 모두</button>
-              <button onClick={() => setSelectedPetZone("lodging")} style={getButtonStyle("lodging")}>🛏️ 숙소</button>
-              <button onClick={() => setSelectedPetZone("vet")} style={getButtonStyle("vet")}>🏥 동물병원</button>
-              <button onClick={() => setSelectedPetZone("pharmacy")} style={getButtonStyle("pharmacy")}>💊 동물약국</button>
+              {ZONE_FILTERS.map(({ key, label, Icon }) => (
+                <button key={key} onClick={() => setSelectedPetZone(key as typeof selectedPetZone)} style={getButtonStyle(key)}>
+                  {Icon && <Icon size={12} />}{label}
+                </button>
+              ))}
               {/* ⚠ 공원 버튼 자체가 눌림/안눌림 상태를 통째로 표현합니다(다른 필터 버튼과
                   같은 톤) — 텍스트는 "🌳 공원"으로 고정, 켜져 있으면 진한 초록으로 채워지고
                   꺼지면 옅은 외곽선만 남는 식으로 버튼 전체가 토글됩니다. */}
@@ -4005,9 +4035,12 @@ const courseMeta = (route: RouteResult) => ({
                   whiteSpace: "nowrap",
                   transition: "all 0.15s ease",
                   fontFamily: "'Noto Sans KR', sans-serif",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
                 }}
               >
-                🌳 공원
+                <Sprout size={12} />공원
               </button>
             </div>
           </div>
@@ -4045,20 +4078,20 @@ const courseMeta = (route: RouteResult) => ({
                 무엇인지 알기 어렵고 꾸민 티가 났습니다. 지도 앱처럼 흰 막대 하나에 아이콘+이름을 같은 색으로 두고,
                 열려 있는 기능만 초록으로 채웁니다. 제보는 따로 진한 버튼으로. */}
             <div role="toolbar" aria-label="지도 기능" style={{ display: "flex", alignItems: "center", gap: 2, padding: 3, borderRadius: 12, background: "white", border: "1px solid rgba(30,30,20,0.09)", boxShadow: "0 2px 10px rgba(30,30,20,0.08)" }}>
-              <button ref={recentBtnRef} title="새로 등록된 장소" aria-label="새 장소" aria-pressed={showRecentPanel}
+              <button ref={recentBtnRef} title="새로 등록된 장소" aria-label="새로 생긴 곳" aria-pressed={showRecentPanel}
                 onClick={() => { setShowRecentPanel(!showRecentPanel); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
                 className="ggk-body" style={toolButton(showRecentPanel, true)}>
-                <MapPinPlus size={14} />{toolbarLabels && "새 장소"}
+                <MapPinPlus size={14} />{toolbarLabels && "새로 생긴 곳"}
               </button>
-              <button ref={recommendBtnRef} title="취향에 맞는 추천 장소" aria-label="추천 장소" aria-pressed={showRecommendPanel}
+              <button ref={recommendBtnRef} title="취향에 맞는 추천 장소" aria-label="취향 추천" aria-pressed={showRecommendPanel}
                 onClick={() => { setShowRecommendPanel(!showRecommendPanel); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); }}
                 className="ggk-body" style={toolButton(showRecommendPanel, true)}>
-                <Sparkles size={14} />{toolbarLabels && "추천"}
+                <Sparkles size={14} />{toolbarLabels && "취향 추천"}
               </button>
-              <button ref={routeBtnRef} title="반려견과 걷기 좋은 코스" aria-label="산책·나들이 코스" aria-pressed={showRoutePanel}
+              <button ref={routeBtnRef} title="반려견과 걷기 좋은 코스" aria-label="산책 코스" aria-pressed={showRoutePanel}
                 onClick={() => { setShowRoutePanel(!showRoutePanel); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); }}
                 className="ggk-body" style={toolButton(showRoutePanel, true)}>
-                <RouteIcon size={14} />{toolbarLabels && "코스"}
+                <RouteIcon size={14} />{toolbarLabels && "산책 코스"}
               </button>
               <span aria-hidden style={{ width: 1, height: 18, background: "rgba(30,30,20,0.1)", margin: "0 2px" }} />
               <button ref={ownerBtnRef} title="우리 가게 등록·관리" aria-label="사장님" onClick={handleOwnerRegisterClick} disabled={ownerCheckLoading}
@@ -4111,9 +4144,9 @@ const courseMeta = (route: RouteResult) => ({
               <div style={{ width: 40, height: 5, borderRadius: 3, background: "#d9dce1", margin: "0 auto" }} />
             </div>
             {([
-              { key: "recent", label: "새 장소", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#3F5230", bg: "#EEF3E8",
+              { key: "recent", label: "새로 생긴 곳", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRecentPanel(true); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
-              { key: "recommend", label: "추천 장소", desc: "취향에 맞는 장소를 골라 드려요", Icon: Sparkles, color: "#3F5230", bg: "#EEF3E8",
+              { key: "recommend", label: "취향 추천", desc: "취향에 맞는 장소를 골라 드려요", Icon: Sparkles, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRecommendPanel(true); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
               { key: "route", label: "산책·나들이 코스", desc: "반려견과 걷기 좋은 코스를 짜 드려요", Icon: RouteIcon, color: "#3F5230", bg: "#EEF3E8",
                 run: () => { setShowRoutePanel(true); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); } },
@@ -4136,7 +4169,7 @@ const courseMeta = (route: RouteResult) => ({
                 </span>
                 <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: "#222" }}>{label}</span>
-                  <span style={{ fontSize: 11.5, color: "#888" }}>{desc}</span>
+                  <span style={{ fontSize: 11.5, color: "#5c5c5c" }}>{desc}</span>
                 </span>
               </button>
             ))}
@@ -4269,9 +4302,11 @@ const courseMeta = (route: RouteResult) => ({
                   border: isSelected ? "1.5px solid #5C7A4A" : isAd ? "1px solid rgba(212,162,76,0.6)" : "1px solid rgba(60,50,30,0.08)",
                   boxShadow: isSelected ? "0 6px 18px rgba(92,122,74,0.22)" : isAd ? "0 6px 16px rgba(196,148,60,0.16)" : "0 2px 8px rgba(40,32,16,0.05)",
                   overflow: "hidden",
+                  display: "flex",
+                  alignItems: "stretch",
                 }}
               >
-                <div style={{ position: "relative", width: "100%", height: "104px" }}>
+                <div style={{ position: "relative", width: "92px", minHeight: "92px", flexShrink: 0 }}>
                   {isPark ? (
                     <div style={{ width: "100%", height: "100%", background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <span style={{ fontSize: "28px" }}>🌳</span>
@@ -4282,7 +4317,7 @@ const courseMeta = (route: RouteResult) => ({
                       src={place.image_url || "/images/default-place.png"}
                       alt={place.name}
                       fill
-                      sizes="(max-width: 720px) 100vw, 320px"
+                      sizes="92px"
                       loading="lazy"
                       onError={(e) => { (e.target as HTMLImageElement).src = "/images/default-place.png"; }}
                       style={{ objectFit: "cover" }}
@@ -4313,7 +4348,7 @@ const courseMeta = (route: RouteResult) => ({
                     </span>
                   )}
                 </div>
-                <div style={{ padding: "9px 10px 10px" }}>
+                <div style={{ padding: "9px 10px 10px", flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: "12.5px", color: "#1f1a12", letterSpacing: "-0.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {place.name}
                   </div>
@@ -4335,7 +4370,7 @@ const courseMeta = (route: RouteResult) => ({
                     </span>
                   </div>
                   {place.address && (
-                    <div style={{ fontSize: "10.5px", color: "#8a8173", marginTop: "6px", display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
+                    <div style={{ fontSize: "10.5px", color: "#655d4f", marginTop: "6px", display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
                       <MapPin size={10} color="#b8ad99" style={{ flexShrink: 0 }} />
                       <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{place.address}</span>
                     </div>
@@ -4372,14 +4407,14 @@ const courseMeta = (route: RouteResult) => ({
           )}
           {pinnedPremiumPlaces.map((place) => renderCard(place, true))}
           {pinnedPremiumPlaces.length > 0 && listPlaces.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 2px 10px", fontSize: "10px", fontWeight: 700, color: "#a39882" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "2px 2px 10px", fontSize: "10px", fontWeight: 700, color: "#6a6253" }}>
               <span style={{ flex: 1, height: 1, background: "rgba(60,50,30,0.1)" }} />주변 장소<span style={{ flex: 1, height: 1, background: "rgba(60,50,30,0.1)" }} />
             </div>
           )}
           {listPlaces.length === 0 && !summaryView && (
             <div style={{
               textAlign: "center", padding: "30px 10px",
-              color: "#bbb", fontSize: "11px", lineHeight: 1.8,
+              color: "#707070", fontSize: "11px", lineHeight: 1.8,
               display: "flex", flexDirection: "column", alignItems: "center", gap: "8px",
             }}>
               <Search size={22} color="#ddd" />
@@ -4393,7 +4428,7 @@ const courseMeta = (route: RouteResult) => ({
           {listPlaces.slice(0, listLimit).map((place) => renderCard(place, false))}
           {/* 목록 끝 감지 — 여기까지 내려오면 카드를 더 그립니다(listLimit 설명 참고) */}
           {listPlaces.length > listLimit && (
-            <div ref={listMoreRef} style={{ padding: "14px 0 6px", textAlign: "center", fontSize: 11, color: "#bbb" }}>
+            <div ref={listMoreRef} style={{ padding: "14px 0 6px", textAlign: "center", fontSize: 11, color: "#707070" }}>
               더 불러오는 중… ({listLimit} / {listPlaces.length})
             </div>
           )}
@@ -4474,7 +4509,7 @@ const courseMeta = (route: RouteResult) => ({
             }}
           >
             {places.length === 0 && (
-              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#707070", fontSize: "11px" }}>
                 새로운 장소가 아직 없습니다
               </div>
             )}
@@ -4548,7 +4583,7 @@ const courseMeta = (route: RouteResult) => ({
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <div style={{ fontSize: "10px", color: "#555", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
                       <span>
                         {getPlaceEmoji(place)
                           ? getPlaceEmoji(place)
@@ -4559,7 +4594,7 @@ const courseMeta = (route: RouteResult) => ({
                     {place.address && (
                       <div style={{
                         fontSize: "10px",
-                        color: "#aaa",
+                        color: "#6e6e6e",
                         marginTop: "2px",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -4570,7 +4605,7 @@ const courseMeta = (route: RouteResult) => ({
                     )}
                   </div>
 
-                  <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
+                  <div style={{ color: "#6b7078", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
                 </div>
               ))}
           </div>
@@ -4623,238 +4658,6 @@ const courseMeta = (route: RouteResult) => ({
                     ? "거리·취향·평판·편의시설 기반 맞춤 추천순"
                     : "위치·선호·편의시설 기반 AI 추천순"}
                 </div>
-              </div>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  padding: "4px 10px",
-                  borderRadius: "999px",
-                  background: "rgba(92,122,74,0.18)",
-                  color: "#3F5230",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                HOT
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              overflowY: "auto",
-              flex: 1,
-              padding: "10px 10px",
-              scrollbarWidth: "thin",
-              scrollbarColor: "#ddd transparent",
-            }}
-          >
-            {recommendedPlaces.length === 0 && !recommendedAd && (
-              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
-                {wideLoading ? <LogoLoader label="주변 장소를 모으는 중…" /> : "추천할 장소가 없습니다"}
-              </div>
-            )}
-            {/* 광고 슬롯 — 프리미엄 업장은 추천 순위에 섞지 않고 여기 한 칸에만, "광고"로
-                명확히 구분해 보여줍니다(추천 목록의 신뢰도 유지). */}
-            {recommendedAd && (
-              <div
-                onClick={() => handleRecommendClick(recommendedAd.place, 0, recommendedAd.score, "ad")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "11px",
-                  padding: "10px 11px",
-                  borderRadius: "14px",
-                  marginBottom: "8px",
-                  cursor: "pointer",
-                  border: "1px solid rgba(212,162,76,0.35)",
-                  background: "#fffaf0",
-                }}
-              >
-                <div
-                  style={{
-                    width: "28px", height: "28px", borderRadius: "9px", flexShrink: 0,
-                    background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  <Crown size={13} color="#5C4106" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    className="ggk-logo"
-                    style={{ fontWeight: 700, fontSize: "13px", color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  >
-                    {recommendedAd.place.name}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#8a6d2b", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <span
-                      style={{
-                        fontSize: "9px", fontWeight: 800, padding: "1px 5px", borderRadius: 4,
-                        border: "1px solid #D4A24C", color: "#8a6d2b", lineHeight: "12px",
-                      }}
-                    >
-                      광고
-                    </span>
-                    <span>{getPlaceLabel(recommendedAd.place)}</span>
-                  </div>
-                </div>
-                <div style={{ color: "#d9c28f", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
-              </div>
-            )}
-            {recommendedPlaces.map(({ place, score, reason, distanceKm }, idx) => (
-              <div
-                key={place.id}
-                onClick={() => handleRecommendClick(place, idx + 1, score, "organic")}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "11px",
-                  padding: "10px 11px",
-                  borderRadius: "14px",
-                  marginBottom: "6px",
-                  cursor: "pointer",
-                  border: "1px solid rgba(0,0,0,0.05)",
-                  background: "#faf9fe",
-                  transition: "background 0.15s ease, box-shadow 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = "#f3e8ff";
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 10px rgba(92,122,74,0.10)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.background = "#faf9fe";
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
-                }}
-              >
-                <div
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "9px",
-                    background: "rgba(92,122,74,0.18)",
-                    color: "#3F5230",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    fontSize: "11px",
-                    fontWeight: 800,
-                  }}
-                >
-                  {idx + 1}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    className="ggk-logo"
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "13px",
-                      color: "#111",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      letterSpacing: "-0.1px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{place.name}</span>
-                    {isPlacePremiumNow(place) && (
-                      <span title="프리미엄 등록 업장" style={{
-                        display: "inline-flex", alignItems: "center", padding: "1px 5px", borderRadius: 999, flexShrink: 0,
-                        background: "linear-gradient(135deg,#F0D28A,#D4A24C)",
-                      }}>
-                        <Crown size={8} color="#5C4106" />
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#777", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <span>
-                      {getPlaceEmoji(place)
-                        ? getPlaceEmoji(place)
-                        : <PawPrint size={10} color="#777" />}
-                    </span>
-                    <span>{getPlaceLabel(place)}</span>
-                    <span style={{ color: "#A9C48A" }}>·</span>
-                    {activeRecVariant === "v2" ? (
-                      // v2는 다양성 재정렬 때문에 점수가 순서와 꼭 일치하지 않아서, 숫자 대신
-                      // 거리와 "왜 추천됐는지"를 보여줍니다(점수는 마우스를 올리면 확인).
-                      <span title={`추천점수 ${score}`} style={{ color: "#5C7A4A", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {distanceKm != null && (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`)}
-                        {distanceKm != null && reason && " · "}
-                        {reason}
-                      </span>
-                    ) : (
-                      <span style={{ color: "#5C7A4A", fontWeight: 700 }}>추천점수 {score}</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ color: "#c8ccd4", fontSize: "16px", flexShrink: 0, lineHeight: 1 }}>›</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── AI 맞춤 추천 경로(산책 코스) 패널 ── */}
-      {showRoutePanel && (
-        <div
-          className="ggk-body"
-          style={{
-            position: "fixed",
-            top: panelTop,
-            // ⚠ 리스트 패널이 우측으로 도킹되면(listPanelSide) 이 패널들과 자리가
-            // 겹치므로, 항상 리스트 패널의 반대편(otherPanelsSide)에 붙습니다.
-            ...(otherPanelsSide === "left" ? { left: "14px" } : { right: "14px" }),
-            width: isNarrowScreen ? "clamp(240px, 82vw, 320px)" : "320px",
-            maxHeight: "76vh",
-            background: "#ffffff",
-            borderRadius: "22px",
-            overflow: "hidden",
-            zIndex: 30,
-            boxShadow: "0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)",
-            border: "1px solid rgba(0,0,0,0.06)",
-            display: "flex",
-            flexDirection: "column",
-            ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
-}}
-        >
-        {isNarrowScreen && renderSheetHandle()}
-          <div
-            style={{
-              background: "linear-gradient(135deg, #F4F7EF 0%, #E3ECD8 100%)",
-              // 정거장 목록이 보이는 자리를 넓히려고 위쪽 영역을 촘촘하게 둡니다.
-              padding: "12px 14px 10px",
-              flexShrink: 0,
-              borderBottom: "1px solid rgba(92,122,74,0.2)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div
-                  className="ggk-logo"
-                  style={{ fontSize: "15px", fontWeight: 800, color: "#2F3B28", letterSpacing: "-0.2px" }}
-                >
-                  AI 맞춤 추천 경로
-                </div>
-                <div style={{ fontSize: "10px", color: "#3F5230", marginTop: "3px", fontWeight: 500 }}>
-                  {`${routeOriginLabel} 기준 추천 코스`}
-                </div>
-              </div>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  padding: "4px 10px",
-                  borderRadius: "999px",
-                  background: "rgba(92,122,74,0.18)",
-                  color: "#3F5230",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                베타
               </div>
             </div>
 
@@ -4947,7 +4750,7 @@ const courseMeta = (route: RouteResult) => ({
                     padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
                     border: on ? "1px solid #3F5230" : "1px dashed rgba(92,122,74,0.4)",
                     background: on ? "#E6EEDD" : "rgba(255,255,255,0.5)",
-                    color: on ? "#3F5230" : "#9ca3af",
+                    color: on ? "#3F5230" : "#5f6672",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -4970,7 +4773,7 @@ const courseMeta = (route: RouteResult) => ({
                   padding: "3px 8px", borderRadius: "999px", fontSize: "10px", fontWeight: 700, cursor: "pointer",
                   border: showNearbyInCourse ? "1px solid #3F5230" : "1px dashed rgba(92,122,74,0.4)",
                   background: showNearbyInCourse ? "#E6EEDD" : "rgba(255,255,255,0.5)",
-                  color: showNearbyInCourse ? "#3F5230" : "#9ca3af",
+                  color: showNearbyInCourse ? "#3F5230" : "#5f6672",
                   transition: "all 0.15s ease",
                 }}
               >
@@ -5058,7 +4861,7 @@ const courseMeta = (route: RouteResult) => ({
             }}
           >
             {!displayRoute && (
-              <div style={{ textAlign: "center", padding: "30px 10px", color: "#bbb", fontSize: "11px" }}>
+              <div style={{ textAlign: "center", padding: "30px 10px", color: "#707070", fontSize: "11px" }}>
                 {wideLoading
                   ? <LogoLoader label="주변 장소를 모으는 중…" />
                   : !(userLocation || searchCenter)
@@ -5072,7 +4875,7 @@ const courseMeta = (route: RouteResult) => ({
               <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "2px 3px 10px 3px", color: "#5C7A4A", fontSize: "10.5px", fontWeight: 700 }}>
                 <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#2563eb", border: "2px solid white", boxShadow: "0 0 0 1px rgba(37,99,235,0.4)", flexShrink: 0 }} />
                 출발: {routeOriginLabel}
-                <span style={{ color: "#bbb", fontWeight: 500 }}>
+                <span style={{ color: "#707070", fontWeight: 500 }}>
                   · 첫 정거장까지 도보 약{" "}
                   {displayRoute.distanceFromOriginKm < 1
                     ? `${Math.round(displayRoute.distanceFromOriginKm * 1000)}m`
@@ -5202,7 +5005,7 @@ const courseMeta = (route: RouteResult) => ({
                         );
                       })()}
                     </div>
-                    <div style={{ fontSize: "9.5px", color: "#8b5cf6", fontWeight: 700, marginTop: "2px" }}>
+                    <div style={{ fontSize: "9.5px", color: "#7c3aed", fontWeight: 700, marginTop: "2px" }}>
                       {stop.tags.join(" · ")}
                       <span style={{ color: "#c4b5fd" }}> · </span>
                       <span style={{ color: "#3F5230" }}>반려견 친화도 {stop.friendliness}점</span>
@@ -5210,13 +5013,13 @@ const courseMeta = (route: RouteResult) => ({
                     <div style={{ marginTop: "4px", display: "flex", flexDirection: "column", gap: "1px" }}>
                       {stop.bullets.map((b, bi) => (
                         <div key={bi} style={{ fontSize: "10px", color: "#666", display: "flex", alignItems: "center", gap: "3px" }}>
-                          <span style={{ color: "#8b5cf6", fontWeight: 800 }}>✓</span>{b}
+                          <span style={{ color: "#7c3aed", fontWeight: 800 }}>✓</span>{b}
                         </div>
                       ))}
                     </div>
                     {/* 이 정거장만 바로 찾아가기 — 카드 클릭(미리보기)과 분리되도록 전파를 막습니다 */}
                     <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "6px" }}>
-                      <span style={{ fontSize: "9.5px", color: "#999", fontWeight: 600, marginRight: "1px" }}>여기로 길찾기</span>
+                      <span style={{ fontSize: "9.5px", color: "#666", fontWeight: 600, marginRight: "1px" }}>여기로 길찾기</span>
                       {(["kakao", "naver"] as const).map((app) => (
                         <button
                           key={app}
@@ -5240,7 +5043,7 @@ const courseMeta = (route: RouteResult) => ({
                 </div>
 
                 {stop.distanceToNextKm != null && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 0 5px 22px", color: "#aaa", fontSize: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 0 5px 22px", color: "#6e6e6e", fontSize: "10px" }}>
                     <Footprints size={10} />
                     {stop.distanceToNextKm < 1
                       ? `${Math.round(stop.distanceToNextKm * 1000)}m`
@@ -5343,7 +5146,7 @@ const courseMeta = (route: RouteResult) => ({
                   <Navigation size={12} />네이버지도
                 </button>
               </div>
-              <div style={{ fontSize: "9px", color: "#bbb", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
+              <div style={{ fontSize: "9px", color: "#707070", textAlign: "center", marginTop: "6px", lineHeight: 1.4 }}>
                 ※ 추천 코스는 AI가 반려견 친화도, 거리, 이용 후기 등을 기반으로 생성했어요.
                 <br />※ 네이버지도를 누를 시 PC에서는 네이버 지도 웹으로, 휴대폰에서는 네이버지도 앱으로 열려요.
               </div>
@@ -5384,7 +5187,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "13px" }}>링크 복사하기</div>
-                <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>클립보드에 링크를 복사합니다</div>
+                <div style={{ fontSize: "11px", color: "#5c5c5c", marginTop: "1px" }}>클립보드에 링크를 복사합니다</div>
               </div>
             </div>
             <div onClick={handleSnsShare} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", marginBottom: "7px", border: "1px solid #eee" }}>
@@ -5393,7 +5196,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "13px" }}>SNS로 공유하기</div>
-                <div style={{ fontSize: "11px", color: "#888", marginTop: "1px" }}>인스타그램, X, Thread 등으로 공유합니다</div>
+                <div style={{ fontSize: "11px", color: "#5c5c5c", marginTop: "1px" }}>인스타그램, X, Thread 등으로 공유합니다</div>
               </div>
             </div>
             <div onClick={() => { handleKakaoShare(); setShowShareModal(false); }} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "13px", borderRadius: "13px", cursor: "pointer", border: "1px solid #eee", background: "#FEE500" }}>

@@ -22,7 +22,7 @@ import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgi
 type Booking = {
   id: number; room_id: number; room_name: string; guest_name: string; guest_phone: string; check_in: string; check_out: string; nights: number; guests: number;
   pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number; extras?: { id: string; name: string; qty: number; amount: number }[]; extrasTotal?: number };
-  total: number; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
+  total: number; stamp_discount?: number | null; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
   // 이용자 정보(scripts/sql/lodging-guest-review-reports.sql) — 없으면 비어 있음
   stay_guest_name?: string | null; stay_guest_phone?: string | null; arrival_method?: string | null; arrival_time?: string | null;
   // 정산 칸(scripts/sql/lodging-settlement.sql) — 없으면 비어 있음
@@ -124,7 +124,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
     };
   }, [bookings, today]);
 
-  if (!bookings) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#999" }}>{error}</span> : <LogoLoader />}</div>;
+  if (!bookings) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#666" }}>{error}</span> : <LogoLoader />}</div>;
   if (!ready) {
     return (
       <div style={{ ...card, fontSize: 13, color: "#9a3412", background: "#fff7ed", borderColor: "#fed7aa", lineHeight: 1.7 }}>
@@ -139,11 +139,11 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
     <div style={{ display: "grid", gap: 12 }}>
       <div style={card}>
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>숙박 예약</div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           손님은 예약할 때 전액을 결제하고, 숙소는 24시간 안에 확정하거나 거절해요.<br />
           손님이 이용 확정(또는 체크아웃 3일 뒤 자동 확정)하면 다음 영업일에 정산해 드려요.
         </div>
-        {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
+        {!canAct && <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
           {([["waiting", "확인 대기"], ["issues", "문제 접수"], ["upcoming", "다가오는 예약"], ["past", "지난·취소"], ["all", "전체"]] as [Filter, string][]).map(([key, text]) => (
             <button key={key} onClick={() => setFilter(key)} aria-pressed={filter === key} style={chip(filter === key)}>{text} {groups[key].length}</button>
@@ -152,7 +152,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
         {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
 
         <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          {shown.length === 0 && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>{filter === "waiting" ? "확인을 기다리는 예약이 없어요." : filter === "issues" ? "접수된 문제가 없어요." : "예약이 없어요."}</div>}
+          {shown.length === 0 && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>{filter === "waiting" ? "확인을 기다리는 예약이 없어요." : filter === "issues" ? "접수된 문제가 없어요." : "예약이 없어요."}</div>}
           {shown.map((b) => {
             const s = STAY_STATUS[b.status];
             const detail = b.price_detail ?? {};
@@ -161,7 +161,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <span style={tag(s.background, s.color)}>{s.label}</span>
                   <span style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{dayLabel(b.check_in)} ~ {dayLabel(b.check_out)}</span>
-                  <span style={{ fontSize: 12.5, color: "#888" }}>{b.nights}박 · {b.room_name}</span>
+                  <span style={{ fontSize: 12.5, color: "#5c5c5c" }}>{b.nights}박 · {b.room_name}</span>
                 </div>
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8, fontSize: 12.5, color: "#444" }}>
                   <span><b>{b.guest_name}</b>님 · {b.guests}명</span>
@@ -183,12 +183,13 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   <span>{b.pets.length}마리 — {b.pets.map(petText).join(", ")}</span>
                 </div>
                 {b.memo && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F7F3E8", fontSize: 12.5, color: "#555", lineHeight: 1.6, whiteSpace: "pre-line" }}>요청 사항: {b.memo}</div>}
-                <div style={{ marginTop: 8, fontSize: 12, color: "#888", lineHeight: 1.6 }}>
+                <div style={{ marginTop: 8, fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>
                   객실 {won(detail.roomTotal ?? b.total)}
                   {(detail.extraGuestTotal ?? 0) > 0 && ` + 인원 추가 ${won(detail.extraGuestTotal!)}`}
                   {(detail.petTotal ?? 0) > 0 && ` + 반려동물 ${won(detail.petTotal!)}`}
                   {(detail.extras ?? []).map((x) => ` + ${x.name}×${x.qty} ${won(x.amount)}`).join("")}
                   <span style={{ marginLeft: 6, fontSize: 14, fontWeight: 800, color: "#B45309" }}>{won(b.total)}</span>
+                  {(b.stamp_discount ?? 0) > 0 && <span style={{ marginLeft: 6, fontSize: 11.5, color: "#8A6D1F" }}>손님 스탬프 할인 {won(b.stamp_discount ?? 0)} — 같이가개 부담, 정산은 할인 전 금액 기준</span>}
                   <span style={{ marginLeft: 4 }}>· {b.payment_status === "paid" ? "결제 완료" : b.payment_status === "refunded" ? "전액 환불" : b.payment_status === "partially_refunded" ? "일부 환불" : "결제 확인 전"}</span>
                 </div>
                 {b.cancel_cause && (
@@ -201,14 +202,14 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                 {b.payout_amount != null && b.payout_amount !== 0 && (
                   <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: b.payout_amount < 0 ? "#FEF2F2" : "#F0F7EC", fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
                     {b.payout_amount > 0
-                      ? <>정산 {won(b.payout_amount)} <span style={{ color: "#888" }}>({b.fee_rate}% 수수료 {won(b.fee_amount ?? 0)} 제외)</span></>
+                      ? <>정산 {won(b.payout_amount)} <span style={{ color: "#5c5c5c" }}>({b.fee_rate}% 수수료 {won(b.fee_amount ?? 0)} 제외)</span></>
                       : <>다음 정산에서 {won(-b.payout_amount)} 차감(배상금)</>}
                     {b.payout_status && b.payout_status !== "none" && <> · <b>{PAYOUT_LABEL[b.payout_status] ?? b.payout_status}</b>{b.payout_status === "scheduled" && b.payout_due_on ? ` ${dayLabel(b.payout_due_on)}` : ""}</>}
-                    {b.payout_status === "none" && b.payment_status === "unpaid" && <span style={{ color: "#999" }}> · 결제 확인 후 정산</span>}
+                    {b.payout_status === "none" && b.payment_status === "unpaid" && <span style={{ color: "#666" }}> · 결제 확인 후 정산</span>}
                   </div>
                 )}
                 {b.status === "confirmed" && settlementReady && today >= b.check_out && b.issue_status !== "open" && (
-                  <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>손님의 이용 확정을 기다리는 중 — {dayLabel(autoConfirmOn(b.check_out))}에 자동 확정돼요.</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#5c5c5c" }}>손님의 이용 확정을 기다리는 중 — {dayLabel(autoConfirmOn(b.check_out))}에 자동 확정돼요.</div>
                 )}
                 {b.issue_status && b.issue_status !== "none" && (
                   <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: b.issue_status === "open" ? "#FFF7ED" : "#f8fafc", border: `1px solid ${b.issue_status === "open" ? "#FED7AA" : "#eee"}`, fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
@@ -229,7 +230,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                     ))}
                   </div>
                 )}
-                {b.owner_note && <div style={{ marginTop: 6, fontSize: 12, color: "#777" }}>남긴 말: {b.owner_note}</div>}
+                {b.owner_note && <div style={{ marginTop: 6, fontSize: 12, color: "#555" }}>남긴 말: {b.owner_note}</div>}
                 {canAct && ownerNextStays(b.status).length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                     {ownerNextStays(b.status).filter((next) => next !== "no_show" || today >= b.check_in).map((next) => (
@@ -269,7 +270,7 @@ function SettlementSummary({ bookings, today }: { bookings: Booking[]; today: st
   return (
     <div style={card}>
       <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>정산</div>
-      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
         이용 확정 다음 영업일에 수수료를 뺀 금액을 보내 드려요.<br />
         취소 위약금은 원래 체크아웃 다음 영업일에 취소 정산 수수료 15%를 빼고 보내 드려요.
       </div>
@@ -278,7 +279,7 @@ function SettlementSummary({ bookings, today }: { bookings: Booking[]; today: st
           <div key={i.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8" }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7a6a3a" }}>{i.label}</div>
             <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{i.value}</div>
-            <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>{i.note}</div>
+            <div style={{ fontSize: 11, color: "#666", marginTop: 1 }}>{i.note}</div>
           </div>
         ))}
       </div>
@@ -313,7 +314,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
   useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, [load]);
 
   if (rooms.length === 0) {
-    return <div style={{ ...card, fontSize: 13, color: "#999", lineHeight: 1.7 }}><b style={{ color: "#444" }}>예약 달력</b><br />&ldquo;숙소·객실&rdquo; 메뉴에서 객실을 먼저 올려 주세요.</div>;
+    return <div style={{ ...card, fontSize: 13, color: "#666", lineHeight: 1.7 }}><b style={{ color: "#444" }}>예약 달력</b><br />&ldquo;숙소·객실&rdquo; 메뉴에서 객실을 먼저 올려 주세요.</div>;
   }
 
   const byDay = new Map(days.map((d) => [d.day, d]));
@@ -345,7 +346,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
         <CalendarDays size={17} color="#1D4F91" />
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>예약 달력</div>
       </div>
-      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
         날짜를 눌러 고른 뒤 예약을 막거나 그날 요금을 정해 주세요.<br />
         성수기·연휴 요금이나 쉬는 날을 미리 정해 두면 손님에게 그대로 보여요.
       </div>
@@ -360,7 +361,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4, marginTop: 10 }}>
-        {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11.5, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#1D4F91" : "#999", padding: "2px 0" }}>{w}</div>)}
+        {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11.5, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#1D4F91" : "#666", padding: "2px 0" }}>{w}</div>)}
         {cells.map((day, i) => {
           if (!day) return <div key={`blank-${i}`} />;
           const past = day < today;
@@ -385,15 +386,15 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
             >
               <div style={{ fontSize: 12.5, fontWeight: 800, color: "#333" }}>{Number(day.slice(8, 10))}</div>
               {!past && (d?.closed
-                ? <div style={{ fontSize: 10.5, fontWeight: 800, color: "#888", marginTop: 3 }}>막음</div>
-                : <div style={{ fontSize: 10.5, fontWeight: d?.price != null ? 800 : 600, color: d?.price != null ? "#B45309" : "#999", marginTop: 3 }}>{shortWon(p)}</div>)}
+                ? <div style={{ fontSize: 10.5, fontWeight: 800, color: "#5c5c5c", marginTop: 3 }}>막음</div>
+                : <div style={{ fontSize: 10.5, fontWeight: d?.price != null ? 800 : 600, color: d?.price != null ? "#B45309" : "#666", marginTop: 3 }}>{shortWon(p)}</div>)}
               {confirmed && <div style={{ fontSize: 10, fontWeight: 800, color: "#1D4F91", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{confirmed.guest_name}</div>}
               {waiting > 0 && <span aria-hidden style={{ position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: 999, background: "#F59E0B" }} />}
             </button>
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 11, color: "#888" }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8, fontSize: 11, color: "#5c5c5c" }}>
         <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#E3EDFA", border: "1px solid #9db4d6", verticalAlign: -1 }} /> 확정 예약</span>
         <span><span style={{ display: "inline-block", width: 7, height: 7, borderRadius: 999, background: "#F59E0B" }} /> 확인 대기 요청</span>
         <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#e9e9e9", verticalAlign: -1 }} /> 예약 막음</span>
@@ -402,7 +403,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
 
       {canAct && selected.length > 0 && (
         <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#F7F3E8", display: "grid", gap: 10 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>{selected.length}일 골랐어요 <button onClick={() => setSelected([])} style={{ marginLeft: 6, border: "none", background: "transparent", color: "#999", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>선택 풀기</button></div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>{selected.length}일 골랐어요 <button onClick={() => setSelected([])} style={{ marginLeft: 6, border: "none", background: "transparent", color: "#666", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>선택 풀기</button></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button onClick={() => apply({ closed: true }, "예약을 막았어요.")} disabled={busy} style={actionButton("danger", busy)}>예약 막기</button>
             <button onClick={() => apply({ closed: false }, "예약을 다시 받아요.")} disabled={busy} style={actionButton("plain", busy)}>막기 풀기</button>
@@ -411,7 +412,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
           <div style={{ display: "flex", gap: 6, alignItems: "stretch", flexWrap: "wrap" }}>
             <div style={{ position: "relative", flex: "1 1 160px" }}>
               <input value={price ? Number(price).toLocaleString("ko-KR") : ""} onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, "").slice(0, 8))} placeholder="이 날들의 1박 요금" inputMode="numeric" style={{ width: "100%", padding: "9px 34px 9px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", textAlign: "right", fontWeight: 700, fontFamily: "inherit" }} />
-              <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontSize: 12.5, color: "#888" }}>원</span>
+              <span style={{ position: "absolute", right: 11, top: "50%", transform: "translateY(-50%)", fontSize: 12.5, color: "#5c5c5c" }}>원</span>
             </div>
             <button onClick={() => apply({ price: Number(price) }, "요금을 정했어요.")} disabled={busy || price === ""} style={actionButton("primary", busy || price === "")}>요금 정하기</button>
           </div>

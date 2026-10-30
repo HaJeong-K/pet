@@ -80,14 +80,14 @@ export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: 
           </div>
           <div style={{ fontSize: 13.5, color: "#555", marginTop: 8, lineHeight: 1.7 }}>
             기한이 끝나면 자동으로 연장하여 이용하시겠습니까?<br />
-            <span style={{ fontSize: 12, color: "#888" }}>자동 연장을 켜면 만료 3일 전에 연장 신청이 접수되고 입금 안내를 보내 드려요. 언제든 끌 수 있어요.</span>
+            <span style={{ fontSize: 12, color: "#5c5c5c" }}>자동 연장을 켜면 만료 3일 전에 연장 신청이 접수되고 입금 안내를 보내 드려요. 언제든 끌 수 있어요.</span>
           </div>
           <div style={{ marginTop: 14 }}>{options}</div>
           {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
           <div style={{ display: "grid", gap: 6, marginTop: 16 }}>
             <button onClick={() => save(true)} disabled={busy} style={{ padding: "13px 0", borderRadius: 12, border: "none", background: "#B45309", color: "white", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>네, 자동으로 연장할게요</button>
             <button onClick={() => save(false)} disabled={busy} style={{ padding: "12px 0", borderRadius: 12, border: "1px solid #e2dcc8", background: "white", color: "#555", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>이번 기간만 이용할게요</button>
-            <button onClick={later} style={{ padding: "8px 0", border: "none", background: "transparent", color: "#999", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>나중에 정할게요</button>
+            <button onClick={later} style={{ padding: "8px 0", border: "none", background: "transparent", color: "#666", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>나중에 정할게요</button>
           </div>
         </div>
       </div>
@@ -103,9 +103,9 @@ export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: 
         <span style={{ fontSize: 11.5, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: s.enabled ? "#DCFCE7" : s.enabled === false ? "#F1F5F9" : "#FEF3C7", color: s.enabled ? "#166534" : s.enabled === false ? "#64748B" : "#92400E" }}>
           {s.enabled ? "켜짐" : s.enabled === false ? "꺼짐(이번 기간만)" : "아직 정하지 않음"}
         </span>
-        <span style={{ marginLeft: "auto", fontSize: 12, color: "#888" }}>{dateText(s.expiresAt)} 만료 · D-{daysLeft(s.expiresAt)}</span>
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "#5c5c5c" }}>{dateText(s.expiresAt)} 만료 · D-{daysLeft(s.expiresAt)}</span>
       </div>
-      <div style={{ fontSize: 12.5, color: "#777", marginTop: 6, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
         기한이 끝나면 자동으로 연장합니다. 만료 3일 전에 연장 신청이 접수되고 입금 안내를 보내 드려요.<br />
         {s.enabled && s.plan ? <>지금 설정: <b style={{ color: "#333" }}>{PLAN_NAME[s.plan]} {s.months}개월</b></> : null}
       </div>

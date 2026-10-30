@@ -59,7 +59,7 @@ export default function DbBackupCard() {
         <div style={{ fontSize: 14, fontWeight: 800, color: "#111" }}>
           DB 백업 · {backups === null ? "확인 중…" : latest ? `마지막 ${latest.name.slice(7, 17)}` : "아직 없음"}
         </div>
-        <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6, marginTop: 3 }}>
+        <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginTop: 3 }}>
           매일 새벽 자동으로 백업하고 최근 14일치를 보관해요{latest ? ` (최근 파일 ${latest.sizeKb.toLocaleString()}KB)` : ""}.
           가끔 내려받아 따로 보관해 두면 더 안전해요.
         </div>

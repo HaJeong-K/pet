@@ -46,7 +46,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
         </span>
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
         <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
-        <span style={{ flexShrink: 0, fontSize: 11, color: "#a08a63" }}>{notices.length > 1 ? `숙소 소식 ${notices.length}` : noticeDate(top.created_at)}</span>
+        <span style={{ flexShrink: 0, fontSize: 11, color: "#6b5f3e" }}>{notices.length > 1 ? `숙소 소식 ${notices.length}` : noticeDate(top.created_at)}</span>
         <ChevronRight size={15} color="#a08a63" />
       </a>
     );
@@ -60,7 +60,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
         </span>
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
         <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
-        <span style={{ flexShrink: 0, fontSize: 11, color: "#a08a63" }}>{noticeDate(top.created_at)}</span>
+        <span style={{ flexShrink: 0, fontSize: 11, color: "#6b5f3e" }}>{noticeDate(top.created_at)}</span>
         {notices.length > 1 && <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#B45309" }}>{notices.length}</span>}
         {open ? <ChevronUp size={15} color="#a08a63" /> : <ChevronDown size={15} color="#a08a63" />}
       </button>
@@ -75,18 +75,18 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
                   {n.pinned && <Pin size={12} color="#B45309" style={{ flexShrink: 0 }} aria-label="대표 공지" />}
                   {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}
                   <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: expanded ? 800 : 600, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{n.title}</span>
-                  <span style={{ flexShrink: 0, fontSize: 11, color: "#aaa" }}>{noticeDate(n.created_at)}</span>
+                  <span style={{ flexShrink: 0, fontSize: 11, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
                 </button>
                 {expanded && (
                   <div style={{ padding: "0 12px 12px", fontSize: 12.5, color: "#555", lineHeight: 1.75, whiteSpace: "pre-line", wordBreak: "keep-all" }}>
                     {n.content}
-                    {n.updated_at.slice(0, 16) !== n.created_at.slice(0, 16) && <div style={{ marginTop: 6, fontSize: 11, color: "#bbb" }}>{noticeDate(n.updated_at)} 수정</div>}
+                    {n.updated_at.slice(0, 16) !== n.created_at.slice(0, 16) && <div style={{ marginTop: 6, fontSize: 11, color: "#707070" }}>{noticeDate(n.updated_at)} 수정</div>}
                   </div>
                 )}
               </div>
             );
           })}
-          <div style={{ padding: "8px 12px", fontSize: 11, color: "#aaa" }}>사장님이 올린 공지예요.</div>
+          <div style={{ padding: "8px 12px", fontSize: 11, color: "#6e6e6e" }}>사장님이 올린 공지예요.</div>
         </div>
       )}
     </div>

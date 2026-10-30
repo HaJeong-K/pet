@@ -112,7 +112,7 @@ export default function ShelterAlertToggle({ region }: { region: string }) {
         <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222" }}>
           {on ? `${subscribedRegion} 새 공고 알림 받는 중` : "내 지역 새 공고 알림"}
         </div>
-        <div style={{ fontSize: 12, color: "#777", marginTop: 2, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: "#555", marginTop: 2, lineHeight: 1.5 }}>
           {!supported
             ? "이 브라우저에서는 알림을 쓸 수 없어요. (아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요.)"
             : message ?? (on ? "새 보호동물 공고가 올라오면 하루 한 번 알려드려요." : "새 가족을 기다리는 아이들 소식을 알림으로 받아 보세요.")}

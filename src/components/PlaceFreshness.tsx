@@ -94,7 +94,7 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
 
   const row = (Icon: typeof Users, text: React.ReactNode) => (
     <div className="ggk-body" style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11.5, color: "#555", lineHeight: 1.5 }}>
-      <Icon size={12} style={{ flexShrink: 0, marginTop: 2, color: "#8a8f80" }} />
+      <Icon size={12} style={{ flexShrink: 0, marginTop: 2, color: "#5f6456" }} />
       <span>{text}</span>
     </div>
   );
@@ -153,10 +153,10 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
                   {CHANGE_DETAILS.map((d) => (
                     <button key={d.id} onClick={() => send("changed", d.id)} disabled={busy} className="ggk-body" style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "1px solid #eee", background: "white", cursor: busy ? "default" : "pointer" }}>
                       <span style={{ display: "block", fontSize: 12, fontWeight: 800, color: "#333" }}>{d.label}</span>
-                      <span style={{ display: "block", fontSize: 10.5, color: "#999", marginTop: 1 }}>{d.hint}</span>
+                      <span style={{ display: "block", fontSize: 10.5, color: "#666", marginTop: 1 }}>{d.hint}</span>
                     </button>
                   ))}
-                  <div className="ggk-body" style={{ fontSize: 10.5, color: "#999", lineHeight: 1.5 }}>바뀐 내용을 자세히 알려 주시려면 메뉴(⋮)의 &ldquo;빠진 정보 제보하기&rdquo;를 이용해 주세요.</div>
+                  <div className="ggk-body" style={{ fontSize: 10.5, color: "#666", lineHeight: 1.5 }}>바뀐 내용을 자세히 알려 주시려면 메뉴(⋮)의 &ldquo;빠진 정보 제보하기&rdquo;를 이용해 주세요.</div>
                 </div>
               )}
             </>
@@ -170,7 +170,7 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
           <button onClick={ownerConfirm} disabled={busy} className="ggk-body" style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#5C7A4A", color: "white", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <BadgeCheck size={13} />지금 정보가 맞아요
           </button>
-          <span className="ggk-body" style={{ flex: "1 1 160px", fontSize: 10.5, color: "#777", lineHeight: 1.5 }}>정보가 그대로라면 눌러 주세요. 손님에게 &ldquo;사장님 확인&rdquo; 날짜로 보여요.</span>
+          <span className="ggk-body" style={{ flex: "1 1 160px", fontSize: 10.5, color: "#555", lineHeight: 1.5 }}>정보가 그대로라면 눌러 주세요. 손님에게 &ldquo;사장님 확인&rdquo; 날짜로 보여요.</span>
         </div>
       )}
 

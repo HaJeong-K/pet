@@ -54,7 +54,7 @@ export default function TrafficCard() {
           ))}
         </div>
       </div>
-      <div style={{ fontSize: 12, color: "#888", marginTop: 4, lineHeight: 1.65 }}>
+      <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 4, lineHeight: 1.65 }}>
         처음 들어온 채널을 기준으로, 그 채널이 데려온 사람이 다시 오고 회원이 됐는지 봅니다.<br />
         유입 경로 기록을 시작한 뒤의 방문만 셉니다.
       </div>
@@ -64,7 +64,7 @@ export default function TrafficCard() {
         <div style={{ marginTop: 12, overflowX: "auto" }}>
           <table style={{ width: "100%", minWidth: 520, borderCollapse: "collapse", fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
             <thead>
-              <tr style={{ color: "#888", fontSize: 11.5, textAlign: "right" }}>
+              <tr style={{ color: "#5c5c5c", fontSize: 11.5, textAlign: "right" }}>
                 <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 700 }}>채널</th>
                 <th style={{ padding: "6px 8px", fontWeight: 700 }}>방문자</th>
                 <th style={{ padding: "6px 8px", fontWeight: 700 }}>비중</th>
@@ -74,14 +74,14 @@ export default function TrafficCard() {
               </tr>
             </thead>
             <tbody>
-              {report.channels.length === 0 && <tr><td colSpan={6} style={{ padding: "18px 8px", textAlign: "center", color: "#aaa" }}>아직 유입 경로가 기록된 방문이 없어요.</td></tr>}
+              {report.channels.length === 0 && <tr><td colSpan={6} style={{ padding: "18px 8px", textAlign: "center", color: "#6e6e6e" }}>아직 유입 경로가 기록된 방문이 없어요.</td></tr>}
               {report.channels.map((c) => (
                 <tr key={c.channel} style={{ borderTop: "1px solid #f1efe6", textAlign: "right" }}>
                   <td style={{ textAlign: "left", padding: "8px", fontWeight: 700, color: "#333" }}>{channelLabel(c.channel)}</td>
                   <td style={{ padding: "8px" }}>{c.visitors.toLocaleString("ko-KR")}</td>
-                  <td style={{ padding: "8px", color: "#888" }}>{pct(c.visitors, total)}</td>
-                  <td style={{ padding: "8px" }}>{c.returning} <span style={{ color: "#999", fontSize: 11.5 }}>({pct(c.returning, c.visitors)})</span></td>
-                  <td style={{ padding: "8px" }}>{c.members} <span style={{ color: "#999", fontSize: 11.5 }}>({pct(c.members, c.visitors)})</span></td>
+                  <td style={{ padding: "8px", color: "#5c5c5c" }}>{pct(c.visitors, total)}</td>
+                  <td style={{ padding: "8px" }}>{c.returning} <span style={{ color: "#666", fontSize: 11.5 }}>({pct(c.returning, c.visitors)})</span></td>
+                  <td style={{ padding: "8px" }}>{c.members} <span style={{ color: "#666", fontSize: 11.5 }}>({pct(c.members, c.visitors)})</span></td>
                   <td style={{ padding: "8px", fontWeight: 700, color: "#3F6B2B" }}>{c.signups}</td>
                 </tr>
               ))}
@@ -94,7 +94,7 @@ export default function TrafficCard() {
       {/* 홍보 링크 만들기 */}
       <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "#F7F3E8" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: "#444" }}><Link2 size={14} />홍보 링크 만들기</div>
-        <div style={{ fontSize: 11.5, color: "#888", marginTop: 3, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 3, lineHeight: 1.6 }}>
           채널마다 이 링크를 붙이면 그 채널로 들어온 사람으로 따로 셉니다.<br />
           캠페인 이름(선택)은 같은 채널 안에서 글·영상별로 나눠 보고 싶을 때 적어요. 영문·숫자만 써요.
         </div>

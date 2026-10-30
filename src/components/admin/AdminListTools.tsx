@@ -71,7 +71,7 @@ export function AdminPager<T>({ pager }: { pager: Pager<T> }) {
       <button onClick={() => pager.setPage(pager.page - 1)} disabled={pager.page <= 1} aria-label="이전 쪽" style={pagerButton(pager.page <= 1)}><ChevronLeft size={15} /></button>
       <span style={{ fontWeight: 700, color: "#333" }}>{pager.page} / {pager.pageCount}쪽</span>
       <button onClick={() => pager.setPage(pager.page + 1)} disabled={pager.page >= pager.pageCount} aria-label="다음 쪽" style={pagerButton(pager.page >= pager.pageCount)}><ChevronRight size={15} /></button>
-      <span style={{ color: "#999" }}>{from}–{to} / 전체 {pager.total.toLocaleString()}건</span>
+      <span style={{ color: "#666" }}>{from}–{to} / 전체 {pager.total.toLocaleString()}건</span>
       <select value={pager.size} onChange={(e) => pager.setSize(Number(e.target.value))} aria-label="한 쪽에 보여 줄 건수" style={{ padding: "6px 8px", borderRadius: 9, border: "1px solid #e2ddcf", fontSize: 12, background: "white" }}>
         {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}건씩</option>)}
       </select>
@@ -156,7 +156,7 @@ export function BulkBar<K extends string | number>({ selection, actions, onDone 
         <input type="checkbox" checked={selection.allSelected} onChange={selection.toggleAll} style={{ width: 17, height: 17, accentColor: "#5C7A4A" }} />
         이 쪽 전체 선택
       </label>
-      <span style={{ color: count > 0 ? "#3F5230" : "#999", fontWeight: 700 }}>{count > 0 ? `${count}건 고름` : "고른 항목 없음"}</span>
+      <span style={{ color: count > 0 ? "#3F5230" : "#666", fontWeight: 700 }}>{count > 0 ? `${count}건 고름` : "고른 항목 없음"}</span>
       <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
         {actions.map((action) => (
           <button
@@ -167,7 +167,7 @@ export function BulkBar<K extends string | number>({ selection, actions, onDone 
               padding: "7px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: count === 0 || busy ? "default" : "pointer",
               border: action.danger ? "1px solid #f3c7c5" : "none",
               background: count === 0 || busy ? "#e3e0d6" : action.danger ? "white" : "#5C7A4A",
-              color: count === 0 || busy ? "#999" : action.danger ? "#b42318" : "white",
+              color: count === 0 || busy ? "#666" : action.danger ? "#b42318" : "white",
             }}
           >
             {busy === action.label ? "처리 중…" : `고른 것 ${action.label}`}

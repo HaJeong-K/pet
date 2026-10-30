@@ -63,10 +63,10 @@ function InquiryRow({ inquiry, open, onToggle, onChanged }: { inquiry: Inquiry; 
         <span style={chip(kind.bg, kind.color)}>{inquiryKindLabel(inquiry.kind)}</span>
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 13.5, fontWeight: 800, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inquiry.company ? `${inquiry.company} · ${inquiry.name}` : inquiry.name}</span>
-          {!open && <span style={{ display: "block", fontSize: 12, color: "#888", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inquiry.message.replace(/\s+/g, " ")}</span>}
+          {!open && <span style={{ display: "block", fontSize: 12, color: "#5c5c5c", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inquiry.message.replace(/\s+/g, " ")}</span>}
         </span>
         {inquiry.admin_note && !open && <span style={chip("#f5f6f8", "#777")}>메모</span>}
-        <span style={{ fontSize: 11, color: "#aaa", flexShrink: 0 }}>{fmtShort(inquiry.created_at)}</span>
+        <span style={{ fontSize: 11, color: "#6e6e6e", flexShrink: 0 }}>{fmtShort(inquiry.created_at)}</span>
         {open ? <ChevronUp size={16} color="#888" style={{ flexShrink: 0 }} /> : <ChevronDown size={16} color="#888" style={{ flexShrink: 0 }} />}
       </button>
 
@@ -76,7 +76,7 @@ function InquiryRow({ inquiry, open, onToggle, onChanged }: { inquiry: Inquiry; 
             <a href={isEmail ? `mailto:${inquiry.contact}` : `tel:${inquiry.contact.replace(/[^\d+]/g, "")}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, background: "#E4EBDC", fontSize: 13, fontWeight: 800, color: "#3F5230", textDecoration: "none" }}>
               {isEmail ? <Mail size={13} /> : <Phone size={13} />}{inquiry.contact}
             </a>
-            <span style={{ fontSize: 11.5, color: "#999" }}>{fmt(inquiry.created_at)} 접수{inquiry.processed_at ? ` · ${fmt(inquiry.processed_at)} 마침` : ""}</span>
+            <span style={{ fontSize: 11.5, color: "#666" }}>{fmt(inquiry.created_at)} 접수{inquiry.processed_at ? ` · ${fmt(inquiry.processed_at)} 마침` : ""}</span>
           </div>
 
           <div style={{ marginTop: 12, padding: "12px 13px", borderRadius: 11, background: "#FBF8EF", fontSize: 13.5, color: "#333", lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{inquiry.message}</div>
@@ -92,7 +92,7 @@ function InquiryRow({ inquiry, open, onToggle, onChanged }: { inquiry: Inquiry; 
           </div>
 
           <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#444" }}>
-            관리자 메모 <span style={{ fontWeight: 600, color: "#aaa" }}>나만 봐요 · {note.length}/{INQUIRY_NOTE_MAX}</span>
+            관리자 메모 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>나만 봐요 · {note.length}/{INQUIRY_NOTE_MAX}</span>
           </div>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={INQUIRY_NOTE_MAX} rows={4} placeholder={"통화 내용, 보낸 견적, 다음에 할 일을 적어 두세요.\n예: 10/15 통화 — 11월 한 달 배너 원함, 견적서 메일로 보냄. 10/20까지 답 기다리기"} style={{ width: "100%", marginTop: 7, padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
@@ -135,7 +135,7 @@ export default function AdminInquiries() {
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>광고·제휴 문의</div>
           <a href="/partnership" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#5C7A4A" }}>방문자 화면 보기 →</a>
         </div>
-        <div style={{ fontSize: 12, color: "#777", lineHeight: 1.7, marginBottom: 14 }}>문의를 누르면 전체 내용이 펼쳐져요. 답은 적힌 연락처로 직접 하고, 진행 상황에 맞게 상태를 바꾸고 메모를 남겨 두세요.</div>
+        <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7, marginBottom: 14 }}>문의를 누르면 전체 내용이 펼쳐져요. 답은 적힌 연락처로 직접 하고, 진행 상황에 맞게 상태를 바꾸고 메모를 남겨 두세요.</div>
 
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
           {tabs.map((tab) => {
@@ -154,7 +154,7 @@ export default function AdminInquiries() {
         ) : !state.ready ? (
           <div style={{ padding: 16, borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: 13, color: "#9a3412", lineHeight: 1.7 }}>문의를 저장할 표가 아직 없어요. Supabase SQL 편집기에서 <b>scripts/sql/banner-ads.sql</b>을 실행하면 열려요.</div>
         ) : list.length === 0 ? (
-          <div style={{ padding: 28, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 13, color: "#888", textAlign: "center" }}>{filter === "all" ? "아직 들어온 문의가 없어요." : `'${tabs.find((t) => t.id === filter)?.label}' 상태인 문의가 없어요.`}</div>
+          <div style={{ padding: 28, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 13, color: "#5c5c5c", textAlign: "center" }}>{filter === "all" ? "아직 들어온 문의가 없어요." : `'${tabs.find((t) => t.id === filter)?.label}' 상태인 문의가 없어요.`}</div>
         ) : (
           <>
             <div style={{ display: "grid", gap: 8 }}>

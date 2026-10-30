@@ -166,7 +166,7 @@ export default function OwnerPage() {
     return () => clearTimeout(timer);
   }, [previewQuery, isPreview]);
 
-  if (state === "loading") return <Shell><div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}><LogoLoader /></div></Shell>;
+  if (state === "loading") return <Shell><div style={{ textAlign: "center", padding: "80px 0", color: "#666", fontSize: 13 }}><LogoLoader /></div></Shell>;
 
   if (state === "apply") {
     return (
@@ -187,7 +187,7 @@ export default function OwnerPage() {
         <div style={{ ...card, textAlign: "center", padding: "48px 22px", marginTop: 24 }}>
           <div style={{ width: 56, height: 56, borderRadius: 18, background: "#EAF0E3", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Store size={26} color="#2F3B28" /></div>
           <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{message.title}</div>
-          <div style={{ fontSize: 13.5, color: "#777", marginTop: 8, lineHeight: 1.7 }}>{message.text}</div>
+          <div style={{ fontSize: 13.5, color: "#555", marginTop: 8, lineHeight: 1.7 }}>{message.text}</div>
           <button onClick={() => router.push(message.href)} style={{ marginTop: 18, padding: "12px 22px", borderRadius: 999, border: "none", background: "#2F3B28", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>{message.cta}</button>
         </div>
       </Shell>
@@ -259,7 +259,7 @@ export default function OwnerPage() {
           </div>
           {groups.map((g) => (
             <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#9a917f", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#6a6253", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
               <div style={{ display: "grid", gap: 2 }}>
                 {g.tabs.map(({ key, Icon }) => {
                   const n = countOf(key);
@@ -274,7 +274,7 @@ export default function OwnerPage() {
             </nav>
           ))}
           {isLodging && (
-            <Link href="/partner/lodging" style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 11, color: "#7a7263", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>
+            <Link href="/partner/lodging" style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 11, color: "#625a4c", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>
               <ChevronRight size={14} />숙소 입점 안내 다시 보기
             </Link>
           )}
@@ -311,7 +311,7 @@ export default function OwnerPage() {
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {previewResults.map((p) => (
                       <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#EAF0E3" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
-                        <b>{p.name}</b> <span style={{ color: "#999" }}>{p.address}</span>
+                        <b>{p.name}</b> <span style={{ color: "#666" }}>{p.address}</span>
                       </button>
                     ))}
                   </div>
@@ -329,16 +329,16 @@ export default function OwnerPage() {
 
               {/* 화면 제목 */}
               <div className="owner-no-print" style={{ marginBottom: 18 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#9a917f" }}>{storeName}<span style={{ margin: "0 6px", color: "#cfc7b6" }}>/</span>{groupOfShown}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#6a6253" }}>{storeName}<span style={{ margin: "0 6px", color: "#cfc7b6" }}>/</span>{groupOfShown}</div>
                 <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
                   <span style={{ width: 36, height: 36, borderRadius: 11, background: "#EAF0E3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ShownIcon size={18} color="#2F3B28" /></span>
                   {labelOf(shown)}
                 </h1>
-                <p style={{ margin: "8px 0 0", fontSize: 14, color: "#7a7263", lineHeight: 1.6 }}>{TAB_DESC[shown](placeWord)}</p>
+                <p style={{ margin: "8px 0 0", fontSize: 14, color: "#625a4c", lineHeight: 1.6 }}>{TAB_DESC[shown](placeWord)}</p>
               </div>
 
               {placeId == null ? (
-                <div style={{ ...card, textAlign: "center", color: "#999", fontSize: 13, padding: "40px 0" }}>위에서 가게를 골라 주세요.</div>
+                <div style={{ ...card, textAlign: "center", color: "#666", fontSize: 13, padding: "40px 0" }}>위에서 가게를 골라 주세요.</div>
               ) : (
                 <>
                   {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
@@ -407,8 +407,8 @@ function ReviewsTab({ placeId, isPreview }: { placeId: number; isPreview: boolea
     return () => { cancelled = true; };
   }, [placeId, isPreview]);
 
-  if (error) return <div style={{ ...card, color: "#999", fontSize: 13 }}>{error}</div>;
-  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
+  if (error) return <div style={{ ...card, color: "#666", fontSize: 13 }}>{error}</div>;
+  if (!stats) return <div style={{ ...card, color: "#666", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
   const reviews = stats.recentReviews ?? [];
   const waiting = reviews.filter((r) => !r.ownerReplied).length;
 
@@ -418,18 +418,18 @@ function ReviewsTab({ placeId, isPreview }: { placeId: number; isPreview: boolea
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>고객 후기 {reviews.length}건</div>
         {waiting > 0 && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>답글 대기 {waiting}건</span>}
       </div>
-      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.6 }}>
         내 가게 후기에 답글을 달면 고객에게 <b style={{ color: "#B45309" }}>사장님</b> 배지와 함께 보여요. 답글은 가게 상세 화면에서 달 수 있어요.
       </div>
       <button onClick={() => router.push(`/place/${placeId}`)} style={{ marginTop: 12, padding: "10px 16px", borderRadius: 10, border: "none", background: "#B45309", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
         내 가게 상세에서 답글 달기
       </button>
       <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-        {reviews.length === 0 && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>아직 후기가 없어요.</div>}
+        {reviews.length === 0 && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 후기가 없어요.</div>}
         {reviews.map((r) => (
           <button key={r.id} onClick={() => router.push(`/place/${placeId}`)} style={{ textAlign: "left", padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: r.ownerReplied ? "#fafafa" : "#FFFBEB", cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#999" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#666" }}>
                 <b style={{ color: "#444" }}>{r.nickname}</b>
                 <span>{fmtDate(r.created_at)}</span>
                 <span style={{ fontWeight: 800, color: r.ownerReplied ? "#15803d" : "#B45309" }}>{r.ownerReplied ? "답글 완료" : "답글 대기"}</span>
@@ -456,17 +456,17 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
     return () => { cancelled = true; };
   }, [placeId]);
 
-  if (loading) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
-  if (!place) return <div style={{ ...card, color: "#999", fontSize: 13 }}>가게 정보를 찾을 수 없어요.</div>;
+  if (loading) return <div style={{ ...card, color: "#666", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
+  if (!place) return <div style={{ ...card, color: "#666", fontSize: 13 }}>가게 정보를 찾을 수 없어요.</div>;
   const rows: [string, string | null][] = [["주소", place.address], ["영업시간", place.hours], ["휴무일", place.closed_days], ["전화번호", place.phone], ["주차", place.parking], ["입장료", place.entry_fee], ["홈페이지", place.website], ["메모", place.memo]];
   return (
     <div style={card}>
       <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{place.name}</div>
-      <div style={{ fontSize: 12.5, color: "#888", margin: "4px 0 12px", lineHeight: 1.6 }}>고객이 가장 먼저 확인하는 정보예요. 영업시간과 동반 조건을 최신으로 유지해 주세요.</div>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", margin: "4px 0 12px", lineHeight: 1.6 }}>고객이 가장 먼저 확인하는 정보예요. 영업시간과 동반 조건을 최신으로 유지해 주세요.</div>
       <div style={{ border: "1px solid #f0ece0", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
         {rows.map(([label, value], i) => (
           <div key={label} style={{ display: "flex", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #f5f1e6" : "none", fontSize: 13 }}>
-            <div style={{ width: 64, flexShrink: 0, color: "#999", fontWeight: 700 }}>{label}</div>
+            <div style={{ width: 64, flexShrink: 0, color: "#666", fontWeight: 700 }}>{label}</div>
             <div style={{ flex: 1, minWidth: 0, color: value ? "#333" : "#c9c4b5", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value || "아직 입력하지 않았어요"}</div>
           </div>
         ))}
@@ -478,7 +478,7 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
             <OwnerPlaceEditPanel place={place} onUpdated={(fields) => setPlace((prev: any) => ({ ...prev, ...fields }))} />
           </>
         )
-        : <div style={{ fontSize: 12, color: "#999" }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
+        : <div style={{ fontSize: 12, color: "#666" }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
     </div>
   );
 }
@@ -564,7 +564,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
           <Crown size={18} color={active ? "#B45309" : "#bbb"} />
           <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>{active ? `${PLAN_NAME[currentPlan]} 이용 중` : "지금은 기본 요금제예요"}</div>
         </div>
-        <div style={{ fontSize: 12.5, color: "#777", marginTop: 5, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12.5, color: "#555", marginTop: 5, lineHeight: 1.6 }}>
           {cancelled
             ? `해지가 접수됐어요. ${fmtDate(place.premium_expires_at)}까지 이용한 뒤 기본 요금제로 돌아가요.`
             : active ? `${fmtDate(place.premium_expires_at)}까지 적용돼요. 끝나기 전에 미리 알려 드리고, 자동으로 결제되지 않아요.` : `프리미엄을 신청하면 추천 목록과 AI 코스에서 우리 ${lodging ? "숙소" : "가게"}가 먼저 보여요.`}
@@ -576,8 +576,8 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
         )}
         {active && !isPreview && canAct && cancelInfo?.ready && !cancelled && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #F5D48A", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11.5, color: "#999", flex: "1 1 200px" }}>위약금 없이 언제든 해지할 수 있어요. 결제 3일 안에는 전액, 그 뒤에는 남은 날만큼 돌려드려요.</span>
-            <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: "#888", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
+            <span style={{ fontSize: 11.5, color: "#666", flex: "1 1 200px" }}>위약금 없이 언제든 해지할 수 있어요. 결제 3일 안에는 전액, 그 뒤에는 남은 날만큼 돌려드려요.</span>
+            <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
           </div>
         )}
       </div>
@@ -608,9 +608,9 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
                 {premium && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#F59E0B", color: "white" }}>첫 달 무료</span>}
                 {selected && <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#B45309", color: "white" }}>선택됨</span>}
               </div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{plan.tagline}</div>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{plan.tagline}</div>
               <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222", marginTop: 10 }}>
-                {plan.monthlyPrice === 0 ? "무료" : <>{lodging ? `${PERIOD_DAYS}일` : "월"} {won(plan.monthlyPrice)}<span style={{ fontSize: 11.5, fontWeight: 600, color: "#999" }}> · 부가세 포함</span></>}
+                {plan.monthlyPrice === 0 ? "무료" : <>{lodging ? `${PERIOD_DAYS}일` : "월"} {won(plan.monthlyPrice)}<span style={{ fontSize: 11.5, fontWeight: 600, color: "#666" }}> · 부가세 포함</span></>}
               </div>
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 {plan.features.map((f) => (
@@ -633,7 +633,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: 10, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: 10, lineHeight: 1.7 }}>
           · 시범 운영 기간의 요금이며, 바뀔 때는 적용 전에 미리 알려 드려요.<br />
           · 이용 기간은 신청일(또는 남은 기간 끝)부터 {PERIOD_DAYS}일 단위로 계산해요.<br />
           · 의무 이용 기간과 해지 위약금이 없어요. 위의 [해지하기]로 언제든 해지할 수 있고, 기간이 끝나면 자동으로 기본 요금제로 돌아가요. 자동 결제는 하지 않아요.<br />
@@ -664,7 +664,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
                 <span className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222" }}>합계 {won(q.total)}</span>
-                {q.total < q.listTotal && <span style={{ fontSize: 12.5, color: "#aaa", textDecoration: "line-through" }}>{won(q.listTotal)}</span>}
+                {q.total < q.listTotal && <span style={{ fontSize: 12.5, color: "#6e6e6e", textDecoration: "line-through" }}>{won(q.listTotal)}</span>}
               </div>
             </div>
             {isPreview ? (
@@ -679,11 +679,11 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               <span>위 요금과 기간을 확인했고, 유료 기간의 금액은 안내받은 계좌로 입금한 뒤 적용된다는 점에 동의해요.</span>
             </label>
             {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
-            <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#d6d3c9" : "#B45309", color: "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
+            <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#d6d3c9" : "#B45309", color: busy || !canAct || !agree ? "#4f4a3f" : "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
               {busy ? "신청 중…" : `${unit(months)} 신청하기`}
             </button>
             </>)}
-            <div style={{ fontSize: 11.5, color: "#999", marginTop: 8, lineHeight: 1.6 }}>카드 결제는 준비 중이에요. 지금은 신청 후 계좌 입금으로 진행하고, 세금계산서·현금영수증을 발행해 드려요.</div>
+            <div style={{ fontSize: 11.5, color: "#666", marginTop: 8, lineHeight: 1.6 }}>카드 결제는 준비 중이에요. 지금은 신청 후 계좌 입금으로 진행하고, 세금계산서·현금영수증을 발행해 드려요.</div>
           </>
         )}
       </div>
@@ -718,8 +718,8 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
     return () => { cancelled = true; };
   }, [placeId, isPreview]);
 
-  if (error) return <div style={{ ...card, color: "#999", fontSize: 13 }}>{error}</div>;
-  if (!stats) return <div style={{ ...card, color: "#999", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
+  if (error) return <div style={{ ...card, color: "#666", fontSize: 13 }}>{error}</div>;
+  if (!stats) return <div style={{ ...card, color: "#666", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
 
   const l = stats.last30;
   const exposure = l.courseIncluded + (l.recommendImpressions ?? 0);
@@ -747,7 +747,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "#B45309" }}>같이가개 성과 보고서</div>
           <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", marginTop: 3 }}>{stats.placeName ?? "내 가게"}</div>
-          <div style={{ fontSize: 12.5, color: "#888", marginTop: 3 }}>{fmtDate(from.toISOString())} ~ {fmtDate(today.toISOString())} (최근 30일)</div>
+          <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 3 }}>{fmtDate(from.toISOString())} ~ {fmtDate(today.toISOString())} (최근 30일)</div>
         </div>
         <button className="owner-no-print" onClick={printDetailed} disabled={printing} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 13px", borderRadius: 10, border: "1px solid #e2e4e8", background: "white", color: "#555", fontSize: 12.5, fontWeight: 700, cursor: printing ? "default" : "pointer" }}>
           <Printer size={13} />{printing ? "보고서 만드는 중…" : "상세 보고서 인쇄 · PDF 저장"}
@@ -765,7 +765,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16, fontSize: 13 }}>
         <thead>
-          <tr style={{ textAlign: "left", color: "#999", fontSize: 11.5 }}>
+          <tr style={{ textAlign: "left", color: "#666", fontSize: 11.5 }}>
             <th style={th}>지표</th><th style={{ ...th, textAlign: "right" }}>최근 30일</th><th style={th}>설명</th>
           </tr>
         </thead>
@@ -774,7 +774,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
             <tr key={label} style={{ borderTop: "1px solid #f3efe3" }}>
               <td style={{ ...td, fontWeight: 700, color: "#333", whiteSpace: "nowrap" }}>{label}</td>
               <td style={{ ...td, textAlign: "right", fontWeight: 800, color: "#222" }}>{value.toLocaleString("ko-KR")}</td>
-              <td style={{ ...td, color: "#888", fontSize: 12 }}>{desc}</td>
+              <td style={{ ...td, color: "#5c5c5c", fontSize: 12 }}>{desc}</td>
             </tr>
           ))}
         </tbody>
@@ -787,7 +787,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
         · 누적 찜 {stats.bookmarks.toLocaleString("ko-KR")} · 추천 {stats.likes.toLocaleString("ko-KR")} · 후기 {stats.reviews.toLocaleString("ko-KR")}건
       </div>
 
-      <div style={{ fontSize: 11, color: "#aaa", marginTop: 12, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 11, color: "#6e6e6e", marginTop: 12, lineHeight: 1.7 }}>
         · 같은 사람이 여러 번 보면 여러 번 세는 횟수 기준이에요. 개인을 알 수 있는 정보는 포함되지 않아요.<br />
         · 길찾기·전화·홈페이지 횟수는 2026년 10월 5일부터 집계됐어요.<br />
         · 실제 매장 방문·매출과는 차이가 있을 수 있어요.<br />

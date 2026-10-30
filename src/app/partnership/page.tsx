@@ -146,7 +146,7 @@ export default function PartnershipPage() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.65)" }}>2026년 10월 기준 · 서비스가 제공하는 장소·공고 규모</div>
+          <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.88)" }}>2026년 10월 기준 · 서비스가 제공하는 장소·공고 규모</div>
         </div>
       </section>
 
@@ -175,7 +175,7 @@ export default function PartnershipPage() {
               <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: f.color }}>{f.no} · {f.name}</div>
               <h3 className="ggk-logo" style={{ ...h2, fontSize: "clamp(20px, 3.2vw, 28px)" }}>{f.title}</h3>
               <p style={{ ...body(15), margin: "14px 0 0" }}>{f.text}</p>
-              <div style={{ marginTop: 14, fontSize: 12.5, color: "#8a8f80" }}>대상 <b style={{ color: "#59624f", marginLeft: 4 }}>{f.who}</b></div>
+              <div style={{ marginTop: 14, fontSize: 12.5, color: "#5f6456" }}>대상 <b style={{ color: "#59624f", marginLeft: 4 }}>{f.who}</b></div>
             </div>
             <div style={{ flex: "1 1 300px", minWidth: 0, borderRadius: 26, background: f.tone, padding: "clamp(22px, 4vw, 36px)" }}>
               <div style={{ width: 54, height: 54, borderRadius: 18, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,0.07)" }}>
@@ -210,7 +210,7 @@ export default function PartnershipPage() {
               </div>
             ))}
           </div>
-          <div style={{ ...body(12.5), marginTop: 16, color: "#8a8f80" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
+          <div style={{ ...body(12.5), marginTop: 16, color: "#5f6456" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
         </div>
       </section>
 
@@ -297,7 +297,7 @@ export default function PartnershipPage() {
           <p style={{ ...body(14), margin: "10px 0 0" }}>{"구체적인 계획이 정해지지 않아도 괜찮습니다.\n홍보 대상(매장·브랜드·상품)을 기재해 주시면\n적합한 방식을 제안드립니다."}</p>
         </div>
         <PartnershipForm />
-        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#9aa191" }}>© 2026 같이가개</div>
+        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#5f6456" }}>© 2026 같이가개</div>
       </section>
     </div>
   );

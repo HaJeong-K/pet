@@ -99,7 +99,7 @@ function PickArt() {
       <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: GREEN, color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
-        <div style={{ fontSize: 10.5, color: "#8a8a80" }}>{sub}</div>
+        <div style={{ fontSize: 10.5, color: "#5f5f56" }}>{sub}</div>
       </div>
     </div>
   );
@@ -113,11 +113,11 @@ function PickArt() {
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ flex: 1, background: "white", borderRadius: 14, padding: "10px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: 10.5, color: "#8a8a80", fontWeight: 600 }}>반려동물 친화도</div>
+          <div style={{ fontSize: 10.5, color: "#5f5f56", fontWeight: 600 }}>반려동물 친화도</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: BROWN, lineHeight: 1.2 }}>87<span style={{ fontSize: 12 }}>점</span></div>
         </div>
         <div style={{ flex: 1, background: "white", borderRadius: 14, padding: "10px 12px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ fontSize: 10.5, color: "#8a8a80", fontWeight: 600 }}>다녀온 보호자 후기</div>
+          <div style={{ fontSize: 10.5, color: "#5f5f56", fontWeight: 600 }}>다녀온 보호자 후기</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: INK, lineHeight: 1.4 }}>&ldquo;대형견도 편했어요&rdquo;</div>
         </div>
       </div>
@@ -255,7 +255,7 @@ export default function WelcomeIntro({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px 18px" }}>
-          <button onClick={() => close(true)} style={{ padding: "12px 4px", border: "none", background: "none", fontSize: 12.5, fontWeight: 600, color: "#8a8272", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
+          <button onClick={() => close(true)} style={{ padding: "12px 4px", border: "none", background: "none", fontSize: 12.5, fontWeight: 600, color: "#655d4f", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
             다시 보지 않기
           </button>
           <div style={{ flex: 1 }} />

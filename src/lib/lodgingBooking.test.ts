@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addDays, canChangeStay, cleanStayRequest, isDay, isWeekendNight, kstToday, nightPrice, nightsOf, petNightFee, petsAllowed, quoteStay, staysOverlap,
+  addDays, canChangeStay, cleanStayRequest, isDay, isWeekendNight, kstToday, nightPrice, nightsOf, petNightFee, petsNightlyTotal, petsAllowed, quoteStay, staysOverlap,
 } from "./lodgingBooking";
 
 const NOW = new Date("2026-10-25T03:00:00Z").getTime(); // 한국 2026-10-25 12시(일요일)
@@ -73,6 +73,11 @@ describe("요금", () => {
     expect(petNightFee(profile, { species: "dog", size: "large" })).toBe(20000);
     expect(petNightFee(profile, { species: "cat", size: null })).toBe(5000);
     expect(petNightFee({ pet_fee: null }, { species: "dog", size: "large" })).toBe(0);
+    // 기본 포함 1마리: 낮은 요금부터 빼고 나머지만 더함
+    const pets = [{ species: "dog" as const, size: "small" as const }, { species: "dog" as const, size: "large" as const }];
+    expect(petsNightlyTotal(profile, pets)).toBe(30000);
+    expect(petsNightlyTotal({ ...profile, pet_free_count: 1 }, pets)).toBe(20000);
+    expect(petsNightlyTotal({ ...profile, pet_free_count: 5 }, pets)).toBe(0);
   });
 });
 

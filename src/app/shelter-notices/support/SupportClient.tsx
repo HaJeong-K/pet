@@ -98,7 +98,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                 {[["보호센터", shelters.length], ["보호 중", totalProtecting]].map(([label, value]) => (
                   <div key={label} style={{ flex: "1 1 0", minWidth: 0, maxWidth: 120, padding: "11px 6px", borderRadius: 14, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.10)", textAlign: "center" }}>
                     <div className="ggk-logo" style={{ fontSize: 20, fontWeight: 800, color: "white", lineHeight: 1.2 }}>{Number(value).toLocaleString()}</div>
-                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.78)", marginTop: 3 }}>{label}</div>
+                    <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.88)", marginTop: 3 }}>{label}</div>
                   </div>
                 ))}
               </div>
@@ -114,7 +114,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                 <HeartHandshake size={17} color="#D9534F" />
                 <h2 className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222", margin: 0 }}>후원할 수 있는 단체</h2>
               </div>
-              <p style={{ fontSize: 12, color: "#777", lineHeight: 1.65, margin: "0 0 12px" }}>
+              <p style={{ fontSize: 12, color: "#555", lineHeight: 1.65, margin: "0 0 12px" }}>
                 같이가개는 후원금을 받거나 전달하지 않아요. 후원은 각 단체의 공식 창구에서 직접 이루어져요.
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: 10 }}>
@@ -148,7 +148,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
             {shelters === null ? (
               <div style={{ padding: 40, textAlign: "center" }}><LogoLoader /></div>
             ) : shelters.length === 0 ? (
-              <div style={{ ...card, textAlign: "center", fontSize: 13, color: "#888", padding: 30 }}>
+              <div style={{ ...card, textAlign: "center", fontSize: 13, color: "#5c5c5c", padding: 30 }}>
                 {failed ? "보호센터 목록을 불러오지 못했어요. 잠시 후 다시 열어 주세요." : "지금은 보여 드릴 보호센터가 없어요."}
               </div>
             ) : (
@@ -173,11 +173,11 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                             <span style={{ fontSize: 14, fontWeight: 800, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
                             {s.urgent > 0 && <span style={{ flexShrink: 0, padding: "2px 7px", borderRadius: 999, background: "#FDE8E6", color: "#C0392B", fontSize: 10, fontWeight: 800 }}>마감 임박 {s.urgent}</span>}
                           </div>
-                          <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>{[shortSido(s.sido), s.sigungu].filter(Boolean).join(" ")}</div>
+                          <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 3 }}>{[shortSido(s.sido), s.sigungu].filter(Boolean).join(" ")}</div>
                           <div style={{ fontSize: 12, color: "#5d574e", marginTop: 5, fontWeight: 600 }}>
                             {s.protecting > 0
                               ? <>보호 중 <b style={{ color: "#7A5236" }}>{s.protecting}마리</b>{[s.dogs > 0 && ` · 강아지 ${s.dogs}`, s.cats > 0 && ` · 고양이 ${s.cats}`, s.others > 0 && ` · 기타 ${s.others}`].filter(Boolean).join("")}</>
-                              : <span style={{ color: "#aaa" }}>지금 보호 중인 공고 없음</span>}
+                              : <span style={{ color: "#6e6e6e" }}>지금 보호 중인 공고 없음</span>}
                           </div>
                         </div>
                         <ChevronRight size={17} color="#bbb" style={{ flexShrink: 0 }} />
@@ -195,7 +195,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                     </div>
                   ))}
                 </div>
-                {shown.length === 0 && <div style={{ ...card, textAlign: "center", fontSize: 13, color: "#888", padding: 26, marginTop: 4 }}>조건에 맞는 보호센터가 없어요.</div>}
+                {shown.length === 0 && <div style={{ ...card, textAlign: "center", fontSize: 13, color: "#5c5c5c", padding: 26, marginTop: 4 }}>조건에 맞는 보호센터가 없어요.</div>}
               </>
             )}
           </section>

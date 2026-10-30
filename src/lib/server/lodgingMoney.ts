@@ -8,18 +8,21 @@
 
 import { db, activePlanOf } from "@/lib/server/ownerStore";
 import { BOOKING_FULL_COLUMNS, partnerOf } from "@/lib/server/lodgingStore";
-import { kstToday, type StayStatus } from "@/lib/lodgingBooking";
+import { kstToday, STAY_HOLD_MS, type StayStatus } from "@/lib/lodgingBooking";
 import {
   CANCEL_FEE_RATE, cancelOutcome, nextBusinessDayAfter, settle, stayFeeRate, type CancelCause, type PeakPeriod,
 } from "@/lib/lodgingPolicy";
 import { notifyStayGuest, runGuestStayNotices } from "@/lib/server/guestNotify";
 import { syncAllRoomIcal } from "@/lib/server/lodgingIcal";
+import { issueStayStamp, releaseStamps } from "@/lib/server/memoryStamps";
 
 export const NEED_SETTLEMENT_SQL = "예약 정산 기능을 준비하고 있어요. Supabase SQL 편집기에서 scripts/sql/lodging-settlement.sql을 실행해 주세요.";
 
 export type MoneyBooking = {
   id: number; place_id: number; check_in: string; check_out: string; total: number; status: StayStatus;
   booked_on: string | null; created_at: string; payment_status: string;
+  /** 추억 스탬프 할인액 — total은 할인 후 금액. 할인분은 같이가개 부담이라 정산은 total + stamp_discount 기준 */
+  stamp_discount?: number | null;
 };
 
 async function peakPeriodsOf(placeId: number): Promise<PeakPeriod[] | null> {
@@ -55,6 +58,7 @@ export async function applyCancel(b: MoneyBooking, cause: CancelCause, nextStatu
     ...money, ...extra,
   }).eq("id", b.id).eq("status", fromStatus).select(BOOKING_FULL_COLUMNS).maybeSingle();
   if (error) throw new Error(error.message);
+  if (data) await releaseStamps(Number(b.id)); // 쓴 스탬프는 돌려줍니다
   return data ? { booking: data, outcome: out } : null;
 }
 
@@ -62,7 +66,7 @@ export async function applyCancel(b: MoneyBooking, cause: CancelCause, nextStatu
 export async function confirmStay(b: MoneyBooking, by: "guest" | "auto" | "admin") {
   const [plan, partner] = await Promise.all([activePlanOf(b.place_id), partnerOf(b.place_id)]);
   const rate = stayFeeRate(b.check_in, plan != null, partner.partnerSince);
-  const s = settle(b.total, rate);
+  const s = settle(b.total + (b.stamp_discount ?? 0), rate);
   const now = new Date().toISOString();
   const { data, error } = await db.from("lodging_bookings").update({
     status: "completed", stay_confirmed_at: now, stay_confirmed_by: by, updated_at: now,
@@ -70,10 +74,26 @@ export async function confirmStay(b: MoneyBooking, by: "guest" | "auto" | "admin
     payout_status: b.payment_status === "paid" ? "scheduled" : "none",
   }).eq("id", b.id).eq("status", "confirmed").select(BOOKING_FULL_COLUMNS).maybeSingle();
   if (error) throw new Error(error.message);
+  if (data) await issueStayStamp(Number(b.id)).catch(() => {}); // 숙박 완료 스탬프
   return data;
 }
 
-const MONEY_COLUMNS = "id, place_id, check_in, check_out, total, status, booked_on, created_at, payment_status";
+const MONEY_COLUMNS = "id, place_id, check_in, check_out, total, status, booked_on, created_at, payment_status, stamp_discount";
+
+/** 24시간 안에 확정되지 않은 예약 요청을 자동 취소합니다(roomId를 주면 그 객실만) — 잡아 둔 날짜를 풀어 줍니다 */
+export async function expireStaleRequests(roomId?: number): Promise<number> {
+  let q = db.from("lodging_bookings").select(MONEY_COLUMNS).eq("status", "requested").lt("created_at", new Date(Date.now() - STAY_HOLD_MS).toISOString()).limit(500);
+  if (roomId != null) q = q.eq("room_id", roomId);
+  const { data: stale } = await q;
+  let expired = 0;
+  for (const b of (stale ?? []) as MoneyBooking[]) {
+    if (await applyCancel(b, "not_confirmed", "declined", "requested", { owner_note: "숙소가 24시간 안에 확정하지 않아 자동 취소" })) {
+      expired++;
+      await notifyStayGuest(Number(b.id), "expired");
+    }
+  }
+  return expired;
+}
 
 /**
  * 매일 새벽 작업(src/app/api/cron/daily):
@@ -90,15 +110,7 @@ export async function runLodgingDaily() {
   let confirmed = 0;
   for (const b of (due ?? []) as MoneyBooking[]) if (await confirmStay(b, "auto")) confirmed++;
 
-  const { data: stale } = await db.from("lodging_bookings").select(MONEY_COLUMNS)
-    .eq("status", "requested").lt("created_at", new Date(Date.now() - 24 * 3_600_000).toISOString()).limit(500);
-  let expired = 0;
-  for (const b of (stale ?? []) as MoneyBooking[]) {
-    if (await applyCancel(b, "not_confirmed", "declined", "requested", { owner_note: "숙소가 24시간 안에 확정하지 않아 자동 취소" })) {
-      expired++;
-      await notifyStayGuest(Number(b.id), "expired");
-    }
-  }
+  const expired = await expireStaleRequests();
   // 손님 알림: 내일 체크인 안내 · 체크아웃 후 후기 요청(한 번씩)
   const notices = await runGuestStayNotices(today).catch((e) => ({ reminded: 0, reviewAsked: 0, skipped: e instanceof Error ? e.message : "실패" }));
   // 다른 예약 사이트 달력(iCal)에서 팔린 날 가져오기

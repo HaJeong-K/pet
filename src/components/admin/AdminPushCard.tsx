@@ -164,7 +164,7 @@ export default function AdminPushCard() {
         <div style={{ fontSize: 14, fontWeight: 800, color: "#111" }}>
           앱 알림 · {on ? "이 기기에서 받는 중" : "이 기기는 꺼져 있음"}
         </div>
-        <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6, marginTop: 3 }}>
+        <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginTop: 3 }}>
           {supported
             ? "새 제보·신고·글 검토와 새벽 작업 결과를 소리 없이 알림으로 받아요. 같이가개 앱에서 켜면 앱 알림으로 떠요(기기마다 한 번씩 켜야 해요)."
             : "이 브라우저에서는 알림을 쓸 수 없어요. (아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요.)"}

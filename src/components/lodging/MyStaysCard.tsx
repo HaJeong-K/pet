@@ -17,7 +17,7 @@ import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgi
 
 type Stay = {
   id: number; place_id: number; room_name: string; check_in: string; check_out: string; nights: number; guests: number; pets: StayPet[];
-  total: number; status: StayStatus; owner_note: string | null; created_at: string;
+  total: number; stamp_discount?: number | null; status: StayStatus; owner_note: string | null; created_at: string;
   payment_status?: string; cancel_cause?: CancelCause | null; refund_amount?: number; compensation_amount?: number | null;
   issue_status?: string; issue_kind?: string | null; issue_resolution?: string | null; stay_confirmed_at?: string | null;
   place: { name: string; address: string | null; phone: string | null } | null;
@@ -90,9 +90,10 @@ export default function MyStaysCard() {
         <div style={{ fontSize: 13, color: "#444", marginTop: 6 }}>
           {stayDayLabel(s.check_in)} {s.checkInTime ?? ""} ~ {stayDayLabel(s.check_out)} {s.checkOutTime ?? ""} · {s.nights}박 · {s.room_name}
         </div>
-        <div style={{ fontSize: 12, color: "#888", marginTop: 3 }}>{s.guests}명 · {s.pets.map(petLabel).join(", ")}</div>
+        <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 3 }}>{s.guests}명 · {s.pets.map(petLabel).join(", ")}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
           <b style={{ fontSize: 14, color: "#1D4F91" }}>{won(s.total)}</b>
+          {(s.stamp_discount ?? 0) > 0 && <span style={{ fontSize: 11.5, color: "#8A6D1F" }}>스탬프 {won(s.stamp_discount ?? 0)} 할인</span>}
           {s.payment_status === "unpaid" && (s.status === "requested" || s.status === "confirmed") && <span style={{ fontSize: 11.5, color: "#B45309" }}>결제 안내를 기다리는 중</span>}
           {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#1D4F91", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
         </div>
@@ -103,17 +104,17 @@ export default function MyStaysCard() {
             {CANCEL_CAUSE_LABEL[s.cancel_cause]} · 환불 {won(s.refund_amount ?? 0)}{s.compensation_amount ? ` + 배상 ${won(s.compensation_amount)}` : ""}
           </div>
         )}
-        {s.owner_note && <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>숙소: {s.owner_note}</div>}
-        {s.issue_resolution && <div style={{ fontSize: 12, color: "#777", marginTop: 4 }}>처리 결과: {s.issue_resolution}</div>}
+        {s.owner_note && <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>숙소: {s.owner_note}</div>}
+        {s.issue_resolution && <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>처리 결과: {s.issue_resolution}</div>}
 
         {/* 진행 중인 예약 */}
         {s.schedule.length > 0 && s.status === "confirmed" && (
-          <div style={{ fontSize: 11.5, color: "#888", marginTop: 6, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 6, lineHeight: 1.6 }}>
             {s.schedule.slice(0, 3).map((r) => `${stayDayLabel(r.until)}까지 ${r.rate === 0 ? "전액" : won(r.refund)}`).join(" · ")}
           </div>
         )}
         {s.status === "confirmed" && !s.canConfirm && s.issue_status !== "open" && (
-          <div style={{ fontSize: 11.5, color: "#888", marginTop: 4 }}>체크아웃 날부터 이용 확정할 수 있어요. 누르지 않으면 {stayDayLabel(autoConfirmOn(s.check_out))}에 자동 확정돼요.</div>
+          <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 4 }}>체크아웃 날부터 이용 확정할 수 있어요. 누르지 않으면 {stayDayLabel(autoConfirmOn(s.check_out))}에 자동 확정돼요.</div>
         )}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
           {s.canConfirm && <button onClick={() => act({ id: s.id, action: "confirm" }, "이용을 확정했어요. 즐거우셨길 바라요!")} disabled={busy} style={button("primary", busy)}>이용 확정</button>}
@@ -132,7 +133,7 @@ export default function MyStaysCard() {
               ))}
             </div>
             <textarea value={issue.detail} onChange={(e) => setIssue((v) => ({ ...v, detail: e.target.value.slice(0, 600) }))} rows={3} placeholder="무슨 일이 있었는지 적어 주세요. 숙소와 나눈 메시지·사진이 있으면 담당자가 연락드릴 때 보내 주세요." style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
-            <div style={{ fontSize: 11.5, color: "#888", lineHeight: 1.6 }}>접수하면 이용 확정과 숙소 정산이 멈추고, 같이가개가 숙소 의견을 들은 뒤 환불 여부를 알려 드려요.</div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6 }}>접수하면 이용 확정과 숙소 정산이 멈추고, 같이가개가 숙소 의견을 들은 뒤 환불 여부를 알려 드려요.</div>
             <button onClick={() => act({ id: s.id, action: "issue", ...issue }, "문제를 접수했어요. 확인 후 알려 드릴게요.")} disabled={busy || !issue.kind || !issue.detail.trim()} style={button("primary", busy || !issue.kind || !issue.detail.trim())}>접수하기</button>
           </div>
         )}
@@ -145,12 +146,12 @@ export default function MyStaysCard() {
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
         <BedDouble size={17} color="#1D4F91" />
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>내 숙박 예약</div>
-        {open.length > 0 && <span style={{ fontSize: 12, color: "#888" }}>진행 중 {open.length}건</span>}
+        {open.length > 0 && <span style={{ fontSize: 12, color: "#5c5c5c" }}>진행 중 {open.length}건</span>}
       </div>
       {message && <div role="status" style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
       <div style={{ display: "grid", gap: 8 }}>
         {open.map(row)}
-        {done.length > 0 && <details><summary style={{ fontSize: 12.5, color: "#888", cursor: "pointer", padding: "4px 0" }}>지난 예약 {done.length}건</summary><div style={{ display: "grid", gap: 8, marginTop: 8 }}>{done.map(row)}</div></details>}
+        {done.length > 0 && <details><summary style={{ fontSize: 12.5, color: "#5c5c5c", cursor: "pointer", padding: "4px 0" }}>지난 예약 {done.length}건</summary><div style={{ display: "grid", gap: 8, marginTop: 8 }}>{done.map(row)}</div></details>}
       </div>
     </div>
   );

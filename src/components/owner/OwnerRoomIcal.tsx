@@ -70,7 +70,7 @@ export default function OwnerRoomIcal({ roomId, placeId, isPreview, canAct }: { 
           {canAct && <button onClick={() => run({ method: "PUT", body: JSON.stringify({ roomId, importUrl: url.trim() }) })} disabled={busy} style={btn(true, busy)}>{busy ? "확인 중…" : "저장"}</button>}
         </div>
         {info && (
-          <div style={{ fontSize: 11.5, color: info.error ? "#b91c1c" : "#888", marginTop: 5, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 11.5, color: info.error ? "#b91c1c" : "#5c5c5c", marginTop: 5, lineHeight: 1.6 }}>
             {info.importUrl
               ? info.error ? `동기화하지 못했어요: ${info.error}` : `${info.syncedAt ? `${new Date(info.syncedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} 동기화` : "아직 동기화 전"} · 막힌 밤 ${info.blockedNights}일 · 매일 새벽과 손님이 예약할 때 다시 확인해요.`
               : "아직 연결하지 않았어요."}
@@ -85,7 +85,7 @@ export default function OwnerRoomIcal({ roomId, placeId, isPreview, canAct }: { 
           <input value={info?.exportUrl ?? "불러오는 중…"} readOnly aria-label="같이가개 달력 주소" style={{ ...input, color: "#555", background: "#fff" }} onFocus={(e) => e.currentTarget.select()} />
           <button onClick={copy} disabled={!info} style={btn(false)}><Copy size={12} style={{ verticalAlign: -2 }} /> {copied ? "복사됨" : "복사"}</button>
         </div>
-        <div style={{ fontSize: 11.5, color: "#888", marginTop: 5 }}>이 주소를 다른 사이트의 &ldquo;달력 가져오기(iCal)&rdquo;에 넣어 주세요. 손님 이름·연락처는 담기지 않고 날짜만 담겨요.</div>
+        <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 5 }}>이 주소를 다른 사이트의 &ldquo;달력 가져오기(iCal)&rdquo;에 넣어 주세요. 손님 이름·연락처는 담기지 않고 날짜만 담겨요.</div>
       </div>
       {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
     </div>

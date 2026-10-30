@@ -54,7 +54,7 @@ export default function MyNotificationsCard() {
         <Bell size={15} color="#5C7A4A" />
         <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>알림</div>
         {unread > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "#EF4444", color: "white", fontSize: 10.5, fontWeight: 800, lineHeight: "18px", textAlign: "center" }}>{unread}</span>}
-        {unread > 0 && <button onClick={markAll} style={{ marginLeft: "auto", border: "none", background: "transparent", color: "#888", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>모두 읽음</button>}
+        {unread > 0 && <button onClick={markAll} style={{ marginLeft: "auto", border: "none", background: "transparent", color: "#5c5c5c", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>모두 읽음</button>}
       </div>
       <div style={{ marginTop: 6 }}>
         {shown.map((n, i) => (
@@ -63,9 +63,9 @@ export default function MyNotificationsCard() {
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "flex", gap: 6 }}>
                 <b style={{ flex: 1, fontSize: 13, color: n.read_at ? "#666" : "#222" }}>{n.title}</b>
-                <span style={{ flexShrink: 0, fontSize: 11, color: "#aaa" }}>{ago(n.created_at)}</span>
+                <span style={{ flexShrink: 0, fontSize: 11, color: "#6e6e6e" }}>{ago(n.created_at)}</span>
               </span>
-              {n.body && <span style={{ display: "block", fontSize: 12, color: "#888", marginTop: 2, lineHeight: 1.55 }}>{n.body}</span>}
+              {n.body && <span style={{ display: "block", fontSize: 12, color: "#5c5c5c", marginTop: 2, lineHeight: 1.55 }}>{n.body}</span>}
             </span>
           </button>
         ))}

@@ -492,7 +492,7 @@ export default function ModalPage() {
                       <button
                         className="modal-menu-item"
                         onClick={() => { setShowMenu(false); setShowReportModal(true); }}
-                        style={{ ...dropdownItemStyle, color: "#ef4444" }}
+                        style={{ ...dropdownItemStyle, color: "#dc2626" }}
                       >
                         <div style={{ width: 28, height: 28, borderRadius: 8, background: "#fff1f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           <Flag size={13} color="#ef4444" />
@@ -521,7 +521,7 @@ export default function ModalPage() {
                             className="modal-menu-item"
                             disabled={placeDeleting}
                             onClick={() => { setShowMenu(false); deletePlaceRef.current(); }}
-                            style={{ ...dropdownItemStyle, color: "#ef4444" }}
+                            style={{ ...dropdownItemStyle, color: "#dc2626" }}
                           >
                             <div style={{ width: 28, height: 28, borderRadius: 8, background: "#fff1f1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <Trash2 size={13} color="#ef4444" />
@@ -634,7 +634,7 @@ export default function ModalPage() {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "#111" }}>링크 복사하기</div>
-                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>클립보드에 링크를 복사합니다</div>
+                <div style={{ fontSize: 11, color: "#5c5c5c", marginTop: 2 }}>클립보드에 링크를 복사합니다</div>
               </div>
             </div>
 
@@ -649,7 +649,7 @@ export default function ModalPage() {
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: "#111" }}>SNS로 공유하기</div>
-                <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>인스타그램, X, Thread 등으로 공유합니다</div>
+                <div style={{ fontSize: 11, color: "#5c5c5c", marginTop: 2 }}>인스타그램, X, Thread 등으로 공유합니다</div>
               </div>
             </div>
 
@@ -738,7 +738,7 @@ export default function ModalPage() {
               {/* 신고 사유 선택 */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 10 }}>
-                  신고 사유를 선택해주세요 <span style={{ color: "#ef4444" }}>*</span>
+                  신고 사유를 선택해주세요 <span style={{ color: "#dc2626" }}>*</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                   {PLACE_REPORT_CATEGORIES.map((cat) => {
@@ -776,7 +776,7 @@ export default function ModalPage() {
               {/* 구체적인 사유 입력 */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 8 }}>
-                  구체적인 사유를 작성해주세요 <span style={{ color: "#ef4444" }}>*</span>
+                  구체적인 사유를 작성해주세요 <span style={{ color: "#dc2626" }}>*</span>
                 </div>
                 <textarea
                   value={reportReason}
@@ -801,7 +801,7 @@ export default function ModalPage() {
                   onFocus={(e) => (e.target.style.borderColor = "#555")}
                   onBlur={(e) => (e.target.style.borderColor = "#e2e4e8")}
                 />
-                <div style={{ textAlign: "right", fontSize: 11, color: "#bbb", marginTop: 5 }}>
+                <div style={{ textAlign: "right", fontSize: 11, color: "#707070", marginTop: 5 }}>
                   {reportReason.length} / 500
                 </div>
               </div>
@@ -827,7 +827,7 @@ export default function ModalPage() {
                     background: (!reportCategory || !reportReason.trim() || isSubmitting)
                       ? "#d1d5db"
                       : "linear-gradient(135deg, #ef4444, #dc2626)",
-                    color: "white", fontWeight: 700, fontSize: 13,
+                    color: (!reportCategory || !reportReason.trim() || isSubmitting) ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 13,
                     cursor: (!reportCategory || !reportReason.trim() || isSubmitting) ? "default" : "pointer",
                     fontFamily: "'Noto Sans KR', sans-serif",
                     boxShadow: (!reportCategory || !reportReason.trim() || isSubmitting)
@@ -975,7 +975,7 @@ export default function ModalPage() {
                     background: (!tipHasAnyValue || isTipSubmitting)
                       ? "#d1d5db"
                       : "linear-gradient(135deg, #3b82f6, #2563eb)",
-                    color: "white", fontWeight: 700, fontSize: 13,
+                    color: (!tipHasAnyValue || isTipSubmitting) ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 13,
                     cursor: (!tipHasAnyValue || isTipSubmitting) ? "default" : "pointer",
                     fontFamily: "'Noto Sans KR', sans-serif",
                     boxShadow: (!tipHasAnyValue || isTipSubmitting)
@@ -1012,7 +1012,7 @@ function TipField({
       <div style={{ fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 7, display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <span style={{ flexShrink: 0 }}>{label}</span>
         {known && !current && <span style={TIP_EMPTY_BADGE}>비어 있음</span>}
-        {known && current && <span style={{ minWidth: 0, fontSize: 10.5, fontWeight: 500, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>지금: {current}</span>}
+        {known && current && <span style={{ minWidth: 0, fontSize: 10.5, fontWeight: 500, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>지금: {current}</span>}
       </div>
       <input
         type="text"

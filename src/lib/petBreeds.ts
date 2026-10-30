@@ -10,7 +10,7 @@ export const DOG_BREEDS: { name: string; size: PetSize }[] = [
   { name: "말티즈", size: "small" }, { name: "푸들(토이)", size: "small" }, { name: "포메라니안", size: "small" }, { name: "치와와", size: "small" },
   { name: "시츄", size: "small" }, { name: "요크셔테리어", size: "small" }, { name: "비숑 프리제", size: "small" }, { name: "닥스훈트", size: "small" },
   { name: "말티푸", size: "small" }, { name: "폼피츠", size: "small" }, { name: "포메푸", size: "small" }, { name: "시츄푸", size: "small" },
-  { name: "미니어처 슈나우저", size: "small" }, { name: "미니어처 핀셔", size: "small" }, { name: "파피용", size: "small" }, { name: "페키니즈", size: "small" },
+  { name: "미니어처 슈나우저", size: "small" }, { name: "스탠다드 슈나우저", size: "medium" }, { name: "자이언트 슈나우저", size: "large" }, { name: "미니어처 핀셔", size: "small" }, { name: "파피용", size: "small" }, { name: "페키니즈", size: "small" },
   { name: "퍼그", size: "small" }, { name: "프렌치 불독", size: "medium" }, { name: "웰시코기", size: "medium" }, { name: "비글", size: "medium" },
   { name: "시바견", size: "medium" }, { name: "보더콜리", size: "medium" }, { name: "코카 스패니얼", size: "medium" }, { name: "스피츠", size: "medium" },
   { name: "진돗개", size: "medium" }, { name: "푸들(스탠다드)", size: "large" }, { name: "골든 리트리버", size: "large" }, { name: "래브라도 리트리버", size: "large" },

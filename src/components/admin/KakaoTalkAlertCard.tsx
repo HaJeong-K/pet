@@ -88,10 +88,10 @@ export default function KakaoTalkAlertCard() {
         <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>
           카카오톡 알림 {status == null ? "" : status.connected ? "· 연결됨" : "· 연결 안 됨"}
         </div>
-        <div style={{ fontSize: 12, color: "#777", marginTop: 3, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: "#555", marginTop: 3, lineHeight: 1.5 }}>
           새 사장님 신청·제보·신고, 자동 작업 실패, 아침 요약을 내 카카오톡 &apos;나와의 채팅&apos;으로 받아요.
           {status?.connected && status.refreshExpiresAt && (
-            <span style={{ color: expiresSoon ? "#d9534f" : "#999" }}>
+            <span style={{ color: expiresSoon ? "#c9302c" : "#666" }}>
               {" "}(연결 유지: {new Date(status.refreshExpiresAt).toLocaleDateString("ko-KR")}까지{expiresSoon ? " — 곧 만료돼요, 다시 연결해 주세요" : ", 자동 연장"})
             </span>
           )}

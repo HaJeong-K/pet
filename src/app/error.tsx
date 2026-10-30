@@ -31,7 +31,7 @@ export default function ErrorBoundary({
       <div style={{ fontSize: 16, fontWeight: 700, color: "#222" }}>
         일시적인 오류가 발생했어요
       </div>
-      <div style={{ fontSize: 13, color: "#888" }}>
+      <div style={{ fontSize: 13, color: "#5c5c5c" }}>
         잠시 후 다시 시도해주세요.
       </div>
       <button

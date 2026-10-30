@@ -71,7 +71,7 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
         )}
         {state === "loading" && <div style={{ padding: 80, textAlign: "center" }}><LogoLoader label="불러오는 중…" /></div>}
         {(state === "missing" || state === "failed") && (
-          <div style={{ margin: 20, padding: 30, borderRadius: 14, background: "white", border: "1px solid #eee", textAlign: "center", fontSize: 13, color: "#888", lineHeight: 1.7 }}>
+          <div style={{ margin: 20, padding: 30, borderRadius: 14, background: "white", border: "1px solid #eee", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
             {state === "missing" ? "지금은 이 보호센터의 공고가 없어요." : "보호센터 정보를 불러오지 못했어요. 잠시 후 다시 열어 주세요."}
           </div>
         )}
@@ -98,7 +98,7 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
           <div style={{ position: "relative", marginTop: 16, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "18px 32px" }}>
                 <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 520 }}>
                   <div className="ggk-logo" style={{ fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>{shelter.name}</div>
-                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.8)", lineHeight: 1.7 }}>
+                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,0.88)", lineHeight: 1.7 }}>
                     입양·임시보호·봉사·물품 후원은 방문 전에 전화로 먼저 문의해 주세요. 운영 시간과 방문 방법은 보호센터마다 달라요.
                   </div>
                 </div>
@@ -136,9 +136,9 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
 
             <div style={{ padding: "18px 20px var(--ggk-tabbar-space)" }}>
               <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222", marginBottom: 4 }}>{pick === "all" ? "가족을 기다리는 아이들" : pick === "urgent" ? "마감이 임박한 아이들" : `가족을 기다리는 ${pick === "other" ? "기타 동물" : PICK_LABEL[pick]}`} {shown.length}마리</div>
-              <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>마감이 임박한 순서예요. 누르면 자세한 공고를 볼 수 있어요.</div>
+              <div style={{ fontSize: 12, color: "#5c5c5c", marginBottom: 12 }}>마감이 임박한 순서예요. 누르면 자세한 공고를 볼 수 있어요.</div>
               {shown.length === 0 ? (
-                <div style={{ padding: 30, borderRadius: 14, background: "white", border: "1px solid #eee", textAlign: "center", fontSize: 13, color: "#888" }}>지금 보호 중인 공고가 없어요.</div>
+                <div style={{ padding: 30, borderRadius: 14, background: "white", border: "1px solid #eee", textAlign: "center", fontSize: 13, color: "#5c5c5c" }}>지금 보호 중인 공고가 없어요.</div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
                   {shown.map((n, i) => (

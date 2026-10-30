@@ -246,7 +246,7 @@ function SignupPageContent() {
                 !email || !isValidEmail(email) || isCheckingEmail
                   ? "#D6D3C9"
                   : "var(--join-strong)",
-              color: "white",
+              color: !email || !isValidEmail(email) || isCheckingEmail ? "#4f4a3f" : "white",
               fontWeight: 700,
               fontSize: "13px",
               cursor:
@@ -426,7 +426,7 @@ function SignupPageContent() {
             background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn)",
             boxShadow: isSubmitDisabled ? "none" : "0 10px 22px rgba(0,0,0,0.14)",
             fontSize: "15.5px",
-            color: "white",
+            color: isSubmitDisabled ? "#4f4a3f" : "white",
             fontWeight: 800,
             cursor: isSubmitDisabled ? "default" : "pointer",
             transition: "all 0.15s ease",
@@ -450,7 +450,7 @@ function SignupPageContent() {
           반려동물 동반 업장 사장님이신가요? 사장님으로 가입하기
         </button>
 
-        <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 13, color: "#7a7263" }}>
+        <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 13, color: "#625a4c" }}>
           이미 계정이 있으신가요?{" "}
           <Link href={`/login?redirect=${encodeURIComponent(redirect)}`} style={{ color: "var(--join-strong)", fontWeight: 800 }}>로그인</Link>
         </p>
@@ -472,7 +472,7 @@ const inputStyle = {
 };
 
 const errorTextStyle = {
-  color: "#ef4444",
+  color: "#dc2626",
   fontSize: "13px",
   marginTop: "4px",
   marginBottom: "10px",
@@ -480,7 +480,7 @@ const errorTextStyle = {
 };
 
 const successTextStyle = {
-  color: "#22c55e",
+  color: "#15803d",
   fontSize: "13px",
   marginTop: "4px",
   marginBottom: "10px",
@@ -489,7 +489,7 @@ const successTextStyle = {
 
 const guideTextStyle = {
   fontSize: "12px",
-  color: "#777",
+  color: "#555",
   marginTop: "-6px",
   marginBottom: "14px",
   lineHeight: 1.4,
@@ -507,7 +507,7 @@ const eyeButtonStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "#777",
+  color: "#555",
 };
 
 export default function SignupPage() {

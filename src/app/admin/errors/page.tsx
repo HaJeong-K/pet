@@ -80,7 +80,7 @@ export default function AdminErrorsPage() {
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>
             에러 로그
           </div>
-          <span style={{ fontSize: 12, color: "#888" }}>최근 200건</span>
+          <span style={{ fontSize: 12, color: "#5c5c5c" }}>최근 200건</span>
         </div>
 
         {tableMissing && (
@@ -90,9 +90,9 @@ export default function AdminErrorsPage() {
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
+          <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}><LogoLoader /></div>
         ) : errors.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}>
+          <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}>
             {tableMissing ? null : "기록된 오류가 없습니다."}
           </div>
         ) : (
@@ -113,8 +113,8 @@ export default function AdminErrorsPage() {
                       <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#fee2e2", color: "#dc2626" }}>
                         {SOURCE_LABEL[e.source || ""] || e.source || "기타"}
                       </span>
-                      <span style={{ fontSize: 11, color: "#999" }}>{formatDate(e.created_at)}</span>
-                      {e.path && <span style={{ fontSize: 11, color: "#999" }}>· {e.path}</span>}
+                      <span style={{ fontSize: 11, color: "#666" }}>{formatDate(e.created_at)}</span>
+                      {e.path && <span style={{ fontSize: 11, color: "#666" }}>· {e.path}</span>}
                     </div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#222", wordBreak: "break-word" }}>
                       {e.message}

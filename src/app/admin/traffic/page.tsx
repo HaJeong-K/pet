@@ -15,7 +15,7 @@ export default function AdminTrafficPage() {
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
         <div>
           <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 7, margin: 0, fontSize: 21, fontWeight: 800, color: "#3d3122" }}><Route size={20} />유입 경로</h1>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#777", lineHeight: 1.7 }}>
+          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", lineHeight: 1.7 }}>
             채널별로 몇 명이 들어와서, 다시 오고, 회원이 됐는지 봅니다.<br />
             홍보할 때는 아래 &ldquo;홍보 링크 만들기&rdquo;로 채널마다 다른 링크를 붙이면 그 채널 성과로 셉니다.
           </p>

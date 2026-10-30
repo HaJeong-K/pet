@@ -4,7 +4,7 @@
 //   · 넓은 화면: 왼쪽 브랜드 칸(이용할 수 있는 서비스) + 오른쪽 입력 칸
 //   · 휴대폰: 위쪽 짧은 브랜드 띠 + 입력 칸
 // 입력 카드 위로 슈나우저 두 마리가 내다봅니다. 입력 칸의 테두리·포커스 모양도 여기서 통일합니다(.ggk-join).
-// 색은 화면마다 다릅니다(JOIN_THEMES): 일반 회원 = 오트밀 + 머스터드, 사장님 = 웜그레이 + 슈나우저 회색.
+// 색은 화면마다 다릅니다(JOIN_THEMES): 일반 회원 = 오트밀 + 머스터드, 사장님 = 크림 + 로고 브라운(가입 버튼만 검정).
 // 안쪽 입력 폼의 버튼·체크 색은 CSS 변수(--join-btn 등)로 받아 씁니다.
 
 import type { CSSProperties, ReactNode } from "react";
@@ -21,26 +21,26 @@ type JoinTheme = {
   page: string; band: string; ink: string; muted: string; accent: string;
   free: string; freeInk: string; chip: string; chipLine: string; chipInk: string;
   iconBox: string; iconLine: string; label: string; labelLine: string; labelInk: string;
-  btn: string; focus: string; focusRing: string; soft: string; softLine: string; softInk: string;
+  btn: string; strong: string; focus: string; focusRing: string; soft: string; softLine: string; softInk: string;
   field: string; cardLine: string; shadow: string;
 };
 
-export const JOIN_THEMES: Record<"oat" | "stone", JoinTheme> = {
+export const JOIN_THEMES: Record<"oat" | "cream", JoinTheme> = {
   // 일반 회원 — 오트밀 + 머스터드
   oat: {
-    page: "#FAF8F3", band: "#F1EADB", ink: "#3D3426", muted: "#6E6352", accent: "#B98A1F",
+    page: "#FAF8F3", band: "#F1EADB", ink: "#3D3426", muted: "#5C5243", accent: "#B98A1F",
     free: "#E8B64A", freeInk: "#3D2E0A", chip: "rgba(61,52,38,0.05)", chipLine: "rgba(61,52,38,0.12)", chipInk: "#4E4332",
     iconBox: "#FFFFFF", iconLine: "#E5DCC8", label: "#F3EDE0", labelLine: "#E6DCC6", labelInk: "#5C4A22",
-    btn: "#3D3426", focus: "#B98A1F", focusRing: "rgba(185,138,31,0.18)", soft: "#FBF6EA", softLine: "#EADFC6", softInk: "#6B5525",
+    btn: "#3D3426", strong: "#3D3426", focus: "#B98A1F", focusRing: "rgba(185,138,31,0.18)", soft: "#FBF6EA", softLine: "#EADFC6", softInk: "#6B5525",
     field: "#E7E1D4", cardLine: "#ECE6D8", shadow: "rgba(61,52,38,0.10)",
   },
-  // 사장님 — 웜그레이 + 슈나우저 회색
-  stone: {
-    page: "#FAFAF8", band: "#ECEBE7", ink: "#2F2F2C", muted: "#66655F", accent: "#C27C4E",
-    free: "#F6DCC8", freeInk: "#7A4220", chip: "rgba(47,47,44,0.05)", chipLine: "rgba(47,47,44,0.12)", chipInk: "#44443F",
-    iconBox: "#FFFFFF", iconLine: "#E0DFDA", label: "#F0EFEB", labelLine: "#E0DFDA", labelInk: "#44443F",
-    btn: "#4A4B4F", focus: "#C27C4E", focusRing: "rgba(194,124,78,0.18)", soft: "#F5F4F1", softLine: "#E3E2DD", softInk: "#4A4B4F",
-    field: "#E3E2DD", cardLine: "#E6E5E0", shadow: "rgba(47,47,44,0.10)",
+  // 사장님 — 크림 + 로고 브라운(주변 평가로 고른 A안). 가입하기 버튼만 검정
+  cream: {
+    page: "#FBF7F1", band: "#EFE2D0", ink: "#4A3021", muted: "#5F4D3A", accent: "#A0663A",
+    free: "#8C5E3A", freeInk: "#FFF8EE", chip: "rgba(74,48,33,0.05)", chipLine: "rgba(74,48,33,0.14)", chipInk: "#6B4426",
+    iconBox: "#FFFFFF", iconLine: "#E6D6C0", label: "#F3E7D8", labelLine: "#E6D6C0", labelInk: "#6B4426",
+    btn: "#111111", strong: "#8C5E3A", focus: "#A0663A", focusRing: "rgba(160,102,58,0.18)", soft: "#FBF3E7", softLine: "#EBDDC9", softInk: "#6B4426",
+    field: "#E8DFD2", cardLine: "#EFE6DA", shadow: "rgba(74,48,33,0.10)",
   },
 };
 
@@ -62,7 +62,7 @@ export default function JoinLayout({ theme = "oat", eyebrow, EyebrowIcon, headin
   const t = JOIN_THEMES[theme];
   // 안쪽 입력 폼이 쓰는 색(버튼·체크·보조 버튼)
   const vars = {
-    "--join-btn": t.btn, "--join-strong": t.btn, "--join-soft": t.soft, "--join-soft-line": t.softLine, "--join-soft-ink": t.softInk,
+    "--join-btn": t.btn, "--join-strong": t.strong, "--join-soft": t.soft, "--join-soft-line": t.softLine, "--join-soft-ink": t.softInk,
   } as CSSProperties;
   return (
     <div className="ggk-body ggk-join" style={{ ...vars, height: "100dvh", overflowY: "auto", background: t.page, color: "#23201B", wordBreak: "keep-all" }}>
@@ -84,7 +84,7 @@ export default function JoinLayout({ theme = "oat", eyebrow, EyebrowIcon, headin
         }
         .ggk-join-close { position: fixed; top: 16px; right: 16px; z-index: 50; width: 42px; height: 42px; border-radius: 999px; border: 1px solid ${t.field}; background: rgba(255,255,255,0.95); color: ${t.ink}; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,0.08); transition: background .15s ease; }
         .ggk-join-close:hover { background: ${t.band}; }
-        .ggk-join input[type="checkbox"] { accent-color: ${t.btn}; width: 17px; height: 17px; }
+        .ggk-join input[type="checkbox"] { accent-color: ${t.strong}; width: 17px; height: 17px; }
       `}</style>
       {/* 닫기 — 잘못 들어온 경우 이전 화면으로(이전 화면이 없으면 지도로) */}
       <button type="button" onClick={() => closeModal(router)} aria-label="닫기" className="ggk-join-close">

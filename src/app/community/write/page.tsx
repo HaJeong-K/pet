@@ -719,7 +719,7 @@ function CommunityWritePageContent() {
                     fontSize: "12px",
                     fontWeight: 700,
 
-                    color: "#888",
+                    color: "#5c5c5c",
 
                     marginBottom: "6px",
                   }}
@@ -730,7 +730,7 @@ function CommunityWritePageContent() {
                 <div
                   style={{
                     fontSize: "11px",
-                    color: "#aaa",
+                    color: "#6e6e6e",
 
                     lineHeight: 1.7,
 
@@ -748,7 +748,7 @@ function CommunityWritePageContent() {
                     background: "none",
 
                     fontSize: "11px",
-                    color: "#999",
+                    color: "#666",
 
                     cursor: "pointer",
                   }}
@@ -785,7 +785,7 @@ function CommunityWritePageContent() {
       
                   {/* 본문 */}
                   <div style={{ padding:"16px 18px 24px", fontSize:12, color:"#444", lineHeight:1.8 }}>
-                    <p style={{ fontSize:11, color:"#999", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
+                    <p style={{ fontSize:11, color:"#666", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
       
                     <Section title="1. 개인정보의 수집 및 이용 목적">
                       같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
@@ -840,7 +840,7 @@ function CommunityWritePageContent() {
                     </Section>
       
                     <div style={{ marginTop:16, padding:"12px 14px", background:"#f8f9fb", borderRadius:10, border:"1px solid #e8eaed" }}>
-                      <div style={{ fontSize:11, color:"#888", lineHeight:1.7 }}>
+                      <div style={{ fontSize:11, color:"#5c5c5c", lineHeight:1.7 }}>
                         본 개인정보 처리방침은 <strong>2025년 1월 1일</strong>부터 적용됩니다.<br/>
                         문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
                       </div>

@@ -29,8 +29,8 @@ type State = { ready: boolean; profile: (LodgingProfile & { updated_at?: string 
 
 /** 입력칸용(숫자도 글자로 들고 있다가 저장할 때 바꿈) */
 type ExtraForm = { id: string; name: string; price: string; unit: ExtraUnit; max: string; note: string };
-type ProfileForm = Omit<LodgingProfile, "max_pet_weight_kg" | "max_pets" | "pet_fee" | "check_in" | "check_out" | "pet_fee_note" | "pet_rules" | "stay_rules" | "refund_policy" | "pet_fees" | "extras"> & {
-  check_in: string; check_out: string; max_pet_weight_kg: string; max_pets: string; pet_fee: string;
+type ProfileForm = Omit<LodgingProfile, "max_pet_weight_kg" | "max_pets" | "pet_fee" | "check_in" | "check_out" | "pet_fee_note" | "pet_rules" | "stay_rules" | "refund_policy" | "pet_fees" | "extras" | "pet_free_count"> & {
+  check_in: string; check_out: string; max_pet_weight_kg: string; max_pets: string; pet_fee: string; pet_free_count: string;
   pet_fee_note: string; pet_rules: string; stay_rules: string; refund_policy: string;
   pet_fees: Partial<Record<PetFeeKey, string>>; extras: ExtraForm[];
 };
@@ -50,7 +50,7 @@ const toProfileForm = (p: LodgingProfile | null): ProfileForm => {
   return {
     ...src,
     check_in: src.check_in ?? "", check_out: src.check_out ?? "",
-    max_pet_weight_kg: str(src.max_pet_weight_kg), max_pets: str(src.max_pets), pet_fee: str(src.pet_fee),
+    max_pet_weight_kg: str(src.max_pet_weight_kg), max_pets: str(src.max_pets), pet_fee: str(src.pet_fee), pet_free_count: str(src.pet_free_count),
     pet_fee_note: src.pet_fee_note ?? "", pet_rules: src.pet_rules ?? "", stay_rules: src.stay_rules ?? "", refund_policy: src.refund_policy ?? "",
     pet_fees: Object.fromEntries(Object.entries(src.pet_fees ?? {}).map(([k, v]) => [k, str(v)])),
     extras: (src.extras ?? []).map((x) => ({ id: x.id, name: x.name, price: str(x.price), unit: x.unit, max: str(x.max), note: x.note ?? "" })),
@@ -67,9 +67,9 @@ const digits = (v: string, max = 8) => v.replace(/[^\d]/g, "").slice(0, max);
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6, flexWrap: "wrap" };
-const optional: React.CSSProperties = { fontWeight: 600, color: "#aaa" };
+const optional: React.CSSProperties = { fontWeight: 600, color: "#6e6e6e" };
 const section: React.CSSProperties = { fontSize: 13.5, fontWeight: 800, color: "#1D4F91", margin: "4px 0 -2px" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const iconButton: React.CSSProperties = { width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e4e8", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
 const tag = (bg: string, color: string): React.CSSProperties => ({ fontSize: 10.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: bg, color, flexShrink: 0 });
 const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#e2dcc8"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
@@ -80,7 +80,7 @@ function MoneyInput({ value, onChange, placeholder = "0", disabled }: { value: s
   return (
     <div style={{ position: "relative" }}>
       <input value={value ? Number(value).toLocaleString("ko-KR") : ""} onChange={(e) => onChange(digits(e.target.value))} placeholder={placeholder} inputMode="numeric" disabled={disabled} style={{ ...input, paddingRight: 34, textAlign: "right", fontWeight: 700 }} />
-      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#888" }}>원</span>
+      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#5c5c5c" }}>원</span>
     </div>
   );
 }
@@ -199,7 +199,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
     finally { setBusy(""); }
   };
 
-  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#999" }}>{error}</span> : <LogoLoader />}</div>;
+  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#666" }}>{error}</span> : <LogoLoader />}</div>;
   if (!state.ready) {
     return (
       <div style={{ ...card, fontSize: 13, color: "#9a3412", background: "#fff7ed", borderColor: "#fed7aa", lineHeight: 1.7 }}>
@@ -227,7 +227,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
       {/* ① 숙소 기본 정보·반려동물 동반 규정 */}
       <div style={card}>
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>반려동물 동반 규정</div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           손님이 예약하기 전에 가장 먼저 확인하는 정보예요.<br />
           실제와 다르면 손님이 입실을 거부당할 수 있으니 정확하게 적어 주세요.
         </div>
@@ -236,7 +236,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
             <b>손님에게 보이는 요약</b><br />{summary}
           </div>
         )}
-        {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
+        {!canAct && <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
 
         <div style={{ marginTop: 14, display: "grid", gap: 14 }}>
           <div style={section}>동반 가능한 반려동물</div>
@@ -269,20 +269,24 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               <div style={label}>한 마리 최대 몸무게 <span style={optional}>(선택)</span></div>
               <div style={{ position: "relative" }}>
                 <input value={profile.max_pet_weight_kg} onChange={(e) => setP({ max_pet_weight_kg: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} placeholder="제한 없음" inputMode="decimal" disabled={disabled} style={{ ...input, paddingRight: 36, textAlign: "right" }} />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#888" }}>kg</span>
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#5c5c5c" }}>kg</span>
               </div>
             </div>
             <div>
               <div style={label}>객실당 최대 마릿수 <span style={optional}>(선택)</span></div>
               <div style={{ position: "relative" }}>
                 <input value={profile.max_pets} onChange={(e) => setP({ max_pets: digits(e.target.value, 2) })} placeholder="제한 없음" inputMode="numeric" disabled={disabled} style={{ ...input, paddingRight: 36, textAlign: "right" }} />
-                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#888" }}>마리</span>
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#5c5c5c" }}>마리</span>
               </div>
             </div>
             <div>
               <div style={label}>기본 추가 요금(1마리·1박) <span style={optional}>무료면 0</span></div>
               <MoneyInput value={profile.pet_fee} onChange={(v) => setP({ pet_fee: v })} placeholder="안 적음" disabled={disabled} />
             </div>
+          </div>
+          <div>
+            <div style={label}>기본 포함 마릿수 <span style={optional}>이 마릿수까지는 추가 요금 없음 — 예: 1이면 둘째부터 요금</span></div>
+            <input value={profile.pet_free_count} onChange={(e) => setP({ pet_free_count: e.target.value.replace(/\D/g, "").slice(0, 2) })} inputMode="numeric" placeholder="0" aria-label="기본 포함 마릿수" disabled={disabled} style={{ ...input, maxWidth: 120 }} />
           </div>
           {feeKeys.length > 0 && (
             <div>
@@ -295,16 +299,20 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: 11.5, color: "#999", marginTop: 5 }}>손님이 예약할 때 마리마다 크기·종류에 맞는 요금이 자동으로 더해져요.</div>
+              <div style={{ fontSize: 11.5, color: "#666", marginTop: 5 }}>손님이 예약할 때 마리마다 크기·종류에 맞는 요금이 자동으로 더해져요.</div>
             </div>
           )}
           <div>
-            <div style={label}>추가 요금 설명 <span style={optional}>(선택)</span></div>
-            <input value={profile.pet_fee_note} onChange={(e) => setP({ pet_fee_note: e.target.value })} maxLength={LODGING_SHORT_MAX} placeholder="예: 대형견은 1박 2만 원 / 3마리부터 1마리당 1만 원 추가" disabled={disabled} style={input} />
+            <div style={label}>요금 안내 문구 <span style={optional}>(선택)</span></div>
+            <div role="note" style={{ fontSize: 12, color: "#92400E", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 9, padding: "8px 10px", marginBottom: 6, lineHeight: 1.6 }}>
+              손님은 예약할 때 전액을 결제하고, 현장에서는 추가로 받을 수 없어요.<br />
+              금액은 위 요금 칸과 부가 옵션에 넣어야 결제에 포함돼요. 이 문구에 적은 금액은 결제되지 않아요.
+            </div>
+            <input value={profile.pet_fee_note} onChange={(e) => setP({ pet_fee_note: e.target.value })} maxLength={LODGING_SHORT_MAX} placeholder="예: 추가 요금은 예약할 때 함께 결제돼요" disabled={disabled} style={input} />
           </div>
 
           <div style={section}>부가 옵션</div>
-          <div style={{ fontSize: 12.5, color: "#777", marginTop: -6, lineHeight: 1.6 }}>바비큐·불멍·추가 침구처럼 따로 받는 요금이에요. 손님이 예약할 때 골라서 숙박 요금과 함께 결제해요.</div>
+          <div style={{ fontSize: 12.5, color: "#555", marginTop: -6, lineHeight: 1.6 }}>바비큐·불멍·추가 침구처럼 따로 받는 요금이에요. 손님이 예약할 때 골라서 숙박 요금과 함께 결제해요.</div>
           <div style={{ display: "grid", gap: 8 }}>
             {profile.extras.map((x, i) => (
               <div key={x.id} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 6 }}>
@@ -355,7 +363,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               {profile.peak_periods.map((p, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <input value={p.from} onChange={(e) => setP({ peak_periods: profile.peak_periods.map((x, j) => (j === i ? { ...x, from: e.target.value.slice(0, 5) } : x)) })} placeholder="07-15" disabled={disabled} style={{ ...input, width: 90, textAlign: "center" }} />
-                  <span style={{ color: "#888" }}>~</span>
+                  <span style={{ color: "#5c5c5c" }}>~</span>
                   <input value={p.to} onChange={(e) => setP({ peak_periods: profile.peak_periods.map((x, j) => (j === i ? { ...x, to: e.target.value.slice(0, 5) } : x)) })} placeholder="08-24" disabled={disabled} style={{ ...input, width: 90, textAlign: "center" }} />
                   {canAct && <button onClick={() => setP({ peak_periods: profile.peak_periods.filter((_, j) => j !== i) })} aria-label="이 기간 빼기" style={{ ...iconButton, borderColor: "#f3c7c5" }}><X size={13} color="#b42318" /></button>}
                 </div>
@@ -390,7 +398,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>객실 {state.rooms.length}개</div>
           {canAct && state.rooms.length < ROOMS_PER_PLACE_MAX && <button onClick={() => open("new")} style={{ ...primaryButton(false), marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}><Plus size={14} />객실 추가</button>}
         </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           객실마다 사진·요금·인원·마릿수를 올려 주세요.<br />
           예약 달력과 예약 처리는 "숙박 예약" 메뉴에 있어요.
         </div>
@@ -460,7 +468,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                   </div>
                 ))}
               </div>
-              <div style={{ fontSize: 11.5, color: "#999", marginTop: 5 }}>특정 날짜(연휴·성수기)만 바꾸려면 아래 달력에서 날짜별 요금을 정하세요. 날짜별 요금이 가장 먼저 적용돼요.</div>
+              <div style={{ fontSize: 11.5, color: "#666", marginTop: 5 }}>특정 날짜(연휴·성수기)만 바꾸려면 아래 달력에서 날짜별 요금을 정하세요. 날짜별 요금이 가장 먼저 적용돼요.</div>
             </div>
 
             <div style={section}>인원 · 반려동물</div>
@@ -512,7 +520,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
         )}
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {state.rooms.length === 0 && !editing && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>아직 올린 객실이 없어요. &ldquo;객실 추가&rdquo;로 첫 객실을 올려 보세요.</div>}
+          {state.rooms.length === 0 && !editing && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 올린 객실이 없어요. &ldquo;객실 추가&rdquo;로 첫 객실을 올려 보세요.</div>}
           {state.rooms.map((r, index) => (
             <div key={r.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: r.is_active ? "white" : "#fafafa", opacity: r.is_active ? 1 : 0.7 }}>
               {r.images[0]
@@ -526,10 +534,10 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                   {!r.is_active && <span style={tag("#f1f2f4", "#777")}>판매 중지</span>}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#B45309", marginTop: 3 }}>{roomPriceText(r)}</div>
-                <div style={{ fontSize: 11.5, color: "#888", marginTop: 2 }}>
+                <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 2 }}>
                   기준 {r.std_guests}명 · 최대 {r.max_guests}명{r.max_pets != null ? ` · 반려동물 최대 ${r.max_pets}마리` : ""}{r.images.length > 1 ? ` · 사진 ${r.images.length}장` : ""}
                 </div>
-                {r.amenities.length > 0 && <div style={{ fontSize: 11.5, color: "#999", marginTop: 2 }}>{r.amenities.join(" · ")}</div>}
+                {r.amenities.length > 0 && <div style={{ fontSize: 11.5, color: "#666", marginTop: 2 }}>{r.amenities.join(" · ")}</div>}
                 {r.images.length < ROOM_PHOTOS_MIN && <div style={{ fontSize: 11.5, color: "#B45309", fontWeight: 700, marginTop: 4 }}>사진을 {ROOM_PHOTOS_MIN}장 이상 올려야 판매할 수 있어요(지금 {r.images.length}장)</div>}
                 <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
                   {canAct && <button onClick={() => quick({ id: r.id, is_active: !r.is_active })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>{r.is_active ? "판매 중지" : "다시 판매"}</button>}

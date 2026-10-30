@@ -39,7 +39,7 @@ export default function LogoLoader({
         <div className="ggk-logo-shadow" aria-hidden="true" style={{ width: Math.round(size * 0.5), height: Math.max(3, Math.round(size * 0.09)), borderRadius: "50%", background: "#3B2A1C", marginTop: Math.round(size * 0.06) }} />
       </div>
       {label ? (
-        <div className="ggk-body" style={{ fontSize: page ? 14 : 12.5, fontWeight: 600, color: "#8A7A69" }}>{label}</div>
+        <div className="ggk-body" style={{ fontSize: page ? 14 : 12.5, fontWeight: 600, color: "#655d4f" }}>{label}</div>
       ) : (
         <span style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>불러오는 중</span>
       )}

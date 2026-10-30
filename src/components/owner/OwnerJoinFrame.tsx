@@ -33,7 +33,7 @@ export default function OwnerJoinFrame({ kind, mode, children }: { kind: OwnerKi
   const copy = COPY[kind];
   return (
     <JoinLayout
-      theme="stone"
+      theme="cream"
       eyebrow={copy.eyebrow}
       EyebrowIcon={kind === "lodging" ? BedDouble : Store}
       heading={copy.title}

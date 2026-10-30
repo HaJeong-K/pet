@@ -105,7 +105,7 @@ export default function AdminMembers() {
   );
   const stat = (label: string, value: number, warn = false) => (
     <div style={{ flex: "1 1 60px", minWidth: 56, padding: "7px 6px", borderRadius: 9, background: warn && value > 0 ? "#FEF2F2" : "#f8fafc", textAlign: "center" }}>
-      <div style={{ fontSize: 10.5, color: warn && value > 0 ? "#b91c1c" : "#999" }}>{label}</div>
+      <div style={{ fontSize: 10.5, color: warn && value > 0 ? "#b91c1c" : "#666" }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 800, color: warn && value > 0 ? "#b91c1c" : "#333", marginTop: 1 }}>{value}</div>
     </div>
   );
@@ -121,7 +121,7 @@ export default function AdminMembers() {
           <Users size={18} color="#5C7A4A" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>회원 관리</div>
         </div>
-        <p style={{ fontSize: 12.5, color: "#777", lineHeight: 1.65, margin: "0 0 14px" }}>
+        <p style={{ fontSize: 12.5, color: "#555", lineHeight: 1.65, margin: "0 0 14px" }}>
           가입 회원의 활동과 신고받은 횟수예요. 신고는 신고된 글의 작성자 기준으로 세요. 미처리 신고는 신고 관리에서 처리해요.
         </p>
 
@@ -144,9 +144,9 @@ export default function AdminMembers() {
         </div>
 
         {error && <div style={{ padding: 14, borderRadius: 12, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: 13, color: "#9a3412", marginBottom: 14 }}>{error}</div>}
-        {members === null && <div style={{ textAlign: "center", padding: "50px 0", color: "#bbb", fontSize: 13 }}><LogoLoader /></div>}
+        {members === null && <div style={{ textAlign: "center", padding: "50px 0", color: "#707070", fontSize: 13 }}><LogoLoader /></div>}
         {members !== null && list.length === 0 && !error && (
-          <div style={{ textAlign: "center", padding: "50px 0", color: "#888", fontSize: 13.5, fontWeight: 600 }}>조건에 맞는 회원이 없어요.</div>
+          <div style={{ textAlign: "center", padding: "50px 0", color: "#5c5c5c", fontSize: 13.5, fontWeight: 600 }}>조건에 맞는 회원이 없어요.</div>
         )}
 
         {pager.items.map((m) => (
@@ -165,7 +165,7 @@ export default function AdminMembers() {
                   {m.ownerStatus === "pending" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>{ownerKindInfo(m.ownerKind).label} 사장님 신청 중</span>}
                   {m.reported >= MANY_REPORTS && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEE2E2", color: "#b91c1c" }}><Flag size={10} />신고 다수</span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: "#888", marginTop: 2, wordBreak: "break-all" }}>{m.email || "이메일 없음"} · 가입 {fmtDate(m.createdAt)}{m.points != null ? ` · ${m.points.toLocaleString()}점` : ""}</div>
+                <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 2, wordBreak: "break-all" }}>{m.email || "이메일 없음"} · 가입 {fmtDate(m.createdAt)}{m.points != null ? ` · ${m.points.toLocaleString()}점` : ""}</div>
               </div>
             </div>
 

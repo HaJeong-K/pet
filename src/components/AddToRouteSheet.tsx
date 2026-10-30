@@ -49,17 +49,17 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
           <MapPinned size={18} color="#5C7A4A" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>내 경로에 추가</div>
-            <div style={{ fontSize: 12, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stop.name}</div>
+            <div style={{ fontSize: 12, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stop.name}</div>
           </div>
           <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#777", marginTop: 8, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 12.5, color: "#555", marginTop: 8, lineHeight: 1.6 }}>
           고른 경로의 맨 끝에 담겨요.<br />
           순서는 마이페이지 &ldquo;코스·내 경로&rdquo;에서 바꿀 수 있어요.
         </div>
 
         <div style={{ marginTop: 14, display: "grid", gap: 6 }}>
-          {routes === null && <div style={{ fontSize: 13, color: "#aaa", padding: "10px 0" }}>불러오는 중…</div>}
+          {routes === null && <div style={{ fontSize: 13, color: "#6e6e6e", padding: "10px 0" }}>불러오는 중…</div>}
           {routes?.map((r) => {
             const has = r.stops.some((s) => s.id === stop.id);
             const full = r.stops.length >= MY_ROUTE_STOPS_MAX;
@@ -67,18 +67,18 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
               <button key={r.id} onClick={() => add(r)} disabled={busy || has || full} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #e8eaed", background: has ? "#F0F7EC" : "white", cursor: has || full ? "default" : "pointer", textAlign: "left", fontFamily: "inherit" }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 13.5, fontWeight: 800, color: "#333" }}>{r.title}</span>
-                  <span style={{ display: "block", fontSize: 11.5, color: "#999", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.stops.length}곳 · {r.stops.map((s) => s.name).join(" → ")}</span>
+                  <span style={{ display: "block", fontSize: 11.5, color: "#666", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.stops.length}곳 · {r.stops.map((s) => s.name).join(" → ")}</span>
                 </span>
-                {has ? <Check size={16} color="#3F6B2B" /> : full ? <span style={{ fontSize: 11, color: "#aaa" }}>가득 참</span> : <Plus size={16} color="#5C7A4A" />}
+                {has ? <Check size={16} color="#3F6B2B" /> : full ? <span style={{ fontSize: 11, color: "#6e6e6e" }}>가득 참</span> : <Plus size={16} color="#5C7A4A" />}
               </button>
             );
           })}
-          {routes?.length === 0 && <div style={{ fontSize: 12.5, color: "#999" }}>아직 만든 경로가 없어요. 아래에서 첫 경로를 만들어 보세요.</div>}
+          {routes?.length === 0 && <div style={{ fontSize: 12.5, color: "#666" }}>아직 만든 경로가 없어요. 아래에서 첫 경로를 만들어 보세요.</div>}
         </div>
 
         <div style={{ marginTop: 14, display: "flex", gap: 6 }}>
           <input value={newName} onChange={(e) => setNewName(e.target.value.slice(0, MY_ROUTE_TITLE_MAX))} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="새 경로 이름 — 예: 강릉 1박 2일 댕댕 여행" style={{ flex: 1, minWidth: 0, padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, fontFamily: "inherit" }} />
-          <button onClick={create} disabled={busy || !newName.trim()} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: busy || !newName.trim() ? "#d6d3c9" : "#5C7A4A", color: "white", fontSize: 13, fontWeight: 800, cursor: busy || !newName.trim() ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>만들고 담기</button>
+          <button onClick={create} disabled={busy || !newName.trim()} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: busy || !newName.trim() ? "#d6d3c9" : "#5C7A4A", color: busy || !newName.trim() ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: busy || !newName.trim() ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>만들고 담기</button>
         </div>
         {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}{message.ok && <> <a href="/mypage#routes" style={{ color: "#48603A" }}>마이페이지에서 보기</a></>}</div>}
       </div>

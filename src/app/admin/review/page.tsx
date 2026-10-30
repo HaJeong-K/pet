@@ -56,14 +56,14 @@ export default function AdminReview() {
 
   const renderPost = (post: Post, pending: boolean) => (
     <div key={post.id} style={{ background: "white", borderRadius: 16, border: `1px solid ${pending ? "#FDE68A" : "#eee"}`, padding: "15px 16px", marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5, color: "#888" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5, color: "#5c5c5c" }}>
         {pending && <SelectBox selection={selection} id={post.id} label={`"${post.title}" 선택`} />}
         <span style={{ padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A", fontWeight: 700 }}>{boardLabel(post.board_id)}</span>
         {post.post_type && <span style={{ fontWeight: 700 }}>[{post.post_type}]</span>}
         <span>{post.nickname}</span>
         <span>· {fmt(post.created_at)}</span>
       </div>
-      <div style={{ marginTop: 8, padding: "7px 10px", borderRadius: 9, background: pending ? "#FFFBEB" : "#f5f5f5", color: pending ? "#92400E" : "#777", fontSize: 12, fontWeight: 700 }}>
+      <div style={{ marginTop: 8, padding: "7px 10px", borderRadius: 9, background: pending ? "#FFFBEB" : "#f5f5f5", color: pending ? "#92400E" : "#555", fontSize: 12, fontWeight: 700 }}>
         감지 사유: {post.review_reason ?? "게시판 규칙 위반 의심"}
       </div>
       <div style={{ marginTop: 10, fontSize: 15, fontWeight: 700, color: "#222", wordBreak: "break-word" }}>{post.title}</div>
@@ -96,7 +96,7 @@ export default function AdminReview() {
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>글 검토</div>
           {data?.ready && <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.pending.length ? "#FEF3C7" : "#E4EBDC", color: data.pending.length ? "#92400E" : "#48603A" }}>대기 {data.pending.length}건</span>}
         </div>
-        <p style={{ fontSize: 12.5, color: "#777", lineHeight: 1.65, margin: "0 0 16px" }}>
+        <p style={{ fontSize: 12.5, color: "#555", lineHeight: 1.65, margin: "0 0 16px" }}>
           게시판 규칙 위반이 의심돼 자동으로 보류된 글이에요. 승인하기 전까지 다른 사람에게 보이지 않아요.
           잘못 걸린 정상 글은 "문제없음 · 게시"를 눌러 주세요.
         </p>
@@ -125,7 +125,7 @@ export default function AdminReview() {
 
         {data?.ready && data.rejected.length > 0 && (
           <>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#777", margin: "26px 0 10px" }}>최근 반려한 글</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#555", margin: "26px 0 10px" }}>최근 반려한 글</div>
             {rejectedPager.items.map((p) => renderPost(p, false))}
             <AdminPager pager={rejectedPager} />
           </>

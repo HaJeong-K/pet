@@ -251,7 +251,7 @@ export default function OwnerUpgradeForm({
           readOnly
           placeholder="주소 검색 버튼을 눌러 도로명주소를 찾아주세요"
           value={roadAddress}
-          style={{ ...inputStyle, marginBottom: 0, flex: "999 1 260px", minWidth: 0, background: "#f7f8f9", color: roadAddress ? "#333" : "#999", cursor: "pointer", textOverflow: "ellipsis" }}
+          style={{ ...inputStyle, marginBottom: 0, flex: "999 1 260px", minWidth: 0, background: "#f7f8f9", color: roadAddress ? "#333" : "#666", cursor: "pointer", textOverflow: "ellipsis" }}
           onClick={openAddressSearch}
         />
         <button type="button" onClick={openAddressSearch} style={{ ...searchBtnStyle, width: "auto", flex: "1 0 110px", minHeight: 46, gap: 6, fontSize: 13, fontWeight: 700 }}>
@@ -336,7 +336,7 @@ export default function OwnerUpgradeForm({
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "#f0f9f4", border: "1px solid #bbf0d1", marginBottom: 10, fontSize: 12 }}>
           <Check size={14} color="#22c55e" />
           <span style={{ flex: 1 }}>{selectedPlace.name} · {selectedPlace.address}</span>
-          <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#999", cursor: "pointer", fontSize: 11 }}>취소</button>
+          <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#666", cursor: "pointer", fontSize: 11 }}>취소</button>
         </div>
       )}
 
@@ -349,12 +349,12 @@ export default function OwnerUpgradeForm({
               onClick={() => { setSelectedPlace(p); setPlaceResults([]); }}
               style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", border: "none", background: "white", cursor: "pointer", fontSize: 12, borderBottom: "1px solid #f2f2f2" }}
             >
-              {p.name} <span style={{ color: "#777" }}>· {p.address}</span>
+              {p.name} <span style={{ color: "#555" }}>· {p.address}</span>
             </button>
           ))}
         </div>
       )}
-      <p style={{ fontSize: 12, color: "#777", marginBottom: 18, lineHeight: 1.65 }}>
+      <p style={{ fontSize: 12, color: "#555", marginBottom: 18, lineHeight: 1.65 }}>
         검색해도 안 나오면 전환 후 마이페이지에서 &apos;제보하기&apos;로 신규 등록을 요청해주세요.
       </p>
 
@@ -380,7 +380,7 @@ export default function OwnerUpgradeForm({
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
         width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
-        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: "white",
+        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: isSubmitDisabled ? "#4f4a3f" : "white",
         fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
         boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>

@@ -136,20 +136,20 @@ export default function AdminPremiumPage() {
                     style={{
                       flex:1, padding:"9px 8px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
-                      fontWeight:700, fontSize:12, color: isActive ? "#111" : "#888",
+                      fontWeight:700, fontSize:12, color: isActive ? "#111" : "#5c5c5c",
                       cursor:"pointer",
                       boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                       transition:"all 0.15s ease",
                       display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                     }}
                   >
-                    <span style={{ color: isActive ? tab.activeColor : "#aaa" }}>{tab.icon}</span>
+                    <span style={{ color: isActive ? tab.activeColor : "#6e6e6e" }}>{tab.icon}</span>
                     {tab.label}
                     {tab.count !== null && (
                       <span style={{
                         fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
                         background: isActive ? tab.activeBg : "#f0f2f5",
-                        color: isActive ? tab.activeColor : "#999",
+                        color: isActive ? tab.activeColor : "#666",
                       }}>
                         {tab.count}
                       </span>
@@ -166,7 +166,7 @@ export default function AdminPremiumPage() {
             ) : activeFilter === "banners" ? (
               <BannerAdminPanel refreshKey={placesRefresh} onCount={setBannerPending} />
             ) : loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background:"#ffe9c2", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
@@ -200,7 +200,7 @@ export default function AdminPremiumPage() {
                       {req.status === "approved" && <><CheckCircle size={9}/>승인 완료</>}
                       {req.status === "rejected" && <><XCircle size={9}/>거절됨</>}
                     </span>
-                    <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(req.requested_at)}</span>
+                    <span style={{ fontSize:10, color:"#6e6e6e" }}>{formatDate(req.requested_at)}</span>
                   </div>
 
                   <div style={{ padding:"14px 16px" }}>

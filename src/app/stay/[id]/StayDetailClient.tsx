@@ -99,7 +99,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             ))}
           </div>
         ) : (
-          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#7d97bd" }}>
+          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#4a6a99" }}>
             <BedDouble size={44} /><PawPrint size={30} />
           </div>
         )}
@@ -120,8 +120,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
           <h1 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 23, fontWeight: 800, color: "#222", lineHeight: 1.35 }}>{place.name}</h1>
           <button onClick={() => jump("stay-reviews")} style={{ marginTop: 6, padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
             {summary?.average != null
-              ? <><Stars value={summary.average} /><b style={{ fontSize: 14, color: "#222" }}>{summary.average.toFixed(1)}</b><span style={{ fontSize: 12.5, color: "#888" }}>숙박 후기 {summary.count}개</span></>
-              : <span style={{ fontSize: 12.5, color: "#888" }}>아직 숙박 후기가 없어요</span>}
+              ? <><Stars value={summary.average} /><b style={{ fontSize: 14, color: "#222" }}>{summary.average.toFixed(1)}</b><span style={{ fontSize: 12.5, color: "#5c5c5c" }}>숙박 후기 {summary.count}개</span></>
+              : <span style={{ fontSize: 12.5, color: "#5c5c5c" }}>아직 숙박 후기가 없어요</span>}
           </button>
           {place.address && <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12.5, color: "#666" }}><MapPin size={13} />{place.address}</div>}
           <div style={{ marginTop: 6 }}><OwnerManagedBadge placeId={place.id} /></div>
@@ -157,11 +157,11 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                     <span style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{r.name}</span>
                     {r.room_type && <span style={tag}>{r.room_type}</span>}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5, fontSize: 12, color: "#777", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5, fontSize: 12, color: "#555", flexWrap: "wrap" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Users size={12} />기준 {r.std_guests}명 · 최대 {r.max_guests}명</span>
                     {(r.max_pets ?? profile?.max_pets) != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><PawPrint size={12} />최대 {r.max_pets ?? profile?.max_pets}마리</span>}
                   </div>
-                  {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
+                  {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
                   {r.description && <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-line" }}>{r.description}</div>}
                   <div style={{ flex: 1 }} />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
@@ -184,12 +184,12 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                 {profile.pet_fee_note && <><br /><span style={{ fontSize: 12.5, color: "#666" }}>{profile.pet_fee_note}</span></>}
                 {profile.extras.length > 0 && (
                   <div style={{ marginTop: 10 }}>
-                    <b style={{ fontSize: 13, color: "#333" }}>부가 옵션</b> <span style={{ fontSize: 12, color: "#999" }}>예약할 때 함께 고를 수 있어요</span>
+                    <b style={{ fontSize: 13, color: "#333" }}>부가 옵션</b> <span style={{ fontSize: 12, color: "#666" }}>예약할 때 함께 고를 수 있어요</span>
                     <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
                       {profile.extras.map((x) => (
                         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
-                          <span>{x.name}{x.note ? <span style={{ color: "#999" }}> · {x.note}</span> : null}</span>
-                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#999" }}>{EXTRA_UNITS.find((u) => u.id === x.unit)?.label}</span></b>
+                          <span>{x.name}{x.note ? <span style={{ color: "#666" }}> · {x.note}</span> : null}</span>
+                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{EXTRA_UNITS.find((u) => u.id === x.unit)?.label}</span></b>
                         </div>
                       ))}
                     </div>
@@ -211,7 +211,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                 )}
               </div>
             </div>
-          ) : <div style={{ fontSize: 13, color: "#888", marginTop: 10 }}>동반 조건은 예약을 보내면 숙소가 확인해 드려요.</div>}
+          ) : <div style={{ fontSize: 13, color: "#5c5c5c", marginTop: 10 }}>동반 조건은 예약을 보내면 숙소가 확인해 드려요.</div>}
           {/* 맹견은 숙소마다 받는 여부가 달라 전화 문의를 먼저 안내합니다(필수 안내) */}
           <div role="note" style={{ display: "flex", gap: 6, marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12.5, color: "#991B1B", lineHeight: 1.6 }}>
             <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 3 }} />
@@ -222,13 +222,13 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
         {/* 숙박 후기 */}
         <section id="stay-reviews" style={card}>
           <h2 className="ggk-logo" style={h2}>숙박 후기</h2>
-          <div style={{ fontSize: 12, color: "#999", marginTop: 3 }}>같이가개에서 예약하고 묵은 손님만 남길 수 있어요.</div>
-          {!reviews ? <div style={{ fontSize: 13, color: "#aaa", marginTop: 12 }}>불러오는 중…</div> : (
+          <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>같이가개에서 예약하고 묵은 손님만 남길 수 있어요.</div>
+          {!reviews ? <div style={{ fontSize: 13, color: "#6e6e6e", marginTop: 12 }}>불러오는 중…</div> : (
             <>
               {reviews.summary.count > 0 && <ReviewSummaryBox summary={reviews.summary} />}
               {reviews.writable.length > 0 && <ReviewForm writable={reviews.writable} onDone={loadReviews} />}
               {reviews.summary.count === 0 && reviews.writable.length === 0 && (
-                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F7F9FC", textAlign: "center", fontSize: 13, color: "#888", lineHeight: 1.7 }}>
+                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F7F9FC", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
                   아직 숙박 후기가 없어요.<br />첫 손님이 되어 후기를 남겨 주세요.
                 </div>
               )}
@@ -245,15 +245,15 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
           {place.address && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 13.5, color: "#333" }}>
               <MapPin size={14} color={BLUE} /><span style={{ flex: 1 }}>{place.address}</span>
-              <button onClick={() => navigator.clipboard?.writeText(place.address ?? "")} aria-label="주소 복사" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#888", display: "flex" }}><Copy size={14} /></button>
+              <button onClick={() => navigator.clipboard?.writeText(place.address ?? "")} aria-label="주소 복사" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#5c5c5c", display: "flex" }}><Copy size={14} /></button>
             </div>
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            <a href={`/?placeId=${place.id}`} style={outline}><MapPin size={14} />지도에서 근처 동반 장소 보기</a>
+            <a href={place.lat != null && place.lng != null ? `/?focusLat=${place.lat}&focusLng=${place.lng}&focusName=${encodeURIComponent(place.name)}` : `/?placeId=${place.id}`} style={outline}><MapPin size={14} />지도에서 근처 동반 장소 보기</a>
             {place.lat != null && place.lng != null && <a href={`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`} target="_blank" rel="noreferrer" style={outline}><Navigation size={14} />길찾기</a>}
             {place.phone && <a href={`tel:${place.phone}`} style={outline}><Phone size={14} />숙소에 전화</a>}
           </div>
-          <div style={{ fontSize: 11.5, color: "#999", marginTop: 12, lineHeight: 1.6 }}>같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.</div>
+          <div style={{ fontSize: 11.5, color: "#666", marginTop: 12, lineHeight: 1.6 }}>같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.</div>
         </section>
       </div>
 
@@ -261,7 +261,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
       {minPrice != null && (
         <div style={{ position: "sticky", bottom: "calc(var(--ggk-tabbar-space) - 16px)", zIndex: 6, margin: "14px 16px 0", padding: "12px 14px", borderRadius: 16, background: "white", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11.5, color: "#888" }}>1박 요금</div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>1박 요금</div>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{minPrice.toLocaleString("ko-KR")}원~</div>
           </div>
           <button onClick={() => (rooms.length === 1 ? book(rooms[0].id) : jump("stay-rooms"))} style={{ padding: "13px 22px", borderRadius: 12, border: "none", background: BLUE, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
@@ -280,11 +280,11 @@ function ReviewSummaryBox({ summary }: { summary: ReviewSummary }) {
       <div style={{ textAlign: "center", minWidth: 90 }}>
         <div className="ggk-logo" style={{ fontSize: 34, fontWeight: 800, color: "#222", lineHeight: 1.1 }}>{summary.average?.toFixed(1)}</div>
         <Stars value={summary.average ?? 0} size={15} />
-        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>후기 {summary.count}개</div>
+        <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 2 }}>후기 {summary.count}개</div>
       </div>
       <div style={{ flex: "1 1 160px", display: "grid", gap: 3 }}>
         {summary.stars.map((n, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#777" }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#555" }}>
             <span style={{ width: 22 }}>{5 - i}점</span>
             <div style={{ flex: 1, height: 6, borderRadius: 999, background: "#F3E8C8", overflow: "hidden" }}><div style={{ width: `${(n / max) * 100}%`, height: "100%", background: "#F59E0B" }} /></div>
             <span style={{ width: 18, textAlign: "right" }}>{n}</span>
@@ -308,9 +308,9 @@ function ReviewItem({ review: r }: { review: StayReview }) {
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <Stars value={r.rating} size={13} />
         <b style={{ fontSize: 13, color: "#222" }}>{r.guest_display_name ?? "손님"}</b>
-        <span style={{ fontSize: 11.5, color: "#aaa", marginLeft: "auto" }}>{stayDayLabel(r.created_at.slice(0, 10))}</span>
+        <span style={{ fontSize: 11.5, color: "#6e6e6e", marginLeft: "auto" }}>{stayDayLabel(r.created_at.slice(0, 10))}</span>
       </div>
-      <div style={{ fontSize: 11.5, color: "#999", marginTop: 3 }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</div>
+      <div style={{ fontSize: 11.5, color: "#666", marginTop: 3 }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</div>
       <div style={{ fontSize: 13.5, color: "#333", marginTop: 7, lineHeight: 1.7, whiteSpace: "pre-line" }}>{r.content}</div>
       {r.owner_reply && (
         <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F7F9FC", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
@@ -353,21 +353,21 @@ function ReviewForm({ writable, onDone }: { writable: Writable[]; onDone: () => 
         <select value={bookingId} onChange={(e) => setBookingId(Number(e.target.value))} aria-label="후기를 남길 예약" style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, fontFamily: "inherit" }}>
           {writable.map((w) => <option key={w.id} value={w.id}>{stayDayLabel(w.check_in)} ~ {stayDayLabel(w.check_out)} · {w.room_name}</option>)}
         </select>
-      ) : <div style={{ fontSize: 12.5, color: "#777" }}>{stayDayLabel(writable[0].check_in)} ~ {stayDayLabel(writable[0].check_out)} · {writable[0].room_name}</div>}
+      ) : <div style={{ fontSize: 12.5, color: "#555" }}>{stayDayLabel(writable[0].check_in)} ~ {stayDayLabel(writable[0].check_out)} · {writable[0].room_name}</div>}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <StarPicker value={rating} onChange={setRating} label="전체 별점" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: rating ? "#B45309" : "#aaa" }}>{rating ? `${rating}점` : "별점을 눌러 주세요"}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: rating ? "#B45309" : "#6e6e6e" }}>{rating ? `${rating}점` : "별점을 눌러 주세요"}</span>
       </div>
       <div style={{ display: "grid", gap: 4 }}>
         {REVIEW_ASPECTS.map((a) => (
           <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#555" }}>
-            <span style={{ width: 92 }}>{a.label} <span style={{ color: "#bbb" }}>(선택)</span></span>
+            <span style={{ width: 92 }}>{a.label} <span style={{ color: "#707070" }}>(선택)</span></span>
             <StarPicker value={aspects[a.id]} onChange={(v) => setAspects((x) => ({ ...x, [a.id]: v }))} size={18} label={`${a.label} 별점`} />
           </div>
         ))}
       </div>
       <textarea value={content} onChange={(e) => setContent(e.target.value.slice(0, REVIEW_TEXT_MAX))} rows={4} placeholder={"반려동물과 함께 머물며 좋았던 점, 아쉬웠던 점을 적어 주세요.\n예: 마당이 넓어 뛰어놀기 좋았어요."} style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
-      <div style={{ fontSize: 11.5, color: "#aaa", textAlign: "right", marginTop: -6 }}>{content.trim().length}/{REVIEW_TEXT_MAX}자 (최소 {REVIEW_TEXT_MIN}자)</div>
+      <div style={{ fontSize: 11.5, color: "#6e6e6e", textAlign: "right", marginTop: -6 }}>{content.trim().length}/{REVIEW_TEXT_MAX}자 (최소 {REVIEW_TEXT_MIN}자)</div>
       {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
       <button onClick={submit} disabled={!ready} style={{ padding: "12px 0", borderRadius: 11, border: "none", background: ready ? BLUE : "#d6d3c9", color: "white", fontSize: 14, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "남기는 중…" : "후기 남기기"}</button>
     </div>

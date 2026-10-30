@@ -2,17 +2,21 @@
 //
 // 객실 달력 연동(iCal) — 다른 예약 사이트에서 팔린 날을 같이가개에서 막아 중복 예약을 막습니다.
 //   · syncRoomIcal: 그 객실에 넣어 둔 달력 주소를 받아 앞으로 BOOK_AHEAD_DAYS일 안의 막힌 밤을 lodging_ical_blocks에 다시 채움
-//   · 매일 새벽 모든 객실을 동기화하고(runLodgingDaily), 손님이 예약할 때 30분 넘게 지났으면 그 객실을 먼저 동기화합니다
+//   · 매일 새벽 모든 객실을 동기화하고(runLodgingDaily), 손님이 달력을 열 때 5분 넘게 지났으면, 예약 버튼을 누르면 항상 그 객실을 먼저 동기화합니다
+//   · 가져온 날이 같이가개 예약과 겹치면 사장님·관리자에게 바로 알립니다(양쪽에서 팔린 경우)
 //   · 달력 주소는 https만, 받는 크기 1MB·시간 8초까지
 // 표는 scripts/sql/lodging-operations.sql. 규칙(읽기·만들기)은 src/lib/ical.ts.
 
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { cleanIcalUrl, parseIcalNights } from "@/lib/ical";
-import { BOOK_AHEAD_DAYS, kstToday } from "@/lib/lodgingBooking";
+import { BOOK_AHEAD_DAYS, kstToday, nightsOf, stayDayLabel } from "@/lib/lodgingBooking";
+import { sendOwnerPush } from "@/lib/server/ownerPush";
+import { notifyAdmin } from "@/lib/server/notify";
 
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_BYTES = 1_000_000;
-export const ICAL_STALE_MS = 30 * 60_000;
+/** 손님이 달력을 열 때 이보다 오래됐으면 새로 받습니다 */
+export const ICAL_STALE_MS = 5 * 60_000;
 
 async function fetchCalendar(url: string): Promise<string> {
   const ctrl = new AbortController();
@@ -47,6 +51,7 @@ export async function syncRoomIcal(roomId: number, importUrl: string | null): Pr
       if (error) throw new Error(error.message);
     }
     await db.from("lodging_rooms").update({ ical_synced_at: now, ical_error: null }).eq("id", roomId);
+    if (nights.length) await warnIfDoubleBooked(roomId, nights.map((n) => n.day), today).catch(() => {});
     return { blocked: nights.length };
   } catch (e) {
     const message = e instanceof Error ? (e.name === "AbortError" ? "달력 주소가 너무 늦게 응답해요." : e.message) : "동기화하지 못했어요.";
@@ -55,11 +60,26 @@ export async function syncRoomIcal(roomId: number, importUrl: string | null): Pr
   }
 }
 
-/** 손님이 예약하기 직전 — 마지막 동기화가 30분 넘었으면 다시(실패해도 예약은 막지 않고, 이미 받아 둔 막힌 날로 판단) */
-export async function ensureFreshIcal(roomId: number): Promise<void> {
+/** 다른 사이트에서 팔린 날이 같이가개 예약과 겹치면 사장님·관리자에게 바로 알립니다 */
+async function warnIfDoubleBooked(roomId: number, days: string[], today: string): Promise<void> {
+  const { data } = await db.from("lodging_bookings").select("id, place_id, room_name, check_in, check_out").eq("room_id", roomId).in("status", ["requested", "confirmed"]).gte("check_out", today);
+  const blocked = new Set(days);
+  for (const b of data ?? []) {
+    if (!nightsOf(b.check_in, b.check_out).some((d) => blocked.has(d))) continue;
+    const lines = `${b.room_name} ${stayDayLabel(b.check_in)}~${stayDayLabel(b.check_out)}`;
+    await sendOwnerPush(Number(b.place_id), { title: "⚠️ 다른 예약 사이트와 날짜가 겹쳐요", body: `${lines}\n다른 사이트에서도 팔린 날이에요. 어느 예약을 받을지 바로 확인해 주세요.`, tag: `ggk-stay-conflict-${b.id}`, url: "/owner#stays" });
+    await notifyAdmin({ title: "⚠️ 숙박 중복 예약 가능성", lines: [`예약 #${b.id} · ${lines}`, "달력 연동에서 같은 날 판매 확인"], path: "/admin/stays" });
+  }
+}
+
+/**
+ * 달력을 새로 받습니다. maxAgeMs보다 최근이면 건너뜁니다. 예약 버튼은 0(항상), 달력을 열 때는 5분.
+ * 실패해도 예약은 막지 않고, 이미 받아 둔 막힌 날로 판단합니다.
+ */
+export async function ensureFreshIcal(roomId: number, maxAgeMs = ICAL_STALE_MS): Promise<void> {
   const { data, error } = await db.from("lodging_rooms").select("ical_import_url, ical_synced_at").eq("id", roomId).maybeSingle();
   if (error || !data?.ical_import_url) return;
-  if (data.ical_synced_at && Date.now() - new Date(data.ical_synced_at).getTime() < ICAL_STALE_MS) return;
+  if (data.ical_synced_at && Date.now() - new Date(data.ical_synced_at).getTime() < maxAgeMs) return;
   await syncRoomIcal(roomId, data.ical_import_url);
 }
 

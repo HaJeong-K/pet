@@ -75,7 +75,7 @@ export default function AdminStays() {
       <AdminNav active="stays" onRefresh={load} />
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 12, wordBreak: "keep-all" }}>
         <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>숙박 예약</div>
-        <div style={{ fontSize: 12.5, color: "#888", lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", lineHeight: 1.7 }}>
           문제 접수는 손님 내용과 사장님 의견(3영업일)을 보고 판단해 주세요.<br />
           결제대행 연동 전에는 결제 확인과 정산 이체를 직접 표시합니다.
         </div>
@@ -88,7 +88,7 @@ export default function AdminStays() {
         {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
         {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-settlement.sql</b>을 실행해 주세요.</div>}
         {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
-        {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#aaa", fontSize: 13 }}>처리할 예약이 없어요.</div>}
+        {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>처리할 예약이 없어요.</div>}
 
         {rows?.map((b) => {
           const st = STAY_STATUS[b.status];
@@ -99,7 +99,7 @@ export default function AdminStays() {
                 <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.background, color: st.color }}>{st.label}</span>
                 <b style={{ fontSize: 14 }}>{b.placeName ?? `장소 #${b.place_id}`}</b>
                 <span style={{ fontSize: 12.5, color: "#666" }}>{b.room_name} · {stayDayLabel(b.check_in)}~{stayDayLabel(b.check_out)} {b.nights}박</span>
-                <span style={{ marginLeft: "auto", fontSize: 12, color: "#999" }}>예약 #{b.id}</span>
+                <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>예약 #{b.id}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
                 {b.guest_name} · {b.guest_phone} · {b.guests}명 · {b.pets.map(petLabel).join(", ")}<br />
@@ -114,7 +114,7 @@ export default function AdminStays() {
                     <b style={{ color: "#B91C1C" }}>손님 접수 · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}</b><br />
                     <span style={{ whiteSpace: "pre-line" }}>{b.issue_detail}</span>
                   </div>
-                  <div style={{ fontSize: 12.5, lineHeight: 1.65, color: b.issue_owner_reply ? "#333" : "#999" }}>
+                  <div style={{ fontSize: 12.5, lineHeight: 1.65, color: b.issue_owner_reply ? "#333" : "#666" }}>
                     <b>사장님 의견</b><br />{b.issue_owner_reply ?? "아직 없음 — 3영업일이 지나면 접수 자료만으로 판단할 수 있어요(계약서 제11조)."}
                   </div>
                   <textarea value={notes[b.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [b.id]: e.target.value }))} rows={2} placeholder="판단 이유(손님·사장님에게 보여요)" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />

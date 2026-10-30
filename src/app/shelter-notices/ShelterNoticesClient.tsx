@@ -31,7 +31,7 @@ const NEAR = "__near__";
 
 const pagerBtn = (active: boolean, disabled = false): React.CSSProperties => ({
   minWidth: 34, height: 34, padding: "0 10px", borderRadius: 10, border: active ? "none" : "1px solid #e3e0d6",
-  background: active ? "#5C7A4A" : "white", color: active ? "white" : disabled ? "#ccc" : "#555",
+  background: active ? "#5C7A4A" : "white", color: active ? "white" : disabled ? "#707070" : "#555",
   fontWeight: 700, fontSize: 12.5, cursor: disabled ? "default" : "pointer",
 });
 
@@ -223,7 +223,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
         </div>
 
         <div style={{ padding: "16px 20px 4px" }}>
-          <p style={{ fontSize: 12, color: "#888", lineHeight: 1.6, marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6, marginBottom: 12 }}>
             시·도를 고르면 시·군·구까지 골라 볼 수 있어요. 고르지 않으면 전국 공고가 보여요.
           </p>
           <div data-guide="adopt-alert"><ShelterAlertToggle region={sido} /></div>
@@ -247,7 +247,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
           {/* ── 시·군·구 선택(시·도를 골랐을 때만) ── */}
           {sido && !loading && (subRegions.length > 1 || nearAvailable) && (
             <div style={{ display: "flex", gap: 5, overflowX: "auto", padding: "8px 0 10px", alignItems: "center" }}>
-              <span style={{ flexShrink: 0, fontSize: 11, color: "#999", fontWeight: 700, marginRight: 2 }}>{sido}</span>
+              <span style={{ flexShrink: 0, fontSize: 11, color: "#666", fontWeight: 700, marginRight: 2 }}>{sido}</span>
               {nearAvailable && (
                 <button onClick={() => selectSub(NEAR)} style={chipStyle(activeSub === NEAR, true)}>
                   <MapPin size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 2 }} />내 주변 {nearNotices.length}
@@ -272,7 +272,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
         {/* ── 공고 카드 그리드 ── */}
         <div ref={pageTopRef} style={{ padding: "16px 20px var(--ggk-tabbar-space)", scrollMarginTop: 70 }}>
           {loading && notices.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "80px 0", color: "#999", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "80px 0", color: "#666", fontSize: 13 }}>
               <LogoLoader label="공고를 불러오는 중…" />
             </div>
           ) : notices.length === 0 ? (
@@ -281,7 +281,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
               borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)",
             }}>
               <PawPrint size={32} color="#ccc" style={{ marginBottom: 10 }} />
-              <div style={{ fontSize: 13, color: "#999" }}>
+              <div style={{ fontSize: 13, color: "#666" }}>
                 {sido ? `${sido} 지역에 진행 중인 공고가 없습니다.` : "현재 진행 중인 공고가 없습니다."}
               </div>
             </div>
@@ -309,7 +309,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
                   <button key={n} onClick={() => goPage(n)} aria-current={n === currentPage ? "page" : undefined} style={pagerBtn(n === currentPage)}>{n}</button>
                 ))}
                 <button onClick={() => goPage(currentPage + 1)} disabled={currentPage === totalPages} style={pagerBtn(false, currentPage === totalPages)}>다음</button>
-                <span style={{ fontSize: 11.5, color: "#999", marginLeft: 4 }}>{currentPage} / {totalPages}쪽 · 총 {visibleNotices.length}건</span>
+                <span style={{ fontSize: 11.5, color: "#666", marginLeft: 4 }}>{currentPage} / {totalPages}쪽 · 총 {visibleNotices.length}건</span>
               </div>
             )}
           </>)}

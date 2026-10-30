@@ -54,7 +54,7 @@ export default function ShelterNoticeDetailView({
       }}>
         <ArrowLeft size={17} color="#555" />
       </button>
-      <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#D9534F", flex: 1 }}>
+      <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#c9302c", flex: 1 }}>
         사지말고 입양하세요
       </div>
     </div>
@@ -68,7 +68,7 @@ export default function ShelterNoticeDetailView({
           <div style={{ ...cardStyle, margin: 16, textAlign: "center", padding: "48px 20px" }}>
             <PawPrint size={32} color="#ccc" />
             <div style={{ fontSize: 14, fontWeight: 700, color: "#444", marginTop: 10 }}>공고 정보를 불러오지 못했어요</div>
-            <div style={{ fontSize: 12.5, color: "#888", marginTop: 6, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 6, lineHeight: 1.6 }}>
               공고가 종료됐거나 일시적인 오류일 수 있어요.<br />공고 원문에서 확인해 주세요.
             </div>
             <a href={officialUrl} target="_blank" rel="noopener noreferrer" style={{ ...btnStyle("#5C7A4A", "white"), marginTop: 16, display: "inline-flex" }}>
@@ -199,7 +199,7 @@ export default function ShelterNoticeDetailView({
             <div style={{ display: "grid", gridTemplateColumns: "84px 1fr", rowGap: 7, columnGap: 10, marginTop: 14, fontSize: 13.5 }}>
               {infoRows.map(([k, v]) => (
                 <div key={k} style={{ display: "contents" }}>
-                  <div style={{ color: "#999" }}>{k}</div>
+                  <div style={{ color: "#666" }}>{k}</div>
                   <div style={{ color: "#333", wordBreak: "keep-all" }}>{v}</div>
                 </div>
               ))}
@@ -210,8 +210,8 @@ export default function ShelterNoticeDetailView({
           <div style={cardStyle}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#5C7A4A", marginBottom: 4 }}>보호하고 있는 곳</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{notice.careName || notice.orgName}</div>
-            {notice.careAddr && <div style={{ fontSize: 13, color: "#777", marginTop: 4, lineHeight: 1.5 }}>{notice.careAddr}</div>}
-            {notice.careTel && <div style={{ fontSize: 13, color: "#777", marginTop: 2 }}>{notice.careTel}</div>}
+            {notice.careAddr && <div style={{ fontSize: 13, color: "#555", marginTop: 4, lineHeight: 1.5 }}>{notice.careAddr}</div>}
+            {notice.careTel && <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>{notice.careTel}</div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
               {telHref && (
                 <a href={telHref} style={{ ...btnStyle("#5C7A4A", "white"), gridColumn: "1 / -1" }}>
@@ -246,7 +246,7 @@ export default function ShelterNoticeDetailView({
             </button>
           </div>
 
-          <div style={{ fontSize: 11.5, color: "#999", textAlign: "center", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 11.5, color: "#666", textAlign: "center", lineHeight: 1.6 }}>
             공고 정보는 국가동물보호정보시스템(농림축산식품부) 공공데이터를 바탕으로 해요.<br />
             실제 보호 상태는 보호소에 꼭 확인해 주세요.
           </div>

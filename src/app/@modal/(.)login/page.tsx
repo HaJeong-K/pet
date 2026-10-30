@@ -376,7 +376,7 @@ function LoginPageContent() {
                   </button>
 
                   {/* 구분선 */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 10px", color: "#A39B8B", fontSize: 12.5, fontWeight: 700 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "14px 0 10px", color: "#6a6253", fontSize: 12.5, fontWeight: 700 }}>
                     <span style={{ flex: 1, height: 1, background: t.cardLine }} />
                     간편 로그인
                     <span style={{ flex: 1, height: 1, background: t.cardLine }} />
@@ -490,7 +490,7 @@ function LoginPageContent() {
                     {/* ⚠ 소셜 로그인은 이메일 가입처럼 체크박스로 동의를 받는 별도 화면이 없어서,
                         버튼 바로 아래에 "계속 진행 시 동의로 간주" 안내와 약관 링크를 둡니다 —
                         소셜 로그인을 쓰는 서비스들의 일반적인 처리 방식입니다. */}
-                    <p style={{ fontSize: 11.5, color: "#A39B8B", textAlign: "center", lineHeight: 1.6, margin: "2px 0 0" }}>
+                    <p style={{ fontSize: 11.5, color: "#6a6253", textAlign: "center", lineHeight: 1.6, margin: "2px 0 0" }}>
                       계속 진행 시{" "}
                       <button type="button" onClick={() => setShowTermsModal(true)} style={{ border: "none", background: "transparent", color: t.muted, textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 11.5, fontFamily: "inherit" }}>이용약관</button>
                       {" "}및{" "}

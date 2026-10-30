@@ -16,7 +16,7 @@ import { won } from "@/lib/ownerPlans";
 import { isOpenStatus, ownerNextStatuses, STATUS_LABEL, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
 
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
 
 type Reservation = {
   id: number; customer_name: string; customer_phone: string; items: ReservationLine[]; total: number;
@@ -71,7 +71,7 @@ const STATUS_STYLE: Record<ReservationStatus, { bg: string; color: string }> = {
   ready: { bg: "#DCFCE7", color: "#15803D" },
   completed: { bg: "#f1f5f9", color: "#64748b" },
   rejected: { bg: "#FEE2E2", color: "#B91C1C" },
-  cancelled: { bg: "#f1f5f9", color: "#94a3b8" },
+  cancelled: { bg: "#f1f5f9", color: "#5f6672" },
 };
 const ACTION_LABEL: Partial<Record<ReservationStatus, string>> = { accepted: "예약 확정", rejected: "거절", ready: "준비 완료", completed: "수령 완료", cancelled: "예약 취소" };
 
@@ -123,7 +123,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
     finally { setBusyId(null); }
   };
 
-  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#999" }}>{error}</span> : <LogoLoader />}</div>;
+  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#666" }}>{error}</span> : <LogoLoader />}</div>;
   if (!state.ready) return <NotReady isPreview={isPreview} />;
 
   const open = state.reservations.filter((r) => isOpenStatus(r.status));
@@ -134,7 +134,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
         <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: STATUS_STYLE[r.status].bg, color: STATUS_STYLE[r.status].color }}>{STATUS_LABEL[r.status]}</span>
         <b style={{ fontSize: 13.5, color: "#222" }}>{r.customer_name}</b>
         <a href={`tel:${r.customer_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 700, color: "#3F5230", textDecoration: "none" }}><Phone size={12} />{fmtPhone(r.customer_phone)}</a>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "#aaa" }}>{fmtDateTime(r.created_at)} 접수</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "#6e6e6e" }}>{fmtDateTime(r.created_at)} 접수</span>
       </div>
       <div style={{ marginTop: 9, display: "grid", gap: 3 }}>
         {r.items.map((line) => (
@@ -149,7 +149,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
         <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color: "#222" }}>합계 {won(r.total)}</span>
       </div>
       {r.memo && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>요청: {r.memo}</div>}
-      {r.owner_note && <div style={{ marginTop: 6, fontSize: 12.5, color: "#999", lineHeight: 1.55, wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}
+      {r.owner_note && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}
       {canAct && ownerNextStatuses(r.status).length > 0 && (
         <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
           {ownerNextStatuses(r.status).map((next) => {
@@ -178,14 +178,14 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
           {open.some((r) => r.status === "requested") && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>확인 대기 {open.filter((r) => r.status === "requested").length}건</span>}
           <button onClick={load} style={{ marginLeft: "auto", padding: "7px 12px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}>새로 고침</button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           손님이 <b style={{ color: "#555" }}>쇼핑 탭</b>이나 우리 가게 상세 화면에서 직접 예약 주문을 넣어요.<br />
           예약이 들어오면 먼저 확정하거나 거절해 주세요. 결제는 손님이 가게에 와서 해요.
         </div>
-        {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
+        {!canAct && <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>보기 전용이에요. 대신 처리하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
         <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
-          {open.length === 0 && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>진행 중인 예약이 없어요.</div>}
+          {open.length === 0 && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>진행 중인 예약이 없어요.</div>}
           {open.map(renderOne)}
         </div>
       </div>

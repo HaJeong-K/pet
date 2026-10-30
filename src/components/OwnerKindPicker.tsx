@@ -33,7 +33,7 @@ export default function OwnerKindPicker({ value, onChange }: { value: OwnerKind;
                 <Icon size={19} />
               </span>
               <div style={{ marginTop: 10, fontSize: 15.5, fontWeight: 800, color: on ? k.color : "#2a2620" }}>{k.label}</div>
-              <div style={{ fontSize: 12, color: "#7a7263", marginTop: 4, lineHeight: 1.6, whiteSpace: "pre-line" }}>{k.description}</div>
+              <div style={{ fontSize: 12, color: "#625a4c", marginTop: 4, lineHeight: 1.6, whiteSpace: "pre-line" }}>{k.description}</div>
               {on && <span style={{ position: "absolute", top: 12, right: 12, width: 22, height: 22, borderRadius: 999, background: k.color, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={13} /></span>}
             </button>
           );

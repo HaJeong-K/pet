@@ -85,3 +85,5 @@ button:active {
   background: rgba(0, 0, 0, 0.26);
 }
 
+/* 입력칸 안내 글자 — 연해서 안 보인다는 의견이 있어 어디서나 또렷하게 */
+input::placeholder, textarea::placeholder { color: #6e6e6e; opacity: 1; }

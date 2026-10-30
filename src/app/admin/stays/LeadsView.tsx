@@ -94,7 +94,7 @@ export default function LeadsView() {
       </div>
       {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
-      {rows && list.length === 0 && <div style={{ ...card, textAlign: "center", color: "#aaa", fontSize: 13 }}>조건에 맞는 숙소가 없어요.</div>}
+      {rows && list.length === 0 && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>조건에 맞는 숙소가 없어요.</div>}
       {list.slice(0, limit).map((r) => {
         const st = STATUS[statusOf(r)];
         return (
@@ -102,7 +102,7 @@ export default function LeadsView() {
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color }}>{st.label}</span>
               <b style={{ fontSize: 14 }}>{r.name}</b>
-              {r.category && <span style={{ fontSize: 11.5, color: "#888" }}>{r.category}</span>}
+              {r.category && <span style={{ fontSize: 11.5, color: "#5c5c5c" }}>{r.category}</span>}
               {r.partnerStatus && <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#E3EDFA", color: "#1D4F91" }}>입점 {r.partnerStatus === "approved" ? "승인" : r.partnerStatus === "pending" ? "심사 중" : "반려"}</span>}
               <a href={`/place/${r.id}`} target="_blank" rel="noreferrer" style={{ marginLeft: "auto", fontSize: 12, color: "#1D4F91" }}>장소 보기</a>
             </div>
@@ -110,7 +110,7 @@ export default function LeadsView() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
               <a href={`tel:${r.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", borderRadius: 9, background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}><Phone size={12} />{r.phone}</a>
               <button onClick={() => { setEditing(editing === r.id ? null : r.id); setDraft({ status: r.lead?.status && r.lead.status !== "todo" ? r.lead.status : "contacted", memo: r.lead?.memo ?? "" }); }} style={{ padding: "7px 11px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 12.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>연락 기록</button>
-              {r.lead?.contacted_at && <span style={{ fontSize: 11.5, color: "#999" }}>마지막 연락 {r.lead.contacted_at.slice(0, 10)}</span>}
+              {r.lead?.contacted_at && <span style={{ fontSize: 11.5, color: "#666" }}>마지막 연락 {r.lead.contacted_at.slice(0, 10)}</span>}
             </div>
             {r.lead?.memo && editing !== r.id && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F7F3E8", fontSize: 12.5, color: "#555", whiteSpace: "pre-line" }}>{r.lead.memo}</div>}
             {editing === r.id && (
@@ -122,7 +122,7 @@ export default function LeadsView() {
                   ))}
                 </div>
                 <textarea value={draft.memo} onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value.slice(0, 1000) }))} rows={2} placeholder="메모 — 예: 사장님 부재, 다음 주 화요일 다시 연락 / 수수료 문의함" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />
-                <button onClick={() => save(r)} disabled={busy} style={{ justifySelf: "start", padding: "8px 14px", borderRadius: 9, border: "none", background: busy ? "#d6d3c9" : "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>저장</button>
+                <button onClick={() => save(r)} disabled={busy} style={{ justifySelf: "start", padding: "8px 14px", borderRadius: 9, border: "none", background: busy ? "#d6d3c9" : "#5C7A4A", color: busy ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>저장</button>
               </div>
             )}
           </div>

@@ -22,7 +22,7 @@ type Report = {
 };
 
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
-const btn = (color: string, disabled: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border: "none", background: disabled ? "#d6d3c9" : color, color: "white", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const btn = (color: string, disabled: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border: "none", background: disabled ? "#d6d3c9" : color, color: disabled ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const STATUS_COLOR: Record<ReviewReportStatus, { bg: string; color: string }> = {
   pending: { bg: "#FEF3C7", color: "#92400E" }, kept: { bg: "#DCFCE7", color: "#166534" }, hidden: { bg: "#E0E7FF", color: "#3730A3" }, deleted: { bg: "#FEE2E2", color: "#991B1B" },
 };
@@ -67,7 +67,7 @@ export default function ReviewReportsView() {
       {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
       {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-guest-review-reports.sql</b>을 실행해 주세요.</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
-      {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#aaa", fontSize: 13 }}>신고된 숙박 후기가 없어요.</div>}
+      {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>신고된 숙박 후기가 없어요.</div>}
       {rows?.map((r) => {
         const st = STATUS_COLOR[r.report_status];
         return (
@@ -75,14 +75,14 @@ export default function ReviewReportsView() {
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color }}>{REVIEW_REPORT_STATUS[r.report_status]}</span>
               <a href={`/stay/${r.place_id}`} target="_blank" rel="noreferrer" style={{ fontSize: 13.5, fontWeight: 800, color: "#1D4F91" }}>{r.place_name ?? `숙소 #${r.place_id}`}</a>
-              <span style={{ fontSize: 12, color: "#999" }}>후기 #{r.id}</span>
-              {r.reported_at && <span style={{ marginLeft: "auto", fontSize: 12, color: "#999" }}>{stayDayLabel(r.reported_at.slice(0, 10))} 신고</span>}
+              <span style={{ fontSize: 12, color: "#666" }}>후기 #{r.id}</span>
+              {r.reported_at && <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>{stayDayLabel(r.reported_at.slice(0, 10))} 신고</span>}
             </div>
             <div style={{ marginTop: 6, fontSize: 12.5, color: "#B45309", fontWeight: 700 }}>
               신고 사유: {REVIEW_REPORT_REASONS.find((x) => x.id === r.report_reason)?.label ?? r.report_reason}{r.report_detail ? ` — ${r.report_detail}` : ""}
             </div>
             <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F8FAFC" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#777" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#555" }}>
                 <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#d6d3c9"} />)}</span>
                 {r.guest_display_name ?? "손님"} · {r.room_name} · {stayDayLabel(r.created_at.slice(0, 10))} 작성
                 {r.writer_banned && <b style={{ color: "#b91c1c" }}>· 작성자 후기 제한 중</b>}
@@ -91,10 +91,10 @@ export default function ReviewReportsView() {
               {r.owner_reply && <div style={{ fontSize: 12, color: "#666", marginTop: 6, lineHeight: 1.6 }}><b>사장님 답글:</b> {r.owner_reply}</div>}
             </div>
             {r.report_status !== "pending" ? (
-              <div style={{ marginTop: 8, fontSize: 12, color: "#777" }}>{r.report_decided_at ? `${stayDayLabel(r.report_decided_at.slice(0, 10))} 처리` : ""}{r.report_admin_note ? ` · ${r.report_admin_note}` : ""}</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: "#555" }}>{r.report_decided_at ? `${stayDayLabel(r.report_decided_at.slice(0, 10))} 처리` : ""}{r.report_admin_note ? ` · ${r.report_admin_note}` : ""}</div>
             ) : (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 12, color: "#888", lineHeight: 1.6 }}>낮은 별점이라는 이유만으로는 가리지 않아요. 사실과 다름·욕설·개인정보·관계없는 내용·악의적 후기인지 확인해 주세요.</div>
+                <div style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>낮은 별점이라는 이유만으로는 가리지 않아요. 사실과 다름·욕설·개인정보·관계없는 내용·악의적 후기인지 확인해 주세요.</div>
                 <textarea value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} rows={2} placeholder="처리 사유(가리기·삭제는 필수 — 사장님 화면에 보여요)" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#444", cursor: "pointer" }}>
                   <input type="checkbox" checked={!!bans[r.id]} onChange={(e) => setBans((b) => ({ ...b, [r.id]: e.target.checked }))} />

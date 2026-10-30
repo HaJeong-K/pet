@@ -49,7 +49,7 @@ export default function AdminBusiness() {
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>사업성 계산 (손익분기)</div>
           <button onClick={() => update(defaults())} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}><RotateCcw size={12} />처음 값으로</button>
         </div>
-        <div style={{ fontSize: 12.5, color: "#777", lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#555", lineHeight: 1.7 }}>
           매달 드는 비용을 사장님 요금제 매출로 메우려면 유료 가게가 몇 곳 필요한지 계산합니다.<br />
           첫 달 무료·2~3개월째 50% 할인 기간은 빼고 정가 기준으로 봅니다. 입력값은 이 기기에만 저장돼요.
         </div>
@@ -85,10 +85,10 @@ export default function AdminBusiness() {
                 <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={label}>{c.label}</span>
-                    {c.note && <span style={{ display: "block", fontSize: 11, color: "#999" }}>{c.note}</span>}
+                    {c.note && <span style={{ display: "block", fontSize: 11, color: "#666" }}>{c.note}</span>}
                   </span>
                   <input id={`cost-${c.id}`} inputMode="numeric" value={c.monthly.toLocaleString("ko-KR")} onChange={(e) => update({ ...state, costs: state.costs.map((x, j) => (j === i ? { ...x, monthly: toNum(e.target.value) } : x)) })} style={numInput} />
-                  <span style={{ fontSize: 12, color: "#888" }}>원</span>
+                  <span style={{ fontSize: 12, color: "#5c5c5c" }}>원</span>
                 </label>
               ))}
             </div>
@@ -102,22 +102,22 @@ export default function AdminBusiness() {
                 <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ ...label, flex: "1 1 110px" }}>{PLAN_NAME[id]}</span>
                   <input id={`price-${id}`} inputMode="numeric" aria-label={`${PLAN_NAME[id]} 월 요금`} value={state.prices[id].toLocaleString("ko-KR")} onChange={(e) => update({ ...state, prices: { ...state.prices, [id]: toNum(e.target.value) } })} style={{ ...numInput, width: 100 }} />
-                  <span style={{ fontSize: 12, color: "#888" }}>원 ·</span>
+                  <span style={{ fontSize: 12, color: "#5c5c5c" }}>원 ·</span>
                   <input id={`mix-${id}`} inputMode="numeric" aria-label={`${PLAN_NAME[id]} 비율`} value={state.mix[id]} onChange={(e) => update({ ...state, mix: { ...state.mix, [id]: toNum(e.target.value) } })} style={{ ...numInput, width: 60 }} />
-                  <span style={{ fontSize: 12, color: "#888" }}>%</span>
+                  <span style={{ fontSize: 12, color: "#5c5c5c" }}>%</span>
                 </div>
               ))}
               {mixTotal !== 100 && <div style={{ fontSize: 11.5, color: "#B45309" }}>비율 합이 {mixTotal}%예요. 비율대로 나눠 계산합니다.</div>}
               <div style={{ height: 1, background: "#f1efe6", margin: "4px 0" }} />
               <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ flex: 1 }}><span style={label}>결제 수수료</span><span style={{ display: "block", fontSize: 11, color: "#999" }}>카드 결제대행 등(계좌 입금이면 0)</span></span>
+                <span style={{ flex: 1 }}><span style={label}>결제 수수료</span><span style={{ display: "block", fontSize: 11, color: "#666" }}>카드 결제대행 등(계좌 입금이면 0)</span></span>
                 <input id="fee" inputMode="decimal" value={state.fee} onChange={(e) => update({ ...state, fee: toNum(e.target.value) })} style={{ ...numInput, width: 70 }} />
-                <span style={{ fontSize: 12, color: "#888" }}>%</span>
+                <span style={{ fontSize: 12, color: "#5c5c5c" }}>%</span>
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ flex: 1 }}><span style={label}>그 밖의 월 매출</span><span style={{ display: "block", fontSize: 11, color: "#999" }}>브랜드 협업·제휴 등(없으면 0)</span></span>
+                <span style={{ flex: 1 }}><span style={label}>그 밖의 월 매출</span><span style={{ display: "block", fontSize: 11, color: "#666" }}>브랜드 협업·제휴 등(없으면 0)</span></span>
                 <input id="other" inputMode="numeric" value={state.other.toLocaleString("ko-KR")} onChange={(e) => update({ ...state, other: toNum(e.target.value) })} style={numInput} />
-                <span style={{ fontSize: 12, color: "#888" }}>원</span>
+                <span style={{ fontSize: 12, color: "#5c5c5c" }}>원</span>
               </label>
             </div>
           </div>
@@ -128,7 +128,7 @@ export default function AdminBusiness() {
           <div className="ggk-logo" style={{ fontSize: 14.5, fontWeight: 800, color: "#222", marginBottom: 10 }}>유료 가게 수별 월 이익</div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", minWidth: 420, borderCollapse: "collapse", fontSize: 13.5, fontVariantNumeric: "tabular-nums" }}>
-              <thead><tr style={{ color: "#888", fontSize: 12, textAlign: "right" }}><th style={{ textAlign: "left", padding: "6px 8px" }}>유료 가게</th><th style={{ padding: "6px 8px" }}>월 매출</th><th style={{ padding: "6px 8px" }}>월 이익</th><th style={{ padding: "6px 8px" }}>연 이익</th></tr></thead>
+              <thead><tr style={{ color: "#5c5c5c", fontSize: 12, textAlign: "right" }}><th style={{ textAlign: "left", padding: "6px 8px" }}>유료 가게</th><th style={{ padding: "6px 8px" }}>월 매출</th><th style={{ padding: "6px 8px" }}>월 이익</th><th style={{ padding: "6px 8px" }}>연 이익</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.shops} style={{ borderTop: "1px solid #f1efe6", textAlign: "right", background: result.shopsNeeded != null && r.shops >= result.shopsNeeded && (rows.find((x) => x.shops >= result.shopsNeeded!)?.shops === r.shops) ? "#F3F8EE" : undefined }}>
@@ -141,7 +141,7 @@ export default function AdminBusiness() {
               </tbody>
             </table>
           </div>
-          <div style={{ fontSize: 11.5, color: "#999", marginTop: 8, lineHeight: 1.6 }}>
+          <div style={{ fontSize: 11.5, color: "#666", marginTop: 8, lineHeight: 1.6 }}>
             사업계획서에는 &ldquo;월 운영비 {won(result.monthlyCost)} 기준, 유료 가게 {result.shopsNeeded ?? "-"}곳(월 매출 {result.revenueNeeded == null ? "-" : won(Math.round(result.revenueNeeded))})에서 손익분기&rdquo;처럼 옮겨 적으면 됩니다.
           </div>
         </div>

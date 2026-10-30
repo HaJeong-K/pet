@@ -125,7 +125,7 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.65)" }}>2026년 10월 기준 · 공공데이터와 이용자 제보를 합한 수</div>
+          <div style={{ marginTop: 10, fontSize: 11, color: "rgba(255,255,255,0.88)" }}>2026년 10월 기준 · 공공데이터와 이용자 제보를 합한 수</div>
         </div>
       </section>
 
@@ -233,7 +233,7 @@ export default function AboutPage() {
           <Link href="/" style={{ marginTop: 24, display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 26px", borderRadius: 999, background: "#FFE9A8", color: "#3b3215", fontSize: 16, fontWeight: 800, textDecoration: "none" }}>
             같이가개 시작하기 <ArrowRight size={18} />
           </Link>
-          <div style={{ marginTop: 26, fontSize: 11.5, lineHeight: 1.8, color: "rgba(255,255,255,0.55)" }}>
+          <div style={{ marginTop: 26, fontSize: 11.5, lineHeight: 1.8, color: "rgba(255,255,255,0.88)" }}>
             장소 정보 출처: 한국관광공사 · 한국문화정보원 · 식품의약품안전처 · 행정안전부 공공데이터 / 유기동물 공고: 국가동물보호정보시스템<br />
             문의: infoker12@naver.com
           </div>

@@ -40,7 +40,7 @@ export default function LevelGuide() {
         <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, marginTop: 10, letterSpacing: "-0.4px" }}>
           도움이 되는 활동을 할수록<br /><span style={{ color: "#F3DA9B" }}>레벨이 올라가요</span>
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.78)", marginTop: 10, lineHeight: 1.7, maxWidth: 400, paddingRight: 70 }}>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", marginTop: 10, lineHeight: 1.7, maxWidth: 400, paddingRight: 70 }}>
           레벨은 기능을 막는 데 쓰지 않아요.<br />높을수록 더 드리는 데만 써요.
         </div>
       </div>

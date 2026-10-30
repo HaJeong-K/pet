@@ -92,7 +92,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #e2e4e8",
   fontSize: 14, boxSizing: "border-box", marginBottom: 4, fontFamily: "'Noto Sans KR', sans-serif",
 };
-const hintStyle = (ok: boolean): React.CSSProperties => ({ fontSize: 11, color: ok ? "#5C7A4A" : "#d9534f", marginBottom: 8, minHeight: 14 });
+const hintStyle = (ok: boolean): React.CSSProperties => ({ fontSize: 11, color: ok ? "#5C7A4A" : "#c9302c", marginBottom: 8, minHeight: 14 });
 
 export default function OwnerBizInfoFields({
   info, onChange, ocrStatus,
@@ -151,7 +151,7 @@ export default function OwnerBizInfoFields({
         onChange={(e) => onChange({ ...info, bizType: e.target.value.slice(0, 40) })}
         style={inputStyle}
       />
-      <p style={{ fontSize: 11.5, color: "#777", margin: "2px 0 8px", lineHeight: 1.6, wordBreak: "keep-all" }}>
+      <p style={{ fontSize: 11.5, color: "#555", margin: "2px 0 8px", lineHeight: 1.6, wordBreak: "keep-all" }}>
         종목이 가게(음식점·카페·용품 등) 또는 숙소(숙박업·민박·펜션·야영장 등)와 맞아야 바로 인증돼요.
         <br />
         띄어쓰기나 한두 글자 오타는 괜찮아요. 맞지 않으면 관리자가 확인한 뒤 승인해 드려요.

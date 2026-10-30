@@ -128,16 +128,16 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <BellRing size={16} color="#B45309" />
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>새 예약 알림</div>
-        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: on ? "#DCFCE7" : "#f1f2f4", color: on ? "#15803D" : "#777" }}>{on ? "이 기기 켜짐" : "이 기기 꺼짐"}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: on ? "#DCFCE7" : "#f1f2f4", color: on ? "#15803D" : "#555" }}>{on ? "이 기기 켜짐" : "이 기기 꺼짐"}</span>
       </div>
-      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.65 }}>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.65 }}>
         켜 두면 손님이 예약을 넣을 때 이 기기 상단바에 알림이 쌓여요. 사이트를 닫아 두어도 와요.
       </div>
 
       {!status.ready ? (
         <div style={{ marginTop: 10, fontSize: 12.5, color: "#9a3412", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "9px 11px" }}>알림 기능을 준비하고 있어요.</div>
       ) : supported === false || !status.configured ? (
-        <div style={{ marginTop: 10, fontSize: 12.5, color: "#777", background: "#fafafa", border: "1px solid #eee", borderRadius: 10, padding: "9px 11px", lineHeight: 1.6 }}>
+        <div style={{ marginTop: 10, fontSize: 12.5, color: "#555", background: "#fafafa", border: "1px solid #eee", borderRadius: 10, padding: "9px 11px", lineHeight: 1.6 }}>
           이 브라우저에서는 알림을 켤 수 없어요. 같이가개 앱이나 크롬에서 열어 주세요(아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요).
         </div>
       ) : (
@@ -149,17 +149,17 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 12, borderTop: "1px dashed #eee", flexWrap: "wrap" }}>
-        <button onClick={toggleSound} aria-pressed={soundOn} style={{ ...button(false), display: "inline-flex", alignItems: "center", gap: 6, borderColor: soundOn ? "#F0C36A" : "#ddd", background: soundOn ? "#FFFBEB" : "white", color: soundOn ? "#92400E" : "#777" }}>
+        <button onClick={toggleSound} aria-pressed={soundOn} style={{ ...button(false), display: "inline-flex", alignItems: "center", gap: 6, borderColor: soundOn ? "#F0C36A" : "#ddd", background: soundOn ? "#FFFBEB" : "white", color: soundOn ? "#92400E" : "#555" }}>
           {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}멍멍 알림음 {soundOn ? "켜짐" : "꺼짐"}
         </button>
         <button onClick={listen} style={button(false)}>소리 들어보기</button>
-        <span style={{ flex: "1 1 200px", fontSize: 11.5, color: "#999", lineHeight: 1.55 }}>
+        <span style={{ flex: "1 1 200px", fontSize: 11.5, color: "#666", lineHeight: 1.55 }}>
           사장님 화면을 열어 둔 동안 새 예약이 오면 이 소리가 나요. 같이가개 앱에서는 알림 자체도 이 소리로 울려요.
         </span>
       </div>
 
       {status.devices.length > 0 && (
-        <div style={{ marginTop: 10, fontSize: 11.5, color: "#999" }}>
+        <div style={{ marginTop: 10, fontSize: 11.5, color: "#666" }}>
           알림을 받는 기기 {status.devices.length}대 · {status.devices.map((d) => d.label || "기기").join(", ")}
         </div>
       )}

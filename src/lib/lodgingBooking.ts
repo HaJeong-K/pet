@@ -84,6 +84,8 @@ export type StayRequest = {
   consents: StayConsentId[];
   /** 고른 부가 옵션(바비큐 등) — 요금은 서버가 숙소 설정으로 다시 계산 */
   extras: StayExtraPick[];
+  /** 쓰려는 추억 스탬프 수 — 서버가 가진 개수·한도로 다시 계산 */
+  stamps: number;
 };
 
 /** 손님이 보낸 예약 요청을 다듬습니다(날짜·인원·반려동물·연락처). 문제가 있으면 이유를 돌려줍니다. */
@@ -143,7 +145,8 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
     if (typeof x?.id !== "string" || !Number.isInteger(qty) || qty < 1 || qty > EXTRA_QTY_MAX) return { error: "부가 옵션 수량을 다시 확인해 주세요." };
     if (!extras.some((e) => e.id === x.id)) extras.push({ id: x.id, qty });
   }
-  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo, email, stayGuestName, stayGuestPhone, arrivalMethod, arrivalTime, consents: agreed, extras } };
+  const stamps = Number.isInteger(r.stamps) && Number(r.stamps) > 0 ? Number(r.stamps) : 0;
+  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo, email, stayGuestName, stayGuestPhone, arrivalMethod, arrivalTime, consents: agreed, extras, stamps } };
 }
 
 /** 이 반려동물들이 숙소·객실 규정에 맞는지 — 안 맞으면 이유 */
@@ -179,6 +182,19 @@ export function petNightFee(profile: Pick<LodgingProfile, "pet_fee"> & { pet_fee
   if (!profile) return 0;
   const key: PetFeeKey = pet.species === "dog" ? pet.size ?? "small" : pet.species;
   return profile.pet_fees?.[key] ?? profile.pet_fee ?? 0;
+}
+
+/**
+ * 데려가는 반려동물 전체의 1박 추가 요금 — 기본 포함 마릿수(pet_free_count)만큼은 빼고 더합니다.
+ * 크기별 요금이 다르면 요금이 낮은 아이부터 기본 포함으로 칩니다.
+ */
+export function petsNightlyTotal(
+  profile: (Pick<LodgingProfile, "pet_fee"> & { pet_fees?: PetFees; pet_free_count?: number | null }) | null,
+  pets: Pick<StayPet, "species" | "size">[],
+): number {
+  const fees = pets.map((p) => petNightFee(profile, p)).sort((a, b) => b - a);
+  const charged = Math.max(0, fees.length - Math.max(0, profile?.pet_free_count ?? 0));
+  return fees.slice(0, charged).reduce((sum, f) => sum + f, 0);
 }
 
 /** 부가 옵션 한 줄의 금액 — 1회는 수량만큼, 1박마다는 수량×박 수, 1인당은 수량(인원)만큼 */
@@ -249,8 +265,10 @@ export function canChangeStay(by: "owner" | "guest", from: StayStatus, to: StayS
   return (by === "owner" ? OWNER_NEXT : GUEST_NEXT)[from]?.includes(to) ?? false;
 }
 export const ownerNextStays = (from: StayStatus): StayStatus[] => OWNER_NEXT[from] ?? [];
-/** 방을 차지하는 예약(겹치는 예약을 막을 때 봄) */
-export const holdsRoom = (status: StayStatus) => status === "confirmed";
+/** 방을 차지하는 예약 — 확인 대기(24시간)도 날짜를 잡아 둡니다. DB 규칙(lodging_bookings_no_overlap)과 같은 기준 */
+export const holdsRoom = (status: StayStatus) => status === "confirmed" || status === "requested";
+/** 확인 대기가 날짜를 잡아 두는 시간 */
+export const STAY_HOLD_MS = 24 * 3_600_000;
 /** 아직 끝나지 않은 예약 */
 export const isOpenStay = (status: StayStatus) => status === "requested" || status === "confirmed";
 

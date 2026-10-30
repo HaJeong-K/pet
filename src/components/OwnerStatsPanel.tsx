@@ -77,8 +77,8 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
     return () => { cancelled = true; };
   }, [previewPlaceId]);
 
-  if (loading) return <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "20px 0" }}><LogoLoader /></div>;
-  if (error || !stats) return <div style={{ fontSize: 12, color: "#999", textAlign: "center", padding: "20px 0" }}>{error || "통계가 없어요."}</div>;
+  if (loading) return <div style={{ fontSize: 12, color: "#666", textAlign: "center", padding: "20px 0" }}><LogoLoader /></div>;
+  if (error || !stats) return <div style={{ fontSize: 12, color: "#666", textAlign: "center", padding: "20px 0" }}>{error || "통계가 없어요."}</div>;
 
   const max = Math.max(1, ...stats.daily.map((d) => d.views));
   const cards: { label: string; value: number; sub?: string }[] = [
@@ -115,7 +115,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
         {cards.map((c) => (
           <div key={c.label} style={{ background: "#f8fafc", border: "1px solid #eef0f2", borderRadius: 11, padding: "10px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 10.5, color: "#888", fontWeight: 600 }}>{c.label}</div>
+            <div style={{ fontSize: 10.5, color: "#5c5c5c", fontWeight: 600 }}>{c.label}</div>
             <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222", marginTop: 3 }}>{fmt(c.value)}</div>
           </div>
         ))}
@@ -152,7 +152,7 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
           );
         })}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", margin: "3px 2px 6px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6e6e6e", margin: "3px 2px 6px" }}>
         <span>{stats.daily[0]?.day.slice(5).replace("-", "/")}</span>
         <span>오늘</span>
       </div>
@@ -181,13 +181,13 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
           <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", background: "#f8fafc", border: "1px solid #eef0f2", borderRadius: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: "#333" }}>{f.label}</div>
-              <div style={{ fontSize: 10.5, color: "#999", marginTop: 1 }}>{f.hint}</div>
+              <div style={{ fontSize: 10.5, color: "#666", marginTop: 1 }}>{f.hint}</div>
             </div>
             <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#5b21b6" }}>{fmt(f.value)}</div>
           </div>
         ))}
       </div>
-      <p style={{ fontSize: 10.5, color: "#aaa", marginTop: 10, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 10.5, color: "#6e6e6e", marginTop: 10, lineHeight: 1.6 }}>
         · 조회는 장소 상세 화면이 열린 횟수예요(같은 사람이 여러 번 열면 여러 번 세요).
         <br />· 길찾기·전화·홈페이지 횟수는 2026년 10월 5일부터 세기 시작했어요.
         <br />· 프리미엄에 등록하면 추천 정렬 가점과 광고 영역 노출로 조회가 늘어날 수 있어요.

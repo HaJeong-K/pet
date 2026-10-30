@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { roomDays } from "@/lib/server/lodgingStore";
-import { daysBetween, isDay, nightsOf, nightPrice } from "@/lib/lodgingBooking";
+import { ensureFreshIcal } from "@/lib/server/lodgingIcal";
+import { daysBetween, isDay, nightsOf, nightPrice, STAY_HOLD_MS } from "@/lib/lodgingBooking";
 
 // GET /api/lodging/availability?roomId=&from=&to=  — 손님용 객실 달력(로그인 없이 누구나)
-// 날짜마다 { day, price, closed, booked } — 막은 날(closed)이나 확정 예약이 있는 날(booked)은 예약할 수 없습니다.
+// 날짜마다 { day, price, closed, booked } — 막은 날(closed)이나 예약이 잡힌 날(booked: 확정, 또는 24시간 안의 확인 대기)은 예약할 수 없습니다.
+// 다른 예약 사이트 달력은 5분 넘게 지났으면 먼저 새로 받습니다(느리면 2.5초만 기다리고 받아 둔 값으로 보여 줌).
 // 손님 이름 같은 예약 내용은 보내지 않고 "찬 날"인지만 알려 줍니다.
 
 const RANGE_MAX = 93;
@@ -23,9 +25,11 @@ export async function GET(req: NextRequest) {
   if (roomError && isMissingSchema(roomError)) return NextResponse.json({ ready: false, days: [] });
   if (!room || !room.is_active) return NextResponse.json({ error: "객실을 찾을 수 없어요." }, { status: 404 });
   try {
+    await Promise.race([ensureFreshIcal(roomId).catch(() => {}), new Promise((r) => setTimeout(r, 2500))]);
+    const holdSince = new Date(Date.now() - STAY_HOLD_MS).toISOString();
     const [changed, confirmed] = await Promise.all([
       roomDays(roomId, from, to, { withIcal: true }),
-      db.from("lodging_bookings").select("check_in, check_out").eq("room_id", roomId).eq("status", "confirmed").lt("check_in", to).gt("check_out", from),
+      db.from("lodging_bookings").select("check_in, check_out").eq("room_id", roomId).or(`status.eq.confirmed,and(status.eq.requested,created_at.gte.${holdSince})`).lt("check_in", to).gt("check_out", from),
     ]);
     if (confirmed.error) throw confirmed.error;
     const byDay = new Map(changed.map((d) => [d.day, d]));

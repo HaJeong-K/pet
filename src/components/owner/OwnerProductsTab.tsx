@@ -31,8 +31,8 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6 };
-const optional: React.CSSProperties = { fontWeight: 600, color: "#aaa" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const optional: React.CSSProperties = { fontWeight: 600, color: "#6e6e6e" };
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const iconButton: React.CSSProperties = { width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e4e8", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
 const tag = (bg: string, color: string): React.CSSProperties => ({ fontSize: 10.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: bg, color, flexShrink: 0 });
 
@@ -121,7 +121,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
     finally { setBusy(""); }
   };
 
-  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#999" }}>{error}</span> : <LogoLoader />}</div>;
+  if (!state) return <div style={{ ...card, textAlign: "center" }}>{error ? <span style={{ fontSize: 13, color: "#666" }}>{error}</span> : <LogoLoader />}</div>;
   if (!state.ready) {
     return (
       <div style={{ ...card, fontSize: 13, color: "#9a3412", background: "#fff7ed", borderColor: "#fed7aa", lineHeight: 1.7 }}>
@@ -162,7 +162,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>우리 가게 상품 {state.products.length}개</div>
           {canAct && state.products.length < PRODUCTS_PER_PLACE_MAX && <button onClick={() => open("new")} style={{ ...primaryButton(false), marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}><Plus size={14} />상품 추가</button>}
         </div>
-        <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.7 }}>
+        <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           올린 상품은 <b style={{ color: "#555" }}>쇼핑 탭</b>과 우리 가게 상세 화면에 진열돼요.<br />
           손님이 직접 예약 주문을 넣으면 &ldquo;예약&rdquo; 메뉴에서 확정해 주세요.<br />
           결제는 가게에서 받아요(건당 수수료 없음).
@@ -170,7 +170,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
         {state.enabled && (
           <a href="/shop" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 9, padding: "7px 12px", borderRadius: 9, background: "#E4EBDC", fontSize: 12, fontWeight: 800, color: "#3F5230", textDecoration: "none" }}>손님이 보는 쇼핑 탭 열어 보기 →</a>
         )}
-        {!canAct && <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
+        {!canAct && <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         {error && !editing && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
 
         {editing && (
@@ -189,7 +189,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                   {form.imageUrl && (
                     <div style={{ display: "flex", gap: 8, marginTop: 5, justifyContent: "center" }}>
                       <button onClick={() => fileRef.current?.click()} style={{ border: "none", background: "transparent", padding: 0, fontSize: 11.5, fontWeight: 700, color: "#7a5a12", cursor: "pointer", fontFamily: "inherit" }}>{busy === "upload" ? "올리는 중…" : "바꾸기"}</button>
-                      <button onClick={() => set({ imageUrl: null })} style={{ border: "none", background: "transparent", padding: 0, fontSize: 11.5, fontWeight: 700, color: "#999", cursor: "pointer", fontFamily: "inherit" }}>빼기</button>
+                      <button onClick={() => set({ imageUrl: null })} style={{ border: "none", background: "transparent", padding: 0, fontSize: 11.5, fontWeight: 700, color: "#666", cursor: "pointer", fontFamily: "inherit" }}>빼기</button>
                     </div>
                   )}
                 </div>
@@ -204,7 +204,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                     <div style={label}>가격</div>
                     <div style={{ position: "relative" }}>
                       <input value={form.price ? Number(form.price).toLocaleString("ko-KR") : ""} onChange={(e) => set({ price: e.target.value.replace(/[^\d]/g, "").slice(0, 8) })} placeholder="0" inputMode="numeric" style={{ ...input, paddingRight: 34, textAlign: "right", fontWeight: 700 }} />
-                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#888" }}>원</span>
+                      <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#5c5c5c" }}>원</span>
                     </div>
                   </div>
                   {detail && (
@@ -240,7 +240,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                 <button onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 13px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 800, color: "#444" }}>자세한 정보 <span style={optional}>(선택)</span></span>
-                    <span style={{ display: "block", fontSize: 11.5, color: "#999", marginTop: 2 }}>재료·알레르기·원산지·주의사항 — 간식·사료라면 적어 주세요. 장난감·용품은 비워 둬도 돼요.</span>
+                    <span style={{ display: "block", fontSize: 11.5, color: "#666", marginTop: 2 }}>재료·알레르기·원산지·주의사항 — 간식·사료라면 적어 주세요. 장난감·용품은 비워 둬도 돼요.</span>
                   </span>
                   {showMore ? <ChevronUp size={16} color="#888" /> : <ChevronDown size={16} color="#888" />}
                 </button>
@@ -275,7 +275,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
         )}
 
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
-          {state.products.length === 0 && !editing && <div style={{ fontSize: 13, color: "#aaa", textAlign: "center", padding: "24px 0" }}>아직 올린 상품이 없어요. &ldquo;상품 추가&rdquo;로 첫 상품을 올려 보세요.</div>}
+          {state.products.length === 0 && !editing && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 올린 상품이 없어요. &ldquo;상품 추가&rdquo;로 첫 상품을 올려 보세요.</div>}
           {state.products.map((p, index) => {
             const facts = [p.ingredients && "재료", p.allergy && "알레르기", p.origin && "원산지", p.caution && "주의사항"].filter(Boolean);
             return (
@@ -291,11 +291,11 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                     {p.sold_out && <span style={tag("#FEE2E2", "#B91C1C")}>품절</span>}
                     {!p.is_active && <span style={tag("#f1f2f4", "#777")}>판매 중지</span>}
                   </div>
-                  <div style={{ fontSize: 11.5, color: "#999", marginTop: 2 }}>{[p.category, p.unit].filter(Boolean).join(" · ")}</div>
-                  {p.description && <div style={{ fontSize: 12, color: "#777", marginTop: 2, lineHeight: 1.5, wordBreak: "break-word" }}>{p.description}</div>}
+                  <div style={{ fontSize: 11.5, color: "#666", marginTop: 2 }}>{[p.category, p.unit].filter(Boolean).join(" · ")}</div>
+                  {p.description && <div style={{ fontSize: 12, color: "#555", marginTop: 2, lineHeight: 1.5, wordBreak: "break-word" }}>{p.description}</div>}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 13.5, fontWeight: 800, color: "#B45309" }}>{won(p.price)}</span>
-                    {facts.length > 0 && <span style={{ fontSize: 11, color: "#aaa" }}>{facts.join("·")} 적음</span>}
+                    {facts.length > 0 && <span style={{ fontSize: 11, color: "#6e6e6e" }}>{facts.join("·")} 적음</span>}
                   </div>
                   {canAct && (
                     <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>

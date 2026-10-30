@@ -27,7 +27,7 @@ const STATUS_COLOR: Record<ReservationStatus, { bg: string; color: string }> = {
   ready: { bg: "#DCFCE7", color: "#15803D" },
   completed: { bg: "#f1f5f9", color: "#64748b" },
   rejected: { bg: "#FEE2E2", color: "#B91C1C" },
-  cancelled: { bg: "#f1f5f9", color: "#94a3b8" },
+  cancelled: { bg: "#f1f5f9", color: "#5f6672" },
 };
 const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 9, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const fmtDateTime = (s: string | null) => (s ? new Date(s).toLocaleString("ko-KR", { month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" }) : "");
@@ -143,8 +143,8 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
                         {p.is_featured && <span className="ggk-body" style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 9.5, fontWeight: 800, padding: "1px 6px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}><Star size={8} fill="#92400E" />대표</span>}
                         {p.sold_out && <span className="ggk-body" style={{ fontSize: 9.5, fontWeight: 800, padding: "1px 6px", borderRadius: 999, background: "#FEE2E2", color: "#B91C1C" }}>품절</span>}
                       </div>
-                      {p.unit && <div className="ggk-body" style={{ fontSize: 10.5, color: "#999", marginTop: 1 }}>{p.unit}</div>}
-                      {p.description && <div className="ggk-body" style={{ fontSize: 11, color: "#888", marginTop: 1, lineHeight: 1.45, wordBreak: "break-word" }}>{p.description}</div>}
+                      {p.unit && <div className="ggk-body" style={{ fontSize: 10.5, color: "#666", marginTop: 1 }}>{p.unit}</div>}
+                      {p.description && <div className="ggk-body" style={{ fontSize: 11, color: "#5c5c5c", marginTop: 1, lineHeight: 1.45, wordBreak: "break-word" }}>{p.description}</div>}
                       <div className="ggk-body" style={{ fontSize: 12.5, fontWeight: 800, color: "#B45309", marginTop: 2 }}>{won(p.price)}</div>
                     </div>
                     {!p.sold_out && (
@@ -190,17 +190,17 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
             <>
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예약자 이름" maxLength={20} style={input} />
               <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="연락받을 전화번호" inputMode="tel" maxLength={13} style={input} />
-              <label className="ggk-body" style={{ fontSize: 11, color: "#777" }}>
+              <label className="ggk-body" style={{ fontSize: 11, color: "#555" }}>
                 가지러 갈 시간 (선택, {PICKUP_MAX_DAYS}일 안)
                 <input type="datetime-local" value={form.pickupAt} min={toLocalInput(now)} max={toLocalInput(new Date(now.getTime() + PICKUP_MAX_DAYS * 86_400_000))} onChange={(e) => setForm({ ...form, pickupAt: e.target.value })} style={{ ...input, marginTop: 3 }} />
               </label>
               <input value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="가게에 전할 말 (선택)" maxLength={200} style={input} />
-              <div className="ggk-body" style={{ fontSize: 10.5, color: "#999", lineHeight: 1.5 }}>이름과 전화번호는 예약 확인을 위해 이 가게 사장님에게만 전달돼요.</div>
+              <div className="ggk-body" style={{ fontSize: 10.5, color: "#666", lineHeight: 1.5 }}>이름과 전화번호는 예약 확인을 위해 이 가게 사장님에게만 전달돼요.</div>
             </>
           ) : (
-            <div className="ggk-body" style={{ fontSize: 11.5, color: "#777" }}>예약은 로그인한 뒤에 할 수 있어요.</div>
+            <div className="ggk-body" style={{ fontSize: 11.5, color: "#555" }}>예약은 로그인한 뒤에 할 수 있어요.</div>
           )}
-          <button onClick={reserve} disabled={isLoggedIn && !canSubmit} className="ggk-body" style={{ padding: "11px 0", borderRadius: 10, border: "none", background: isLoggedIn && !canSubmit ? "#d6d3c9" : "#B45309", color: "white", fontSize: 13, fontWeight: 800, cursor: isLoggedIn && !canSubmit ? "default" : "pointer" }}>
+          <button onClick={reserve} disabled={isLoggedIn && !canSubmit} className="ggk-body" style={{ padding: "11px 0", borderRadius: 10, border: "none", background: isLoggedIn && !canSubmit ? "#d6d3c9" : "#B45309", color: isLoggedIn && !canSubmit ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: isLoggedIn && !canSubmit ? "default" : "pointer" }}>
             {!isLoggedIn ? "로그인하고 예약하기" : busy ? "예약 넣는 중…" : "예약 넣기"}
           </button>
         </div>
@@ -224,8 +224,8 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
                 <div className="ggk-body" style={{ marginTop: 5, fontSize: 11.5, color: "#555", lineHeight: 1.5, wordBreak: "break-word" }}>
                   {r.items.map((line) => `${line.name} × ${line.qty}`).join(", ")}
                 </div>
-                {r.pickup_at && <div className="ggk-body" style={{ marginTop: 2, fontSize: 11, color: "#888" }}>가지러 갈 시간 {fmtDateTime(r.pickup_at)}</div>}
-                {r.owner_note && <div className="ggk-body" style={{ marginTop: 2, fontSize: 11, color: "#888", wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}
+                {r.pickup_at && <div className="ggk-body" style={{ marginTop: 2, fontSize: 11, color: "#5c5c5c" }}>가지러 갈 시간 {fmtDateTime(r.pickup_at)}</div>}
+                {r.owner_note && <div className="ggk-body" style={{ marginTop: 2, fontSize: 11, color: "#5c5c5c", wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}
               </div>
             ))}
           </div>

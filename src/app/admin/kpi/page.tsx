@@ -126,7 +126,7 @@ export default function AdminKpi() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <TrendingUp size={18} color="#5C7A4A" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>성과 지표</div>
-          <span style={{ fontSize: 12, color: "#888" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
+          <span style={{ fontSize: 12, color: "#5c5c5c" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {[6, 12, 24].map((m) => (
               <button key={m} onClick={() => setMonths(m)} style={{
@@ -156,16 +156,16 @@ export default function AdminKpi() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10, marginBottom: 18 }}>
             {cards.map((c) => (
               <div key={c.label} style={{ background: "white", borderRadius: 14, padding: "14px 16px", border: "1px solid rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: 12, color: "#888", fontWeight: 600 }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: "#5c5c5c", fontWeight: 600 }}>{c.label}</div>
                 <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#222", marginTop: 4 }}>{fmt(c.value)}</div>
-                {c.sub && <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{c.sub}</div>}
+                {c.sub && <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{c.sub}</div>}
               </div>
             ))}
           </div>
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 13 }}><LogoLoader /></div>
+          <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}><LogoLoader /></div>
         ) : monthly.length > 0 && (
           <div style={{ background: "white", borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)", overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, whiteSpace: "nowrap" }}>
@@ -190,7 +190,7 @@ export default function AdminKpi() {
             </table>
           </div>
         )}
-        <p style={{ fontSize: 11.5, color: "#999", marginTop: 10, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 11.5, color: "#666", marginTop: 10, lineHeight: 1.6 }}>
           · 활성 사용자는 그달에 한 번 이상 방문한 회원·비회원 수(중복 제거)이고, 합계 칸은 가장 많았던 달의 값이에요.
           <br />· 지도 장소의 공공데이터 수는 매일 새벽 자동 갱신돼요.
         </p>

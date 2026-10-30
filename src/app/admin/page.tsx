@@ -148,66 +148,66 @@ export default function AdminDashboard() {
                 onClick={() => router.push("/admin/reports")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>미처리 신고</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>미처리 신고</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.pendingReports}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>신고 관리 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>신고 관리 ›</div>
               </button>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/tips")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>미처리 제보</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>미처리 제보</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.pendingTips}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>제보 관리 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>제보 관리 ›</div>
               </button>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/quality")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>등록된 장소</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>등록된 장소</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalPlaces}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>데이터 품질 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>데이터 품질 ›</div>
               </button>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/premium?tab=active")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>프리미엄 가게</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>프리미엄 가게</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#B8860B" }}>
                   {loading ? "–" : stats.premiumPlaces}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>프리미엄 관리 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>프리미엄 관리 ›</div>
               </button>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/members")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>가입 회원</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>가입 회원</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalMembers}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>회원 관리 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>회원 관리 ›</div>
               </button>
               <button
                 className="dash-card"
                 onClick={() => router.push("/admin/analytics")}
                 style={{ textAlign: "left", cursor: "pointer", background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: 20 }}
               >
-                <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>비가입 이용자</div>
+                <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>비가입 이용자</div>
                 <div className="ggk-logo" style={{ fontSize: 26, fontWeight: 700, color: "#6B5240" }}>
                   {loading ? "–" : stats.totalGuests}
                 </div>
-                <div style={{ fontSize: 10.5, color: "#bbb", marginTop: 6 }}>통계 분석 ›</div>
+                <div style={{ fontSize: 10.5, color: "#707070", marginTop: 6 }}>통계 분석 ›</div>
               </button>
             </div>
 
@@ -217,7 +217,7 @@ export default function AdminDashboard() {
                 최근 제보·신고
               </div>
               {recentActivity.length === 0 ? (
-                <div style={{ fontSize: 12, color: "#bbb", padding: "20px 0", textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "#707070", padding: "20px 0", textAlign: "center" }}>
                   {loading ? "불러오는 중..." : "최근 접수된 제보·신고가 없습니다."}
                 </div>
               ) : (
@@ -240,7 +240,7 @@ export default function AdminDashboard() {
                       }}>
                         {item.status}
                       </span>
-                      <span style={{ fontSize: 11, color: "#aaa" }}>
+                      <span style={{ fontSize: 11, color: "#6e6e6e" }}>
                         {new Date(item.created_at).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}
                       </span>
                     </div>

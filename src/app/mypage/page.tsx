@@ -5,6 +5,7 @@ import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
 import MyNotificationsCard from "@/components/MyNotificationsCard";
 import MyStaysCard from "@/components/lodging/MyStaysCard";
+import MemoryStampsCard from "@/components/stamps/MemoryStampsCard";
 import PageGuide from "@/components/PageGuide";
 import { boardLabel } from "@/lib/communityBoards";
 import { listSavedCourses, deleteSavedCourse, type SavedCourse } from "@/lib/savedCourses";
@@ -406,7 +407,7 @@ export default function MyPage() {
       />
       <div style={{ maxHeight:150, overflowY:"auto", display:"flex", flexDirection:"column", gap:3 }}>
         {previewResults.length === 0 ? (
-          <div style={{ fontSize:11, color:"#aaa", padding:"4px 2px" }}>검색 결과가 없어요</div>
+          <div style={{ fontSize:11, color:"#6e6e6e", padding:"4px 2px" }}>검색 결과가 없어요</div>
         ) : previewResults.map((p) => (
           <button key={p.id} onClick={() => { setPreviewPlace({ id: p.id, name: p.name }); onPick(p); }} style={{
             textAlign:"left", padding:"7px 9px", borderRadius:8, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
@@ -414,7 +415,7 @@ export default function MyPage() {
             background: previewPlace?.id === p.id ? "#f0f7ec" : "white",
           }}>
             <div style={{ fontSize:12, fontWeight:700, color:"#222" }}>{p.name}</div>
-            {p.address && <div style={{ fontSize:10.5, color:"#999" }}>{p.address}</div>}
+            {p.address && <div style={{ fontSize:10.5, color:"#666" }}>{p.address}</div>}
           </button>
         ))}
       </div>
@@ -531,7 +532,7 @@ export default function MyPage() {
         }}>
           <div style={{ fontSize: 36 }}>🐾</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#222" }}>마이페이지를 불러오는 데 시간이 걸리고 있어요</div>
-          <div style={{ fontSize: 13, color: "#888" }}>네트워크 상태를 확인하고 다시 불러와 주세요.</div>
+          <div style={{ fontSize: 13, color: "#5c5c5c" }}>네트워크 상태를 확인하고 다시 불러와 주세요.</div>
           <button onClick={() => window.location.reload()} style={{
             marginTop: 4, padding: "10px 20px", borderRadius: 10, border: "none",
             background: "#5C7A4A", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer",
@@ -676,7 +677,7 @@ export default function MyPage() {
 									<div
 										style={{
 											fontSize: "11px",
-											color: "rgba(255,255,255,0.72)",
+											color: "rgba(255,255,255,0.88)",
 											overflow: "hidden",
 											textOverflow: "ellipsis",
 											whiteSpace: "nowrap",
@@ -879,6 +880,7 @@ export default function MyPage() {
 						{/* ── 알림(숙박 예약 확정·거절, 체크인 전날 안내, 후기 요청 — 알림이 있을 때만) */}
 						<MyNotificationsCard />
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
+						<MemoryStampsCard />
 						<MyStaysCard />
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
@@ -903,7 +905,7 @@ export default function MyPage() {
 										<div
 											style={{
 												fontSize: 13,
-												color: "#9ca3af",
+												color: "#5f6672",
 												fontWeight: 700,
 											}}
 										>
@@ -995,7 +997,7 @@ export default function MyPage() {
 													<div
 														style={{
 															fontSize: 10,
-															color: "#aaa",
+															color: "#6e6e6e",
 															display: "flex",
 															alignItems: "center",
 															gap: 3,
@@ -1029,10 +1031,10 @@ export default function MyPage() {
                     }}>
                       <PetIllustration variant="empty" width={40} />
                     </div>
-                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                    <div style={{ fontSize: 13, color: "#5f6672", fontWeight: 700 }}>
                       아직 저장한 코스·경로가 없어요
                     </div>
-                    <div style={{ fontSize: 12, color: "#b6bcc6", marginTop: 6, lineHeight: 1.6 }}>
+                    <div style={{ fontSize: 12, color: "#6b7078", marginTop: 6, lineHeight: 1.6 }}>
                       지도의 AI 코스에서 "이 코스 저장"을 누르거나,<br />장소 상세의 "내 경로에 추가"로 나만의 여행 경로를 만들어 보세요.
                     </div>
                     <button
@@ -1059,7 +1061,7 @@ export default function MyPage() {
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: "#222", wordBreak: "keep-all" }}>{course.title}</div>
-                            <div style={{ marginTop: 4, display: "flex", gap: 10, fontSize: 11, color: "#999", flexWrap: "wrap" }}>
+                            <div style={{ marginTop: 4, display: "flex", gap: 10, fontSize: 11, color: "#666", flexWrap: "wrap" }}>
                               <span>{formatDate(course.created_at)} 저장</span>
                               {course.total_distance_km != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}><Footprints size={10} />약 {course.total_distance_km}km</span>}
                               {course.estimated_minutes != null && <span>약 {course.estimated_minutes >= 60 ? `${Math.floor(course.estimated_minutes / 60)}시간 ${course.estimated_minutes % 60}분` : `${course.estimated_minutes}분`}</span>}
@@ -1087,7 +1089,7 @@ export default function MyPage() {
                               <span style={{ flex: 1, minWidth: 0 }}>
                                 <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.name}</span>
                                 {(st.category || st.address) && (
-                                  <span style={{ display: "block", fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  <span style={{ display: "block", fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                     {[st.category, st.address].filter(Boolean).join(" · ")}
                                   </span>
                                 )}
@@ -1132,7 +1134,7 @@ export default function MyPage() {
                     }}>
                       <PetIllustration variant="empty" width={40} />
                     </div>
-                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                    <div style={{ fontSize: 13, color: "#5f6672", fontWeight: 700 }}>
                       아직 작성한 글이 없어요
                     </div>
                     <button
@@ -1160,7 +1162,7 @@ export default function MyPage() {
                             {boardLabel(post.board_id)}
                           </span>
                           {post.post_type && (
-                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#888" }}>[{post.post_type}]</span>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#5c5c5c" }}>[{post.post_type}]</span>
                           )}
                           {post.review_status === "pending" && (
                             <span title={post.review_reason || undefined} style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>관리자 확인 중 · 비공개</span>
@@ -1168,17 +1170,17 @@ export default function MyPage() {
                           {post.review_status === "rejected" && (
                             <span title={post.review_reason || undefined} style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#FEE2E2", color: "#991b1b" }}>반려됨 · 비공개</span>
                           )}
-                          <span style={{ marginLeft: "auto", fontSize: 10, color: "#bbb" }}>{formatDate(post.created_at)}</span>
+                          <span style={{ marginLeft: "auto", fontSize: 10, color: "#707070" }}>{formatDate(post.created_at)}</span>
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {post.title}
                         </div>
                         {post.content && (
-                          <div style={{ marginTop: 4, fontSize: 12.5, color: "#777", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>
+                          <div style={{ marginTop: 4, fontSize: 12.5, color: "#555", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>
                             {post.content}
                           </div>
                         )}
-                        <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 11, color: "#aaa" }}>
+                        <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 11, color: "#6e6e6e" }}>
                           <span>좋아요 {post.likes ?? 0}</span>
                           <span>댓글 {post.comment_count ?? 0}</span>
                           <span>조회 {post.views ?? 0}</span>
@@ -1202,7 +1204,7 @@ export default function MyPage() {
                     }}>
                       <PetIllustration variant="empty" width={40} />
                     </div>
-                    <div style={{ fontSize: 13, color: "#9ca3af", fontWeight: 700 }}>
+                    <div style={{ fontSize: 13, color: "#5f6672", fontWeight: 700 }}>
                       아직 작성한 댓글이 없어요
                     </div>
                   </div>
@@ -1242,13 +1244,13 @@ export default function MyPage() {
                                 <div className="ggk-logo" style={{ fontSize: 12, fontWeight: 700, color: "#111", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   {item.places?.name || "장소 보기"}
                                 </div>
-                                <div style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                <div style={{ fontSize: 10, color: "#6e6e6e", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                   {item.places?.address || ""}
                                 </div>
                               </div>
                               <span style={{
                                 flexShrink: 0, fontSize: 10, fontWeight: 700,
-                                color: "#ea580c", background: item._subtype === "reply" ? "#fef9c3" : "#fff0e6",
+                                color: "#c2410c", background: item._subtype === "reply" ? "#fef9c3" : "#fff0e6",
                                 borderRadius: 99, padding: "2px 8px",
                               }}>
                                 {item._subtype === "reply" ? "장소 대댓글" : "장소 댓글"}
@@ -1260,7 +1262,7 @@ export default function MyPage() {
                                 {item.content}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
+                                <span style={{ fontSize: 10, color: "#707070" }}>{formatDate(item.created_at)}</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                   <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
                                     <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
@@ -1326,7 +1328,7 @@ export default function MyPage() {
                                 {item.content}
                               </div>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 10, color: "#bbb" }}>{formatDate(item.created_at)}</span>
+                                <span style={{ fontSize: 10, color: "#707070" }}>{formatDate(item.created_at)}</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                   <span style={{ fontSize: 10, color: "#e11d48", display: "flex", alignItems: "center", gap: 3 }}>
                                     <Heart size={10} color="#e11d48" fill="#e11d48" />{item.likes || 0}
@@ -1414,7 +1416,7 @@ export default function MyPage() {
                       {userProfile?.owner_status === "verified" && <BadgeCheck size={13} color="#5C7A4A" />}
                       {userProfile?.nickname}
                     </div>
-                    <div style={{ fontSize:10, color:"#999" }}>{session?.user?.email}</div>
+                    <div style={{ fontSize:10, color:"#666" }}>{session?.user?.email}</div>
                   </div>
                 </div>
 
@@ -1466,7 +1468,7 @@ export default function MyPage() {
                     <div style={{ width:32, height:32, borderRadius:9, background:"white", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>
                       <UserX size={15} color="#ef4444" />
                     </div>
-                    <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#ef4444" }}>회원 탈퇴</div>
+                    <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#dc2626" }}>회원 탈퇴</div>
                     <ChevronRight size={14} color="#fca5a5" />
                   </button>
                 </div>
@@ -1498,23 +1500,23 @@ export default function MyPage() {
                     <X size={14} color="#666" />
                   </button>
                 </div>
-                <div style={{ fontSize:11, color:"#888", marginBottom:9 }}>현재 닉네임: <strong>{userProfile?.nickname}</strong></div>
+                <div style={{ fontSize:11, color:"#5c5c5c", marginBottom:9 }}>현재 닉네임: <strong>{userProfile?.nickname}</strong></div>
                 <div style={{ display:"flex", gap:7, marginBottom:5 }}>
                   <input placeholder="새 닉네임을 입력하세요" value={newNickname}
                     onChange={(e) => { setNewNickname(e.target.value); setNickMsg(null); setNickChecked(false); }}
                     onKeyDown={(e) => { if (e.key === "Enter") handleCheckNickname(); }}
                     style={{ ...inp, marginBottom:0, flex:1 }}
                   />
-                  <button onClick={handleCheckNickname} disabled={!newNickname.trim() || isCheckingNick} style={{ padding:"0 12px", borderRadius:9, border:"none", background: !newNickname.trim() || isCheckingNick ? "#d1d5db" : "#111", color:"white", fontWeight:700, fontSize:12, cursor: !newNickname.trim() || isCheckingNick ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0, fontFamily:"'Noto Sans KR',sans-serif" }}>
+                  <button onClick={handleCheckNickname} disabled={!newNickname.trim() || isCheckingNick} style={{ padding:"0 12px", borderRadius:9, border:"none", background: !newNickname.trim() || isCheckingNick ? "#d1d5db" : "#111", color: !newNickname.trim() || isCheckingNick ? "#4f4a3f" : "white", fontWeight:700, fontSize:12, cursor: !newNickname.trim() || isCheckingNick ? "default" : "pointer", whiteSpace:"nowrap", flexShrink:0, fontFamily:"'Noto Sans KR',sans-serif" }}>
                     {isCheckingNick ? "확인 중..." : "중복 확인"}
                   </button>
                 </div>
                 {nickMsg && (
-                  <div style={{ fontSize:11, color: nickMsg.ok ? "#22c55e" : "#ef4444", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                  <div style={{ fontSize:11, color: nickMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                     {nickMsg.ok && <Check size={12}/>}{nickMsg.text}
                   </div>
                 )}
-                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#5C7A4A,#48603A)", color: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#4f4a3f" : "white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
               </div>
@@ -1539,13 +1541,13 @@ export default function MyPage() {
                       onChange={(e) => { f.set(e.target.value); setPwMsg(null); }}
                       style={{ ...inp, marginBottom:0, paddingRight:42 }}
                     />
-                    <button onClick={() => f.setShow(!f.show)} style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", border:"none", background:"transparent", cursor:"pointer", color:"#aaa", display:"flex" }}>
+                    <button onClick={() => f.setShow(!f.show)} style={{ position:"absolute", right:11, top:"50%", transform:"translateY(-50%)", border:"none", background:"transparent", cursor:"pointer", color:"#6e6e6e", display:"flex" }}>
                       {f.show ? <EyeOff size={15}/> : <Eye size={15}/>}
                     </button>
                   </div>
                 ))}
                 {pwMsg && (
-                  <div style={{ fontSize:11, color: pwMsg.ok ? "#22c55e" : "#ef4444", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                  <div style={{ fontSize:11, color: pwMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                     {pwMsg.ok && <Check size={12}/>}{pwMsg.text}
                   </div>
                 )}
@@ -1569,7 +1571,7 @@ export default function MyPage() {
 
                 {isOwnerPreview && renderOwnerPreviewPicker((p) => openPremiumPane(p.id))}
                 {isOwnerPreview && ownerPlaceId == null ? null : premiumLoading ? (
-                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
+                  <div style={{ fontSize:12, color:"#666", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
                 ) : (
                   <>
                     {/* 현재 상태 요약 */}
@@ -1623,15 +1625,15 @@ export default function MyPage() {
                           style={{ ...inp, marginBottom:9, resize:"vertical", fontFamily:"'Noto Sans KR',sans-serif" }}
                         />
                         {premiumMsg && (
-                          <div style={{ fontSize:11, color: premiumMsg.ok ? "#22c55e" : "#ef4444", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                          <div style={{ fontSize:11, color: premiumMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                             {premiumMsg.ok && <Check size={12}/>}{premiumMsg.text}
                           </div>
                         )}
-                        <button onClick={handlePremiumApply} disabled={premiumSubmitting || isOwnerPreview} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: premiumSubmitting || isOwnerPreview ? "#d1d5db" : "linear-gradient(145deg,#D4A24C,#B8860B)", color:"white", fontWeight:700, fontSize:13, cursor: premiumSubmitting || isOwnerPreview ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                        <button onClick={handlePremiumApply} disabled={premiumSubmitting || isOwnerPreview} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: premiumSubmitting || isOwnerPreview ? "#d1d5db" : "linear-gradient(145deg,#D4A24C,#B8860B)", color: premiumSubmitting || isOwnerPreview ? "#4f4a3f" : "white", fontWeight:700, fontSize:13, cursor: premiumSubmitting || isOwnerPreview ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                           {premiumSubmitting ? "신청 중..." : "프리미엄 신청하기"}
                         </button>
                         {isOwnerPreview && (
-                          <div style={{ fontSize:11, color:"#999", textAlign:"center", marginTop:8 }}>관리자 미리보기에서는 실제로 신청되지 않아요.</div>
+                          <div style={{ fontSize:11, color:"#666", textAlign:"center", marginTop:8 }}>관리자 미리보기에서는 실제로 신청되지 않아요.</div>
                         )}
                       </>
                     )}
@@ -1672,14 +1674,14 @@ export default function MyPage() {
 
                 {isOwnerPreview && renderOwnerPreviewPicker((p) => openOwnerPlacePane(p.id))}
                 {isOwnerPreview && ownerPlaceId == null ? null : ownerPlaceLoading ? (
-                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
+                  <div style={{ fontSize:12, color:"#666", textAlign:"center", padding:"20px 0" }}><LogoLoader /></div>
                 ) : ownerPlace ? (
                   <OwnerPlaceEditPanel
                     place={ownerPlace}
                     onUpdated={(fields) => setOwnerPlace((prev: any) => ({ ...prev, ...fields }))}
                   />
                 ) : (
-                  <div style={{ fontSize:12, color:"#999", textAlign:"center", padding:"20px 0" }}>업장 정보를 불러오지 못했습니다.</div>
+                  <div style={{ fontSize:12, color:"#666", textAlign:"center", padding:"20px 0" }}>업장 정보를 불러오지 못했습니다.</div>
                 )}
               </div>
             )}
@@ -1688,7 +1690,7 @@ export default function MyPage() {
             {settingView === "withdraw" && (
               <div style={{ padding:"18px" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-                  <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#ef4444" }}>회원 탈퇴</div>
+                  <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#dc2626" }}>회원 탈퇴</div>
                   <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                     <X size={14} color="#666" />
                   </button>
@@ -1709,7 +1711,7 @@ export default function MyPage() {
                     style={{ ...inp, marginBottom:9 }}
                   />
                 )}
-                {withdrawMsg && <div style={{ fontSize:11, color:"#ef4444", marginBottom:9 }}>{withdrawMsg.text}</div>}
+                {withdrawMsg && <div style={{ fontSize:11, color:"#dc2626", marginBottom:9 }}>{withdrawMsg.text}</div>}
                 <button onClick={handleWithdraw} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"#ef4444", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   회원 탈퇴하기
                 </button>
@@ -1739,7 +1741,7 @@ export default function MyPage() {
               <LogOut size={21} color="#f59e0b" />
             </div>
             <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111", textAlign:"center", marginBottom:7 }}>로그아웃</div>
-            <div style={{ fontSize:12, color:"#888", textAlign:"center", marginBottom:20, lineHeight:1.6 }}>정말 로그아웃 하시겠습니까?</div>
+            <div style={{ fontSize:12, color:"#5c5c5c", textAlign:"center", marginBottom:20, lineHeight:1.6 }}>정말 로그아웃 하시겠습니까?</div>
             <div style={{ display:"flex", gap:7 }}>
               <button onClick={() => setShowLogoutModal(false)} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"1px solid #e2e8f0", background:"white", color:"#555", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>아니요</button>
               <button onClick={handleLogout} style={{ flex:1, padding:"10px 0", borderRadius:9, border:"none", background:"#f59e0b", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>로그아웃</button>

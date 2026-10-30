@@ -70,16 +70,16 @@ function FieldRow({
 
   const displayValue = () => {
     if (fieldKey === "large_dog") {
-      if (value === true)  return <span style={{ color:"#16a34a", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><CheckCircle2 size={13}/>가능</span>;
+      if (value === true)  return <span style={{ color:"#15803d", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><CheckCircle2 size={13}/>가능</span>;
       if (value === false) return <span style={{ color:"#dc2626", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><XCircle size={13}/>불가</span>;
-      return <span style={{ color:"#bbb" }}>미입력</span>;
+      return <span style={{ color:"#707070" }}>미입력</span>;
     }
     if (fieldKey === "pet_zone" && value) {
       return <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><PetZoneIcon zone={value} /> {PET_ZONE_LABEL[value]}</span>;
     }
     return value
       ? <span style={{ color:"#333" }}>{value}</span>
-      : <span style={{ color:"#bbb" }}>미입력</span>;
+      : <span style={{ color:"#707070" }}>미입력</span>;
   };
 
   return (
@@ -87,7 +87,7 @@ function FieldRow({
       <div style={{ display:"flex", alignItems:"flex-start", gap:6, justifyContent:"space-between" }}>
         <div style={{ display:"flex", alignItems:"center", gap:5, minWidth:80, paddingTop:2 }}>
           {icon}
-          <span style={{ fontSize:11, color:"#888", fontWeight:600 }}>{label}</span>
+          <span style={{ fontSize:11, color:"#5c5c5c", fontWeight:600 }}>{label}</span>
         </div>
         <div style={{ flex:1, fontSize:12, lineHeight:1.6 }}>
           {isEditing ? (
@@ -107,7 +107,7 @@ function FieldRow({
               <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#5C7A4A", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                 <Save size={11}/>저장
               </button>
-              <button onClick={onCancel} style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #ddd", background:"white", color:"#888", fontSize:11, cursor:"pointer" }}>
+              <button onClick={onCancel} style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #ddd", background:"white", color:"#5c5c5c", fontSize:11, cursor:"pointer" }}>
                 취소
               </button>
             </>
@@ -365,19 +365,19 @@ export default function AdminProposalsPage() {
                     style={{
                       flex:1, padding:"9px 8px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
-                      fontWeight:700, fontSize:12, color: isActive ? "#111" : "#888",
+                      fontWeight:700, fontSize:12, color: isActive ? "#111" : "#5c5c5c",
                       cursor:"pointer",
                       boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.08)" : "none",
                       transition:"all 0.15s ease",
                       display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                     }}
                   >
-                    <span style={{ color: isActive ? tab.activeColor : "#aaa" }}>{tab.icon}</span>
+                    <span style={{ color: isActive ? tab.activeColor : "#6e6e6e" }}>{tab.icon}</span>
                     {tab.label}
                     <span style={{
                       fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
                       background: isActive ? tab.activeBg : "#f0f2f5",
-                      color: isActive ? tab.activeColor : "#999",
+                      color: isActive ? tab.activeColor : "#666",
                     }}>
                       {tab.count}
                     </span>
@@ -390,7 +390,7 @@ export default function AdminProposalsPage() {
           {/* ── 리스트 ── */}
           <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
             {loading ? (
-              <div style={{ textAlign:"center", padding:"60px 0", color:"#bbb", fontSize:13 }}><LogoLoader /></div>
+              <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
@@ -420,7 +420,7 @@ export default function AdminProposalsPage() {
                   }}>
                     {/* 여러 건 한꺼번에 처리할 때 고르는 칸(카드를 눌러 이동하는 동작과 겹치지 않게 따로 둠) */}
                     {bulkActions.length > 0 && (
-                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#888", cursor:"default" }}>
+                      <div onClick={(e) => e.stopPropagation()} style={{ display:"flex", alignItems:"center", gap:7, padding:"8px 14px 0", fontSize:11.5, color:"#5c5c5c", cursor:"default" }}>
                         <SelectBox selection={selection} id={tip.id} /> 선택
                       </div>
                     )}
@@ -493,7 +493,7 @@ export default function AdminProposalsPage() {
                           {tip.status === "deleted"  && <><Trash2 size={9}/>삭제됨</>}
                         </span>
                       </span>
-                      <span style={{ fontSize:10, color:"#aaa" }}>{formatDate(tip.created_at)}</span>
+                      <span style={{ fontSize:10, color:"#6e6e6e" }}>{formatDate(tip.created_at)}</span>
                     </div>
 
                     <div style={{ padding:"14px 16px" }}>
@@ -505,7 +505,7 @@ export default function AdminProposalsPage() {
                         </div>
                         <div style={{ flex:1 }}>
                           <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>{tip.place_name}</div>
-                          <div style={{ fontSize:11, color:"#777", marginTop:1 }}>{tip.address}</div>
+                          <div style={{ fontSize:11, color:"#555", marginTop:1 }}>{tip.address}</div>
                         </div>
                       </div>
 
@@ -609,7 +609,7 @@ export default function AdminProposalsPage() {
                       {/* 이미지 갤러리 */}
                       {tip.image_urls?.length > 0 && (
                         <div style={{ marginBottom:12 }}>
-                          <div style={{ fontSize:11, fontWeight:700, color:"#888", marginBottom:7 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:"#5c5c5c", marginBottom:7 }}>
                             <ImageIcon size={11} style={{ display: "inline", verticalAlign: "-2px", marginRight: 4 }} />첨부 사진 {tip.image_urls.length}장
                           </div>
                           <div style={{ display:"flex", gap:7, flexWrap:"wrap" }}>
@@ -629,8 +629,8 @@ export default function AdminProposalsPage() {
                       {/* 제보자 */}
                       <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:12, padding:"6px 10px", background:"#f8fafc", borderRadius:8, border:"1px solid #e8eaed" }}>
                         <User size={12} color="#5C7A4A" />
-                        <span style={{ fontSize:10, color:"#888", fontWeight:600 }}>{reporter.label}</span>
-                        <span style={{ fontSize:11, color: reporter.isEmail ? "#2563eb" : "#999", fontWeight: reporter.isEmail ? 600 : 400 }}>
+                        <span style={{ fontSize:10, color:"#5c5c5c", fontWeight:600 }}>{reporter.label}</span>
+                        <span style={{ fontSize:11, color: reporter.isEmail ? "#2563eb" : "#666", fontWeight: reporter.isEmail ? 600 : 400 }}>
                           {reporter.value}
                         </span>
                       </div>

@@ -84,9 +84,9 @@ const cardStyle: React.CSSProperties = {
 function Metric({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
     <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 10.5, color: "#999", fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 10.5, color: "#666", fontWeight: 700 }}>{label}</div>
       <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 700, color: "#111", marginTop: 2 }}>{value}</div>
-      {hint && <div style={{ fontSize: 10, color: "#bbb", marginTop: 1 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: "#707070", marginTop: 1 }}>{hint}</div>}
     </div>
   );
 }
@@ -98,9 +98,9 @@ function PositionBars({ data }: { data: { pos: number; clicks: number }[] }) {
     <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 76, marginTop: 6 }}>
       {data.map((d) => (
         <div key={d.pos} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <span style={{ fontSize: 9, lineHeight: "12px", color: "#999", fontWeight: 700 }}>{d.clicks}</span>
+          <span style={{ fontSize: 9, lineHeight: "12px", color: "#666", fontWeight: 700 }}>{d.clicks}</span>
           <div style={{ width: "100%", height: `${(d.clicks / max) * 40}px`, minHeight: 2, flexShrink: 0, background: "#8FA876", borderRadius: 3 }} />
-          <span style={{ fontSize: 9, lineHeight: "12px", color: "#bbb" }}>{d.pos}</span>
+          <span style={{ fontSize: 9, lineHeight: "12px", color: "#707070" }}>{d.pos}</span>
         </div>
       ))}
     </div>
@@ -164,10 +164,10 @@ export default function RecommendMetricsSection() {
         <div style={{ ...cardStyle, fontSize: 12, color: "#8a6d2b", background: "#fffaf0" }}>{message}</div>
       )}
       {!message && loading && !rows && (
-        <div style={{ ...cardStyle, fontSize: 12, color: "#999" }}><LogoLoader /></div>
+        <div style={{ ...cardStyle, fontSize: 12, color: "#666" }}><LogoLoader /></div>
       )}
       {!message && rows && rows.length === 0 && (
-        <div style={{ ...cardStyle, fontSize: 12, color: "#aaa" }}>아직 추천 노출 기록이 없습니다.</div>
+        <div style={{ ...cardStyle, fontSize: 12, color: "#6e6e6e" }}>아직 추천 노출 기록이 없습니다.</div>
       )}
 
       {!message && rows && rows.length > 0 && (
@@ -189,7 +189,7 @@ export default function RecommendMetricsSection() {
                 <Metric label="찜 전환율" value={`${r.rec.bookmarkConversionRate}%`} hint="클릭 후 24시간" />
                 <Metric label="광고 클릭률" value={`${r.rec.adCtr}%`} hint={`노출 ${r.rec.adImpressions}`} />
               </div>
-              <div style={{ fontSize: 10.5, color: "#999", fontWeight: 700, marginBottom: 4 }}>순위별 클릭 수</div>
+              <div style={{ fontSize: 10.5, color: "#666", fontWeight: 700, marginBottom: 4 }}>순위별 클릭 수</div>
               <PositionBars data={r.rec.positionClicks} />
 
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#333", margin: "16px 0 8px" }}>

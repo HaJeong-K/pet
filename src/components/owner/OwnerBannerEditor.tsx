@@ -135,11 +135,11 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <Megaphone size={16} color="#7c3aed" />
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>배너 광고 만들기</div>
-        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.live ? "#f3f0ff" : "#f1f2f4", color: data.live ? "#7c3aed" : "#777" }}>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.live ? "#f3f0ff" : "#f1f2f4", color: data.live ? "#7c3aed" : "#555" }}>
           {data.live ? (saved && !saved.hidden ? "내 배너 노출 중" : "기본 모양으로 노출 중") : "아직 노출 전"}
         </span>
       </div>
-      <div style={{ fontSize: 12.5, color: "#888", marginTop: 4, lineHeight: 1.65 }}>
+      <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.65 }}>
         커뮤니티·마이페이지의 광고 칸에 나가는 배너예요. 문구와 사진을 넣으면 아래에서 실제 모습을 바로 볼 수 있어요.
         {data.place?.region && <> 먼저 <b style={{ color: "#555" }}>{data.place.region}</b> 사용자에게 보여요.</>}
         {!data.live && <> 지금은 미리 만들어 두는 단계이고, <b style={{ color: "#555" }}>동네 대표</b> 요금제를 이용하면 노출돼요.</>}
@@ -152,26 +152,26 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
 
       <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
         <div>
-          <div style={label}>큰 문구 <span style={{ fontWeight: 600, color: "#aaa" }}>{form.headline.length}/{BANNER_HEADLINE_MAX}</span></div>
+          <div style={label}>큰 문구 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>{form.headline.length}/{BANNER_HEADLINE_MAX}</span></div>
           <input value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} maxLength={BANNER_HEADLINE_MAX} placeholder="예: 댕댕이랑 브런치, 테라스에서" disabled={!canAct} style={input} />
         </div>
         <div>
-          <div style={label}>작은 문구 <span style={{ fontWeight: 600, color: "#aaa" }}>(선택) {form.body.length}/{BANNER_BODY_MAX}</span></div>
+          <div style={label}>작은 문구 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택) {form.body.length}/{BANNER_BODY_MAX}</span></div>
           <input value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} maxLength={BANNER_BODY_MAX} placeholder="예: 대형견 환영 · 반려견 전용 메뉴 · 주차 가능" disabled={!canAct} style={input} />
         </div>
         <div>
-          <div style={label}>사진 <span style={{ fontWeight: 600, color: "#aaa" }}>(선택) 가고 싶어지는 가게 사진 한 장 · 5MB까지</span></div>
+          <div style={label}>사진 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택) 가고 싶어지는 가게 사진 한 장 · 5MB까지</span></div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <input ref={fileRef} type="file" accept={BANNER_IMAGE_TYPES.join(",")} onChange={(e) => upload(e.target.files?.[0])} style={{ display: "none" }} />
             <button onClick={() => fileRef.current?.click()} disabled={!canAct || busy !== ""} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 14px", borderRadius: 10, border: "1px dashed #c9b98a", background: "#FFFBEB", color: "#7a5a12", fontSize: 13, fontWeight: 700, cursor: canAct ? "pointer" : "default", fontFamily: "inherit" }}>
               <ImagePlus size={15} />{busy === "upload" ? "올리는 중…" : form.imageUrl ? "다른 사진으로 바꾸기" : "사진 올리기"}
             </button>
             {form.imageUrl && (
-              <button onClick={() => setForm({ ...form, imageUrl: null })} disabled={!canAct} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "10px 12px", borderRadius: 10, border: "1px solid #eee", background: "white", color: "#888", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => setForm({ ...form, imageUrl: null })} disabled={!canAct} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "10px 12px", borderRadius: 10, border: "1px solid #eee", background: "white", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                 <Trash2 size={13} />사진 빼기
               </button>
             )}
-            <span style={{ fontSize: 11.5, color: "#999" }}>사진을 안 넣으면 가게에 등록된 사진을 써요.</span>
+            <span style={{ fontSize: 11.5, color: "#666" }}>사진을 안 넣으면 가게에 등록된 사진을 써요.</span>
           </div>
         </div>
         <div>
@@ -182,7 +182,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
               return (
                 <button key={f.id} onClick={() => setForm({ ...form, font: f.id })} disabled={!canAct} aria-pressed={active} style={{ padding: "9px 10px", borderRadius: 11, border: `1.5px solid ${active ? "#7c3aed" : "#e6e2d6"}`, background: active ? "#f7f3ff" : "white", cursor: canAct ? "pointer" : "default", textAlign: "left" }}>
                   <span style={{ display: "block", fontFamily: f.family, fontWeight: f.weight, fontSize: 16 * bannerFontScale(f.id), lineHeight: 1.25, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>같이가개 멍멍</span>
-                  <span style={{ display: "block", fontSize: 10.5, color: active ? "#7c3aed" : "#999", fontWeight: 700, marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{f.label}</span>
+                  <span style={{ display: "block", fontSize: 10.5, color: active ? "#7c3aed" : "#666", fontWeight: 700, marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{f.label}</span>
                 </button>
               );
             })}
@@ -192,14 +192,14 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
 
       {/* 미리보기 — 실제 광고 칸과 같은 그림 */}
       <div style={{ marginTop: 18, padding: 14, borderRadius: 14, background: "#F7F3E8" }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 10 }}>미리보기 <span style={{ fontWeight: 600, color: "#999" }}>— 저장하기 전에는 나만 보여요</span></div>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 10 }}>미리보기 <span style={{ fontWeight: 600, color: "#666" }}>— 저장하기 전에는 나만 보여요</span></div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ flex: "0 0 200px" }}>
-            <div style={{ fontSize: 11, color: "#999", marginBottom: 5 }}>PC 화면 양옆</div>
+            <div style={{ fontSize: 11, color: "#666", marginBottom: 5 }}>PC 화면 양옆</div>
             <div style={{ width: 200, height: 300, display: "flex" }}><BannerCreativeView banner={preview} shape="rail" /></div>
           </div>
           <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "#999", marginBottom: 5 }}>휴대폰 화면 위쪽</div>
+            <div style={{ fontSize: 11, color: "#666", marginBottom: 5 }}>휴대폰 화면 위쪽</div>
             <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #eadfbf", maxWidth: 400 }}><BannerCreativeView banner={preview} shape="strip" style={{ borderBottom: "none" }} /></div>
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
         <button onClick={save} disabled={!canSave} style={{ padding: "11px 20px", borderRadius: 11, border: "none", background: canSave ? "#7c3aed" : "#d6d3c9", color: "white", fontSize: 13.5, fontWeight: 800, cursor: canSave ? "pointer" : "default", fontFamily: "inherit" }}>
           {busy === "save" ? "저장 중…" : "배너 저장"}
         </button>
-        <span style={{ flex: "1 1 220px", fontSize: 12, color: "#888", lineHeight: 1.6 }}>
+        <span style={{ flex: "1 1 220px", fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>
           {!canAct ? "보기 전용이에요. 대신 고치려면 위의 “사장님 요청으로 대신 처리하기”를 켜 주세요."
             : !saved ? `저장하면 ${BANNER_CHANGE_DAYS}일 동안 다시 바꿀 수 없으니 미리보기를 꼭 확인해 주세요.`
             : allowance.usesExtra ? `관리자가 한도를 풀어 줬어요 — 지금 한 번 더 바꿀 수 있어요(남은 횟수 ${data.extraChanges}회).`
@@ -237,19 +237,19 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
               <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} rows={3} placeholder="왜 다시 바꿔야 하는지 적어 주세요. 예: 문구에 오타가 있어요 / 사진을 잘못 올렸어요" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setShowRequest(false)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid #ddd", background: "white", color: "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>취소</button>
-                <button onClick={sendRequest} disabled={busy !== "" || reason.trim().length < 5} style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: reason.trim().length < 5 ? "#d6d3c9" : "#7c3aed", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{busy === "request" ? "보내는 중…" : "요청 보내기"}</button>
+                <button onClick={sendRequest} disabled={busy !== "" || reason.trim().length < 5} style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: reason.trim().length < 5 ? "#d6d3c9" : "#7c3aed", color: reason.trim().length < 5 ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{busy === "request" ? "보내는 중…" : "요청 보내기"}</button>
               </div>
             </div>
           )}
         </div>
       )}
       {(data.requests ?? []).filter((r) => r.status !== "pending").slice(0, 2).map((r) => (
-        <div key={r.id} style={{ marginTop: 8, fontSize: 11.5, color: "#888", lineHeight: 1.55 }}>
+        <div key={r.id} style={{ marginTop: 8, fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.55 }}>
           <span style={{ fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: REQUEST_LABEL[r.status].bg, color: REQUEST_LABEL[r.status].color, marginRight: 6 }}>{REQUEST_LABEL[r.status].text}</span>
           {fmtDate(r.created_at)} 요청 · {r.reason}{r.admin_note ? ` → 관리자: ${r.admin_note}` : ""}
         </div>
       ))}
-      <div style={{ marginTop: 12, fontSize: 11, color: "#aaa", lineHeight: 1.6 }}>
+      <div style={{ marginTop: 12, fontSize: 11, color: "#6e6e6e", lineHeight: 1.6 }}>
         · 사실과 다른 내용, 다른 가게 비방, 남의 사진·상표를 쓴 배너는 관리자가 내릴 수 있어요. 사진은 직접 찍었거나 쓸 권리가 있는 것만 올려 주세요.
       </div>
     </div>

@@ -3,12 +3,14 @@ import { canReviewStay } from "@/lib/lodgingReviews";
 import { ensureFreshIcal } from "@/lib/server/lodgingIcal";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
-import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, confirmedOverlaps, getLodging, roomDays } from "@/lib/server/lodgingStore";
-import { applyCancel, confirmStay, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
+import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, getLodging, heldOverlaps, roomDays } from "@/lib/server/lodgingStore";
+import { applyCancel, confirmStay, expireStaleRequests, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
+import { availableStamps, releaseStamps, spendStamps } from "@/lib/server/memoryStamps";
+import { stampDiscount } from "@/lib/memoryStamps";
 import { sendOwnerPush } from "@/lib/server/ownerPush";
 import { notifyAdmin } from "@/lib/server/notify";
 import { createRateLimiter } from "@/lib/server/rateLimit";
-import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petNightFee, petsAllowed, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
+import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
 import { cancelOutcome, refundSchedule, type PeakPeriod } from "@/lib/lodgingPolicy";
 import { won } from "@/lib/ownerPlans";
 
@@ -23,6 +25,7 @@ import { won } from "@/lib/ownerPlans";
 // 요금은 손님이 보낸 값이 아니라 숙소가 올린 요금으로 다시 계산합니다. 동반 규정에 맞지 않거나 막은 날·이미 찬 날이 끼면 받지 않습니다.
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
+const FULL_MESSAGE = "그 사이 다른 손님이 먼저 예약했어요. 다른 날짜를 골라 주세요.";
 // 한 사람이 10분에 5건까지 — 장난 예약으로 숙소가 곤란해지지 않게.
 const allow = createRateLimiter({ windowMs: 10 * 60_000, max: 5 });
 const ISSUE_KINDS: Record<string, string> = {
@@ -30,6 +33,7 @@ const ISSUE_KINDS: Record<string, string> = {
   different_room: "예약한 객실·시설과 달라요",
   pet_condition: "반려동물 동반 조건이 안내와 달라요",
   facility: "시설·위생에 문제가 있었어요",
+  extra_charge: "현장에서 추가 요금을 요구받았어요",
   other: "기타",
 };
 const shortDay = (day: string) => stayDayLabel(day);
@@ -101,14 +105,16 @@ export async function POST(req: NextRequest) {
 
   const petProblem = petsAllowed(profile, room, r.pets);
   if (petProblem) return fail(petProblem, 400);
-  // 다른 예약 사이트에서 막 팔렸을 수 있으니 달력 연동을 먼저 새로 고칩니다(30분 넘었을 때만)
-  await ensureFreshIcal(r.roomId).catch(() => {});
+  // 다른 예약 사이트에서 막 팔렸을 수 있으니 달력 연동을 항상 먼저 새로 받습니다
+  await ensureFreshIcal(r.roomId, 0).catch(() => {});
+  // 24시간이 지난 확인 대기는 먼저 풀어 줍니다
+  await expireStaleRequests(r.roomId).catch(() => 0);
   const days = await roomDays(r.roomId, r.checkIn, r.checkOut, { withIcal: true }).catch(() => []);
   // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
-  const petNightly = r.pets.reduce((sum, p) => sum + petNightFee(profile, p), 0);
+  const petNightly = petsNightlyTotal(profile, r.pets);
   const q = quoteStay(room, petNightly, days, r.checkIn, r.checkOut, r.guests, r.extras, profile?.extras ?? []);
   if ("error" in q) return fail(q.error, 400);
-  if ((await confirmedOverlaps(r.roomId, r.checkIn, r.checkOut)).length > 0) return fail("그 날짜에는 이미 예약이 찼어요. 다른 날짜를 골라 주세요.", 409);
+  if ((await heldOverlaps(r.roomId, r.checkIn, r.checkOut)).length > 0) return fail(FULL_MESSAGE, 409);
 
   const { count } = await db.from("lodging_bookings").select("id", { count: "exact", head: true })
     .eq("place_id", placeId).eq("guest_auth_user_id", user.id).in("status", ["requested", "confirmed"]).gte("check_out", kstToday());
@@ -117,11 +123,13 @@ export async function POST(req: NextRequest) {
   // 즉시 확정 숙소는 결제와 함께 바로 확정됩니다(계약서 제8조 제3항).
   const { data: flags } = await db.from("lodging_profiles").select("instant_confirm").eq("place_id", placeId).maybeSingle();
   const instant = flags?.instant_confirm === true;
+  // 추억 스탬프 할인 — 가진 개수·한도로 서버가 다시 계산합니다. 할인분은 같이가개가 부담합니다.
+  const { used: stampsUsed, discount } = r.stamps > 0 ? stampDiscount(q.total, r.stamps, await availableStamps(user.id)) : { used: 0, discount: 0 };
   const base = {
     place_id: placeId, room_id: room.id, room_name: room.name, guest_auth_user_id: user.id,
     guest_name: r.name, guest_phone: r.phone, check_in: r.checkIn, check_out: r.checkOut, nights: q.nights.length, guests: r.guests,
-    pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal, extras: q.extras, extrasTotal: q.extrasTotal },
-    total: q.total, payment: "online", memo: r.memo, status: instant ? "confirmed" : "requested", ...(instant ? { decided_at: new Date().toISOString() } : {}),
+    pets: r.pets, price_detail: { nights: q.nights, roomTotal: q.roomTotal, extraGuestTotal: q.extraGuestTotal, petTotal: q.petTotal, extras: q.extras, extrasTotal: q.extrasTotal, listTotal: q.total, stampCount: stampsUsed, stampDiscount: discount },
+    total: q.total - discount, stamp_discount: discount, payment: "online", memo: r.memo, status: instant ? "confirmed" : "requested", ...(instant ? { decided_at: new Date().toISOString() } : {}),
   };
   // 이용자 정보·방문 수단·동의 기록(scripts/sql/lodging-guest-review-reports.sql)
   const guestInfo = {
@@ -134,12 +142,28 @@ export async function POST(req: NextRequest) {
   if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").insert([{ ...base, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single());
   // 정산 칸(scripts/sql/lodging-settlement.sql) 실행 전이면 그 칸 없이 접수합니다
   if (error && isMissingSchema(error)) ({ data, error } = await db.from("lodging_bookings").insert([base]).select(BOOKING_COLUMNS).single());
+  // 같은 날짜가 동시에 들어오면 DB 규칙이 한 건만 받습니다(lodging_bookings_no_overlap)
+  if (error?.code === "23P01") return fail(FULL_MESSAGE, 409);
   if (error || !data) return fail(error?.message ?? "예약하지 못했어요.", 500);
+
+  // 스탬프를 실제로 씁니다. 그 사이 개수가 모자라면(다른 기기에서 사용) 예약을 되돌립니다.
+  if (stampsUsed > 0) {
+    const spent = await spendStamps(user.id, Number(data.id), stampsUsed);
+    if (spent < stampsUsed) {
+      await releaseStamps(Number(data.id));
+      await db.from("lodging_bookings").delete().eq("id", data.id);
+      return fail("스탬프 개수가 바뀌었어요. 다시 확인해 주세요.", 409);
+    }
+  }
+
+  // 달력 연동을 안 한 객실이면, 다른 사이트에서도 파는 경우 그쪽을 막아 달라고 알립니다
+  const { data: icalRow } = await db.from("lodging_rooms").select("ical_import_url").eq("id", r.roomId).maybeSingle();
+  const otherSiteNote = icalRow?.ical_import_url ? "" : "\n다른 예약 사이트에서도 파는 객실이면 그쪽 달력에서 이 날짜를 막아 주세요.";
 
   // 숙소 사장님 기기로 알림 — 응답을 보낸 뒤에 보내서 손님을 기다리게 하지 않습니다. 알림마다 꼬리표가 달라 한 건씩 쌓입니다.
   after(() => sendOwnerPush(placeId, {
     title: instant ? "멍멍! 새 숙박 예약이 확정됐어요" : "멍멍! 새 숙박 예약 요청이 들어왔어요",
-    body: `${r.name}님 · ${room.name} · ${shortDay(r.checkIn)}~${shortDay(r.checkOut)} ${q.nights.length}박 · ${r.guests}명·반려동물 ${r.pets.length}마리 · ${won(q.total)}${instant ? "" : "\n24시간 안에 확정하거나 거절해 주세요."}`,
+    body: `${r.name}님 · ${room.name} · ${shortDay(r.checkIn)}~${shortDay(r.checkOut)} ${q.nights.length}박 · ${r.guests}명·반려동물 ${r.pets.length}마리 · ${won(q.total)}${instant ? "" : "\n24시간 안에 확정하거나 거절해 주세요."}${otherSiteNote}`,
     tag: `ggk-stay-${data.id}`,
     url: "/owner#stays",
   }));

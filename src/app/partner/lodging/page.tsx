@@ -64,6 +64,7 @@ const STEPS = [
 const TERMS = [
   `수수료: 입점일부터 ${PROMO_MONTHS}개월 동안 체크인하는 예약은 ${PROMO_FEE_RATE}%, 이후 ${BASIC_FEE_RATE}%입니다. 숙소 프리미엄 이용 기간에는 ${PREMIUM_FEE_RATE}%입니다.`,
   "결제: 손님은 예약할 때 전액을 결제하고, 같이가개가 이용 확정 때까지 보관합니다.",
+  "추가 요금: 인원·반려동물 추가 요금과 부가 옵션까지 예약할 때 함께 결제돼요. 현장에서 추가 요금을 받을 수 없어요.",
   `이용 확정: 체크아웃 날부터 손님이 '이용 확정'을 누를 수 있고, ${AUTO_CONFIRM_DAYS}일 안에 누르지 않으면 자동으로 확정됩니다.`,
   "정산: 이용 확정 다음 영업일에 수수료를 뺀 금액을 등록한 계좌로 보내 드립니다.",
   `취소·환불: 공정거래위원회 소비자분쟁해결기준(숙박업)을 따릅니다. 손님 사정 취소의 위약금은 숙소 몫이며, 위약금에서 취소 정산 수수료 ${CANCEL_FEE_RATE}%를 뺀 금액을 정산합니다.`,
@@ -126,7 +127,7 @@ export default function PartnerLodgingPage() {
             {[[`${PROMO_FEE_RATE}%`, `입점일부터 ${PROMO_MONTHS}개월 수수료`], [`${BASIC_FEE_RATE}%`, `이후 기본 · 프리미엄 ${PREMIUM_FEE_RATE}%`], ["0원", "가입비 · 광고비"]].map(([value, label]) => (
               <div key={label} style={{ padding: "16px 18px", borderRadius: 18, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)" }}>
                 <div className="ggk-logo" style={{ fontSize: 28, fontWeight: 800, color: GOLD }}>{value}</div>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 3 }}>{label}</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.88)", marginTop: 3 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -177,7 +178,7 @@ export default function PartnerLodgingPage() {
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 16, fontSize: 13, color: "#8a8173", lineHeight: 1.7 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 16, fontSize: 13, color: "#655d4f", lineHeight: 1.7 }}>
             <MapPin size={14} style={{ flexShrink: 0, marginTop: 3 }} />
             <span>지도에 아직 없는 숙소도 신청할 수 있어요. 같이가개가 확인한 뒤 지도에 등록해 드려요.</span>
           </div>
@@ -229,7 +230,7 @@ export default function PartnerLodgingPage() {
             반려동물 손님을 맞을 준비,<br /><span style={{ color: GOLD }}>오늘 시작해 보세요.</span>
           </h2>
           <div style={{ marginTop: 26 }}><Suspense fallback={null}><PartnerStartButton variant="dark" /></Suspense></div>
-          <div style={{ marginTop: 22, fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.8 }}>
+          <div style={{ marginTop: 22, fontSize: 12, color: "rgba(255,255,255,0.88)", lineHeight: 1.8 }}>
             가입비·광고비 없음 · 이용 확정된 예약에만 수수료<br />
             같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
           </div>

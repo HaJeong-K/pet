@@ -18,7 +18,7 @@ export const PROFILE_EXTRA_COLUMNS = "peak_periods, instant_confirm";
 /** 그 외 동반 동물 칸(scripts/sql/lodging-reviews.sql) */
 export const PROFILE_OTHERS_COLUMN = "pet_others";
 /** 크기·종류별 반려동물 추가 요금·부가 옵션 칸(scripts/sql/lodging-fees-extras.sql) */
-export const PROFILE_FEES_COLUMNS = "pet_fees, extras";
+export const PROFILE_FEES_COLUMNS = "pet_fees, extras, pet_free_count";
 export const ROOM_BASE_COLUMNS = "id, place_id, name, room_type, description, base_price, weekend_price, std_guests, max_guests, extra_guest_fee, max_pets, images, amenities, is_active, sort_order";
 /** 요일별 요금 칸(scripts/sql/lodging-fees-extras.sql)까지 */
 export const ROOM_COLUMNS = `${ROOM_BASE_COLUMNS}, weekday_prices`;
@@ -66,6 +66,7 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
       pet_others: typeof profile.data.pet_others === "string" ? profile.data.pet_others : null,
       pet_fees: profile.data.pet_fees && typeof profile.data.pet_fees === "object" && !Array.isArray(profile.data.pet_fees) ? profile.data.pet_fees : {},
       extras: Array.isArray(profile.data.extras) ? profile.data.extras : [],
+      pet_free_count: profile.data.pet_free_count == null ? null : Number(profile.data.pet_free_count),
       max_pet_weight_kg: profile.data.max_pet_weight_kg == null ? null : Number(profile.data.max_pet_weight_kg),
     } : null,
     rooms: onlyActive && !(await partnerOf(placeId)).open ? [] : (rooms.data ?? []) as unknown as RoomRow[],
@@ -74,7 +75,7 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
 
 // ── 3단계: 예약 달력 · 숙박 예약 (scripts/sql/lodging-bookings.sql) ──
 
-export const BOOKING_COLUMNS = "id, place_id, room_id, room_name, guest_name, guest_phone, check_in, check_out, nights, guests, pets, price_detail, total, payment, memo, status, owner_note, decided_at, created_at, updated_at";
+export const BOOKING_COLUMNS = "id, place_id, room_id, room_name, guest_name, guest_phone, check_in, check_out, nights, guests, pets, price_detail, total, payment, memo, status, owner_note, decided_at, created_at, updated_at, stamp_discount";
 /** 4단계 칸(scripts/sql/lodging-settlement.sql) — 결제·취소 환불·이용 확정·문제 접수·정산 */
 export const SETTLEMENT_COLUMNS = "booked_on, payment_status, paid_at, cancel_cause, cancelled_at, refund_amount, penalty_amount, compensation_amount, stay_confirmed_at, stay_confirmed_by, issue_status, issue_kind, issue_detail, issue_opened_at, issue_owner_reply, issue_resolution, fee_rate, fee_amount, payout_amount, payout_due_on, payout_status, paid_out_at";
 export const BOOKING_FULL_COLUMNS = `${BOOKING_COLUMNS}, ${SETTLEMENT_COLUMNS}`;
@@ -102,6 +103,16 @@ export async function confirmedOverlaps(roomId: number, checkIn: string, checkOu
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return (data ?? []) as { id: number; check_in: string; check_out: string }[];
+}
+
+/**
+ * 그 객실에서 날짜를 잡고 있는 예약(확정 + 24시간 안의 확인 대기) 중 [checkIn, checkOut)과 겹치는 것.
+ * 24시간이 지난 확인 대기는 매일 새벽 작업·예약 직전 정리(expireStaleRequests)로 자동 취소됩니다.
+ */
+export async function heldOverlaps(roomId: number, checkIn: string, checkOut: string): Promise<{ id: number; status: string; created_at: string }[]> {
+  const { data, error } = await db.from("lodging_bookings").select("id, status, created_at").eq("room_id", roomId).in("status", ["requested", "confirmed"]).lt("check_in", checkOut).gt("check_out", checkIn);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as { id: number; status: string; created_at: string }[];
 }
 
 // ── 입점 상태 (scripts/sql/lodging-partners.sql) ──

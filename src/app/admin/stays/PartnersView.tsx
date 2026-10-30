@@ -65,7 +65,7 @@ export default function PartnersView() {
       {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
       {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-partners.sql</b>을 실행해 주세요.</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
-      {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#aaa", fontSize: 13 }}>입점 신청이 없어요.</div>}
+      {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>입점 신청이 없어요.</div>}
       {rows?.map((p) => {
         const st = STATUS[p.status];
         return (
@@ -76,7 +76,7 @@ export default function PartnersView() {
               {p.requested_place_id != null
                 ? <a href={`/place/${p.requested_place_id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#1D4F91" }}>지도 숙소 #{p.requested_place_id}</a>
                 : <span style={{ fontSize: 12, color: "#B45309", fontWeight: 700 }}>지도에 없는 숙소</span>}
-              <span style={{ marginLeft: "auto", fontSize: 12, color: "#999" }}>{stayDayLabel(p.created_at.slice(0, 10))} 신청</span>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>{stayDayLabel(p.created_at.slice(0, 10))} 신청</span>
             </div>
             <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.75 }}>
               {[p.place_address, p.place_phone].filter(Boolean).join(" · ") || "주소·전화 없음"}<br />
@@ -89,11 +89,11 @@ export default function PartnersView() {
             <div style={{ marginTop: 8 }}>
               {p.licenseUrl
                 ? <a href={p.licenseUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 800, color: "#1D4F91" }}>영업신고증 보기(10분 동안 열림)</a>
-                : <span style={{ fontSize: 12.5, color: "#999" }}>영업신고증 없음</span>}
+                : <span style={{ fontSize: 12.5, color: "#666" }}>영업신고증 없음</span>}
             </div>
             {p.status === "pending" && (
               <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 12, color: "#888", lineHeight: 1.6 }}>
+                <div style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>
                   확인할 것: 영업신고증의 상호·주소가 숙소와 같은지, 예금주가 사업자와 같은지, 반려동물 동반 숙소가 맞는지
                   {p.requested_place_id == null && <><br /><b style={{ color: "#B45309" }}>지도에 없는 숙소는 먼저 제보로 장소를 등록한 뒤, 사장님께 그 장소를 골라 다시 신청해 달라고 안내해 주세요.</b></>}
                 </div>

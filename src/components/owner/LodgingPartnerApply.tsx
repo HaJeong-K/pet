@@ -89,7 +89,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
     finally { setBusy(false); }
   };
 
-  if (!state) return error ? <div style={{ ...card, fontSize: 13, color: "#999" }}>{error}</div> : null;
+  if (!state) return error ? <div style={{ ...card, fontSize: 13, color: "#666" }}>{error}</div> : null;
   if (!state.ready) return null;
   const p = state.partner;
 
@@ -124,7 +124,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
   return (
     <div style={card}>
       <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>같이가개 숙소 입점 신청</div>
-      <div style={{ fontSize: 12.5, color: "#777", marginTop: 5, lineHeight: 1.7 }}>
+      <div style={{ fontSize: 12.5, color: "#555", marginTop: 5, lineHeight: 1.7 }}>
         반려동물과 여행하는 손님만 모이는 숙소 예약 서비스예요.<br />
         숙소 근처의 동반 카페·식당·공원까지 함께 보여 줘서, 손님이 머무는 동안 즐길 거리를 바로 찾을 수 있어요.
       </div>
@@ -136,7 +136,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, background: "#E3EDFA" }}>
             <CheckCircle2 size={16} color={BLUE} />
             <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}><b>{picked.name}</b><div style={{ fontSize: 12, color: "#555" }}>{[picked.category, picked.address].filter(Boolean).join(" · ")}</div></div>
-            <button onClick={() => setPicked(null)} style={{ border: "none", background: "transparent", color: "#777", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>다시 고르기</button>
+            <button onClick={() => setPicked(null)} style={{ border: "none", background: "transparent", color: "#555", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>다시 고르기</button>
           </div>
         ) : !manual ? (
           <div>
@@ -148,7 +148,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
               <div style={{ marginTop: 6, border: "1px solid #eee", borderRadius: 12, overflow: "hidden" }}>
                 {results.map((c) => (
                   <button key={c.id} onClick={() => pick(c)} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 12px", border: "none", borderBottom: "1px solid #f2f2f2", background: "white", cursor: "pointer", fontFamily: "inherit" }}>
-                    <b style={{ fontSize: 13 }}>{c.name}</b> <span style={{ fontSize: 12, color: "#888" }}>{[c.category, c.address].filter(Boolean).join(" · ")}</span>
+                    <b style={{ fontSize: 13 }}>{c.name}</b> <span style={{ fontSize: 12, color: "#5c5c5c" }}>{[c.category, c.address].filter(Boolean).join(" · ")}</span>
                   </button>
                 ))}
               </div>
@@ -156,7 +156,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
             <button onClick={() => setManual(true)} style={{ marginTop: 6, border: "none", background: "transparent", padding: 0, color: BLUE, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>지도에 내 숙소가 없어요</button>
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: "#888" }}>지도에 없는 숙소는 같이가개가 확인한 뒤 지도에 등록해 드려요.</div>
+          <div style={{ fontSize: 12, color: "#5c5c5c" }}>지도에 없는 숙소는 같이가개가 확인한 뒤 지도에 등록해 드려요.</div>
         )}
         {(picked || manual) && (
           <div style={{ display: "grid", gap: 8 }}>
@@ -171,7 +171,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
           <FileUp size={16} />{file ? file.name : p ? "새로 올리기(안 올리면 지난번 파일 사용)" : "사진이나 PDF 올리기"}
           <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ display: "none" }} />
         </label>
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: -6 }}>숙박업·농어촌민박업·관광숙박업·야영장업 등 영업 신고(등록)증. 관리자만 볼 수 있게 보관해요.</div>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: -6 }}>숙박업·농어촌민박업·관광숙박업·야영장업 등 영업 신고(등록)증. 관리자만 볼 수 있게 보관해요.</div>
 
         <div style={step}>3. 정산받을 계좌</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -179,7 +179,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
           <input value={form.accountHolder} onChange={(e) => set({ accountHolder: e.target.value })} placeholder="예금주" style={input} />
         </div>
         <input value={form.accountNumber} onChange={(e) => set({ accountNumber: e.target.value.replace(/[^\d-]/g, "") })} placeholder="계좌번호" inputMode="numeric" style={input} />
-        <div style={{ fontSize: 11.5, color: "#999", marginTop: -6 }}>사업자 명의 계좌로 적어 주세요. 이용 확정 다음 영업일에 이 계좌로 정산해 드려요.</div>
+        <div style={{ fontSize: 11.5, color: "#666", marginTop: -6 }}>사업자 명의 계좌로 적어 주세요. 이용 확정 다음 영업일에 이 계좌로 정산해 드려요.</div>
 
         <div style={step}>4. 입점 조건</div>
         <div style={{ padding: "12px 14px", borderRadius: 12, background: "#F7F3E8", fontSize: 12.5, color: "#444", lineHeight: 1.8 }}>

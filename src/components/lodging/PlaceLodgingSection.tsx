@@ -181,11 +181,11 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
                 {r.room_type && <span style={tag}>{r.room_type}</span>}
               </div>
               <div style={{ fontSize: 14, fontWeight: 800, color: "#B45309", marginTop: 4 }}>{roomPriceText(r)}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, fontSize: 12, color: "#777", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, fontSize: 12, color: "#555", flexWrap: "wrap" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Users size={12} />기준 {r.std_guests}명 · 최대 {r.max_guests}명</span>
                 {(r.max_pets ?? p?.max_pets) != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><PawPrint size={12} />최대 {r.max_pets ?? p?.max_pets}마리</span>}
               </div>
-              {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
+              {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
               {r.description && <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-line" }}>{r.description}</div>}
               <button onClick={() => open(r.id)} style={{ marginTop: 10, width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: "#1D4F91", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
                 {isLoggedIn ? "날짜 고르고 예약하기" : "로그인하고 예약하기"}

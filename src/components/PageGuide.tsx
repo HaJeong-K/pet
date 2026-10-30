@@ -164,7 +164,7 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
         {step.title && <div style={{ fontSize: wide ? 14.5 : 13, fontWeight: 800, color: "#1f1f1f", marginBottom: 4 }}>{step.title}</div>}
         <div style={{ fontSize: wide ? 13.5 : 12.5, color: "#444", lineHeight: 1.65, marginBottom: wide ? 14 : 11, whiteSpace: "pre-line" }}>{step.text}</div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button onClick={finish} style={{ border: "none", background: "transparent", color: "#999", fontSize: 11.5, cursor: "pointer", padding: "4px 0" }}>
+          <button onClick={finish} style={{ border: "none", background: "transparent", color: "#666", fontSize: 11.5, cursor: "pointer", padding: "4px 0" }}>
             건너뛰기
           </button>
           <div style={{ display: "flex", gap: 4 }}>

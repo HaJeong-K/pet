@@ -111,15 +111,15 @@ export default function AdminOwners() {
         </div>
 
         {loading && rows.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: "#999", fontSize: 13 }}><LogoLoader /></div>
+          <div style={{ padding: 40, textAlign: "center", color: "#666", fontSize: 13 }}><LogoLoader /></div>
         )}
         {!loading && rows.length > 0 && shown.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 13, background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{ padding: 40, textAlign: "center", color: "#6e6e6e", fontSize: 13, background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
             대기 중인 {kindFilter === "lodging" ? "숙소" : "가게"} 사장님 신청이 없습니다.
           </div>
         )}
         {!loading && rows.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 13, background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{ padding: 40, textAlign: "center", color: "#6e6e6e", fontSize: 13, background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
             대기 중인 사장님 가입 신청이 없습니다.
           </div>
         )}
@@ -145,7 +145,7 @@ export default function AdminOwners() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                   <OwnerKindBadge kind={ownerKindOf(r.owner_kind)} />
                   <span style={{ fontWeight: 800, fontSize: 14, color: "#111" }}>{r.owner_business_name || `(${ownerKindInfo(r.owner_kind).nameLabel} 미입력)`}</span>
-                  <span style={{ fontSize: 11, color: "#888" }}>{r.nickname}</span>
+                  <span style={{ fontSize: 11, color: "#5c5c5c" }}>{r.nickname}</span>
                   {r.owner_cert_url && (
                     <span style={{ fontSize: 10.5, fontWeight: 700, color: "#c2410c", background: "#fff3e6", border: "1px solid #ffd9ad", borderRadius: 6, padding: "2px 6px" }}>
                       국세청 자동확인 안 됨 · 수동확인 필요
@@ -166,10 +166,10 @@ export default function AdminOwners() {
                   {r.owner_place_id && <span style={{ color: "#5C7A4A", fontWeight: 700 }}>지도 연결됨 (place #{r.owner_place_id})</span>}
                 </div>
                 {r.owner_address_detail && (
-                  <div style={{ fontSize: 11.5, color: "#888", marginBottom: 4 }}>{r.owner_address_detail}</div>
+                  <div style={{ fontSize: 11.5, color: "#5c5c5c", marginBottom: 4 }}>{r.owner_address_detail}</div>
                 )}
                 {r.owner_ocr_text && (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 4, fontSize: 11, color: "#aaa", marginTop: 4, lineHeight: 1.4 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 4, fontSize: 11, color: "#6e6e6e", marginTop: 4, lineHeight: 1.4 }}>
                     <FileText size={11} style={{ marginTop: 2, flexShrink: 0 }} />
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as any }}>
                       OCR: {r.owner_ocr_text.replace(/\s+/g, " ").trim()}
@@ -180,7 +180,7 @@ export default function AdminOwners() {
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={() => decide(r.auth_user_id, "reject")} style={{
                   display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10,
-                  border: "1px solid #e8eaed", background: "white", color: "#888", fontWeight: 700, fontSize: 12, cursor: "pointer",
+                  border: "1px solid #e8eaed", background: "white", color: "#5c5c5c", fontWeight: 700, fontSize: 12, cursor: "pointer",
                 }}>
                   <X size={13} />반려
                 </button>

@@ -78,7 +78,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             {refundAmount > 0 ? (
               <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
                 지금 해지하면 <b style={{ color: "#15803D" }}>{won(refundAmount)}</b>을 돌려드려요.<br />
-                <span style={{ fontSize: 12, color: "#888" }}>{refundText}</span><br />
+                <span style={{ fontSize: 12, color: "#5c5c5c" }}>{refundText}</span><br />
                 환불되는 대신 {PLAN_NAME[plan]} 혜택은 <b>해지한 날 바로</b> 끝나고, 아래 혜택이 사라져요.
               </div>
             ) : (
@@ -93,7 +93,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
               {plan !== "premium" && <li>상품 진열·예약 받기</li>}
               {plan === "local" && <li>동네 배너 광고</li>}
             </ul>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 16 }}>해지하시는 이유 <span style={{ fontWeight: 600, color: "#aaa" }}>(선택)</span></div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 16 }}>해지하시는 이유 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택)</span></div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
               {REASONS.map((r) => (
                 <button key={r} onClick={() => setReason(reason === r ? "" : r)} aria-pressed={reason === r} style={{ padding: "7px 11px", borderRadius: 999, border: `1px solid ${reason === r ? "#B45309" : "#e2dcc8"}`, background: reason === r ? "#FEF3C7" : "white", color: reason === r ? "#92400E" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>
@@ -119,7 +119,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             <div style={{ marginTop: 14, padding: "16px 16px", borderRadius: 14, background: "#F5F3FF", border: "1px solid #DDD6FE", textAlign: "center" }}>
               <div style={{ fontSize: 12.5, color: "#6D28D9", fontWeight: 700 }}>{PLAN_NAME[plan]} · 다음 {PERIOD_DAYS}일</div>
               <div style={{ marginTop: 6, display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8 }}>
-                <span style={{ fontSize: 14, color: "#aaa", textDecoration: "line-through" }}>{won(price)}</span>
+                <span style={{ fontSize: 14, color: "#6e6e6e", textDecoration: "line-through" }}>{won(price)}</span>
                 <span className="ggk-logo" style={{ fontSize: 26, fontWeight: 800, color: "#4C1D95" }}>{won(secret)}</span>
               </div>
             </div>
@@ -131,7 +131,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
             <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
               <button onClick={accept} disabled={busy} style={{ ...button(true, busy), background: busy ? "#d6d3c9" : "linear-gradient(135deg,#7C3AED,#DB2777)" }}>{busy ? "처리 중…" : `${RETENTION_DISCOUNT_PERCENT}% 할인받고 계속 이용하기`}</button>
-              <button onClick={() => cancel(true)} disabled={busy} style={{ ...button(false, busy), border: "none", background: "transparent", fontSize: 12.5, color: "#999", textDecoration: "underline", padding: "6px 0" }}>그래도 해지할게요</button>
+              <button onClick={() => cancel(true)} disabled={busy} style={{ ...button(false, busy), border: "none", background: "transparent", fontSize: 12.5, color: "#666", textDecoration: "underline", padding: "6px 0" }}>그래도 해지할게요</button>
             </div>
           </>
         )}

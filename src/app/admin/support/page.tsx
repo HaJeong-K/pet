@@ -59,7 +59,7 @@ export default function AdminSupportOrgs() {
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>후원 단체</div>
           <a href="/shelter-notices/support" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#5C7A4A" }}>방문자 화면 보기 →</a>
         </div>
-        <div style={{ fontSize: 12, color: "#777", lineHeight: 1.7, marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7, marginBottom: 14 }}>
           여기에 올린 단체만 &quot;후원하러 가기&quot; 버튼이 붙어요. 같이가개는 후원금을 받지 않고 단체의 공식 후원 페이지로 연결만 하므로,
           계좌번호가 아니라 <b>공식 후원 페이지 주소</b>를 적어 주세요. 등록 여부를 공개 자료로 확인한 곳만 올려 주세요.
         </div>
@@ -68,7 +68,7 @@ export default function AdminSupportOrgs() {
           <div style={{ padding: 40, textAlign: "center" }}><LogoLoader /></div>
         ) : (
           <>
-            {orgs.length === 0 && <div style={{ padding: 24, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 13, color: "#888", textAlign: "center", marginBottom: 10 }}>아직 올린 단체가 없어요. 방문자 화면에는 보호센터 목록만 보여요.</div>}
+            {orgs.length === 0 && <div style={{ padding: 24, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 13, color: "#5c5c5c", textAlign: "center", marginBottom: 10 }}>아직 올린 단체가 없어요. 방문자 화면에는 보호센터 목록만 보여요.</div>}
             <div style={{ display: "grid", gap: 10 }}>
               {orgs.map((org, i) => (
                 <div key={org.id} style={{ background: "white", borderRadius: 14, border: "1px solid #eee", padding: 14, display: "grid", gap: 8, opacity: org.hidden ? 0.6 : 1 }}>

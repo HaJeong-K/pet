@@ -108,7 +108,7 @@ export default function ShopClient() {
           <div style={{ marginTop: 14, background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "34px 18px", textAlign: "center" }}>
             <Store size={26} color="#b9b39f" />
             <div className="ggk-logo" style={{ marginTop: 10, fontSize: 15.5, fontWeight: 800, color: "#333" }}>{stores.length === 0 ? "아직 상품을 올린 가게가 없어요" : "찾는 가게나 상품이 없어요"}</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: "#888", lineHeight: 1.7 }}>
+            <div style={{ marginTop: 6, fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
               {stores.length === 0
                 ? <>동네 가게들이 상품을 올리면 여기에 모여요.<br />가게를 운영하신다면 사장님 화면에서 상품을 올려 보세요.</>
                 : "다른 이름으로 찾아보거나 분류를 바꿔 보세요."}
@@ -116,7 +116,7 @@ export default function ShopClient() {
           </div>
         ) : (
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 400px), 1fr))", gap: 12, alignItems: "start" }}>
-            {!here && area.status !== "pending" && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#999" }}>위치를 알 수 없어 가게 이름순으로 보여 드려요.</div>}
+            {!here && area.status !== "pending" && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: "#666" }}>위치를 알 수 없어 가게 이름순으로 보여 드려요.</div>}
             {visible.map((s) => {
               const open = openId === s.id;
               return (
@@ -128,7 +128,7 @@ export default function ShopClient() {
                           <span className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111", wordBreak: "break-word" }}>{s.name}</span>
                           {s.category && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}>{s.category}</span>}
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 12, color: "#888" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 12, color: "#5c5c5c" }}>
                           <MapPin size={12} style={{ flexShrink: 0 }} />
                           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.distance != null && <b style={{ color: "#5C7A4A" }}>{fmtDistance(s.distance)} · </b>}{bannerAddress(s.address) ?? "주소 없음"}</span>
                         </div>
@@ -164,7 +164,7 @@ export default function ShopClient() {
           </div>
         )}
 
-        <div style={{ marginTop: 18, fontSize: 11.5, color: "#aaa", lineHeight: 1.7, textAlign: "center" }}>
+        <div style={{ marginTop: 18, fontSize: 11.5, color: "#6e6e6e", lineHeight: 1.7, textAlign: "center" }}>
           상품 정보와 가격은 각 가게가 직접 올린 것이에요.<br />예약을 넣으면 가게에서 확인한 뒤 확정돼요.
         </div>
       </div>

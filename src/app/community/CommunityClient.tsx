@@ -44,7 +44,7 @@ const FONT_STYLE = `
 const POST_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   "방문후기": { bg: "#eff6ff", color: "#2563eb" },
   "질문":     { bg: "#fef2f2", color: "#dc2626" },
-  "정보공유": { bg: "#f0fdf4", color: "#16a34a" },
+  "정보공유": { bg: "#f0fdf4", color: "#15803d" },
   "산책친구": { bg: "#fdece2", color: "#c2540c" },
   "업체소식": { bg: "#fffbeb", color: "#b45309" },
   // 유기동물 게시판 — 급한 글(실종·목격)이 눈에 띄도록
@@ -52,7 +52,7 @@ const POST_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   "임시보호": { bg: "#f5f3ff", color: "#6d28d9" },
   "실종":     { bg: "#fef2f2", color: "#dc2626" },
   "목격·구조": { bg: "#fff7ed", color: "#c2410c" },
-  "입양후기": { bg: "#f0fdf4", color: "#16a34a" },
+  "입양후기": { bg: "#f0fdf4", color: "#15803d" },
   "나눔":     { bg: "#ecfeff", color: "#0e7490" },
   "구해요":   { bg: "#f0f9ff", color: "#0369a1" },
   __default:  { bg: "#f5f6f8", color: "#555" },
@@ -400,7 +400,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       borderRadius: "10px",
                       padding: isNarrow ? "8px 12px" : "8px 11px",
                       background: active ? (best ? "#D9534F" : "#5C7A4A") : "#fff",
-                      color: active ? "white" : best ? "#D9534F" : "#555",
+                      color: active ? "white" : best ? "#c9302c" : "#555",
                       fontSize: "13px",
                       fontWeight: active || best ? 700 : 600,
                       cursor: "pointer",
@@ -766,7 +766,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 style={{
                   textAlign: "center",
                   padding: "60px 0",
-                  color: "#bbb",
+                  color: "#707070",
                   fontSize: "12px",
                 }}
               >
@@ -779,7 +779,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                   return (
                     <>
                       {posts.length === 0 && debouncedSearch.trim() && (
-                        <div style={{ textAlign: "center", padding: "40px 0 60px", color: "#bbb", fontSize: "12px" }}>
+                        <div style={{ textAlign: "center", padding: "40px 0 60px", color: "#707070", fontSize: "12px" }}>
                           <div style={{ marginTop: 8 }}>
                             "{debouncedSearch}"에 대한 검색 결과가 없습니다.
                           </div>
@@ -787,7 +787,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       )}
                       {/* 글이 하나도 없을 때 — 게시판이 늘어 빈 게시판이 생기므로, 빈 화면 대신 안내를 보여줍니다 */}
                       {posts.length === 0 && !debouncedSearch.trim() && (
-                        <div style={{ textAlign: "center", padding: "48px 16px 60px", color: "#9ca3af", fontSize: 13, lineHeight: 1.7 }}>
+                        <div style={{ textAlign: "center", padding: "48px 16px 60px", color: "#5f6672", fontSize: 13, lineHeight: 1.7 }}>
                           {activeBoard === BEST_BOARD_ID ? (
                             <>
                               <div style={{ fontWeight: 700, color: "#6b7280" }}>아직 인기 글이 없어요</div>
@@ -811,7 +811,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                             }}>
                               <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 7, background: "#2F3B28", color: "white", fontSize: 11.5, fontWeight: 800 }}>공지</span>
                               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "#1f1a12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
-                              <span style={{ flexShrink: 0, fontSize: 12, color: "#9a917f" }}>{new Date(n.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}</span>
+                              <span style={{ flexShrink: 0, fontSize: 12, color: "#6a6253" }}>{new Date(n.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}</span>
                             </button>
                           ))}
                         </div>
@@ -860,7 +860,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                             <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 14 }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 {/* 메타: 닉네임·배지·시간 한 줄 */}
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6, fontSize: 12, color: "#999" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6, fontSize: 12, color: "#666" }}>
                                   <span style={{ fontWeight: 700, color: "#222" }}>{post.nickname}</span>
                                   <LevelBadge level={memberLevels[post.author_auth_key]} />
                                   {isBusiness && (
@@ -892,7 +892,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                                 {post.content && (
                                   <div
                                     style={{
-                                      fontSize: 13, color: "#777", lineHeight: 1.6,
+                                      fontSize: 13, color: "#555", lineHeight: 1.6,
                                       overflow: "hidden", display: "-webkit-box",
                                       WebkitLineClamp: 3, WebkitBoxOrient: "vertical",
                                       marginBottom: 12,
@@ -904,15 +904,15 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
 
                                 {/* 통계 — 시안처럼 구분선 없이 */}
                                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
                                     <Heart size={12} color="#ff8787" />
                                     {post.likes || 0}
                                   </span>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
                                     <MessageCircle size={12} color="#a9805a" />
                                     {post.comment_count || 0}
                                   </span>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#999", fontWeight: 600 }}>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
                                     <Eye size={12} color="#bbb" />
                                     {post.views || 0}
                                   </span>
