@@ -338,7 +338,7 @@ export default function PlaceDetail({
 
     if (needsAvatarLookup && authIds.length > 0) {
       const { data: userData } = await supabase
-        .from("users")
+        .from("public_profiles") // 다른 회원은 공개 정보(닉네임·사진)만 — users 표는 본인 줄만 읽힘(scripts/sql/users-security.sql)
         .select("auth_user_id, avatar_url")
         .in("auth_user_id", authIds);
 
