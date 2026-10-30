@@ -23,7 +23,7 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints,
+  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints, Award,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
@@ -96,7 +96,7 @@ export default function MyPage() {
   const [myReviewReplies, setMyReviewReplies] = useState<any[]>([]);
 
   const [showSettings, setShowSettings] = useState(false);
-  const [settingView, setSettingView]   = useState<"menu"|"nickname"|"password"|"withdraw"|"premium"|"owner-place"|"owner-stats">("menu");
+  const [settingView, setSettingView]   = useState<"menu"|"level"|"nickname"|"password"|"withdraw"|"premium"|"owner-place"|"owner-stats">("menu");
 
   // ── 사장님 프리미엄 등록 ──
   const [premiumPlace, setPremiumPlace] = useState<{ is_premium: boolean; premium_expires_at: string | null } | null>(null);
@@ -597,7 +597,7 @@ export default function MyPage() {
 							.mp-hero-settings { order: 2; }
 							.mp-hero-level { order: 3; flex: 1 1 100%; min-width: 0; }
 							@media (min-width: 900px) {
-								.mp-hero-level { order: 2; flex: 0 1 460px; }
+								.mp-hero-level { order: 2; flex: 0 0 auto; }
 								.mp-hero-settings { order: 3; }
 							}
 						`}</style>
@@ -707,9 +707,9 @@ export default function MyPage() {
 								</div>
 							</div>
 
-							{/* 내 레벨 — 예전엔 아래 목록 칸에 따로 있어 좁고 답답해 보였습니다. 초록색 프로필 칸 안으로 옮겼습니다. */}
+							{/* 내 레벨 — 위쪽에는 단계 배지만 작게. 점수·방문·단계 안내 같은 자세한 내용은 설정 창의 "내 레벨·점수"에서 봅니다. */}
 							<div className="mp-hero-level">
-								<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} variant="hero" />
+								<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} variant="badge" onOpen={() => { setSettingView("level"); setShowSettings(true); }} />
 							</div>
 
 							{/* 설정 버튼 */}
@@ -1419,6 +1419,15 @@ export default function MyPage() {
                 </div>
 
                 <div style={{ padding:"0 14px 18px" }}>
+                  <button className="setting-row" onClick={() => setSettingView("level")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
+                    <div style={{ width:32, height:32, borderRadius:9, background:"#EAF0E3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <Award size={15} color="#48603A" />
+                    </div>
+                    <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>내 레벨·점수</div>
+                    {myLevel != null && <LevelBadge level={myLevel} />}
+                    <ChevronRight size={14} color="#bbb" />
+                  </button>
+
                   {/* 사장님 기능(가게 정보·통계·광고 상품·후기 답글)은 하단 "사장님" 탭(/owner)에서 봅니다 — 여기 있던 바로가기는 뺐습니다. */}
 
                   {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장님 형식이 고정되므로
@@ -1462,6 +1471,22 @@ export default function MyPage() {
                   </button>
                 </div>
               </>
+            )}
+
+            {/* 내 레벨·점수 — 지금 단계, 다음 단계까지, 이번 달 방문, 점수 내역, 단계 안내 */}
+            {settingView === "level" && (
+              <div style={{ paddingBottom: 18 }}>
+                <div style={{ padding:"18px 18px 0", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                  <button onClick={() => setSettingView("menu")} style={{ border:"none", background:"transparent", padding:0, cursor:"pointer", display:"flex", alignItems:"center", gap:4, fontSize:13, fontWeight:700, color:"#666", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                    <ChevronRight size={14} style={{ transform:"rotate(180deg)" }} />설정
+                  </button>
+                  <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <X size={14} color="#666" />
+                  </button>
+                </div>
+                <div className="ggk-logo" style={{ padding:"10px 18px 0", fontSize:16, fontWeight:800, color:"#111" }}>내 레벨·점수</div>
+                <MemberLevelCard accessToken={session?.access_token} variant="card" />
+              </div>
             )}
 
             {/* 닉네임 변경 */}

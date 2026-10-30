@@ -35,6 +35,8 @@ function CommunityWritePageContent() {
   // 사장님 게시판 글쓰기 권한 — 인증된 사장님(owner_status==='verified') 또는
   // 관리자만 작성 가능하고, 일반 회원은 댓글로만 참여할 수 있습니다.
   const [canWriteBusiness, setCanWriteBusiness] = useState(false);
+  // 공지 게시판은 관리자만(DB에서도 막습니다)
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // ─────────────────────────────
   // 비회원 차단
@@ -56,6 +58,7 @@ function CommunityWritePageContent() {
         .eq("auth_user_id", session.user.id)
         .single();
       setCanWriteBusiness(!!profile?.is_admin || profile?.owner_status === "verified");
+      setIsAdmin(!!profile?.is_admin);
     };
 
     check();
@@ -232,6 +235,8 @@ function CommunityWritePageContent() {
             author_auth_key: user.id,
 
             post_type: postType || null,
+
+            is_notice: boardId === "notice",
 
             title: title.trim(),
 
@@ -429,7 +434,7 @@ function CommunityWritePageContent() {
                     background: "#f8fafc",
                   }}
                 >
-                  {BOARDS.filter((board) => board.id !== "business" || canWriteBusiness).map((board) => (
+                  {BOARDS.filter((board) => (board.id !== "business" || canWriteBusiness) && (board.id !== "notice" || isAdmin)).map((board) => (
                     <option
                       key={board.id}
                       value={board.id}

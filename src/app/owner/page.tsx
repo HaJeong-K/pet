@@ -18,9 +18,11 @@
 import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
+  Store, Map as MapIcon, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
 } from "lucide-react";
 import OwnerLodgingTab from "@/components/owner/OwnerLodgingTab";
 import OwnerNoticesTab from "@/components/owner/OwnerNoticesTab";
@@ -54,6 +56,29 @@ const TABS: { key: TabKey; label: string; Icon: typeof Store }[] = [
   { key: "ads", label: "광고 상품", Icon: Crown },
   { key: "report", label: "성과 보고서", Icon: FileText },
 ];
+
+// 왼쪽 메뉴 묶음(넓은 화면)
+const MENU_GROUPS = (lodging: boolean): { title: string; keys: TabKey[] }[] => [
+  { title: "홈", keys: ["dashboard"] },
+  { title: lodging ? "숙박 운영" : "예약·판매", keys: ["stays", "lodging", "reservations", "products"] },
+  { title: "손님 소통", keys: ["reviews", "notices"] },
+  { title: lodging ? "숙소 관리" : "가게 관리", keys: ["place"] },
+  { title: "광고·성과", keys: ["banner", "ads", "report"] },
+];
+// 화면 제목 아래 한 줄 설명
+const TAB_DESC: Record<TabKey, (placeWord: string) => string> = {
+  dashboard: (w) => `${w}의 조회·찜·길찾기·전화 흐름을 한눈에 확인해요.`,
+  reservations: () => "손님이 예약한 상품을 확인하고 준비 상태를 알려요.",
+  products: () => "예약받을 상품을 등록하고 판매 상태를 관리해요.",
+  stays: () => "숙박 예약 요청을 확정·거절하고, 일정과 정산을 확인해요.",
+  lodging: () => "객실·요금·동반 조건과 예약 달력을 관리해요.",
+  banner: () => "동네 보호자에게 보이는 배너를 꾸미고 노출을 확인해요.",
+  reviews: () => "손님 후기를 확인하고 사장님 답글을 남겨요.",
+  notices: () => "휴무·이벤트 같은 소식을 손님에게 알려요.",
+  place: (w) => `영업시간·동반 조건 등 ${w} 정보를 직접 고쳐요.`,
+  ads: () => "요금제를 비교하고 프리미엄 광고를 신청해요.",
+  report: () => "최근 성과를 보고서로 보고, 인쇄하거나 PDF로 저장해요.",
+};
 
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const fmtDate = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }) : "");
@@ -160,110 +185,196 @@ export default function OwnerPage() {
     return (
       <Shell>
         <div style={{ ...card, textAlign: "center", padding: "48px 22px", marginTop: 24 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Store size={26} color="#B45309" /></div>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: "#EAF0E3", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Store size={26} color="#2F3B28" /></div>
           <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{message.title}</div>
           <div style={{ fontSize: 13.5, color: "#777", marginTop: 8, lineHeight: 1.7 }}>{message.text}</div>
-          <button onClick={() => router.push(message.href)} style={{ marginTop: 18, padding: "12px 22px", borderRadius: 999, border: "none", background: "#B45309", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>{message.cta}</button>
+          <button onClick={() => router.push(message.href)} style={{ marginTop: 18, padding: "12px 22px", borderRadius: 999, border: "none", background: "#2F3B28", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>{message.cta}</button>
         </div>
       </Shell>
     );
   }
 
+  // ── 사장님 센터 화면(네이버 스마트플레이스처럼: 위 고정 막대 + 왼쪽 묶음 메뉴 + 넓은 본문) ──
+  const placeWord = isLodging ? "숙소" : "가게";
+  const storeName = isPreview ? preview?.name ?? "가게를 골라 주세요" : profile?.owner_business_name || `내 ${placeWord}`;
+  const visibleTabs = TABS.filter(({ key }) => (key !== "banner" || hasBanner) && (isLodging ? key !== "products" && key !== "reservations" : key !== "lodging" && key !== "stays"));
+  // 실제로 보여 주는 메뉴(숙소 사장님이 가게용 주소로 들어오거나, 배너가 없는 가게가 #banner로 들어온 경우를 맞춰 줍니다)
+  const shown: TabKey = isLodging && tab === "reservations" ? "stays" : isLodging && tab === "products" ? "lodging" : tab === "banner" && !hasBanner ? "ads" : tab;
+  const labelOf = (key: TabKey) => (key === "place" ? `${placeWord} 정보` : TABS.find((t) => t.key === key)?.label ?? "");
+  const countOf = (key: TabKey) => ((key === "reservations" || key === "stays") ? waitingReservations : key === "reviews" ? unansweredReviews : 0);
+  const groups = MENU_GROUPS(isLodging).map((g) => ({ ...g, tabs: visibleTabs.filter((t) => g.keys.includes(t.key)) })).filter((g) => g.tabs.length > 0);
+  const groupOfShown = groups.find((g) => g.keys.includes(shown))?.title ?? "";
+  const ShownIcon = TABS.find((t) => t.key === shown)?.Icon ?? Store;
+
   return (
-    <Shell>
-      {/* 머리말 */}
-      <div style={{ borderRadius: 20, background: "linear-gradient(135deg,#B45309,#D97706)", color: "white", padding: "20px 20px", marginTop: 16 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.2)", fontSize: 11.5, fontWeight: 800 }}>
-          <BadgeCheck size={12} />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
-        </div>
-        <div className="ggk-logo" style={{ fontSize: 21, fontWeight: 800, marginTop: 8 }}>
-          {isPreview ? preview?.name ?? "가게를 골라 주세요" : profile?.owner_business_name || `내 ${kindInfo.placeWord}`}
-        </div>
-        <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 3 }}>{kindInfo.placeWord} 성과를 확인하고, 고객과 직접 이야기해 보세요.</div>
-      </div>
-
-      {isPreview && (
-        <div style={{ ...card, marginTop: 12 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#555", marginBottom: 8 }}>가게 고르기(관리자 전용) — 사장님이 보는 화면 그대로 확인할 수 있어요</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid #e2e4e8", background: "#f8fafc" }}>
-            <Search size={14} color="#999" />
-            <input value={previewQuery} onChange={(e) => setPreviewQuery(e.target.value)} placeholder="등록 장소 이름으로 검색" style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 13 }} />
-          </div>
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-            {previewResults.map((p) => (
-              <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#FEF3C7" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
-                <b>{p.name}</b> <span style={{ color: "#999" }}>{p.address}</span>
-              </button>
-            ))}
-          </div>
-          {preview && (
-            <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 12, padding: "11px 12px", borderRadius: 12, background: actForOwner ? "#FEF2F2" : "#f8fafc", border: `1px solid ${actForOwner ? "#FECACA" : "#e2e4e8"}`, cursor: "pointer" }}>
-              <input type="checkbox" checked={actForOwner} onChange={(e) => setActForOwner(e.target.checked)} style={{ marginTop: 3 }} />
-              <span style={{ fontSize: 12.5, lineHeight: 1.6, color: actForOwner ? "#991b1b" : "#555" }}>
-                <b>사장님 요청으로 대신 처리하기</b><br />
-                켜면 이 가게의 정보 수정과 상품·예약 처리를 대신 할 수 있어요. 꺼 두면 보기만 해요. (프리미엄 신청은 사장님 본인만 할 수 있어요.)
-              </span>
-            </label>
-          )}
-        </div>
-      )}
-
-      {/* 탭 — "배너"는 배너 광고를 내는 가게('동네 대표' 요금제)에만 보입니다 */}
+    <Shell wide>
       <style>{`
-        /* 넓은 화면에서는 메뉴가 가려지지 않게 다음 줄로 넘기고, 휴대폰에서는 옆으로 밀어 봅니다 */
-        .owner-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 14px 0 12px; }
-        .owner-tabs::-webkit-scrollbar { display: none; }
-        @media (min-width: 768px) { .owner-tabs { flex-wrap: wrap; overflow-x: visible; } }
+        .oc-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #ECE6D8; }
+        .oc-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+        .oc-side { display: none; }
+        .oc-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
+        .oc-chips::-webkit-scrollbar { display: none; }
+        .oc-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); }
+        .oc-store-top { display: none; }
+        .oc-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #4a4437; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; transition: background .12s ease, color .12s ease; }
+        .oc-item:hover { background: #F1ECE0; }
+        .oc-item[aria-current="page"] { background: #2F3B28; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(47,59,40,0.18); }
+        .oc-top-map { margin-left: auto; }
+        @media (min-width: 720px) { .oc-store-top { display: flex; } .oc-top-map { margin-left: 12px; } }
+        @media (min-width: 980px) {
+          .oc-grid { grid-template-columns: 252px minmax(0, 1fr); }
+          .oc-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #ECE6D8; background: #FBF8F2; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
+          .oc-chips { display: none; }
+          .oc-main { padding-top: 28px; }
+        }
       `}</style>
+
+      {/* 위 고정 막대 */}
+      <header className="oc-top owner-no-print">
+        <Link href="/" aria-label="같이가개 지도로" style={{ display: "flex", alignItems: "center" }}>
+          <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+        </Link>
+        <span style={{ width: 1, height: 18, background: "#E4DFD2" }} />
+        <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#EAF0E3", border: "1px solid #D5E0C9", fontSize: 14.5, fontWeight: 800, color: "#2F3B28", whiteSpace: "nowrap" }}>사장님 센터</span>
+        <div className="oc-store-top" style={{ marginLeft: "auto", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: "#2a2520", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>{storeName}</span>
+          <KindBadge isPreview={isPreview} label={isPreview ? "관리자 모드" : `인증 ${kindInfo.label}`} />
+        </div>
+        <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #E4DFD2", background: "white", color: "#4a4437", fontSize: 12.5, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }} className="oc-top-map">
+          <MapIcon size={13} />지도 보기
+        </Link>
+      </header>
+
       {/* 이용 기간이 14일 안으로 남았는데 자동 연장을 아직 정하지 않았으면 팝업으로 물어봅니다 */}
       {placeId != null && <OwnerAutoRenew placeId={placeId} isPreview={isPreview} mode="prompt" />}
-      <div className="owner-tabs owner-no-print">
-        {TABS.filter(({ key }) => (key !== "banner" || hasBanner) && (isLodging ? key !== "products" && key !== "reservations" : key !== "lodging" && key !== "stays")).map(({ key, label: tabLabel, Icon }) => {
-          const label = key === "place" ? `${isLodging ? "숙소" : "가게"} 정보` : tabLabel;
-          return (
-          <button key={key} onClick={() => setTab(key)} aria-current={tab === key ? "page" : undefined} style={{
-            flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 11,
-            border: tab === key ? "none" : "1px solid #e8e2d2", background: tab === key ? "#B45309" : "white", color: tab === key ? "white" : "#555",
-            fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
-          }}>
-            <Icon size={14} />{label}
-            {(key === "reservations" || key === "stays") && waitingReservations > 0 && (
-              <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{waitingReservations}</span>
-            )}
-            {key === "reviews" && unansweredReviews > 0 && (
-              <span aria-label={`답글을 기다리는 후기 ${unansweredReviews}개`} style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: tab === key ? "white" : "#DC2626", color: tab === key ? "#B45309" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{unansweredReviews}</span>
-            )}
-          </button>
-          );
-        })}
-      </div>
 
-      {placeId == null ? (
-        <div style={{ ...card, textAlign: "center", color: "#999", fontSize: 13, padding: "40px 0" }}>위에서 가게를 골라 주세요.</div>
-      ) : (
-        <>
-          {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
-          {/* 숙소 사장님이 가게용 메뉴 주소(#products 등)로 들어오면 숙소·객실을 보여 줍니다 */}
-          {isLodging && (tab === "stays" || tab === "reservations") && <OwnerStaysTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onCount={setWaitingReservations} />}
-          {isLodging && (tab === "lodging" || tab === "products") && <OwnerLodgingTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {!isLodging && tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
-          {!isLodging && tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
-          {/* 숙소는 숙박 후기(별점·답글·신고)를 먼저, 그 아래 장소 후기 */}
-          {isLodging && tab === "reviews" && <OwnerLodgingReviews placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
-          {tab === "notices" && <OwnerNoticesTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {tab === "banner" && hasBanner && <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
-          {/* 배너를 내지 않는 가게가 #banner 주소로 들어오면 요금제 화면을 보여 줍니다 */}
-          {(tab === "ads" || (tab === "banner" && !hasBanner)) && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} lodging={isLodging} />}
-          {tab === "report" && <ReportTab placeId={placeId} isPreview={isPreview} />}
-        </>
-      )}
+      <div className="oc-grid">
+        {/* 왼쪽 메뉴(넓은 화면) */}
+        <aside className="oc-side owner-no-print">
+          <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#1F2A1A,#2F3B28 55%,#4A6339)", color: "white", marginBottom: 18 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.14)", fontSize: 11, fontWeight: 800 }}>
+              <BadgeCheck size={11} color="#F3DA9B" />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
+            </div>
+            <div className="ggk-logo" style={{ fontSize: 16.5, fontWeight: 800, marginTop: 8, lineHeight: 1.35, wordBreak: "keep-all" }}>{storeName}</div>
+          </div>
+          {groups.map((g) => (
+            <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#9a917f", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
+              <div style={{ display: "grid", gap: 2 }}>
+                {g.tabs.map(({ key, Icon }) => {
+                  const n = countOf(key);
+                  return (
+                    <button key={key} className="oc-item" onClick={() => setTab(key)} aria-current={shown === key ? "page" : undefined}>
+                      <Icon size={16} />{labelOf(key)}
+                      {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: shown === key ? "#F3DA9B" : "#DC2626", color: shown === key ? "#2F3B28" : "white", fontSize: 11, fontWeight: 800, lineHeight: "19px", textAlign: "center" }}>{n}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+          ))}
+          {isLodging && (
+            <Link href="/partner/lodging" style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 11, color: "#7a7263", fontSize: 12.5, fontWeight: 700, textDecoration: "none" }}>
+              <ChevronRight size={14} />숙소 입점 안내 다시 보기
+            </Link>
+          )}
+        </aside>
+
+        <div style={{ minWidth: 0 }}>
+          {/* 휴대폰 메뉴(옆으로 밀어 보기) */}
+          <div className="oc-chips owner-no-print">
+            {visibleTabs.map(({ key, Icon }) => {
+              const n = countOf(key);
+              const on = shown === key;
+              return (
+                <button key={key} onClick={() => setTab(key)} aria-current={on ? "page" : undefined} style={{
+                  flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999,
+                  border: on ? "1px solid #2F3B28" : "1px solid #E4DFD2", background: on ? "#2F3B28" : "white", color: on ? "white" : "#4a4437",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                }}>
+                  <Icon size={14} />{labelOf(key)}
+                  {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#2F3B28" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <main className="oc-main">
+            <div style={{ maxWidth: 1120 }}>
+              {isPreview && (
+                <div className="owner-no-print" style={{ ...card, marginBottom: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#555", marginBottom: 8 }}>가게 고르기(관리자 전용) — 사장님이 보는 화면 그대로 확인할 수 있어요</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid #E4DFD2", background: "#FCFBF8" }}>
+                    <Search size={14} color="#999" />
+                    <input value={previewQuery} onChange={(e) => setPreviewQuery(e.target.value)} placeholder="등록 장소 이름으로 검색" style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 13 }} />
+                  </div>
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {previewResults.map((p) => (
+                      <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#EAF0E3" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
+                        <b>{p.name}</b> <span style={{ color: "#999" }}>{p.address}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {preview && (
+                    <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 12, padding: "11px 12px", borderRadius: 12, background: actForOwner ? "#FEF2F2" : "#FCFBF8", border: `1px solid ${actForOwner ? "#FECACA" : "#E4DFD2"}`, cursor: "pointer" }}>
+                      <input type="checkbox" checked={actForOwner} onChange={(e) => setActForOwner(e.target.checked)} style={{ marginTop: 3 }} />
+                      <span style={{ fontSize: 12.5, lineHeight: 1.6, color: actForOwner ? "#991b1b" : "#555" }}>
+                        <b>사장님 요청으로 대신 처리하기</b><br />
+                        켜면 이 가게의 정보 수정과 상품·예약 처리를 대신 할 수 있어요. 꺼 두면 보기만 해요. (프리미엄 신청은 사장님 본인만 할 수 있어요.)
+                      </span>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* 화면 제목 */}
+              <div className="owner-no-print" style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#9a917f" }}>{storeName}<span style={{ margin: "0 6px", color: "#cfc7b6" }}>/</span>{groupOfShown}</div>
+                <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 11, background: "#EAF0E3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ShownIcon size={18} color="#2F3B28" /></span>
+                  {labelOf(shown)}
+                </h1>
+                <p style={{ margin: "8px 0 0", fontSize: 14, color: "#7a7263", lineHeight: 1.6 }}>{TAB_DESC[shown](placeWord)}</p>
+              </div>
+
+              {placeId == null ? (
+                <div style={{ ...card, textAlign: "center", color: "#999", fontSize: 13, padding: "40px 0" }}>위에서 가게를 골라 주세요.</div>
+              ) : (
+                <>
+                  {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
+                  {/* 숙소 사장님이 가게용 메뉴 주소(#products 등)로 들어오면 숙소·객실을 보여 줍니다 */}
+                  {isLodging && (tab === "stays" || tab === "reservations") && <OwnerStaysTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onCount={setWaitingReservations} />}
+                  {isLodging && (tab === "lodging" || tab === "products") && <OwnerLodgingTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+                  {!isLodging && tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
+                  {!isLodging && tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
+                  {/* 숙소는 숙박 후기(별점·답글·신고)를 먼저, 그 아래 장소 후기 */}
+                  {isLodging && tab === "reviews" && <OwnerLodgingReviews placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+                  {tab === "reviews" && <ReviewsTab placeId={placeId} isPreview={isPreview} />}
+                  {tab === "notices" && <OwnerNoticesTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+                  {tab === "place" && <PlaceTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+                  {tab === "banner" && hasBanner && <OwnerBannerEditor placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
+                  {/* 배너를 내지 않는 가게가 #banner 주소로 들어오면 요금제 화면을 보여 줍니다 */}
+                  {(tab === "ads" || (tab === "banner" && !hasBanner)) && <AdsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} lodging={isLodging} />}
+                  {tab === "report" && <ReportTab placeId={placeId} isPreview={isPreview} />}
+                </>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
     </Shell>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function KindBadge({ isPreview, label }: { isPreview: boolean; label: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 999, background: isPreview ? "#FEF2F2" : "#EAF0E3", color: isPreview ? "#991b1b" : "#2F3B28", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>
+      <BadgeCheck size={12} />{label}
+    </span>
+  );
+}
+
+function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
   return (
     <div className="ggk-body owner-page" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
@@ -280,7 +391,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         .owner-print-only { display: none; }
       `}</style>
       {/* 폭 1040px — 메뉴가 8개(배너 광고 포함)까지 늘어 760px에서는 메뉴 줄과 배너 미리보기가 좁았습니다 */}
-      <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>
+      {wide ? children : <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>}
     </div>
   );
 }

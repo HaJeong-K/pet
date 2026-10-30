@@ -1,5 +1,6 @@
 "use client";
 
+import LevelGuide, { LEVEL_GUIDE_MARKER } from "@/components/LevelGuide";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
@@ -70,6 +71,7 @@ interface Post {
   id: string;
   title: string;
   content: string;
+  is_notice?: boolean | null;
   board_id: string;
   post_type?: string | null;
   image_urls?: string[];
@@ -1237,7 +1239,12 @@ export default function CommunityDetailPage() {
                       whiteSpace: "pre-wrap"
                     }}
                   >
-                    {post.content}
+                    {/* 공지에 [[레벨 안내]]라고 적으면 그 자리에 레벨 안내 화면을 그립니다(공지 글에서만) */}
+                    {post.is_notice && post.content?.includes(LEVEL_GUIDE_MARKER)
+                      ? post.content.split(LEVEL_GUIDE_MARKER).map((part: string, i: number) => (
+                          <span key={i}>{i > 0 && <LevelGuide />}{part.trim() ? part : null}</span>
+                        ))
+                      : post.content}
                   </div>
 
                   {/* 추천 / 비추천 버튼 */}

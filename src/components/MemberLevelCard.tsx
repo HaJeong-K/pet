@@ -5,6 +5,7 @@
 // 계산은 서버(/api/me/level)가 하고, 규칙은 src/lib/memberLevel.ts에 있습니다.
 // 레벨 표가 아직 없으면(SQL 실행 전) 아무것도 그리지 않습니다.
 // variant="hero"면 마이페이지 위쪽 초록색 프로필 칸 안에 어울리는 색(밝은 글씨·반투명 칸)으로 그립니다.
+// variant="badge"면 "내 레벨 + 단계 배지"만 작게 보여 주고, 누르면 onOpen(설정 창의 자세한 레벨 화면)을 엽니다(따로 "자세히" 글자는 두지 않음).
 import { useEffect, useState } from "react";
 import LevelBadge from "@/components/LevelBadge";
 import LogoLoader from "@/components/LogoLoader";
@@ -14,12 +15,14 @@ type LevelResponse = { available: boolean; progress?: LevelProgress; score?: Sco
 
 const ROW_ORDER: ActivityType[] = ["tip_approved", "info_update_approved", "report_accepted", "review", "place_photo", "post", "comment", "admin_deleted"];
 
-export default function MemberLevelCard({ accessToken, onLevel, variant = "card" }: {
+export default function MemberLevelCard({ accessToken, onLevel, variant = "card", onOpen }: {
   accessToken: string | null | undefined;
   /** 레벨을 받으면 알려 줍니다(위쪽 프로필에 배지를 붙일 때) */
   onLevel?: (level: number) => void;
   /** card = 흰 카드, hero = 초록색 프로필 칸 안 */
-  variant?: "card" | "hero";
+  variant?: "card" | "hero" | "badge";
+  /** badge: 눌렀을 때(자세히 보기) */
+  onOpen?: () => void;
 }) {
   const [data, setData] = useState<LevelResponse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -38,6 +41,18 @@ export default function MemberLevelCard({ accessToken, onLevel, variant = "card"
   }, [accessToken]);
 
   if (failed || (data && !data.available)) return null;
+  if (variant === "badge") {
+    const level = data?.progress?.current.level;
+    return (
+      <button type="button" onClick={onOpen} data-member-level-card style={{
+        display: "inline-flex", alignItems: "center", gap: 9, padding: "7px 8px 7px 13px", font: "inherit", borderRadius: 12,
+        background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.24)", color: "white", cursor: onOpen ? "pointer" : "default",
+      }}>
+        <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800 }}>내 레벨</span>
+        {level != null ? <LevelBadge level={level} size="large" onDark /> : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>확인 중…</span>}
+      </button>
+    );
+  }
   const hero = variant === "hero";
   // 색 묶음 — 흰 카드 / 초록 칸
   const t = hero

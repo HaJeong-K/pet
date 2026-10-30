@@ -59,12 +59,18 @@ function loadDaumPostcode(): Promise<any> {
 export default function OwnerUpgradeForm({
   userId,
   onDone,
+  initialKind = "store",
+  framed = false,
 }: {
   userId: string;
   onDone: (result: { verified: boolean }) => void;
+  /** 처음 골라 둘 유형(숙소 입점 안내에서 오면 숙소) */
+  initialKind?: OwnerKind;
+  /** 사장님 가입 페이지 틀(OwnerJoinFrame) 안이면 제목·스크롤을 틀이 맡습니다 */
+  framed?: boolean;
 }) {
   // 가게 / 숙소 — 고른 유형에 따라 입력칸 이름이 바뀌고 관리자 화면에도 표시됩니다(src/lib/ownerKind.ts)
-  const [kind, setKind] = useState<OwnerKind>("store");
+  const [kind, setKind] = useState<OwnerKind>(initialKind);
   const kindInfo = ownerKindInfo(kind);
   const [sido, setSido] = useState("");
   const [sigungu, setSigungu] = useState("");
@@ -224,11 +230,11 @@ export default function OwnerUpgradeForm({
   return (
     // 제목은 위에 고정하고 그 아래 칸만 스크롤됩니다 — 스크롤 막대가 닫기 버튼 옆(창 맨 위)이 아니라 제목 아래에서 시작합니다.
     // 글은 낱말 단위로 줄을 바꾸고(keep-all), 문장마다 줄을 나눠 폰에서도 읽기 쉽게 합니다. 내용·기능은 그대로입니다.
-    <div style={{ maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column", wordBreak: "keep-all" }}>
-      <h1 style={{ flexShrink: 0, fontSize: 21, fontWeight: 800, margin: 0, padding: "clamp(24px, 5vw, 30px) 64px 12px clamp(20px, 5vw, 32px)", lineHeight: 1.3 }}>사장님으로 전환하기</h1>
+    <div style={framed ? { wordBreak: "keep-all" } : { maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column", wordBreak: "keep-all" }}>
+      {!framed && <h1 style={{ flexShrink: 0, fontSize: 21, fontWeight: 800, margin: 0, padding: "clamp(24px, 5vw, 30px) 64px 12px clamp(20px, 5vw, 32px)", lineHeight: 1.3 }}>사장님으로 전환하기</h1>}
       {/* 아래쪽도 창 끝에서 띄워, 스크롤 막대가 위(제목 아래)와 비슷한 간격을 두고 끝나게 합니다 */}
-      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", marginBottom: "clamp(24px, 5vw, 30px)", padding: "2px clamp(20px, 5vw, 32px) 4px", boxSizing: "border-box" }}>
-      <div style={{ fontSize: 13, color: "#555", marginBottom: 20, lineHeight: 1.65, display: "grid", gap: 6 }}>
+      <div style={framed ? {} : { flex: "1 1 auto", minHeight: 0, overflowY: "auto", marginBottom: "clamp(24px, 5vw, 30px)", padding: "2px clamp(20px, 5vw, 32px) 4px", boxSizing: "border-box" }}>
+      <div style={{ fontSize: 13, color: "#6b6456", marginBottom: 22, lineHeight: 1.7, display: "grid", gap: 6, ...(framed ? { padding: "12px 14px", borderRadius: 14, background: "#F7F4EC" } : {}) }}>
         <p style={{ margin: 0 }}>현재 계정을 유지한 채로 사장님 계정으로 전환합니다.</p>
         <p style={{ margin: 0 }}>
           사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후
@@ -253,7 +259,7 @@ export default function OwnerUpgradeForm({
         </button>
       </div>
       {sido && sigungu && (
-        <div style={{ fontSize: 12, color: "#48603A", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
+        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #48603A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
       )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
@@ -274,7 +280,7 @@ export default function OwnerUpgradeForm({
       <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
       {nicknamePreview && (
-        <div style={{ padding: "10px 12px", borderRadius: 10, background: "#E4EBDC", marginBottom: 14, fontSize: 12.5, color: "#48603A" }}>
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)" }}>
           전환 후 닉네임: <strong>{nicknamePreview}</strong> (전환 후 변경 불가)
         </div>
       )}
@@ -360,8 +366,8 @@ export default function OwnerUpgradeForm({
           onClick={() => setAgreedPrivacy((v) => !v)}
           style={{
             width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 2,
-            border: `1.5px solid ${agreedPrivacy ? "#5C7A4A" : "#ccc"}`,
-            background: agreedPrivacy ? "#5C7A4A" : "white",
+            border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
+            background: agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "white",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
           }}
         >
@@ -373,9 +379,10 @@ export default function OwnerUpgradeForm({
       </label>
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
-        width: "100%", padding: 14, borderRadius: 10, border: "none",
-        background: isSubmitDisabled ? "#ccc" : "#5C7A4A", color: "white",
-        fontWeight: 700, cursor: isSubmitDisabled ? "default" : "pointer",
+        width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
+        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: "white",
+        fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
+        boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>
         {submitPhase === "uploading" && "제출 중..."}
         {submitPhase === "verifying" && "사업자등록증 대조 중..."}

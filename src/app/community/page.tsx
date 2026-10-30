@@ -24,7 +24,7 @@ async function loadInitial(): Promise<CommunityInitial | null> {
     };
     const [first, noticeResult] = await Promise.all([
       runList(true),
-      supabase.from("community_posts").select("id, title, nickname, created_at, board_id").eq("is_notice", true).order("created_at", { ascending: false }).limit(5),
+      supabase.from("community_posts").select("id, title, nickname, created_at, board_id").eq("is_notice", true).eq("deleted", false).eq("is_admin_deleted", false).order("created_at", { ascending: false }).limit(5),
     ]);
     const listResult = first.error ? await runList(false) : first;
     if (listResult.error) throw new Error(listResult.error.message);

@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
 import PageGuide from "@/components/PageGuide";
-import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard, boardIdsFor } from "@/lib/communityBoards";
+import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, NOTICE_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard, boardIdsFor } from "@/lib/communityBoards";
 import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
@@ -170,6 +170,8 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
       .from("community_posts")
       .select("id, title, nickname, created_at, board_id")
       .eq("is_notice", true)
+      .eq("deleted", false)
+      .eq("is_admin_deleted", false)
       .order("created_at", { ascending: false })
       .limit(5)
       .then(({ data }) => {
@@ -208,7 +210,8 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
             created_at, likes, comment_count, views,
             board_id, post_type, image_urls, deleted, is_admin_deleted
           `, { count: "exact" })
-          .eq("is_notice", false)
+          // 공지 게시판은 공지만, 나머지 게시판은 공지를 빼고(공지는 목록 맨 위에 따로 고정)
+          .eq("is_notice", activeBoard === NOTICE_BOARD_ID)
           .eq("deleted", false)
           .eq("is_admin_deleted", false);
         if (withReview) q = q.eq("review_status", "visible");
@@ -216,7 +219,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         const isBest = activeBoard === BEST_BOARD_ID;
         if (isBest) {
           q = q.gte("likes", BEST_MIN_LIKES).gte("views", BEST_MIN_VIEWS);
-        } else if (activeBoard !== ALL_BOARD_ID) {
+        } else if (activeBoard !== ALL_BOARD_ID && activeBoard !== NOTICE_BOARD_ID) {
           q = q.in("board_id", boardIdsFor(activeBoard)); // 합쳐지기 전 게시판(광주 → 전남광주)의 글도 함께
         }
         if (selectedPostType !== "all") {
@@ -379,7 +382,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 : { display: "flex", gap: "6px", flexWrap: "wrap", flex: 1, minWidth: 0 }}
             >
               <style>{`.ggk-board-strip::-webkit-scrollbar { display: none; }`}</style>
-              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
+              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: NOTICE_BOARD_ID, label: "공지" }, { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
                 const active = activeBoard === board.id;
                 const best = board.id === BEST_BOARD_ID;
                 return (
@@ -796,6 +799,21 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                               <div style={{ fontSize: 12 }}>첫 글을 남겨 보세요.</div>
                             </>
                           )}
+                        </div>
+                      )}
+                      {/* 공지 — 전체 게시판 첫 쪽 맨 위에 고정(최근 3개) */}
+                      {activeBoard === ALL_BOARD_ID && currentPage === 1 && !debouncedSearch.trim() && selectedPostType === "all" && notices.length > 0 && (
+                        <div style={{ marginBottom: 14, borderRadius: 16, background: "white", border: "1px solid #D9E4CE", overflow: "hidden" }}>
+                          {notices.slice(0, 3).map((n, i) => (
+                            <button key={n.id} onClick={() => router.push(`/community/post/${n.id}`)} style={{
+                              width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", border: "none",
+                              borderTop: i === 0 ? "none" : "1px solid #EEF2E8", background: i === 0 ? "#F6F9F2" : "white", cursor: "pointer", textAlign: "left",
+                            }}>
+                              <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 7, background: "#2F3B28", color: "white", fontSize: 11.5, fontWeight: 800 }}>공지</span>
+                              <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "#1f1a12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
+                              <span style={{ flexShrink: 0, fontSize: 12, color: "#9a917f" }}>{new Date(n.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}</span>
+                            </button>
+                          ))}
                         </div>
                       )}
                       {posts.map((post) => {

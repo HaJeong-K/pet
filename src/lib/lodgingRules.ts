@@ -105,7 +105,7 @@ export type LodgingProfile = {
 export type ExtraUnit = "stay" | "night" | "person";
 export const EXTRA_UNITS: { id: ExtraUnit; label: string; hint: string }[] = [
   { id: "stay", label: "1회", hint: "숙박 한 번에" },
-  { id: "night", label: "1박마다", hint: "묵는 밤 수만큼" },
+  { id: "night", label: "1박마다", hint: "숙박하는 밤 수만큼" },
   { id: "person", label: "1인당", hint: "고른 인원 수만큼" },
 ];
 export type LodgingExtra = { id: string; name: string; price: number; unit: ExtraUnit; max: number; note: string | null };

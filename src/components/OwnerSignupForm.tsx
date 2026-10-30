@@ -61,7 +61,13 @@ function loadDaumPostcode(): Promise<any> {
 // 고정되고(가입 후 변경 불가), (2) 사업자등록증 업로드가 필수이며 업로드된 이미지를
 // OCR로 읽어 입력한 가게명·주소와 대조해 일치하면 즉시 자동 승인(owner_status='verified'),
 // 불일치하면 owner_status='pending'으로 저장되어 관리자 수동 승인을 거칩니다.
-export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string }) {
+export default function OwnerSignupForm({ redirect = "/", initialKind = "store", framed = false }: {
+  redirect?: string;
+  /** 처음 골라 둘 유형(숙소 입점 안내에서 오면 숙소) */
+  initialKind?: OwnerKind;
+  /** 사장님 가입 페이지 틀(OwnerJoinFrame) 안이면 제목·설명을 틀이 대신 보여 줍니다 */
+  framed?: boolean;
+}) {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -79,7 +85,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   // 가게 / 숙소 — 고른 유형에 따라 입력칸 이름이 바뀌고 관리자 화면에도 표시됩니다(src/lib/ownerKind.ts)
-  const [kind, setKind] = useState<OwnerKind>("store");
+  const [kind, setKind] = useState<OwnerKind>(initialKind);
   const kindInfo = ownerKindInfo(kind);
   const [sido, setSido] = useState("");
   const [sigungu, setSigungu] = useState("");
@@ -281,12 +287,14 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
   };
 
   return (
-    <div style={{ maxHeight: "82vh", overflowY: "auto", paddingRight: 2 }}>
+    <div style={framed ? { wordBreak: "keep-all" } : { maxHeight: "82vh", overflowY: "auto", paddingRight: 2 }}>
+      {!framed && <>
       <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6 }}>사장님으로 가입하기</h1>
       <p style={{ fontSize: 12.5, color: "#555", marginBottom: 20, lineHeight: 1.5 }}>
         반려동물 동반 가능 업장을 운영하신다면 사장님 계정으로 가입해주세요.
         사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후 인증 배지·본인 업장 정보 수정·사장님 게시판 글쓰기 권한이 주어집니다.
       </p>
+      </>}
 
       <OwnerKindPicker value={kind} onChange={setKind} />
 
@@ -364,7 +372,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
         </button>
       </div>
       {sido && sigungu && (
-        <div style={{ fontSize: 12, color: "#48603A", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
+        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #48603A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -385,7 +393,7 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
       {nicknamePreview && (
-        <div style={{ padding: "10px 12px", borderRadius: 10, background: "#E4EBDC", marginBottom: 14, fontSize: 12.5, color: "#48603A" }}>
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)" }}>
           가입 시 닉네임: <strong>{nicknamePreview}</strong> (가입 후 변경 불가)
         </div>
       )}
@@ -474,8 +482,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
             onClick={() => setAgreedTerms((v) => !v)}
             style={{
               width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-              border: `1.5px solid ${agreedTerms ? "#5C7A4A" : "#ccc"}`,
-              background: agreedTerms ? "#5C7A4A" : "white",
+              border: `1.5px solid ${agreedTerms ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
+              background: agreedTerms ? "var(--join-strong, #5C7A4A)" : "white",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
             }}
           >
@@ -491,8 +499,8 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
             onClick={() => setAgreedPrivacy((v) => !v)}
             style={{
               width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-              border: `1.5px solid ${agreedPrivacy ? "#5C7A4A" : "#ccc"}`,
-              background: agreedPrivacy ? "#5C7A4A" : "white",
+              border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
+              background: agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "white",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
             }}
           >
@@ -505,9 +513,10 @@ export default function OwnerSignupForm({ redirect = "/" }: { redirect?: string 
       </div>
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
-        width: "100%", padding: 14, borderRadius: 10, border: "none",
-        background: isSubmitDisabled ? "#ccc" : "#5C7A4A", color: "white",
-        fontWeight: 700, cursor: isSubmitDisabled ? "default" : "pointer",
+        width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
+        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: "white",
+        fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
+        boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>
         {submitPhase === "uploading" && "제출 중..."}
         {submitPhase === "verifying" && "사업자등록증 대조 중..."}

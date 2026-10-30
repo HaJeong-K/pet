@@ -58,6 +58,8 @@ export function boardIdsFor(boardId: string): string[] {
 /** 글을 모아 보기만 하는 가상 게시판(여기에 직접 글을 쓰지는 않음) */
 export const ALL_BOARD_ID = "all";
 export const BEST_BOARD_ID = "best";
+/** 공지 게시판 — 관리자만 씁니다(글에 is_notice=true로 저장. DB에서도 관리자 외에는 막습니다: scripts/sql/community-notices.sql) */
+export const NOTICE_BOARD_ID = "notice";
 /**
  * 인기 게시판에 오르는 기준 — 좋아요와 조회수를 둘 다 넘어야 합니다.
  * 좋아요만 보면 지인 몇 명이 눌러 줘도 오르고, 조회수만 보면 제목만 자극적인 글이 오르기 때문에
@@ -68,6 +70,7 @@ export const BEST_MIN_VIEWS = 100;
 
 export const BOARDS: Board[] = [
   { id: ALL_BOARD_ID, label: "전체" },
+  { id: NOTICE_BOARD_ID, label: "공지", desc: "같이가개 운영진이 올리는 공지예요. 서비스 소식과 이용 안내를 확인해 주세요." },
   { id: BEST_BOARD_ID, label: "인기", desc: `좋아요 ${BEST_MIN_LIKES}개 이상, 조회 ${BEST_MIN_VIEWS}회 이상인 글을 좋아요 많은 순으로 모아 봐요.` },
   ...TOPIC_BOARDS,
   { id: "business", label: "사장님 게시판" },

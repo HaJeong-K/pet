@@ -11,7 +11,7 @@ import { ARRIVAL_METHODS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId 
 import type { LodgingProfile, PetSize, PetSpecies, RoomInput } from "@/lib/lodgingRules";
 import { PET_SIZES, PET_SPECIES, PET_WEIGHT_MAX, EXTRA_QTY_MAX, type LodgingExtra, type PetFeeKey, type PetFees } from "@/lib/lodgingRules";
 
-/** 한 번에 묵을 수 있는 최대 박 수 / 며칠 뒤까지 예약을 받는지 */
+/** 한 번에 숙박할 수 있는 최대 박 수 / 며칠 뒤까지 예약을 받는지 */
 export const STAY_MAX_NIGHTS = 14;
 export const BOOK_AHEAD_DAYS = 180;
 /** 한 손님이 한 숙소에 동시에 걸어 둘 수 있는 진행 중인 예약 수 */
@@ -37,7 +37,7 @@ export function addDays(day: string, n: number): string {
 export function daysBetween(from: string, to: string): number {
   return Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / DAY_MS);
 }
-/** 묵는 밤들(체크인 날짜부터 체크아웃 전날까지) */
+/** 숙박하는 밤들(체크인 날짜부터 체크아웃 전날까지) */
 export function nightsOf(checkIn: string, checkOut: string): string[] {
   const n = daysBetween(checkIn, checkOut);
   return Array.from({ length: Math.max(0, n) }, (_, i) => addDays(checkIn, i));

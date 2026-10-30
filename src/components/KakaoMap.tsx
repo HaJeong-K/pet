@@ -1,11 +1,11 @@
 "use client";
 
+import HomeNoticeBar from "@/components/HomeNoticeBar";
 import Image from "next/image";
 import { isLodgingCategory } from "@/lib/ownerKind";
 import { buildNearestGrid } from "@/lib/nearestGrid";
 import LogoLoader from "@/components/LogoLoader";
 import { parseSearchIntent, describeIntent, looksLikeRegion, looksLikeLandmark, nameMatchesQuery, SIDO } from "@/lib/searchIntent";
-import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { toHttps } from "@/lib/imageUrl";
@@ -51,11 +51,6 @@ import {
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
   Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown, Bookmark,
 } from "lucide-react";
-// ⚠ 최적화: OwnerUpgradeForm(400여 줄)은 "사장님 등록" 버튼을 눌러야만 열리는
-// 모달이라, 정적 import로 두면 실제로 한 번도 안 열어보는 대다수 사용자도 이
-// 코드를 첫 로드 때 그대로 받게 됩니다. next/dynamic으로 실제 열릴 때만
-// 별도 청크를 내려받도록 분리합니다.
-const OwnerUpgradeForm = dynamic(() => import("@/components/OwnerUpgradeForm"));
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
 // 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
@@ -356,9 +351,7 @@ export default function KakaoMap() {
   const [session, setSession] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
-  // ── 사장님 등록(전환) 버튼 — 로그인 상태면 OwnerUpgradeForm 모달, 비로그인이면
-  // /signup-owner(OwnerSignupForm)로 이동합니다.
-  const [showOwnerRegisterModal, setShowOwnerRegisterModal] = useState(false);
+  // ── 사장님 등록(전환) 버튼 — 사장님 가입·전환 페이지(/signup-owner)로 이동합니다.
   const [ownerCheckLoading, setOwnerCheckLoading] = useState(false);
 
   // ── 마커: Map 객체로 관리 (증분 업데이트) — 상세 pill 마커(CustomOverlay)용
@@ -659,7 +652,8 @@ export default function KakaoMap() {
   // 좁은 화면(반응형 대상)에서만 실제 측정한 헤더 높이를 씁니다. 헤더 자체는 넓은
   // 화면에서도 약간 줄바꿈될 수 있어 measuredHeight가 122px 기준과 미묘하게 달라질 수
   // 있는데, 그 오차가 리스트/넓게보기 버튼 위치를 예전과 다르게 보이게 했습니다.
-  const panelTop = isNarrowScreen ? `${headerHeight + 12}px` : "122px";
+  // 공지 줄이 붙어 헤더가 길어지면 넓은 화면에서도 그만큼 아래로 내립니다.
+  const panelTop = isNarrowScreen ? `${headerHeight + 12}px` : `${Math.max(122, headerHeight + 42)}px`;
 
   // ── 휴대폰 바텀시트 ──
   // 네이버·카카오·구글 지도처럼 목록/신규/추천/AI 코스 패널을 화면 아래에서 올라오는 시트로
@@ -3402,9 +3396,8 @@ const courseMeta = (route: RouteResult) => ({
   };
 
   // ── 사장님 등록 버튼 클릭 ──
-  // 비로그인: 이메일 중복확인이 있는 /signup-owner(OwnerSignupForm)로 보냅니다.
-  // 로그인: 이미 사장님(승인완료/심사중)이면 안내만 하고, 아니면 사업장 정보만
-  // 받는 OwnerUpgradeForm 모달을 띄웁니다(이메일/비밀번호/약관은 이미 처리됨).
+  // 비로그인·로그인 모두 사장님 가입·전환 페이지(/signup-owner)로 보냅니다 — 로그인 상태면 그 페이지가 전환 폼을 보여 줍니다.
+  // 이미 사장님(승인완료/심사중)이면 안내만 합니다.
   const handleOwnerRegisterClick = async () => {
     if (!session?.user) {
       router.push("/signup-owner");
@@ -3426,7 +3419,7 @@ const courseMeta = (route: RouteResult) => ({
       alert("이미 사장님 전환 신청이 접수되어 관리자 확인을 기다리고 있습니다.");
       return;
     }
-    setShowOwnerRegisterModal(true);
+    router.push(`/signup-owner?redirect=${encodeURIComponent("/owner")}`);
   };
 
   return (
@@ -4083,6 +4076,8 @@ const courseMeta = (route: RouteResult) => ({
           </div>
           </>
           )}
+          {/* 공지 한 줄 — 커뮤니티 공지가 올라오면 제목 아래에 보입니다(없으면 아무것도 없음) */}
+          <HomeNoticeBar compact={isNarrowScreen} />
         </div>
       )}
 
@@ -5417,36 +5412,6 @@ const courseMeta = (route: RouteResult) => ({
         </>
       )}
 
-      {/* ── 사장님 등록(전환) 모달 — 로그인 상태에서만 뜹니다(비로그인은 /signup-owner로 이동). */}
-      {showOwnerRegisterModal && session?.user && (
-        <>
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)", zIndex: 99999 }}
-          />
-          <div
-            className="ggk-body"
-            style={{
-              position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              width: "min(520px, 92vw)", background: "white", borderRadius: "24px",
-              // 안쪽 여백과 스크롤은 OwnerUpgradeForm이 맡습니다 — 스크롤 막대가 입력칸 옆이 아니라 창 가장자리에 붙도록.
-              padding: 0, overflow: "hidden", boxSizing: "border-box", boxShadow: "0 20px 60px rgba(0,0,0,0.22)",
-              zIndex: 100000,
-            }}
-          >
-            <button
-              onClick={() => setShowOwnerRegisterModal(false)}
-              aria-label="닫기"
-              style={{ position: "absolute", top: 16, right: 16, zIndex: 2, width: 36, height: 36, borderRadius: "50%", border: "none", background: "#f3f4f6", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
-            >
-              ✕
-            </button>
-            <OwnerUpgradeForm
-              userId={session.user.id}
-              onDone={() => { setShowOwnerRegisterModal(false); window.location.reload(); }}
-            />
-          </div>
-        </>
-      )}
     </>
   );
 }

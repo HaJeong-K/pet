@@ -366,7 +366,7 @@ function ReviewForm({ writable, onDone }: { writable: Writable[]; onDone: () => 
           </div>
         ))}
       </div>
-      <textarea value={content} onChange={(e) => setContent(e.target.value.slice(0, REVIEW_TEXT_MAX))} rows={4} placeholder={"반려동물과 함께 묵으며 좋았던 점, 아쉬웠던 점을 적어 주세요.\n예: 마당이 넓어 뛰어놀기 좋았어요."} style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
+      <textarea value={content} onChange={(e) => setContent(e.target.value.slice(0, REVIEW_TEXT_MAX))} rows={4} placeholder={"반려동물과 함께 머물며 좋았던 점, 아쉬웠던 점을 적어 주세요.\n예: 마당이 넓어 뛰어놀기 좋았어요."} style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
       <div style={{ fontSize: 11.5, color: "#aaa", textAlign: "right", marginTop: -6 }}>{content.trim().length}/{REVIEW_TEXT_MAX}자 (최소 {REVIEW_TEXT_MIN}자)</div>
       {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
       <button onClick={submit} disabled={!ready} style={{ padding: "12px 0", borderRadius: 11, border: "none", background: ready ? BLUE : "#d6d3c9", color: "white", fontSize: 14, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "남기는 중…" : "후기 남기기"}</button>
