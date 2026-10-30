@@ -796,9 +796,10 @@ export default function CommunityDetailPage() {
       {/* ══════════════════════════════════════
           전체 레이아웃 — 커뮤니티 목록/마이페이지와 동일한 3단 grid(여백 1fr / 본문
           min(1000px,100%) / 여백 1fr)를 그대로 써서, 게시글 상세에서도 좌우 광고
-          레일과 유기동물 공고 레일이 같이 뜹니다. 본문 칼럼 안의 680px 읽기 폭은
-          그대로 유지하고(justifySelf:center로 본문 칼럼 정가운데에 배치), 세로
-          스크롤 방식(height:100vh + overflow:hidden + 내부 post-scroll)도 그대로입니다.
+          레일과 유기동물 공고 레일이 같이 뜹니다. 본문은 목록과 같은 폭을 다 써서 레일과의
+          간격이 페이지마다 같습니다. 세로 스크롤은 안쪽 post-scroll이 맡습니다 — 줄 높이를
+          화면 높이로 묶지 않으면(gridTemplateRows, minHeight) 칸이 글 길이만큼 늘어나 긴 글이
+          잘리고 스크롤도 되지 않습니다.
       ══════════════════════════════════════ */}
       <div
         className="ggk-body"
@@ -808,24 +809,25 @@ export default function CommunityDetailPage() {
           background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
+          gridTemplateRows: "minmax(0, 1fr)",
           // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
           columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
         }}
       >
         <AdRailLeft />
 
-        {/* 680px 컬럼 */}
+        {/* 본문 칼럼 */}
         <div
           style={{
             // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
             // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
             gridColumn: "2",
             width: "100%",
-            maxWidth: "680px",
+            minWidth: 0,
             height: "100%",
+            minHeight: 0,
             display: "flex",
             flexDirection: "column",
-            justifySelf: "center",
           }}
         >
           {/* ── 상단바 (고정) ── */}
@@ -865,6 +867,7 @@ export default function CommunityDetailPage() {
             className="post-scroll"
             style={{
               flex: 1,
+              minHeight: 0,
               padding: "14px",
             }}
           >

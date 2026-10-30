@@ -40,7 +40,7 @@ import { parkToPlace } from "@/lib/parkPlace";
 import WelcomeIntro, { shouldShowWelcomeIntro } from "@/components/WelcomeIntro";
 import PageGuide from "@/components/PageGuide";
 import { saveCourse, deleteSavedCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
-import { MAP_GUIDE_KEY, MAP_GUIDE_STEPS } from "@/lib/pageGuides";
+import { MAP_GUIDE_KEY, mapGuideSteps } from "@/lib/pageGuides";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -625,7 +625,7 @@ export default function KakaoMap() {
     if (menuDragY > 70) setShowMobileMenu(false);
     setMenuDragY(0);
   };
-  // 첫 방문 소개(서비스가 무엇을 해 주는지 네 장으로 — src/components/WelcomeIntro.tsx). 앱을 새로 열 때마다 한 번 뜨고,
+  // 첫 방문 소개(목적을 고르면 그에 맞는 세네 장으로 — src/components/WelcomeIntro.tsx). 앱을 새로 열 때마다 한 번 뜨고,
   // "다시 보지 않기"를 누르면 더 뜨지 않습니다. 떠 있는 동안에는 화면 안내를 미루고, 닫으면 이어서 시작합니다.
   const [showDemoNotice, setShowDemoNotice] = useState(false);
   const [demoNoticeChecked, setDemoNoticeChecked] = useState(false);
@@ -4100,7 +4100,7 @@ const courseMeta = (route: RouteResult) => ({
                 <Store size={14} />{toolbarLabels && "사장님"}
               </button>
             </div>
-            <button ref={jeboBtnRef} title="새 장소나 바뀐 정보 알려 주기" onClick={() => router.push("/jebo")}
+            <button ref={jeboBtnRef} data-guide="report" title="새 장소나 바뀐 정보 알려 주기" onClick={() => router.push("/jebo")}
               className="ggk-body"
               style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 12, border: "none", background: "#2F3B28", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(30,30,20,0.18)", fontFamily: "'Noto Sans KR', sans-serif" }}>
               <Pencil size={13} />{toolbarLabels ? "제보하기" : "제보"}
@@ -4179,7 +4179,7 @@ const courseMeta = (route: RouteResult) => ({
       )}
 
       {/* ── 액션 버튼 첫 방문 안내 투어: position:fixed라 트리 안 위치는 상관없습니다. ── */}
-      <PageGuide storageKey={MAP_GUIDE_KEY} steps={MAP_GUIDE_STEPS} enabled={demoNoticeChecked && !showDemoNotice} />
+      <PageGuide storageKey={MAP_GUIDE_KEY} steps={mapGuideSteps} enabled={demoNoticeChecked && !showDemoNotice} />
 
       {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
           좁은 화면에서는 헤더의 "목록" 토글을 켰을 때만 보이고, 폭도 clamp()로 화면 크기에

@@ -17,7 +17,8 @@ export type GuideStep = {
 type Props = {
   /** 이 안내를 봤는지 기억하는 이름(페이지마다 다르게) */
   storageKey: string;
-  steps: GuideStep[];
+  /** 함수로 주면 안내를 시작할 때 읽습니다(첫 소개에서 고른 목적에 맞출 때) */
+  steps: GuideStep[] | (() => GuideStep[]);
   /** false인 동안에는 시작하지 않습니다(다른 팝업이 떠 있을 때 등) */
   enabled?: boolean;
   /** 화면이 다 그려질 시간을 주고 시작합니다 */
@@ -58,7 +59,7 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
   useEffect(() => {
     if (!enabled || startedRef.current || hasSeenGuide(storageKey)) return;
     const timer = setTimeout(() => {
-      const visible = steps.filter((s) => findVisible(s.selector));
+      const visible = (typeof steps === "function" ? steps() : steps).filter((s) => findVisible(s.selector));
       if (visible.length === 0) return; // 아직 대상이 없으면 다음 방문 때 다시 시도
       startedRef.current = true;
       setActive(visible);
@@ -172,12 +173,19 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
               <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === index ? "#3a7438" : "#ddd" }} />
             ))}
           </div>
-          <button
-            onClick={() => (last ? finish() : setIndex(index + 1))}
-            style={{ border: "none", background: "#3a7438", color: "white", fontSize: 12, fontWeight: 700, padding: "6px 13px", borderRadius: 8, cursor: "pointer" }}
-          >
-            {last ? "완료" : `다음 ${index + 1}/${active.length}`}
-          </button>
+          <div style={{ display: "flex", gap: 5 }}>
+            {index > 0 && (
+              <button onClick={() => setIndex(index - 1)} style={{ border: "1px solid #ddd", background: "white", color: "#555", fontSize: 12, fontWeight: 700, padding: "5px 10px", borderRadius: 8, cursor: "pointer" }}>
+                이전
+              </button>
+            )}
+            <button
+              onClick={() => (last ? finish() : setIndex(index + 1))}
+              style={{ border: "none", background: "#3a7438", color: "white", fontSize: 12, fontWeight: 700, padding: "6px 13px", borderRadius: 8, cursor: "pointer" }}
+            >
+              {last ? "완료" : `다음 ${index + 1}/${active.length}`}
+            </button>
+          </div>
         </div>
       </div>
     </>

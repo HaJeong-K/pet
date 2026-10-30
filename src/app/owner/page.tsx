@@ -40,6 +40,8 @@ import OwnerDetailedReport, { type DetailedReport } from "@/components/owner/Own
 import PremiumCancelDialog, { type RefundPreview } from "@/components/owner/PremiumCancelDialog";
 import { isPlacePremiumNow } from "@/lib/premium";
 import { isLodgingCategory, isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
+import PageGuide from "@/components/PageGuide";
+import { OWNER_GUIDE_KEY, OWNER_GUIDE_STEPS } from "@/lib/pageGuides";
 
 // 사장님 센터의 메뉴. 자주 쓰는 것(대시보드·예약·상품·광고)은 아래 탭바(TabBar.tsx)에도 있습니다.
 type TabKey = OwnerTabKey;
@@ -229,6 +231,7 @@ export default function OwnerPage() {
         }
       `}</style>
 
+      <PageGuide storageKey={OWNER_GUIDE_KEY} steps={OWNER_GUIDE_STEPS} />
       {/* 위 고정 막대 */}
       <header className="oc-top owner-no-print">
         <Link href="/" aria-label="같이가개 지도로" style={{ display: "flex", alignItems: "center" }}>

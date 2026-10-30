@@ -11,6 +11,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, MapPin, Search, ShoppingBag, Store } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import PageGuide from "@/components/PageGuide";
+import { SHOP_GUIDE_KEY, SHOP_GUIDE_STEPS } from "@/lib/pageGuides";
 import StayFrame from "@/components/lodging/StayFrame";
 import PlaceStoreSection from "@/components/PlaceStoreSection";
 import { supabase } from "@/lib/supabase";
@@ -78,6 +80,7 @@ export default function ShopClient() {
 
   return (
     <StayFrame>
+      <PageGuide storageKey={SHOP_GUIDE_KEY} steps={SHOP_GUIDE_STEPS} enabled={stores !== null} />
       {/* 머리말 + 검색 — 숙소 탭과 같은 모양(색만 쇼핑의 초록) */}
       <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#3F5A30 0%,#5C7A4A 65%,#83A06B 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
@@ -120,7 +123,7 @@ export default function ShopClient() {
             {visible.map((s) => {
               const open = openId === s.id;
               return (
-                <div key={s.id} id={`shop-store-${s.id}`} style={{ scrollMarginTop: 12, background: "white", borderRadius: 16, border: `1px solid ${open ? "#d8cfae" : "#ece6d6"}`, overflow: "hidden" }}>
+                <div key={s.id} id={`shop-store-${s.id}`} data-guide="shop-store" style={{ scrollMarginTop: 12, background: "white", borderRadius: 16, border: `1px solid ${open ? "#d8cfae" : "#ece6d6"}`, overflow: "hidden" }}>
                   <div style={{ padding: "14px 14px 12px" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>

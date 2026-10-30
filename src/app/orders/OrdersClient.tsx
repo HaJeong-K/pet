@@ -5,6 +5,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import PageGuide from "@/components/PageGuide";
+import { ORDERS_GUIDE_KEY, ORDERS_GUIDE_STEPS } from "@/lib/pageGuides";
 import MyStaysCard from "@/components/lodging/MyStaysCard";
 import MyStoreOrders from "@/components/MyStoreOrders";
 
@@ -30,12 +32,13 @@ export default function OrdersClient() {
         )}
         {loggedIn && (
           <>
-            <div role="tablist" style={{ display: "flex", gap: 6, margin: "16px 0 12px" }}>
+            <PageGuide storageKey={ORDERS_GUIDE_KEY} steps={ORDERS_GUIDE_STEPS} delayMs={1500} />
+            <div role="tablist" data-guide="orders-tabs" style={{ display: "flex", gap: 6, margin: "16px 0 12px" }}>
               {TABS.map((t) => (
                 <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => router.replace(`/orders?tab=${t.id}`, { scroll: false })} style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: `1px solid ${tab === t.id ? "#4A3021" : "#E8DFD2"}`, background: tab === t.id ? "#4A3021" : "white", color: tab === t.id ? "white" : "#5F4D3A", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{t.label}</button>
               ))}
             </div>
-            {tab === "stay" ? <MyStaysCard showEmpty /> : <MyStoreOrders />}
+            <div data-guide="orders-list">{tab === "stay" ? <MyStaysCard showEmpty /> : <MyStoreOrders />}</div>
           </>
         )}
       </div>

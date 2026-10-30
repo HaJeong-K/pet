@@ -307,6 +307,7 @@ export default function TabBar() {
             return (
               <button
                 key={tab.key}
+                data-guide={`tab-${tab.key}`}
                 className="tab-btn-ggk"
                 onClick={tab.onClick}
                 style={{

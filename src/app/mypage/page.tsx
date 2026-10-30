@@ -886,7 +886,7 @@ export default function MyPage() {
 						<MyNotificationsCard />
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
 						{STAMPS_ENABLED && <MemoryStampsCard />}
-						<a href="/orders" className="ggk-body" style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 16px", padding: "15px 16px", borderRadius: 16, background: "white", border: "1px solid #e3eaf3", color: "#222", textDecoration: "none" }}>
+						<a href="/orders" data-guide="mypage-orders" className="ggk-body" style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 16px", padding: "15px 16px", borderRadius: 16, background: "white", border: "1px solid #e3eaf3", color: "#222", textDecoration: "none" }}>
 							<ReceiptText size={18} color="#8C5E3A" />
 							<span style={{ flex: 1, minWidth: 0 }}>
 								<b style={{ display: "block", fontSize: 15, fontWeight: 800 }}>주문·예약 내역</b>

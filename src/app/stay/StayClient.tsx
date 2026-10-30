@@ -13,6 +13,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CalendarCheck, MapPin, PawPrint, Search, Sparkles } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
+import PageGuide from "@/components/PageGuide";
+import { STAY_GUIDE_KEY, STAY_GUIDE_STEPS } from "@/lib/pageGuides";
 import StayFrame from "@/components/lodging/StayFrame";
 import { useUserArea } from "@/lib/useUserRegion";
 import { haversineKm } from "@/lib/geo";
@@ -132,6 +134,7 @@ export default function StayClient() {
 
   return (
     <StayFrame>
+      <PageGuide storageKey={STAY_GUIDE_KEY} steps={STAY_GUIDE_STEPS} enabled={stays !== null} />
       <div>
         {/* 머리말 + 검색 */}
         <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#1D4F91 0%,#3D7BC8 70%,#6FA3DD 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
@@ -149,7 +152,7 @@ export default function StayClient() {
             <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 애월, 가평" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 14.5, fontFamily: "inherit", color: "#222", background: "transparent" }} />
             {query && <button onClick={() => { setQuery(""); setLimit(PAGE); }} aria-label="검색어 지우기" style={{ border: "none", background: "#eef0f3", borderRadius: 999, width: 22, height: 22, cursor: "pointer", color: "#666", fontSize: 13, lineHeight: "22px", padding: 0 }}>×</button>}
           </div>
-          <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, marginTop: 10 }}>
+          <div data-guide="stay-regions" style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, marginTop: 10 }}>
             {REGIONS.map((r) => (
               <button key={r.label} onClick={() => { setRegion(r.label); setSubRegion(null); setLimit(PAGE); }} aria-pressed={region === r.label} style={chip(region === r.label)}>
                 {r.label === "내 주변" && <MapPin size={12} />}{r.label}
