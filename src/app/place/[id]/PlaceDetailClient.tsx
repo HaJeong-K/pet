@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerBadge from "@/components/OwnerBadge";
 import PlaceStampButton from "@/components/stamps/PlaceStampButton";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
@@ -1585,6 +1586,7 @@ export default function PlaceDetail({
                       </div>
                       <div className="ggk-body" style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{r.nickname}</div>
                       <LevelBadge level={memberLevels[r.auth_user_id]} />
+                      <OwnerBadge userId={r.auth_user_id} />
                       {isOwner(r) && <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>}
                     </div>
                     <div style={{ position:"relative", display:"flex", flexDirection:"column", alignItems:"flex-end" }}>
@@ -1677,6 +1679,7 @@ export default function PlaceDetail({
                           </div>
                           <div className="ggk-body" style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
                           <LevelBadge level={memberLevels[reply.auth_user_id]} />
+                          {!reply.is_owner && <OwnerBadge userId={reply.auth_user_id} />}
                           {reply.is_owner && (
                             <span className="ggk-body" title="이 가게의 인증된 사장님이 직접 남긴 답글이에요" style={{ display:"inline-flex", alignItems:"center", gap:"2px", fontSize:"10px", fontWeight:800, background:"#F59E0B", color:"white", padding:"1px 7px", borderRadius:"99px", whiteSpace:"nowrap" }}>
                               <Store size={10} />사장님

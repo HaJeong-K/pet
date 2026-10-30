@@ -4,6 +4,8 @@ import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
 import MyNotificationsCard from "@/components/MyNotificationsCard";
+import OwnerBadge from "@/components/OwnerBadge";
+import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
 import MyStaysCard from "@/components/lodging/MyStaysCard";
 import MemoryStampsCard from "@/components/stamps/MemoryStampsCard";
 import PageGuide from "@/components/PageGuide";
@@ -301,6 +303,7 @@ export default function MyPage() {
 
   const handleCheckNickname = async () => {
     if (!newNickname.trim()) { setNickMsg({ok:false,text:"닉네임을 입력해주세요."}); return; }
+    if (isReservedNickname(newNickname)) { setNickChecked(true); setNickMsg({ok:false,text:RESERVED_NICKNAME_MESSAGE}); return; }
     setIsCheckingNick(true);
     const { data: dup } = await supabase.rpc("check_nickname_exists", { p_nickname: newNickname });
     setIsCheckingNick(false);
@@ -672,6 +675,7 @@ export default function MyPage() {
 										)}
 										{userProfile?.nickname}
 										<LevelBadge level={myLevel} onDark />
+										<OwnerBadge userId={session?.user?.id} />
 									</div>
 
 									<div
@@ -1432,9 +1436,6 @@ export default function MyPage() {
 
                   {/* 사장님 기능(가게 정보·통계·광고 상품·후기 답글)은 하단 "사장님" 탭(/owner)에서 봅니다 — 여기 있던 바로가기는 뺐습니다. */}
 
-                  {/* 사장님 계정(nickname_locked)은 [지역명]가게명_사장님 형식이 고정되므로
-                      닉네임 변경 메뉴 자체를 숨깁니다. */}
-                  {!userProfile?.nickname_locked && (
                   <button className="setting-row" onClick={() => setSettingView("nickname")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:"#eef2ff", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                       <User size={15} color="#5C7CFA" />
@@ -1442,7 +1443,6 @@ export default function MyPage() {
                     <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>닉네임 변경</div>
                     <ChevronRight size={14} color="#bbb" />
                   </button>
-                  )}
 
                   {!isOAuthUser && (
                     <button className="setting-row" onClick={() => setSettingView("password")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>

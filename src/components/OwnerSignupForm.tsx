@@ -8,10 +8,11 @@ import { supabase } from "@/lib/supabase";
 import { Eye, EyeOff, Search, Check, MapPin, Upload } from "lucide-react";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
 import OwnerKindPicker from "@/components/OwnerKindPicker";
+import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
 import { isMissingOwnerKind, ownerKindInfo, type OwnerKind } from "@/lib/ownerKind";
 
 // 다음 주소검색 API가 돌려주는 시/도 표기가 지역마다 풀네임/축약형이 섞여 있어
-// 기존 닉네임 규칙([지역명]가게명_사장님, 예: "경남")과 맞추기 위해 정규화합니다.
+// 짧은 이름(예: "경남")으로 맞추기 위해 정규화합니다.
 const SIDO_NORMALIZE: Record<string, string> = {
   "서울": "서울", "서울특별시": "서울",
   "부산": "부산", "부산광역시": "부산",
@@ -57,8 +58,8 @@ function loadDaumPostcode(): Promise<any> {
 
 
 // ── 사장님(업주) 회원가입 ──
-// 일반 회원가입과 달리: (1) 지역+가게명으로 닉네임이 [지역명]가게명_사장님 형태로 자동
-// 고정되고(가입 후 변경 불가), (2) 사업자등록증 업로드가 필수이며 업로드된 이미지를
+// 일반 회원가입과 달리: (1) 닉네임은 자유롭게 정하고, 인증되면 닉네임 옆에 "가게명 사장님" 배지가 붙습니다(OwnerBadge),
+// (2) 사업자등록증 업로드가 필수이며 업로드된 이미지를
 // OCR로 읽어 입력한 가게명·주소와 대조해 일치하면 즉시 자동 승인(owner_status='verified'),
 // 불일치하면 owner_status='pending'으로 저장되어 관리자 수동 승인을 거칩니다.
 export default function OwnerSignupForm({ redirect = "/", initialKind = "store", framed = false }: {
@@ -123,8 +124,14 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
     loadDaumPostcode().catch((e) => console.error("다음 주소검색 로드 실패:", e));
   }, []);
 
-  const nicknamePreview =
-    sido && businessName.trim() ? `[${sido}]${businessName.trim()}_사장님` : "";
+  const [nickname, setNickname] = useState("");
+  const [isNicknameTaken, setIsNicknameTaken] = useState(false);
+  const nicknameReserved = isReservedNickname(nickname);
+  const checkNickname = async (value: string) => {
+    if (!value.trim()) { setIsNicknameTaken(false); return; }
+    const { data } = await supabase.rpc("check_nickname_exists", { p_nickname: value.trim() });
+    setIsNicknameTaken(data === true);
+  };
 
   const checkEmailDuplicate = async () => {
     if (!email || !isValidEmail(email)) return;
@@ -188,6 +195,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
     !sido || !sigungu || !roadAddress ||
     !addressDetail.trim() ||
     !businessName.trim() ||
+    !nickname.trim() || nicknameReserved || isNicknameTaken ||
     !phone.trim() ||
     !certFile ||
     !isCompleteBizInfo(biz.info) ||
@@ -205,17 +213,18 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
     setSubmitPhase("uploading");
     try {
       const { data: nicknameData } = await supabase.rpc("check_nickname_exists", {
-        p_nickname: nicknamePreview,
+        p_nickname: nickname.trim(),
       });
       if (nicknameData === true) {
-        alert("이미 같은 이름의 사장님 계정이 등록돼 있습니다. 관리자에게 문의해주세요.");
+        setIsNicknameTaken(true);
+        alert("이미 사용중인 닉네임입니다.");
         return;
       }
 
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: nicknamePreview, nickname: nicknamePreview } },
+        options: { data: { full_name: nickname.trim(), nickname: nickname.trim() } },
       });
       if (error) { alert(error.message); return; }
       if (!data.user) { alert("가입에 실패했습니다."); return; }
@@ -245,8 +254,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
       const ownerRow = {
         auth_user_id: data.user.id,
         email,
-        nickname: nicknamePreview,
-        nickname_locked: true,
+        nickname: nickname.trim(),
         owner_status: "pending",
         owner_business_name: businessName.trim(),
         owner_region: sido,
@@ -392,11 +400,12 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
 
       <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
-      {nicknamePreview && (
-        <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)" }}>
-          가입 시 닉네임: <strong>{nicknamePreview}</strong> (가입 후 변경 불가)
-        </div>
-      )}
+      <input placeholder="닉네임" value={nickname} onChange={(e) => { setNickname(e.target.value); void checkNickname(e.target.value); }} aria-label="닉네임" style={inputStyle} />
+      {nickname && isNicknameTaken && <p style={errorTextStyle}>이미 사용중인 닉네임입니다.</p>}
+      {nicknameReserved && <p style={errorTextStyle}>{RESERVED_NICKNAME_MESSAGE}</p>}
+      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)", lineHeight: 1.6 }}>
+        인증되면 닉네임 옆에 <strong>{businessName.trim() || "가게 이름"} 사장님</strong> 표시가 붙어요. 닉네임은 나중에 바꿀 수 있어요.
+      </div>
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 

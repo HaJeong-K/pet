@@ -3,6 +3,9 @@
 import LevelGuide, { LEVEL_GUIDE_MARKER } from "@/components/LevelGuide";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
+import { NoticeTag, RoleMark } from "@/components/NoticeMarks";
+import OwnerBadge from "@/components/OwnerBadge";
+import { boardLabel } from "@/lib/communityBoards";
 import { useMemberLevels } from "@/lib/useMemberLevels";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -617,17 +620,7 @@ export default function CommunityDetailPage() {
   // ─────────────────────────────
   // 게시판 이름
   // ─────────────────────────────
-  const getBoardLabel = (id: string) => {
-    const map: Record<string, string> = {
-      free: "자유게시판",
-      seoul: "서울",
-      gyeonggi: "경기",
-      busan: "부산",
-      daegu: "대구",
-      jeju: "제주",
-    };
-    return map[id] || "게시판";
-  };
+  const getBoardLabel = (id: string) => boardLabel(id);
 
   // ─────────────────────────────
   // 이미지 목록 (모달용)
@@ -906,7 +899,7 @@ export default function CommunityDetailPage() {
                 }}
               >
                 <div>
-                  <span
+                  {post.is_notice ? <NoticeTag /> : <span
                     style={{
                       fontSize: "11px",
                       fontWeight: 700,
@@ -918,7 +911,7 @@ export default function CommunityDetailPage() {
                     }}
                   >
                     {getBoardLabel(post.board_id)}
-                  </span>
+                  </span>}
 
                   {post.post_type && (
                     <span
@@ -1068,7 +1061,8 @@ export default function CommunityDetailPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: "12px", fontWeight: 700, color: "#222", display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                       {post.nickname}
-                      <LevelBadge level={memberLevels[(post as any).author_auth_key]} />
+                      {/* 운영진 공지에는 회원 레벨 대신 "운영진" */}
+                      {post.is_notice ? <RoleMark label="운영진" /> : <><LevelBadge level={memberLevels[(post as any).author_auth_key]} /><OwnerBadge userId={(post as any).author_auth_key} /></>}
                     </div>
 
                     <div
@@ -1420,6 +1414,7 @@ export default function CommunityDetailPage() {
                             </div>
                             <div style={{ fontWeight:700, fontSize:"12px", color:"#111" }}>{item.nickname}</div>
                             <LevelBadge level={memberLevels[(item as any).author_auth_key]} />
+                            <OwnerBadge userId={(item as any).author_auth_key} />
                             {isCommentOwner(item) && (
                               <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
                             )}
@@ -1547,6 +1542,7 @@ export default function CommunityDetailPage() {
                                 </div>
                                 <div style={{ fontSize:"11px", fontWeight:700, color:"#111" }}>{reply.nickname}</div>
                                 <LevelBadge level={memberLevels[(reply as any).author_auth_key]} />
+                                <OwnerBadge userId={(reply as any).author_auth_key} />
                                 {isCommentOwner(reply) && (
                                   <span style={{ fontSize:"10px", background:"#e8f0fe", color:"#1a73e8", padding:"1px 6px", borderRadius:"99px" }}>내 댓글</span>
                                 )}

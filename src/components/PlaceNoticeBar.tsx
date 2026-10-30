@@ -8,7 +8,8 @@
 //   공지를 누르면 그 공지가, 머리 줄을 누르면 공지 목록이 열립니다(지도 위 창을 벗어나도록 새로 엽니다).
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronUp, Megaphone, Pin } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Pin } from "lucide-react";
+import { NoticeTag, RoleMark } from "@/components/NoticeMarks";
 import { isNewNotice, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
 
 const NEW_BADGE: React.CSSProperties = { flexShrink: 0, fontSize: 9.5, fontWeight: 800, color: "white", background: "#EF4444", borderRadius: 4, padding: "1px 4px", lineHeight: 1.3 };
@@ -41,9 +42,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
   if (stayHref) {
     return (
       <a href={`${stayHref}?notice=${top.id}`} style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", textDecoration: "none" }}>
-        <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 6, background: "#B45309", color: "white", fontSize: 10.5, fontWeight: 800 }}>
-          <Megaphone size={11} />공지
-        </span>
+        <NoticeTag />
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
         <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
         <span style={{ flexShrink: 0, fontSize: 11, color: "#6b5f3e" }}>{notices.length > 1 ? `숙소 소식 ${notices.length}` : noticeDate(top.created_at)}</span>
@@ -55,9 +54,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
   return (
     <div style={{ marginBottom: 10, borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", overflow: "hidden" }}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
-        <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 7px", borderRadius: 6, background: "#B45309", color: "white", fontSize: 10.5, fontWeight: 800 }}>
-          <Megaphone size={11} />공지
-        </span>
+        <NoticeTag />
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
         <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
         <span style={{ flexShrink: 0, fontSize: 11, color: "#6b5f3e" }}>{noticeDate(top.created_at)}</span>
@@ -86,7 +83,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
               </div>
             );
           })}
-          <div style={{ padding: "8px 12px", fontSize: 11, color: "#6e6e6e" }}>사장님이 올린 공지예요.</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", fontSize: 11.5, color: "#5c5c5c" }}><RoleMark label="사장님" />이 장소 사장님이 올린 공지예요.</div>
         </div>
       )}
     </div>

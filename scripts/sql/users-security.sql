@@ -5,7 +5,7 @@
 --   · 읽기 : 본인 줄 + 관리자는 전체 + 비회원 줄(닉네임만 있는 줄). 다른 회원의 공개 정보(닉네임·프로필 사진)는 public_profiles로만
 --   · 쓰기 : 본인 줄(관리자는 전체), 비회원 줄
 --   · 추가 보호(트리거) : 계정 연결(auth_user_id) 바꾸기 금지, 비회원 줄에 사장님 정보 금지,
---     연결된 가게는 사장님 신청(대기) 때만 변경, 고정된 사장님 닉네임은 신청 때만 변경
+--     연결된 가게는 사장님 신청(대기) 때만 변경, 닉네임에 사장님·운영진·관리자·같이가개 금지(사칭 방지 — 사장님은 "가게명 사장님" 배지로 표시)
 -- 서버(service role)·DB 관리자(SQL 편집기)는 제한 없음. 여러 번 실행해도 안전합니다.
 
 -- 지금 로그인한 사람이 관리자인지(정책 안에서 users를 다시 읽어도 무한 반복되지 않게 security definer)
@@ -47,6 +47,10 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
+    -- 소셜 계정 이름에 금지어가 있어도 가입은 되게, 임시 닉네임으로 바꿉니다
+    if replace(coalesce(new.nickname, ''), ' ', '') ~ '(사장님|운영진|관리자|같이가개)' then
+      new.nickname := '회원' || substr(md5(random()::text), 1, 6);
+    end if;
     if new.auth_user_id is null and (new.owner_status is not null or new.owner_place_id is not null) then
       raise exception '권한이 없어요.' using errcode = '42501';
     end if;
@@ -60,9 +64,8 @@ begin
   if new.owner_place_id is distinct from old.owner_place_id and coalesce(new.owner_status, '') <> 'pending' then
     raise exception '권한이 없어요.' using errcode = '42501';
   end if;
-  -- 고정된 사장님 닉네임은 신청할 때만 바뀜
-  if coalesce(old.nickname_locked, false) and new.nickname is distinct from old.nickname and coalesce(new.owner_status, '') <> 'pending' then
-    raise exception '사장님 계정은 닉네임을 바꿀 수 없어요.' using errcode = '42501';
+  if new.nickname is distinct from old.nickname and replace(coalesce(new.nickname, ''), ' ', '') ~ '(사장님|운영진|관리자|같이가개)' then
+    raise exception '이 닉네임은 쓸 수 없어요.' using errcode = '42501';
   end if;
   return new;
 end;

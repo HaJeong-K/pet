@@ -1,5 +1,6 @@
 "use client";
 
+import OwnerBadge from "@/components/OwnerBadge";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
@@ -863,11 +864,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 6, fontSize: 12, color: "#666" }}>
                                   <span style={{ fontWeight: 700, color: "#222" }}>{post.nickname}</span>
                                   <LevelBadge level={memberLevels[post.author_auth_key]} />
-                                  {isBusiness && (
-                                    <span style={{ fontSize: 9, fontWeight: 800, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>
-                                      사장님
-                                    </span>
-                                  )}
+                                  <OwnerBadge userId={post.author_auth_key} />
                                   {(activeBoard === ALL_BOARD_ID || activeBoard === BEST_BOARD_ID) && post.board_id && post.board_id !== "all" && !isBusiness && (
                                     <span style={{ fontSize: 10, fontWeight: 700, background: "#f5f6f8", color: "#555", padding: "1px 8px", borderRadius: 999 }}>
                                       {getBoardLabel(post.board_id)}

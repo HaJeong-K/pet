@@ -7,6 +7,7 @@
 //     (지도 위 장소 상세 창의 공지를 누르면 이렇게 들어옵니다 — PlaceNoticeBar)
 // 공지는 사장님 센터 "공지"에서 씁니다. 서버는 /api/place-notices.
 
+import { NoticeTag, RoleMark } from "@/components/NoticeMarks";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Megaphone, Pin, X } from "lucide-react";
 import { isNewNotice, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
@@ -90,10 +91,16 @@ export default function StayNotices({ placeId, placeName }: { placeId: number; p
               {open ? (
                 <article style={{ background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "18px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <NoticeTag />
                     {open.pinned && <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", borderRadius: 5, padding: "2px 6px" }}><Pin size={10} />대표 공지</span>}
                     {isNewNotice(open.created_at) && <span style={NEW_BADGE}>N</span>}
                   </div>
                   <h3 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 800, color: "#222", lineHeight: 1.45 }}>{open.title}</h3>
+                  {/* 작성자 — 숙소 이름 + 사장님 표시(커뮤니티 공지의 "운영진"과 같은 모양) */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#222" }}>{placeName}</span>
+                    <RoleMark label="사장님" />
+                  </div>
                   <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
                     {noticeDate(open.created_at)} 게시{open.updated_at.slice(0, 16) !== open.created_at.slice(0, 16) ? ` · ${noticeDate(open.updated_at)} 수정` : ""}
                   </div>

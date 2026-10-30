@@ -14,9 +14,7 @@ import { isMissingOwnerKind, ownerKindInfo, type OwnerKind } from "@/lib/ownerKi
 // 동일하지만, 여기서는 이미 계정이 있으므로 이메일/비밀번호/이용약관 재동의 단계를
 // 생략하고 사업장 정보 + 사업자등록증만 받습니다. 제출 시 auth.signUp으로 새 계정을
 // 만드는 대신, 기존 users 행(auth_user_id=현재 로그인 사용자)을 owner_* 필드로
-// update합니다 — 닉네임도 다른 사장님 계정과 동일하게 [지역명]가게명_사장님 형식으로
-// 고정됩니다(사장님 계정 전반의 일관된 규칙, mypage.tsx가 nickname_locked를 보고
-// 닉네임 변경 메뉴를 숨김).
+// update합니다 — 닉네임은 지금 그대로 두고, 인증되면 닉네임 옆에 "가게명 사장님" 배지가 붙습니다(OwnerBadge).
 const SIDO_NORMALIZE: Record<string, string> = {
   "서울": "서울", "서울특별시": "서울",
   "부산": "부산", "부산광역시": "부산",
@@ -102,9 +100,6 @@ export default function OwnerUpgradeForm({
     loadDaumPostcode().catch((e) => console.error("다음 주소검색 로드 실패:", e));
   }, []);
 
-  const nicknamePreview =
-    sido && businessName.trim() ? `[${sido}]${businessName.trim()}_사장님` : "";
-
   const openAddressSearch = async () => {
     try {
       const daum = await loadDaumPostcode();
@@ -156,14 +151,6 @@ export default function OwnerUpgradeForm({
     setSubmitting(true);
     setSubmitPhase("uploading");
     try {
-      const { data: nicknameData } = await supabase.rpc("check_nickname_exists", {
-        p_nickname: nicknamePreview,
-      });
-      if (nicknameData === true) {
-        alert("이미 같은 이름의 사장님 계정이 등록돼 있습니다. 관리자에게 문의해주세요.");
-        return;
-      }
-
       const fullAddress = `${roadAddress} ${addressDetail.trim()}`;
       const ext = (certFile.name.split(".").pop() || "jpg").toLowerCase();
       const fileName = `${userId}/cert-${Date.now()}.${ext}`;
@@ -187,8 +174,6 @@ export default function OwnerUpgradeForm({
       // ⚠ 인증 판정은 서버(국세청 진위확인)가 합니다 — 브라우저는 항상 "승인 대기"로만 저장합니다.
 
       const ownerFields = {
-        nickname: nicknamePreview,
-        nickname_locked: true,
         owner_status: "pending",
         owner_business_name: businessName.trim(),
         owner_region: sido,
@@ -209,8 +194,6 @@ export default function OwnerUpgradeForm({
         alert("가입 정보 저장 중 오류가 발생했습니다.");
         return;
       }
-
-      await supabase.auth.updateUser({ data: { full_name: nicknamePreview, nickname: nicknamePreview } });
 
       const verify = await requestOwnerAutoVerify(biz.info);
       if (verify.outcome === "verified") {
@@ -240,7 +223,7 @@ export default function OwnerUpgradeForm({
           사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후
           인증 배지·본인 업장 정보 수정·사장님 게시판 글쓰기 권한이 주어집니다.
         </p>
-        <p style={{ margin: 0 }}>전환 시 닉네임은 <strong>[지역명]{kindInfo.nameLabel}_사장님</strong> 형식으로 바뀝니다.</p>
+        <p style={{ margin: 0 }}>닉네임은 그대로이고, 닉네임 옆에 <strong>{kindInfo.nameLabel} 사장님</strong> 표시가 붙어요.</p>
       </div>
 
       <OwnerKindPicker value={kind} onChange={setKind} />
@@ -279,11 +262,9 @@ export default function OwnerUpgradeForm({
 
       <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
-      {nicknamePreview && (
-        <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)" }}>
-          전환 후 닉네임: <strong>{nicknamePreview}</strong> (전환 후 변경 불가)
-        </div>
-      )}
+      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)", lineHeight: 1.6 }}>
+        닉네임은 그대로예요. 인증되면 닉네임 옆에 <strong>{businessName.trim() || "가게 이름"} 사장님</strong> 표시가 붙어요.
+      </div>
 
       <div style={{ height: 1, background: "#eee", margin: "16px 0" }} />
 

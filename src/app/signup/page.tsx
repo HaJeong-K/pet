@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Check, MapPin, BedDouble, Footprints, Heart } from "lucide-react";
 import JoinLayout, { type JoinPoint } from "@/components/brand/JoinLayout";
+import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
 import { CONTACT_USE_NOTE, formatPhone, isValidName, isValidPhone, normalizeName, normalizePhone } from "@/lib/contact";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
 
@@ -91,6 +92,8 @@ function SignupPageContent() {
     setIsNicknameTaken(data === true);
   };
 
+  const nicknameReserved = isReservedNickname(nickname);
+
   const handleSignup = async () => {
     if (!email || !nickname || !password || !passwordConfirm || !realName || !phone) {
       alert("모든 항목을 입력해주세요.");
@@ -98,6 +101,11 @@ function SignupPageContent() {
     }
     if (!isValidName(realName) || !isValidPhone(phone)) {
       alert("이름과 휴대폰 번호를 다시 확인해주세요.");
+      return;
+    }
+
+    if (nicknameReserved) {
+      alert(RESERVED_NICKNAME_MESSAGE);
       return;
     }
 
@@ -204,6 +212,7 @@ function SignupPageContent() {
     !emailChecked ||
     emailProvider !== "none" ||
     !nickname ||
+    nicknameReserved ||
     isNicknameTaken ||
     !isValidName(realName) ||
     !isValidPhone(phone) ||
@@ -296,6 +305,7 @@ function SignupPageContent() {
         {nickname && isNicknameTaken && (
           <p style={errorTextStyle}>이미 사용중인 닉네임입니다.</p>
         )}
+        {nicknameReserved && <p style={errorTextStyle}>{RESERVED_NICKNAME_MESSAGE}</p>}
 
         {/* 이름 · 휴대폰 번호 — 아이디(이메일) 찾기 전용 */}
         <div style={{ display: "flex", gap: "8px" }}>
