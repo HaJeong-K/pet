@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SessionKeepGuard from "@/components/SessionKeepGuard";
+import ContactPrompt from "@/components/ContactPrompt";
 import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
@@ -120,11 +122,15 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
         <AuthProvider>
+          {/* "로그인 상태 유지"를 끄고 로그인했으면, 브라우저를 닫았다 열 때 로그아웃 */}
+          <SessionKeepGuard />
           <AuthGuard />
           <AnalyticsTracker />
           <ErrorReporter />
           {/* 로그인한 회원이 들어온 날을 하루에 한 번 기록합니다(회원 레벨의 방문 조건). 화면에는 아무것도 그리지 않습니다. */}
           <MemberVisitPing />
+          {/* 아이디 찾기용 이름·휴대폰 번호가 없는 회원에게 한 번 묻기(간편가입·사장님·기존 회원) */}
+          <ContactPrompt />
           {children}
           {modal}
           <TabBar />

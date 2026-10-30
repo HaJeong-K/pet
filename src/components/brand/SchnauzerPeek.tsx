@@ -60,10 +60,13 @@ export function SchnauzerPaws({ width = 64, tone = GRAY }: { width?: number; ton
 
 /** 카드 위로 내다보는 강아지 두 마리(큰 강아지 + 작은 강아지). 카드 묶음(position:relative) 안에 둡니다. */
 export const PEEK_SPACE = 84; // 카드 위에 비워 둘 높이
-export function PeekingDogs({ right = 32 }: { right?: number }) {
+/** compact(로그인 창처럼 작은 카드): 큰 강아지를 줄인 크기 — 카드 위에 PEEK_SPACE_COMPACT만큼 비워 둡니다 */
+export const PEEK_SPACE_COMPACT = 64;
+export function PeekingDogs({ right = 32, compact = false }: { right?: number; compact?: boolean }) {
+  const big = compact ? 48 : 62, small = compact ? 36 : 44;
   const dogs = [
-    { width: 62, tone: GRAY, right },
-    { width: 44, tone: SILVER, right: right + 62 + 2 },
+    { width: big, tone: GRAY, right },
+    { width: small, tone: SILVER, right: right + big + 2 },
   ];
   return (
     <>

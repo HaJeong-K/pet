@@ -162,6 +162,7 @@ export default function TabBar() {
   const hideTabBar =
     pathname.includes("/login") ||
     pathname.includes("/signup") ||
+    pathname === "/reset-password" ||
     pathname.includes("/place/") ||
     pathname === "/report" ||
     pathname === "/jebo";  

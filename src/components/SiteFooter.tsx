@@ -125,11 +125,12 @@ function ContactModal({ onClose }: { onClose: () => void }) {
 export function PrivacyModal({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell title="개인정보 처리방침" onClose={onClose}>
-      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 10월 5일</p>
+      <p style={{ fontSize: 11, color: "#999", marginBottom: 16 }}>최종 수정일: 2026년 10월 30일</p>
 
       <FooterSection title="1. 개인정보의 수집 및 이용 목적">
         같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
         • 회원 가입 및 관리: 회원 식별, 사장님(업주) 인증, 서비스 부정이용 방지<br />
+        • 아이디(이메일) 찾기: 가입한 이메일을 잊은 경우 이름·휴대폰 번호로 본인 계정 확인(이 목적 외에는 쓰지 않음)<br />
         • 서비스 제공: 반려동물 동반 장소 정보 제공, 리뷰·찜·신고·제보 기능 운영, 현재 위치 기반 주변 장소·보호소 공고 안내<br />
         • 사장님 서비스: 사업자등록증 진위 확인을 통한 업주 인증, 본인 업장 정보 수정 권한 부여<br />
         • 알림: 이용자가 신청한 지역의 새 유기동물 공고 알림 발송<br />
@@ -139,7 +140,8 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       </FooterSection>
 
       <FooterSection title="2. 수집하는 개인정보 항목">
-        • <strong>이메일 회원가입 시(필수):</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장)<br />
+        • <strong>이메일 회원가입 시(필수):</strong> 이메일 주소, 닉네임, 비밀번호(암호화 저장), 이름, 휴대폰 번호(아이디 찾기 전용)<br />
+        • <strong>간편가입·기존 회원이 아이디 찾기 정보를 등록한 경우:</strong> 이름, 휴대폰 번호(아이디 찾기 전용, 다른 회원에게 공개하지 않음)<br />
         • <strong>소셜 로그인 시(카카오/구글):</strong> 이메일, 소셜 계정 고유 식별자, 프로필 이미지(제공되는 경우)<br />
         • <strong>사장님(업주) 가입 시 추가:</strong> 사업장명, 사업장 주소, 연락처, 사업자등록증 이미지 및 그 안의 텍스트(OCR 자동 대조용)<br />
         • <strong>비회원 이용 시:</strong> 브라우저에 저장되는 임의 식별값(로그인 없이 리뷰·제보 작성을 식별하기 위한 용도)<br />

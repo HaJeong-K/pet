@@ -49,18 +49,14 @@ body {
    느낌이 났고, transform을 통째로 덮어써서 위치 맞춤에 transform을 쓰는 버튼
    (가운데 정렬 화살표 등)은 누르는 순간 제자리에서 튀었습니다.
    개별 속성(translate/scale)은 기존 transform과 합쳐지기만 해서 위치를 건드리지 않고,
-   !important를 빼서 버튼마다 지정한 transition도 그대로 살립니다. */
+   !important를 빼서 버튼마다 지정한 transition도 그대로 살립니다.
+   마우스를 올렸을 때 1px 떠오르며 그림자 상자가 생기던 효과는 뺐습니다(글자만 있는 버튼까지 상자가 보여 과했음).
+   이제 누르는 순간 아주 살짝 작아지는 것만 남깁니다. */
 button {
-  transition: translate 0.15s ease, scale 0.1s ease, box-shadow 0.15s ease;
-}
-
-button:hover {
-  translate: 0 -1px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  transition: scale 0.1s ease;
 }
 
 button:active {
-  translate: 0 0;
   scale: 0.98;
 }
 

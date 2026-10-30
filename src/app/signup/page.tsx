@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Check, MapPin, BedDouble, Footprints, Heart } from "lucide-react";
 import JoinLayout, { type JoinPoint } from "@/components/brand/JoinLayout";
+import { CONTACT_USE_NOTE, formatPhone, isValidName, isValidPhone, normalizeName, normalizePhone } from "@/lib/contact";
 import { TermsModal, PrivacyModal } from "@/components/SiteFooter";
 
 // 왼쪽 칸에 보여 줄 "가입하면 쓸 수 있는 것"
@@ -23,6 +24,9 @@ function SignupPageContent() {
 
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
+  // 이름·휴대폰 번호 — 아이디(이메일) 찾기에만 씁니다(user_contacts 표, 본인만 읽기)
+  const [realName, setRealName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
 
@@ -88,8 +92,12 @@ function SignupPageContent() {
   };
 
   const handleSignup = async () => {
-    if (!email || !nickname || !password || !passwordConfirm) {
+    if (!email || !nickname || !password || !passwordConfirm || !realName || !phone) {
       alert("모든 항목을 입력해주세요.");
+      return;
+    }
+    if (!isValidName(realName) || !isValidPhone(phone)) {
+      alert("이름과 휴대폰 번호를 다시 확인해주세요.");
       return;
     }
 
@@ -175,6 +183,12 @@ function SignupPageContent() {
       return;
     }
 
+    // 아이디 찾기용 이름·번호 저장(로그인된 본인만 쓸 수 있는 표). 실패해도 가입은 끝난 것이라, 다음 로그인 때 다시 묻습니다(ContactPrompt).
+    const { error: contactError } = await supabase.from("user_contacts").upsert({
+      auth_user_id: data.user.id, name: normalizeName(realName), phone: normalizePhone(phone), updated_at: new Date().toISOString(),
+    });
+    if (contactError) console.error("user_contacts 저장 실패:", contactError);
+
     alert("회원가입이 완료되었습니다.\n확인을 누르시면 자동으로 로그인됩니다.");
     window.location.href = redirect;
   };
@@ -191,6 +205,8 @@ function SignupPageContent() {
     emailProvider !== "none" ||
     !nickname ||
     isNicknameTaken ||
+    !isValidName(realName) ||
+    !isValidPhone(phone) ||
     !password ||
     !passwordConfirm ||
     !isValidEmail(email) ||
@@ -280,6 +296,33 @@ function SignupPageContent() {
         {nickname && isNicknameTaken && (
           <p style={errorTextStyle}>이미 사용중인 닉네임입니다.</p>
         )}
+
+        {/* 이름 · 휴대폰 번호 — 아이디(이메일) 찾기 전용 */}
+        <div style={{ display: "flex", gap: "8px" }}>
+          <input
+            id="signup-name"
+            placeholder="이름"
+            autoComplete="name"
+            value={realName}
+            onChange={(e) => setRealName(e.target.value)}
+            style={{ ...inputStyle, flex: "0 0 38%", minWidth: 0 }}
+          />
+          <input
+            id="signup-phone"
+            placeholder="휴대폰 번호"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            style={{ ...inputStyle, flex: 1, minWidth: 0 }}
+          />
+        </div>
+        {phone && !isValidPhone(phone) && (
+          <p style={errorTextStyle}>휴대폰 번호를 다시 확인해주세요.</p>
+        )}
+        <p style={guideTextStyle}>
+          {CONTACT_USE_NOTE} 다른 회원에게는 보이지 않아요.
+        </p>
 
         {/* 비밀번호 */}
         <div style={{ position: "relative", marginBottom: "12px" }}>
