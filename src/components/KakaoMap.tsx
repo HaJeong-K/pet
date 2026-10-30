@@ -2,6 +2,7 @@
 
 import HomeNoticeBar from "@/components/HomeNoticeBar";
 import Image from "next/image";
+import { shortAddress } from "@/lib/shortAddress";
 import { isLodgingCategory } from "@/lib/ownerKind";
 import { buildNearestGrid } from "@/lib/nearestGrid";
 import LogoLoader from "@/components/LogoLoader";
@@ -3060,7 +3061,7 @@ const courseMeta = (route: RouteResult) => ({
     let padRight = 80;
     if (!isNarrowScreen) {
       const routePanelPad = 320 + EDGE;
-      const listPanelPad = showListPanel ? 222 + EDGE : 80;
+      const listPanelPad = showListPanel ? 300 + EDGE : 80;
       if (otherPanelsSide === "right") { padRight = routePanelPad; padLeft = listPanelPad; }
       else { padLeft = routePanelPad; padRight = listPanelPad; }
     }
@@ -4195,7 +4196,7 @@ const courseMeta = (route: RouteResult) => ({
           position: "fixed",
           top: panelTop,
           ...(effectiveListPanelSide === "left" ? { left: "14px" } : { right: "14px" }),
-          width: isNarrowScreen ? "clamp(170px, 48vw, 220px)" : "240px",
+          width: isNarrowScreen ? "clamp(170px, 48vw, 220px)" : "300px",
           height: "62vh",
           background: "#FAF8F3",
           border: "1px solid rgba(60,50,30,0.08)",
@@ -4354,7 +4355,7 @@ const courseMeta = (route: RouteResult) => ({
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: "5px", flexWrap: "wrap" }}>
                     <span style={{
-                      display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700,
+                      display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, whiteSpace: "nowrap",
                       color: "#5a5141", background: "#F4F0E7", padding: "2px 7px", borderRadius: "999px",
                     }}>
                       {isPark ? (
@@ -4372,7 +4373,7 @@ const courseMeta = (route: RouteResult) => ({
                   {place.address && (
                     <div style={{ fontSize: "10.5px", color: "#655d4f", marginTop: "6px", display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
                       <MapPin size={10} color="#b8ad99" style={{ flexShrink: 0 }} />
-                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{place.address}</span>
+                      <span title={place.address} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{shortAddress(place.address)}</span>
                     </div>
                   )}
                 </div>
