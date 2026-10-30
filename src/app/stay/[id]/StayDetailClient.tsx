@@ -4,7 +4,7 @@
 //   ① 사진(옆으로 넘김) ② 이름·분류·프리미엄·별점·주소 ②-1 숙소 소식(사장님 공지 — StayNotices) ③ 바로가기(객실·동반 조건·숙박 후기·위치)
 //   ④ 객실: 요금·인원·마릿수·편의시설 → [예약하기](/stay/번호/book?room=)
 //   ⑤ 동반 조건: 요약·편의시설·체크인/아웃·수칙·환불 기준
-//   ⑥ 숙박 후기: 평균 별점·항목별 별점·별점별 개수, 묵은 손님의 후기 쓰기, 후기 목록(사장님 답글)
+//   ⑥ 숙박 후기: 평균 별점·항목별 별점·별점별 개수, 이용한 손님의 후기 쓰기, 후기 목록(사장님 답글)
 //   ⑦ 위치: 주소·지도에서 보기(근처 동반 장소)·길찾기·전화
 // 아래에 "1박 ○원~ [객실 선택]" 띠가 붙어 있습니다. 바깥 틀은 StayFrame(좌우 광고·보호소 공고 칸).
 
@@ -222,7 +222,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
         {/* 숙박 후기 */}
         <section id="stay-reviews" style={card}>
           <h2 className="ggk-logo" style={h2}>숙박 후기</h2>
-          <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>같이가개에서 예약하고 묵은 손님만 남길 수 있어요.</div>
+          <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>같이가개에서 예약하고 이용한 손님만 남길 수 있어요.</div>
           {!reviews ? <div style={{ fontSize: 13, color: "#6e6e6e", marginTop: 12 }}>불러오는 중…</div> : (
             <>
               {reviews.summary.count > 0 && <ReviewSummaryBox summary={reviews.summary} />}
@@ -348,7 +348,7 @@ function ReviewForm({ writable, onDone }: { writable: Writable[]; onDone: () => 
 
   return (
     <div style={{ marginTop: 12, padding: "14px 14px", borderRadius: 14, border: "1px solid #F3D58A", background: "#FFFDF5", display: "grid", gap: 10 }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>묵은 숙소는 어떠셨나요?</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>이용한 숙소는 어떠셨나요?</div>
       {writable.length > 1 ? (
         <select value={bookingId} onChange={(e) => setBookingId(Number(e.target.value))} aria-label="후기를 남길 예약" style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, fontFamily: "inherit" }}>
           {writable.map((w) => <option key={w.id} value={w.id}>{stayDayLabel(w.check_in)} ~ {stayDayLabel(w.check_out)} · {w.room_name}</option>)}

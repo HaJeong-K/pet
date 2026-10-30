@@ -81,7 +81,7 @@ export const STAY_GUIDE_KEY = "ggk_guide_stay_v1";
 export const STAY_GUIDE_STEPS: GuideStep[] = [
   { selector: 'input[placeholder*="숙소 이름"]', title: "숙소 찾기", text: "숙소 이름이나 지역으로 찾아요." },
   { selector: '[data-guide="stay-regions"]', title: "지역 고르기", text: "내 주변이나 원하는 지역의 숙소만 모아 봐요.\n‘전체 지역’에서는 시·도별로 볼 수 있어요." },
-  { selector: 'a[href^="/stay/"]', title: "숙소 카드", text: "누르면 객실, 요금, 반려동물 동반 규정을 볼 수 있어요.\n입점한 숙소는 날짜를 골라 바로 예약해요." },
+  { selector: '[data-guide="stay-card"]', title: "숙소 카드", text: "누르면 객실, 요금, 반려동물 동반 규정을 볼 수 있어요.\n입점한 숙소는 날짜를 골라 바로 예약해요." },
   ...LOGIN_OR_MYPAGE,
 ];
 

@@ -3,6 +3,7 @@
 import HomeNoticeBar from "@/components/HomeNoticeBar";
 import Image from "next/image";
 import { shortAddress } from "@/lib/shortAddress";
+import { ParkIcon, PlaceIcon, parkIconSvg, placeIconKey, placeIconSvg } from "@/components/PlaceIcon";
 import { isLodgingCategory } from "@/lib/ownerKind";
 import { buildNearestGrid } from "@/lib/nearestGrid";
 import LogoLoader from "@/components/LogoLoader";
@@ -132,23 +133,6 @@ declare global {
   }
 }
 
-const PET_ZONE_EMOJI: Record<string, string> = {
-  indoor: "🏠",
-  terrace: "🌿",
-  both: "🏡",
-};
-
-// ── 카테고리 기반 이모지 (pet_zone과 무관하게 category로 결정되는 장소용)
-const CATEGORY_EMOJI: Record<string, string> = {
-  "동물병원": "🏥",
-  "동물약국": "💊",
-};
-
-// 숙소(펜션·호텔·캠핑 등)는 침대 마커 — 분류 이름이 여러 가지라 isLodgingCategory로 판단합니다
-const LODGING_EMOJI = "🛏️";
-const getPlaceEmoji = (place: any) =>
-  CATEGORY_EMOJI[place?.category] || (isLodgingCategory(place?.category) ? LODGING_EMOJI : null) || PET_ZONE_EMOJI[place?.pet_zone] || null;
-
 // ── AI 맞춤 추천 경로 테마 탭 아이콘
 // ⚠ 카페 중심/비 오는 날 테마는 제거했습니다(요청) — 남은 테마는 산책 중심/관광 중심/
 // 실내 추천 3개입니다.
@@ -222,7 +206,7 @@ const readRouteMedicalPref = (): { vet: boolean; pharmacy: boolean } => {
 
 // 숙소는 원래 분류 이름(펜션·호텔·게스트하우스 등)을 그대로 보여 줍니다 — "숙소"는 마커·필터용 큰 묶음일 뿐입니다
 const getPlaceLabel = (place: any) =>
-  CATEGORY_EMOJI[place?.category] || isLodgingCategory(place?.category)
+  ["vet", "pharmacy", "lodging"].includes(placeIconKey(place))
     ? place.category
     : getPetZoneLabel(place?.pet_zone);
 
@@ -2545,7 +2529,6 @@ const courseMeta = (route: RouteResult) => ({
 
     // 가게 이름표 pill(원래 지도 마커) 하나를 그립니다. 누르면 미리보기 카드(정보·후기)가 열립니다.
     const addPlacePill = (place: any, position: any, zIndex = 3) => {
-        const emoji = getPlaceEmoji(place) || "🐾";
         const overlay = new window.kakao.maps.CustomOverlay({
           position,
           content: `
@@ -2564,9 +2547,12 @@ const courseMeta = (route: RouteResult) => ({
                 white-space:nowrap;
                 user-select:none;
                 border:1px solid rgba(0,0,0,0.06);
+                display:inline-flex;
+                align-items:center;
+                gap:4px;
               "
             >
-              ${emoji} ${escapeHtml(place.name)}
+              ${placeIconSvg(place)}${escapeHtml(place.name)}
             </div>
           `,
           yAnchor: 1,
@@ -2784,9 +2770,12 @@ const courseMeta = (route: RouteResult) => ({
                 user-select:none;
                 border:1px solid rgba(58,116,56,0.25);
                 color:#2b5e29;
+                display:inline-flex;
+                align-items:center;
+                gap:4px;
               "
             >
-              🌳 ${escapeHtml(park.name)}
+              ${parkIconSvg()}${escapeHtml(park.name)}
             </div>
           `,
           yAnchor: 1,
@@ -3716,9 +3705,7 @@ const courseMeta = (route: RouteResult) => ({
               </div>
               <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                  {getPlaceEmoji(selectedPlace)
-                    ? getPlaceEmoji(selectedPlace)
-                    : <PawPrint size={11} color="#888" />}
+                  <PlaceIcon place={selectedPlace} size={12} />
                 </span>{" "}
                 {getPlaceLabel(selectedPlace)}
               </div>
@@ -3780,8 +3767,8 @@ const courseMeta = (route: RouteResult) => ({
               </button>
             </div>
             <div style={{ padding: "13px" }}>
-              <div className="ggk-logo" style={{ fontWeight: 700, fontSize: "13px", color: "#111" }}>
-                🌳 {selectedPark.name}
+              <div className="ggk-logo" style={{ fontWeight: 700, fontSize: "13px", color: "#111", display: "flex", alignItems: "center", gap: 4 }}>
+                <ParkIcon size={14} />{selectedPark.name}
               </div>
               <div style={{ fontSize: "11px", color: "#666", marginTop: "3px" }}>
                 {selectedPark.category}
@@ -4017,7 +4004,7 @@ const courseMeta = (route: RouteResult) => ({
                 </button>
               ))}
               {/* ⚠ 공원 버튼 자체가 눌림/안눌림 상태를 통째로 표현합니다(다른 필터 버튼과
-                  같은 톤) — 텍스트는 "🌳 공원"으로 고정, 켜져 있으면 진한 초록으로 채워지고
+                  같은 톤) — 텍스트는 "공원"으로 고정, 켜져 있으면 진한 초록으로 채워지고
                   꺼지면 옅은 외곽선만 남는 식으로 버튼 전체가 토글됩니다. */}
               <button
                 data-guide="park-toggle"
@@ -4310,7 +4297,7 @@ const courseMeta = (route: RouteResult) => ({
                 <div style={{ position: "relative", width: "92px", minHeight: "92px", flexShrink: 0 }}>
                   {isPark ? (
                     <div style={{ width: "100%", height: "100%", background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "28px" }}>🌳</span>
+                      <ParkIcon size={28} color="#3F5230" />
                     </div>
                   ) : (
                     // lazy loading + 기본 이미지 fallback
@@ -4359,12 +4346,10 @@ const courseMeta = (route: RouteResult) => ({
                       color: "#5a5141", background: "#F4F0E7", padding: "2px 7px", borderRadius: "999px",
                     }}>
                       {isPark ? (
-                        <>🌳 {place.category}</>
+                        <><ParkIcon size={11} />{place.category}</>
                       ) : (
                         <>
-                          {getPlaceEmoji(place)
-                            ? <span>{getPlaceEmoji(place)}</span>
-                            : <PawPrint size={10} color="#8a7f6a" />}
+                          <PlaceIcon place={place} size={11} />
                           {getPlaceLabel(place)}
                         </>
                       )}
@@ -4586,9 +4571,7 @@ const courseMeta = (route: RouteResult) => ({
                     </div>
                     <div style={{ fontSize: "10px", color: "#555", marginTop: "3px", display: "flex", alignItems: "center", gap: "4px" }}>
                       <span>
-                        {getPlaceEmoji(place)
-                          ? getPlaceEmoji(place)
-                          : <PawPrint size={10} color="#777" />}
+                        <PlaceIcon place={place} size={11} />
                       </span>
                       <span>{getPlaceLabel(place)}</span>
                     </div>
@@ -4953,7 +4936,7 @@ const courseMeta = (route: RouteResult) => ({
                     />
                   ) : (
                     <div style={{ width: "56px", height: "56px", borderRadius: "10px", flexShrink: 0, background: "#ece4fc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
-                      {getPlaceEmoji(stop.place) || "🐾"}
+                      <PlaceIcon place={stop.place} size={22} />
                     </div>
                   )}
 

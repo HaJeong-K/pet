@@ -19,6 +19,7 @@ import StayFrame from "@/components/lodging/StayFrame";
 import { useUserArea } from "@/lib/useUserRegion";
 import { haversineKm } from "@/lib/geo";
 import { normalizeSidoName } from "@/lib/shelterNotices";
+import { REGION_BOARDS } from "@/lib/communityBoards";
 import type { PetSize } from "@/lib/lodgingRules";
 
 type Stay = {
@@ -27,18 +28,11 @@ type Stay = {
 };
 
 const BLUE = "#1D4F91";
-const REGIONS: { label: string; match: string[] }[] = [
-  { label: "내 주변", match: [] },
-  { label: "전체 지역", match: [] },
-  { label: "강원", match: ["강원"] },
-  { label: "제주", match: ["제주"] },
-  { label: "경기", match: ["경기"] },
-  { label: "서울·인천", match: ["서울", "인천"] },
-  { label: "부산·경남", match: ["부산", "울산", "경남", "경상남"] },
-  { label: "대구·경북", match: ["대구", "경북", "경상북"] },
-  { label: "충청", match: ["충청", "충북", "충남", "대전", "세종"] },
-  { label: "전라", match: ["전라", "전북", "전남", "광주"] },
-];
+// 지역 분류와 순서는 커뮤니티 지역 게시판과 같습니다(src/lib/communityBoards.ts)
+const NEARBY = "내 주변";
+const ALL_REGIONS = "전체 지역";
+const REGION_LABELS = [NEARBY, ALL_REGIONS, ...REGION_BOARDS.map((b) => b.label)];
+const regionOrder = (sido: string) => { const i = REGION_BOARDS.findIndex((b) => b.label === sido); return i < 0 ? REGION_BOARDS.length : i; };
 type Filter = "bookable" | "large" | "pension" | "hotel" | "camping" | "hanok";
 const FILTERS: { id: Filter; label: string; test: (s: Stay) => boolean }[] = [
   { id: "bookable", label: "바로 예약", test: (s) => s.bookable },
@@ -54,7 +48,6 @@ const regionOf = (address: string | null) => (address ?? "").split(" ").slice(0,
 const subKeyOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/); return t.length >= 2 ? `${normalizeSidoName(t[0])} ${t[1]}` : null; };
 /** 시·도 이름("강원특별자치도" → "강원") — 전체 지역에서 시·도별로 나눌 때 */
 const sidoOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/)[0]; return t ? normalizeSidoName(t) : null; };
-const ALL_REGIONS = "전체 지역";
 const realImage = (src: string | null) => (src && !src.includes("default-place") ? src : null);
 
 function StayImage({ stay, height }: { stay: Stay; height: number }) {
@@ -76,7 +69,7 @@ export default function StayClient() {
   const area = useUserArea();
   const [stays, setStays] = useState<Stay[] | null>(null);
   const [query, setQuery] = useState("");
-  const [region, setRegion] = useState("내 주변");
+  const [region, setRegion] = useState(NEARBY);
   // 세부 지역(시·군·구) — 권역을 고르면 그 안의 시·군·구를 숙소가 많은 순으로 보여 줍니다
   const [subRegion, setSubRegion] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filter[]>([]);
@@ -93,34 +86,32 @@ export default function StayClient() {
   const list = useMemo(() => {
     if (!stays) return [];
     const q = query.trim().replace(/\s+/g, "");
-    const r = REGIONS.find((x) => x.label === region)!;
+    const inRegion = region !== NEARBY && region !== ALL_REGIONS;
     return stays
       .filter((s) => !q || `${s.name}${s.address ?? ""}${s.category ?? ""}`.replace(/\s+/g, "").includes(q))
-      .filter((s) => r.match.length === 0 || r.match.some((m) => (s.address ?? "").startsWith(m)))
+      .filter((s) => !inRegion || sidoOf(s.address) === region)
       .filter((s) => !subRegion || (region === ALL_REGIONS ? sidoOf(s.address) : subKeyOf(s.address)) === subRegion)
       .filter((s) => filters.every((f) => FILTERS.find((x) => x.id === f)!.test(s)))
       .map((s) => ({ ...s, distance: hereLat != null && hereLng != null ? haversineKm(hereLat, hereLng, s.lat, s.lng) : null }))
       .sort((a, b) => Number(b.bookable) - Number(a.bookable) || (a.distance ?? 0) - (b.distance ?? 0) || a.name.localeCompare(b.name));
   }, [stays, query, region, subRegion, filters, hereLat, hereLng]);
-  // 고른 권역 안의 세부 지역(숙소 수 많은 순). 두 시·도가 섞인 권역(서울·인천 등)은 이름 앞에 시·도를 붙입니다.
+  // 고른 지역 안의 세부 지역(숙소 수 많은 순)
   const subRegions = useMemo(() => {
-    const r = REGIONS.find((x) => x.label === region)!;
     if (!stays) return [];
     const counts = new Map<string, number>();
-    // 전체 지역: 시·도별(숙소 많은 순)
+    // 전체 지역: 시·도별(게시판 순서)
     if (region === ALL_REGIONS) {
       for (const st of stays) { const key = sidoOf(st.address); if (key) counts.set(key, (counts.get(key) ?? 0) + 1); }
-      return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).map(([key, count]) => ({ key, count, label: key }));
+      return [...counts.entries()].sort((a, b) => regionOrder(a[0]) - regionOrder(b[0]) || a[0].localeCompare(b[0], "ko")).map(([key, count]) => ({ key, count, label: key }));
     }
-    if (r.match.length === 0) return [];
+    if (region === NEARBY) return [];
     for (const st of stays) {
-      if (!r.match.some((m) => (st.address ?? "").startsWith(m))) continue;
+      if (sidoOf(st.address) !== region) continue;
       const key = subKeyOf(st.address);
       if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    const sidos = new Set([...counts.keys()].map((k) => k.split(" ")[0]));
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko"))
-      .map(([key, count]) => ({ key, count, label: sidos.size > 1 ? key : key.split(" ")[1] }));
+      .map(([key, count]) => ({ key, count, label: key.split(" ")[1] }));
   }, [stays, region]);
   const bookable = list.filter((s) => s.bookable);
   const toggle = (f: Filter) => { setFilters((prev) => (prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f])); setLimit(PAGE); };
@@ -153,9 +144,9 @@ export default function StayClient() {
             {query && <button onClick={() => { setQuery(""); setLimit(PAGE); }} aria-label="검색어 지우기" style={{ border: "none", background: "#eef0f3", borderRadius: 999, width: 22, height: 22, cursor: "pointer", color: "#666", fontSize: 13, lineHeight: "22px", padding: 0 }}>×</button>}
           </div>
           <div data-guide="stay-regions" style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 2, marginTop: 10 }}>
-            {REGIONS.map((r) => (
-              <button key={r.label} onClick={() => { setRegion(r.label); setSubRegion(null); setLimit(PAGE); }} aria-pressed={region === r.label} style={chip(region === r.label)}>
-                {r.label === "내 주변" && <MapPin size={12} />}{r.label}
+            {REGION_LABELS.map((label) => (
+              <button key={label} onClick={() => { setRegion(label); setSubRegion(null); setLimit(PAGE); }} aria-pressed={region === label} style={chip(region === label)}>
+                {label === NEARBY && <MapPin size={12} />}{label}
               </button>
             ))}
           </div>
@@ -195,7 +186,7 @@ export default function StayClient() {
                 <div style={{ fontSize: 12.5, color: "#5c5c5c", padding: "3px 18px 0" }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.</div>
                 <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", padding: "12px 18px 4px", scrollSnapType: "x mandatory" }}>
                   {bookable.slice(0, 12).map((s) => (
-                    <button key={s.id} onClick={() => open(s)} style={{ flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: 0, border: "none", borderRadius: 18, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(29,79,145,0.12)", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+                    <button key={s.id} data-guide="stay-card" onClick={() => open(s)} style={{ flexShrink: 0, width: 230, scrollSnapAlign: "start", padding: 0, border: "none", borderRadius: 18, overflow: "hidden", background: "white", boxShadow: "0 4px 14px rgba(29,79,145,0.12)", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
                       <StayImage stay={s} height={140} />
                       <div style={{ padding: "11px 13px 13px" }}>
                         <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>{[s.category, regionOf(s.address)].filter(Boolean).join(" · ")}</div>
@@ -212,7 +203,7 @@ export default function StayClient() {
             {/* 전체 숙소 */}
             <section style={{ marginTop: 18, padding: "0 16px", minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6, padding: "0 2px" }}>
-                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === "내 주변" ? (here ? "가까운 숙소" : "전국 숙소") : region === ALL_REGIONS && !subRegion ? "전국 숙소" : `${subRegion ? subRegions.find((x) => x.key === subRegion)?.label ?? region : region} 숙소`}</h2>
+                <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#222" }}>{region === NEARBY ? (here ? "가까운 숙소" : "전국 숙소") : region === ALL_REGIONS && !subRegion ? "전국 숙소" : `${subRegion ? subRegions.find((x) => x.key === subRegion)?.label ?? region : region} 숙소`}</h2>
                 <span style={{ fontSize: 12.5, color: "#666" }}>{list.length.toLocaleString("ko-KR")}곳</span>
               </div>
               {list.length === 0 && (
@@ -223,7 +214,7 @@ export default function StayClient() {
               {/* 넓은 화면에서는 두 줄로 */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 400px), 1fr))", gap: 10, marginTop: 10 }}>
                 {list.slice(0, limit).map((s) => (
-                  <button key={s.id} onClick={() => open(s)} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "flex", gap: 12, padding: 10, border: "none", borderRadius: 18, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", alignItems: "stretch" }}>
+                  <button key={s.id} data-guide="stay-card" onClick={() => open(s)} style={{ width: "100%", minWidth: 0, boxSizing: "border-box", display: "flex", gap: 12, padding: 10, border: "none", borderRadius: 18, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", alignItems: "stretch" }}>
                     <div style={{ width: 96, flexShrink: 0, borderRadius: 13, overflow: "hidden" }}><StayImage stay={s} height={96} /></div>
                     <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>

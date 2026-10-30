@@ -1,6 +1,6 @@
 "use client";
 
-// 사장님 센터 "후기·답글"의 숙박 후기(숙소 사장님) — 같이가개에서 예약하고 묵은 손님의 별점 후기입니다.
+// 사장님 센터 "후기·답글"의 숙박 후기(숙소 사장님) — 같이가개에서 예약하고 이용한 손님의 별점 후기입니다.
 //   · 답글 달기·고치기·지우기 — 숙소 화면(/stay/번호)의 후기 아래에 "사장님 답글"로 보입니다
 //   · 신고하기 — 사유를 고르면 관리자가 검토해 유지·가리기·삭제합니다(결과와 사유가 여기에 보임)
 // 서버는 /api/owner/lodging/reviews, 규칙은 src/lib/lodgingReviews.ts.
@@ -73,7 +73,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
         {unanswered > 0 && <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#DC2626", color: "white" }}>답글 기다림 {unanswered}</span>}
       </div>
       <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
-        같이가개에서 예약하고 묵은 손님의 별점 후기예요.<br />
+        같이가개에서 예약하고 이용한 손님의 별점 후기예요.<br />
         답글은 숙소 화면에 &ldquo;사장님 답글&rdquo;로 보이고, 문제 있는 후기는 신고하면 관리자가 검토해요.
       </div>
       {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
