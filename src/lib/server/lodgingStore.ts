@@ -77,7 +77,7 @@ export async function getLodging(placeId: number, onlyActive: boolean): Promise<
 
 export const BOOKING_COLUMNS = "id, place_id, room_id, room_name, guest_name, guest_phone, check_in, check_out, nights, guests, pets, price_detail, total, payment, memo, status, owner_note, decided_at, created_at, updated_at, stamp_discount";
 /** 4단계 칸(scripts/sql/lodging-settlement.sql) — 결제·취소 환불·이용 확정·문제 접수·정산 */
-export const SETTLEMENT_COLUMNS = "booked_on, payment_status, paid_at, refund_done_at, cancel_cause, cancelled_at, refund_amount, penalty_amount, compensation_amount, stay_confirmed_at, stay_confirmed_by, issue_status, issue_kind, issue_detail, issue_opened_at, issue_owner_reply, issue_resolution, fee_rate, fee_amount, payout_amount, payout_due_on, payout_status, paid_out_at";
+export const SETTLEMENT_COLUMNS = "booked_on, payment_status, paid_at, refund_done_at, cancel_cause, cancelled_at, refund_amount, penalty_amount, compensation_amount, stay_confirmed_at, stay_confirmed_by, issue_status, issue_kind, issue_detail, issue_opened_at, issue_owner_reply, issue_resolution, fee_rate, fee_amount, payout_amount, payout_due_on, payout_status, paid_out_at, payment_method, cash_receipt";
 export const BOOKING_FULL_COLUMNS = `${BOOKING_COLUMNS}, ${SETTLEMENT_COLUMNS}`;
 /** 이용자 정보·방문 수단(scripts/sql/lodging-guest-review-reports.sql) — 숙소 사장님 화면용 */
 export const GUEST_INFO_COLUMNS = "guest_email, stay_guest_name, stay_guest_phone, arrival_method, arrival_time";

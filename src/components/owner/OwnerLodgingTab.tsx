@@ -18,7 +18,7 @@ import { supabase } from "@/lib/supabase";
 import {
   EMPTY_PROFILE, LODGING_SHORT_MAX, PEAK_PERIODS_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
   ROOM_IMAGES_MAX, ROOM_NAME_MAX, ROOM_TYPE_MAX, ROOM_TYPE_SUGGESTIONS, ROOMS_PER_PLACE_MAX, petPolicySummary, roomPriceText,
-  EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, ROOM_PHOTOS_MIN, WEEKDAY_LABELS,
+  EXTRA_PRESET_UNIT, EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, ROOM_PHOTOS_MIN, WEEKDAY_LABELS,
   type ExtraUnit, type LodgingProfile, type PetFeeKey, type PetSize, type PetSpecies,
 } from "@/lib/lodgingRules";
 
@@ -124,7 +124,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
   // ── ① 숙소 기본 정보·동반 규정 ──
   const setP = (patch: Partial<ProfileForm>) => { setProfile((prev) => ({ ...prev, ...patch })); setProfileSaved(null); };
   const setExtra = (i: number, patch: Partial<ExtraForm>) => setP({ extras: profile.extras.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
-  const addExtra = (name: string) => setP({ extras: [...profile.extras, { id: `x${Date.now().toString(36)}`, name, price: "", unit: "stay", max: "1", note: "" }] });
+  const addExtra = (name: string) => setP({ extras: [...profile.extras, { id: `x${Date.now().toString(36)}`, name, price: "", unit: EXTRA_PRESET_UNIT[name] ?? "stay", max: "1", note: "" }] });
   // 받는 동물·크기에 맞는 요금 칸만(대형견을 안 받으면 대형견 요금 칸 없음)
   const feeKeys = PET_FEE_KEYS.filter((k) => (k.id === "cat" || k.id === "other" ? profile.pet_species.includes(k.id) : profile.pet_species.includes("dog") && profile.pet_sizes.includes(k.id)));
   const saveProfile = async () => {
@@ -317,7 +317,10 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
             <input value={profile.pet_fee_note} onChange={(e) => setP({ pet_fee_note: e.target.value })} maxLength={LODGING_SHORT_MAX} placeholder="예: 추가 요금은 예약할 때 함께 결제돼요" disabled={disabled} style={input} />
           </div>
 
-          <div style={section}>부가 옵션</div>
+          <div style={section}>추가 요금 항목</div>
+          <div style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6, margin: "-6px 0 0" }}>
+            바비큐, 불멍 세트, 캠프파이어, 침구 추가처럼 추가금을 받는 항목을 모두 등록해 주십시오.<br />손님이 예약할 때 함께 결제하므로 현장에서 따로 받지 않습니다. 인원 추가 요금은 객실 칸에서 정합니다.
+          </div>
           <div style={{ fontSize: 12.5, color: "#555", marginTop: -6, lineHeight: 1.6 }}>바비큐·불멍·추가 침구처럼 따로 받는 요금이에요. 손님이 예약할 때 골라서 숙박 요금과 함께 결제해요.</div>
           <div style={{ display: "grid", gap: 8 }}>
             {profile.extras.map((x, i) => (

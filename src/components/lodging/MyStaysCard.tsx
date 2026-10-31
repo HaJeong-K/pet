@@ -26,6 +26,7 @@ type Stay = {
   place: { name: string; address: string | null; phone: string | null } | null;
   payment?: { method: string | null; receiptUrl: string | null; paidAt: string | null; refunded: number } | null;
   refund_done_at?: string | null;
+  payment_method?: string | null; cash_receipt?: { type: string; status: string } | null;
   checkInTime: string | null; checkOutTime: string | null;
   cancelNow: { refund: number; penalty: number; rate: number | null } | null;
   schedule: { until: string; refund: number; rate: number }[];
@@ -34,11 +35,11 @@ type Stay = {
   canReview?: boolean; reviewed?: boolean;
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #e3eaf3", padding: "16px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E6E2D6", padding: "16px 16px" };
 const button = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "9px 13px", borderRadius: 10, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
   border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2e4e8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#1D4F91" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
+  background: disabled ? "#d6d3c9" : kind === "primary" ? "#2F3B28" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
 export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean }) {
@@ -83,7 +84,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
     if (busy) return;
     setBusy(true);
     setMessage(null);
-    try { await startPayment("lodging", s.id); }
+    try { await startPayment("lodging", s.id, s.payment_method === "transfer" ? "transfer" : "card"); }
     catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "결제를 시작하지 못했어요." }); }
     finally { setBusy(false); }
   };
@@ -111,13 +112,14 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
         </div>
         <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 3 }}>{s.guests}명 · {s.pets.map(petLabel).join(", ")}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-          <b style={{ fontSize: 14, color: "#1D4F91" }}>{won(s.total)}</b>
+          <b style={{ fontSize: 14, color: "#2F3B28" }}>{won(s.total)}</b>
           {(s.stamp_discount ?? 0) > 0 && <span style={{ fontSize: 11.5, color: "#8A6D1F" }}>스탬프 {won(s.stamp_discount ?? 0)} 할인</span>}
           {s.payment_status === "unpaid" && (s.status === "requested" || s.status === "confirmed") && <span style={{ fontSize: 11.5, color: "#B45309" }}>결제 안내를 기다리는 중</span>}
           {s.payment_status === "paid" && <span style={{ fontSize: 12, color: "#555" }}>결제 완료{s.payment?.method ? ` · ${s.payment.method}` : ""}</span>}
           {(s.payment_status === "refunded" || s.payment_status === "partially_refunded") && <span style={{ fontSize: 12, color: "#555" }}>{s.refund_done_at ? "환불 완료" : "환불 처리 중"}</span>}
-          {s.payment?.receiptUrl && <a href={s.payment.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#1D4F91" }}>영수증</a>}
-          {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#1D4F91", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
+          {s.cash_receipt && s.cash_receipt.type !== "none" && <span style={{ fontSize: 12, color: "#555" }}>현금영수증 {s.cash_receipt.status === "issued" ? "발급 완료" : "숙소 발급 대기"}</span>}
+          {s.payment?.receiptUrl && <a href={s.payment.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#2F3B28" }}>영수증</a>}
+          {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#2F3B28", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
         </div>
 
         {/* 끝난 예약의 결과 */}
@@ -174,7 +176,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
   return (
     <div id="stays" style={{ ...card, margin: "0 0 16px", scrollMarginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-        <BedDouble size={17} color="#1D4F91" />
+        <BedDouble size={17} color="#2F3B28" />
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>내 숙박 예약</div>
         {open.length > 0 && <span style={{ fontSize: 12, color: "#5c5c5c" }}>진행 중 {open.length}건</span>}
       </div>

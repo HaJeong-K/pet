@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import StayFrame from "@/components/lodging/StayFrame";
 import PageGuide from "@/components/PageGuide";
 import { ORDERS_GUIDE_KEY, ORDERS_GUIDE_STEPS } from "@/lib/pageGuides";
 import MyStaysCard from "@/components/lodging/MyStaysCard";
@@ -23,25 +24,28 @@ export default function OrdersClient() {
   }, []);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#FBF7F1", color: "#23201B", wordBreak: "keep-all" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px clamp(16px, 4vw, 24px) calc(var(--ggk-tabbar-space) + 16px)" }}>
-        <h1 className="ggk-logo" style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "#4A3021" }}>주문·예약 내역</h1>
-        <p style={{ margin: "6px 0 0", fontSize: 14, color: "#5F4D3A", lineHeight: 1.6 }}>결제 내역과 영수증을 보고, 취소를 신청하거나 후기를 남길 수 있어요.</p>
+    // 아래 여백(--ggk-tabbar-space)과 양옆 레일은 StayFrame이 맡습니다
+    <StayFrame>
+      <section style={{ background: "linear-gradient(160deg,#1F2A1A 0%,#2F3B28 50%,#4A6339 100%)", color: "white", padding: "26px 24px 28px" }}>
+        <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(26px, 4.4vw, 36px)", fontWeight: 800, lineHeight: 1.25, letterSpacing: "-0.6px" }}>주문·예약 내역</h1>
+        <p style={{ margin: "8px 0 0", fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>결제 내역과 영수증을 보고,<br />취소를 신청하거나 후기를 남길 수 있어요.</p>
+      </section>
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "4px clamp(16px, 4vw, 24px) 16px" }}>
         {loggedIn === false && (
-          <a href="/login?redirect=/orders" style={{ display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#111111", color: "white", fontSize: 15, fontWeight: 800, textAlign: "center", textDecoration: "none" }}>로그인하고 내역 보기</a>
+          <a href="/login?redirect=/orders" style={{ display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#2F3B28", color: "white", fontSize: 15, fontWeight: 800, textAlign: "center", textDecoration: "none" }}>로그인하고 내역 보기</a>
         )}
         {loggedIn && (
           <>
             <PageGuide storageKey={ORDERS_GUIDE_KEY} steps={ORDERS_GUIDE_STEPS} delayMs={1500} />
             <div role="tablist" data-guide="orders-tabs" style={{ display: "flex", gap: 6, margin: "16px 0 12px" }}>
               {TABS.map((t) => (
-                <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => router.replace(`/orders?tab=${t.id}`, { scroll: false })} style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: `1px solid ${tab === t.id ? "#4A3021" : "#E8DFD2"}`, background: tab === t.id ? "#4A3021" : "white", color: tab === t.id ? "white" : "#5F4D3A", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{t.label}</button>
+                <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => router.replace(`/orders?tab=${t.id}`, { scroll: false })} style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: `1px solid ${tab === t.id ? "#2F3B28" : "#E8DFD2"}`, background: tab === t.id ? "#2F3B28" : "white", color: tab === t.id ? "white" : "#5F4D3A", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{t.label}</button>
               ))}
             </div>
             <div data-guide="orders-list">{tab === "stay" ? <MyStaysCard showEmpty /> : <MyStoreOrders />}</div>
           </>
         )}
       </div>
-    </div>
+    </StayFrame>
   );
 }

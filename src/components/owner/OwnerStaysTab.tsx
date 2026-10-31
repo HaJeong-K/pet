@@ -16,12 +16,13 @@ import LogoLoader from "@/components/LogoLoader";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
 import {
-  addDays, isOpenStay, kstToday, nightPrice, ownerNextStays, petLabel, stayDayLabel, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
+  addDays, petDetailText, isOpenStay, kstToday, nightPrice, ownerNextStays, petLabel, stayDayLabel, STAY_STATUS, type RoomDay, type StayPet, type StayStatus,
 } from "@/lib/lodgingBooking";
 import { autoConfirmOn, CANCEL_CAUSE_LABEL, type CancelCause } from "@/lib/lodgingPolicy";
 
 type Booking = {
   id: number; room_id: number; room_name: string; guest_name: string; guest_phone: string; check_in: string; check_out: string; nights: number; guests: number;
+  payment_method?: string | null; cash_receipt?: { type: string; number: string | null; status: string } | null;
   pets: StayPet[]; price_detail: { nights?: { day: string; price: number }[]; roomTotal?: number; extraGuestTotal?: number; petTotal?: number; extras?: { id: string; name: string; qty: number; amount: number }[]; extrasTotal?: number };
   total: number; stamp_discount?: number | null; memo: string | null; status: StayStatus; owner_note: string | null; created_at: string;
   // 이용자 정보(scripts/sql/lodging-guest-review-reports.sql) — 없으면 비어 있음
@@ -104,6 +105,14 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
     setBusy(true);
     try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, status, ownerNote }) }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : "바꾸지 못했어요."); }
+    finally { setBusy(false); }
+  };
+
+  const markReceiptIssued = async (b: Booking) => {
+    if (busy) return;
+    setBusy(true);
+    try { await call("/api/owner/lodging/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.id, cashReceiptIssued: true }) }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : "표시하지 못했어요."); }
     finally { setBusy(false); }
   };
 
@@ -221,6 +230,18 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                 )}
                 {b.status === "confirmed" && settlementReady && today >= b.check_out && b.issue_status !== "open" && (
                   <div style={{ marginTop: 6, fontSize: 12, color: "#5c5c5c" }}>손님의 이용 확정을 기다리는 중 — {dayLabel(autoConfirmOn(b.check_out))}에 자동 확정돼요.</div>
+                )}
+                {b.pets.some((p) => petDetailText(p) || p.note) && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#555", lineHeight: 1.6 }}>
+                    {b.pets.map((p, i) => (petDetailText(p) || p.note) ? <div key={i}><b>{b.pets.length > 1 ? `${i + 1}번째 ` : ""}반려동물</b> {petDetailText(p)}{p.note ? ` · 특이사항: ${p.note}` : ""}</div> : null)}
+                  </div>
+                )}
+                {b.payment_method === "transfer" && (
+                  <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F8F8F4", fontSize: 12, color: "#444", lineHeight: 1.6 }}>
+                    <b>계좌이체 · 현금영수증</b> {b.cash_receipt?.status === "issued" ? "발급 완료" : b.cash_receipt?.type === "income" ? `소득공제 ${b.cash_receipt.number}` : b.cash_receipt?.type === "expense" ? `지출증빙 ${b.cash_receipt.number}` : "신청 없음"}
+                    {b.cash_receipt?.status !== "issued" && b.total >= 100000 && b.cash_receipt?.type === "none" && <div style={{ color: "#B45309" }}>10만원 이상 현금 거래는 신청이 없어도 발급 대상일 수 있습니다.</div>}
+                    {canAct && b.cash_receipt?.status !== "issued" && <button onClick={() => markReceiptIssued(b)} disabled={busy} style={{ display: "block", marginTop: 5, padding: "5px 9px", borderRadius: 8, border: "1px solid #ddd", background: "white", color: "#444", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>발급 완료로 표시</button>}
+                  </div>
                 )}
                 {canAct && settlementReady && canReportViolation(b, today) && (violationFor === b.id ? (
                   <div style={{ marginTop: 8, padding: 11, borderRadius: 10, background: "#FFF8F6", border: "1px solid #F3D9D2", display: "grid", gap: 7 }}>

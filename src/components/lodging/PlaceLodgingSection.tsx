@@ -18,8 +18,8 @@ import LodgingBookingSheet, { type GuestRoom } from "@/components/lodging/Lodgin
 
 type Data = { ready: boolean; profile: (LodgingProfile & { updated_at?: string }) | null; rooms: GuestRoom[] };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #e3eaf3", padding: "16px 16px", marginTop: 16 };
-const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#E3EDFA", color: "#1D4F91" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E6E2D6", padding: "16px 16px", marginTop: 16 };
+const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#EEF3E8", color: "#2F3B28" };
 
 /** 화면 안의 다른 칸으로 부드럽게 이동 */
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -49,7 +49,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
     return (
       <div style={{ ...card, background: "#F7FAFE" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <BedDouble size={17} color="#1D4F91" />
+          <BedDouble size={17} color="#2F3B28" />
           <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>반려동물 동반 숙소</div>
         </div>
         <div style={{ fontSize: 12.5, color: "#666", marginTop: 6, lineHeight: 1.7 }}>
@@ -57,11 +57,11 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
           반려동물 크기·마릿수 조건은 숙소마다 달라서, 예약 전에 꼭 확인해 주세요.
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-          {phone && <a href={`tel:${phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, background: "#1D4F91", color: "white", fontSize: 13, fontWeight: 800, textDecoration: "none" }}><Phone size={13} />숙소에 전화로 문의</a>}
-          <button onClick={() => jump("place-reviews")} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, border: "1px solid #d7e2f0", background: "white", color: "#1D4F91", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}><MessageCircle size={13} />후기 {reviewCount}</button>
+          {phone && <a href={`tel:${phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, background: "#2F3B28", color: "white", fontSize: 13, fontWeight: 800, textDecoration: "none" }}><Phone size={13} />숙소에 전화로 문의</a>}
+          <button onClick={() => jump("place-reviews")} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10, border: "1px solid #d7e2f0", background: "white", color: "#2F3B28", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}><MessageCircle size={13} />후기 {reviewCount}</button>
         </div>
         {/* 숙소 사장님에게 입점 안내 */}
-        <a href={`/partner/lodging?place=${placeId}`} style={{ display: "block", marginTop: 12, paddingTop: 10, borderTop: "1px dashed #d7e2f0", fontSize: 12.5, color: "#1D4F91", fontWeight: 700, textDecoration: "none" }}>
+        <a href={`/partner/lodging?place=${placeId}`} style={{ display: "block", marginTop: 12, paddingTop: 10, borderTop: "1px dashed #d7e2f0", fontSize: 12.5, color: "#2F3B28", fontWeight: 700, textDecoration: "none" }}>
           이 숙소 사장님이신가요? 입점하고 바로 예약 받기 →
         </a>
       </div>
@@ -71,7 +71,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
   const minPrice = data.rooms.length ? Math.min(...data.rooms.map(roomLowestPrice)) : null;
   if (layout === "hero" && data.rooms.length > 0) {
     return (
-      <div style={{ ...card, background: "linear-gradient(135deg,#1D4F91,#2E6BC0)", border: "none", color: "white" }}>
+      <div style={{ ...card, background: "linear-gradient(135deg,#2F3B28,#2E6BC0)", border: "none", color: "white" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, opacity: 0.9 }}><ShieldCheck size={13} />같이가개 입점 숙소</div>
         <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, marginTop: 6, lineHeight: 1.45 }}>
           같이가개에서 바로 예약할 수 있어요
@@ -81,7 +81,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
           {p ? petPolicySummary(p) : "동반 조건·숙박 후기를 확인하고 날짜를 골라 예약하세요."}
         </div>
         {/* 지도 위 상세 창(모달)에서도 창을 닫고 숙소 화면으로 가도록 새로 엽니다 */}
-        <a href={`/stay/${placeId}`} style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 12, background: "white", color: "#1D4F91", fontSize: 14.5, fontWeight: 800, textDecoration: "none" }}>
+        <a href={`/stay/${placeId}`} style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "12px 0", borderRadius: 12, background: "white", color: "#2F3B28", fontSize: 14.5, fontWeight: 800, textDecoration: "none" }}>
           <CalendarDays size={15} />숙소 예약하러 가기
         </a>
       </div>
@@ -102,7 +102,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
   return (
     <>
     {layout === "hero" && (
-      <div style={{ ...card, background: "linear-gradient(135deg,#1D4F91,#2E6BC0)", border: "none", color: "white" }}>
+      <div style={{ ...card, background: "linear-gradient(135deg,#2F3B28,#2E6BC0)", border: "none", color: "white" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, opacity: 0.9 }}><ShieldCheck size={13} />같이가개에서 바로 예약 · 반려동물 동반 조건 확인</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 160px" }}>
@@ -112,7 +112,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
             </div>
           </div>
           {data.rooms.length > 0 && (
-            <button onClick={() => open(data.rooms[0].id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 18px", borderRadius: 12, border: "none", background: "white", color: "#1D4F91", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={() => open(data.rooms[0].id)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "12px 18px", borderRadius: 12, border: "none", background: "white", color: "#2F3B28", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
               <CalendarDays size={15} />{isLoggedIn ? "예약하기" : "로그인하고 예약"}
             </button>
           )}
@@ -128,13 +128,13 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
     )}
     <div id="lodging-policy" style={{ ...card, scrollMarginTop: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <BedDouble size={17} color="#1D4F91" />
+        <BedDouble size={17} color="#2F3B28" />
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>반려동물과 함께하는 숙소</div>
       </div>
 
       {p && (
         <>
-          <div style={{ marginTop: 10, padding: "12px 13px", borderRadius: 12, background: "#E3EDFA", color: "#1D4F91", fontSize: 13.5, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}>
+          <div style={{ marginTop: 10, padding: "12px 13px", borderRadius: 12, background: "#EEF3E8", color: "#2F3B28", fontSize: 13.5, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}>
             <PawPrint size={16} style={{ flexShrink: 0, marginTop: 3 }} />
             <span>{petPolicySummary(p)}{p.pet_fee_note ? <><br /><span style={{ fontWeight: 600, fontSize: 12.5 }}>{p.pet_fee_note}</span></> : null}</span>
           </div>
@@ -187,7 +187,7 @@ export default function PlaceLodgingSection({ placeId, placeName, isLoggedIn, la
               </div>
               {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
               {r.description && <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-line" }}>{r.description}</div>}
-              <button onClick={() => open(r.id)} style={{ marginTop: 10, width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: "#1D4F91", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+              <button onClick={() => open(r.id)} style={{ marginTop: 10, width: "100%", padding: "11px 0", borderRadius: 10, border: "none", background: "#2F3B28", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
                 {isLoggedIn ? "날짜 고르고 예약하기" : "로그인하고 예약하기"}
               </button>
             </div>

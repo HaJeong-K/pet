@@ -76,6 +76,16 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ booking: data });
   }
 
+  // 현금영수증 발급 완료 표시 — 발급은 숙소가 합니다
+  if (body?.cashReceiptIssued === true) {
+    const { data: row } = await db.from("lodging_bookings").select("cash_receipt, payment_method").eq("id", id).eq("place_id", ctx.placeId).maybeSingle();
+    if (!row || row.payment_method !== "transfer") return fail("계좌이체 예약만 표시할 수 있어요.", 409);
+    const { data, error } = await db.from("lodging_bookings").update({ cash_receipt: { ...(row.cash_receipt ?? { type: "none", number: null }), status: "issued", issued_at: now }, updated_at: now })
+      .eq("id", id).eq("place_id", ctx.placeId).select(BOOKING_FULL_COLUMNS).maybeSingle();
+    if (error) return fail(error.message, 500);
+    return NextResponse.json({ booking: data });
+  }
+
   // 문제 접수에 대한 의견
   if (typeof body?.issueReply === "string") {
     const reply = body.issueReply.trim().slice(0, 600);

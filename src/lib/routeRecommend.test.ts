@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildRoute, applyWalkingLegs, classifyStopRole, type RoutablePlace } from "./routeRecommend";
+import { buildRoute, applyWalkingLegs, classifyStopRole, isTasteRecommendable, type RoutablePlace } from "./routeRecommend";
 
 const CENTER = { lat: 37.5665, lng: 126.978 };
 
@@ -192,7 +192,8 @@ describe("buildRoute", () => {
     const legsKm = Array(n).fill(1);
     const legsMin = Array(n).fill(15);
     const applied = applyWalkingLegs(route, legsKm, legsMin);
-    expect(applied.totalDistanceKm).toBe(n);
+    // 산책 중심은 출발지로 돌아오는 길까지 더합니다
+    expect(applied.totalDistanceKm).toBe(Math.round((n + (route.returnToOriginKm ?? 0)) * 10) / 10);
     expect(applied.distanceSource).toBe("tmap");
     expect(applyWalkingLegs(route, [1], [15])).toBe(route);
   });
@@ -289,5 +290,47 @@ describe("buildRoute", () => {
       expect(stop.friendliness).toBeGreaterThanOrEqual(0);
       expect(stop.friendliness).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+describe("동네 한 바퀴 산책 코스", () => {
+  const at = (dLat: number, dLng: number) => ({ lat: CENTER.lat + dLat, lng: CENTER.lng + dLng });
+  const candidates: RoutablePlace[] = [
+    place({ id: 1, name: "북쪽 공원", category: "공원", ...at(0.004, 0) }),
+    place({ id: 2, name: "동쪽 공원", category: "공원", ...at(0, 0.005) }),
+    place({ id: 3, name: "남쪽 공원", category: "공원", ...at(-0.004, 0) }),
+    place({ id: 4, name: "서쪽 커피", category: "카페", ...at(0, -0.004) }),
+    place({ id: 5, name: "동네 카페", category: "카페", ...at(0.003, 0.003) }),
+    place({ id: 6, name: "동네 식당", category: "일반음식점", ...at(0.001, 0.001) }),
+  ];
+  it("카페를 켜면 공원과 카페를 번갈아 넣고, 식당보다 카페를 고른다", () => {
+    const route = buildRoute(candidates, CENTER, "walk", 4, { includeCafe: true })!;
+    const roles = route.stops.map((s) => s.role);
+    expect(roles.filter((r) => r === "cafe").length).toBe(2);
+    expect(roles.some((r, i) => i > 0 && r === roles[i - 1])).toBe(false);
+    expect(route.stops.some((s) => s.place.id === 6)).toBe(false);
+  });
+  it("카페를 끄면 카페·식당을 넣지 않는다", () => {
+    const route = buildRoute(candidates, CENTER, "walk", 4, { includeCafe: false })!;
+    expect(route.stops.every((s) => s.role !== "cafe")).toBe(true);
+  });
+  it("출발지로 돌아오는 길까지 총 거리에 넣는다", () => {
+    const route = buildRoute(candidates, CENTER, "walk", 4)!;
+    expect(route.returnToOriginKm).toBeGreaterThan(0);
+    const legs = route.distanceFromOriginKm + route.stops.reduce((sum, s) => sum + (s.distanceToNextKm ?? 0), 0);
+    expect(route.totalDistanceKm).toBeGreaterThanOrEqual(Math.round((legs + route.returnToOriginKm!) * 10) / 10 - 0.11);
+  });
+  it("관광 코스는 돌아오는 길을 넣지 않는다", () => {
+    const route = buildRoute(candidates, CENTER, "indoor", 4);
+    expect(route?.returnToOriginKm).toBeUndefined();
+  });
+});
+
+describe("취향 추천 대상", () => {
+  it.each([["누리봄동물병원", "동물병원"], ["온누리약국 동물약국", "동물약국"], ["평화공원", "공원"], ["남대문로5가문화공원", null]])("%s 는 제외한다", (name, category) => {
+    expect(isTasteRecommendable({ name, category })).toBe(false);
+  });
+  it.each([["구할구", "카페"], ["동네 식당", "일반음식점"], ["공원앞 카페", "카페"]])("%s 는 포함한다", (name, category) => {
+    expect(isTasteRecommendable({ name, category })).toBe(true);
   });
 });

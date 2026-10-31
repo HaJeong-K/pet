@@ -69,9 +69,27 @@ export function nightPrice(room: Pick<RoomInput, "base_price" | "weekend_price" 
 
 /** kind = "그 외 동물"일 때 어떤 동물인지(예: 토끼). name은 예전 예약에만 있습니다(이제 이름은 받지 않음) */
 /** breed = 견종·묘종(예: 말티푸, 코리안 숏헤어) */
-export type StayPet = { species: PetSpecies; size: PetSize | null; weight: number | null; kind?: string | null; breed?: string | null; name?: string | null };
+export type StayPet = { species: PetSpecies; size: PetSize | null; weight: number | null; kind?: string | null; breed?: string | null; name?: string | null; /** 나이(개월) */ age_months?: number | null; gender?: PetGender | null; neutered?: boolean | null; /** 특이사항 */ note?: string | null;};
 /** 손님이 고른 부가 옵션 */
-export type StayExtraPick = { id: string; qty: number };
+export type StayExtraPick = { id: string; qty: number; /** 이용일마다 받는 옵션의 이용 날짜 */ days?: string[] };
+
+export type PetGender = "male" | "female";
+export const PET_NOTE_MAX = 200;
+/** 결제 수단과 현금영수증 신청(계좌이체만) */
+export type StayPaymentMethod = "card" | "transfer";
+export type CashReceiptType = "none" | "income" | "expense";
+export const CASH_RECEIPT_TYPES: { id: CashReceiptType; label: string; hint: string }[] = [
+  { id: "none", label: "신청 안 함", hint: "" },
+  { id: "income", label: "소득공제용", hint: "휴대폰 번호" },
+  { id: "expense", label: "지출증빙용", hint: "사업자등록번호" },
+];
+/** 번호가 맞으면 숫자만 돌려주고, 틀리면 null */
+export function cleanCashReceiptNumber(type: CashReceiptType, raw: unknown): string | null {
+  const digits = typeof raw === "string" ? raw.replace(/\D/g, "") : "";
+  if (type === "income") return digits.length >= 10 && digits.length <= 11 ? digits : null;
+  if (type === "expense") return digits.length === 10 ? digits : null;
+  return null;
+}
 export type StayRequest = {
   roomId: number; checkIn: string; checkOut: string; guests: number; pets: StayPet[];
   name: string; phone: string; memo: string | null;
@@ -86,6 +104,8 @@ export type StayRequest = {
   extras: StayExtraPick[];
   /** 쓰려는 추억 스탬프 수 — 서버가 가진 개수·한도로 다시 계산 */
   stamps: number;
+  paymentMethod: StayPaymentMethod;
+  cashReceipt: { type: CashReceiptType; number: string | null } | null;
 };
 
 /** 손님이 보낸 예약 요청을 다듬습니다(날짜·인원·반려동물·연락처). 문제가 있으면 이유를 돌려줍니다. */
@@ -116,7 +136,12 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
     const kind = species === "other" && typeof p?.kind === "string" && p.kind.trim() ? p.kind.trim().slice(0, 20) : null;
     if (species === "other" && !kind) return { error: "어떤 동물인지 적어 주세요. (예: 토끼)" };
     const breed = species !== "other" && typeof p?.breed === "string" && p.breed.trim() ? p.breed.trim().slice(0, 30) : null;
-    pets.push({ species, size, weight: weight == null ? null : Math.round(weight * 10) / 10, kind, breed });
+    const ageMonths = p?.age_months === "" || p?.age_months == null ? null : Number(p.age_months);
+    if (ageMonths != null && (!Number.isInteger(ageMonths) || ageMonths < 0 || ageMonths > 360)) return { error: "반려동물 나이를 다시 확인해 주세요." };
+    const gender = p?.gender === "male" || p?.gender === "female" ? p.gender : null;
+    const neutered = typeof p?.neutered === "boolean" ? p.neutered : null;
+    const note = typeof p?.note === "string" && p.note.trim() ? p.note.trim().slice(0, PET_NOTE_MAX) : null;
+    pets.push({ species, size, weight: weight == null ? null : Math.round(weight * 10) / 10, kind, breed, ...(ageMonths != null ? { age_months: ageMonths } : {}), ...(gender ? { gender } : {}), ...(neutered != null ? { neutered } : {}), ...(note ? { note } : {}) });
   }
 
   const name = typeof r.name === "string" ? r.name.trim().slice(0, 20) : "";
@@ -143,15 +168,24 @@ export function cleanStayRequest(raw: unknown, now = Date.now()): { request: Sta
   for (const x of Array.isArray(r.extras) ? (r.extras as Record<string, unknown>[]) : []) {
     const qty = Number(x?.qty);
     if (typeof x?.id !== "string" || !Number.isInteger(qty) || qty < 1 || qty > EXTRA_QTY_MAX) return { error: "부가 옵션 수량을 다시 확인해 주세요." };
-    if (!extras.some((e) => e.id === x.id)) extras.push({ id: x.id, qty });
+    const days = Array.isArray(x?.days) ? [...new Set((x.days as unknown[]).filter(isDay))].slice(0, STAY_MAX_NIGHTS) : undefined;
+    if (!extras.some((e) => e.id === x.id)) extras.push({ id: x.id, qty, ...(days ? { days } : {}) });
   }
   const stamps = Number.isInteger(r.stamps) && Number(r.stamps) > 0 ? Number(r.stamps) : 0;
-  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo, email, stayGuestName, stayGuestPhone, arrivalMethod, arrivalTime, consents: agreed, extras, stamps } };
+  const paymentMethod: StayPaymentMethod = r.paymentMethod === "transfer" ? "transfer" : "card";
+  let cashReceipt: StayRequest["cashReceipt"] = null;
+  if (paymentMethod === "transfer") {
+    const type: CashReceiptType = r.cashType === "income" || r.cashType === "expense" ? r.cashType : "none";
+    const number = cleanCashReceiptNumber(type, r.cashNumber);
+    if (type !== "none" && !number) return { error: type === "income" ? "현금영수증을 받을 휴대폰 번호를 확인해 주세요." : "사업자등록번호 10자리를 확인해 주세요." };
+    cashReceipt = { type, number };
+  }
+  return { request: { roomId, checkIn: r.checkIn, checkOut: r.checkOut, guests, pets, name, phone, memo, email, stayGuestName, stayGuestPhone, arrivalMethod, arrivalTime, consents: agreed, extras, stamps , paymentMethod, cashReceipt } };
 }
 
 /** 이 반려동물들이 숙소·객실 규정에 맞는지 — 안 맞으면 이유 */
 export function petsAllowed(
-  profile: Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets"> | null,
+  profile: (Pick<LodgingProfile, "pet_species" | "pet_sizes" | "max_pet_weight_kg" | "max_pets"> & Partial<Pick<LodgingProfile, "pet_requirements">>) | null,
   room: Pick<RoomInput, "max_pets">,
   pets: StayPet[],
 ): string | null {
@@ -161,6 +195,9 @@ export function petsAllowed(
   for (const p of pets) {
     if (!profile.pet_species.includes(p.species)) return `이 숙소는 ${PET_SPECIES.find((s) => s.id === p.species)?.label ?? "이 동물"}과(와) 동반할 수 없어요.`;
     if (p.species === "dog" && p.size && !profile.pet_sizes.includes(p.size)) return `이 숙소는 ${PET_SIZES.find((s) => s.id === p.size)?.label}을(를) 받지 않아요.`;
+    const needs = profile.pet_requirements;
+    if (needs?.min_age_months && p.age_months != null && p.age_months < needs.min_age_months) return `이 숙소는 생후 ${needs.min_age_months}개월 이상만 입실할 수 있어요.`;
+    if (needs?.neutered && p.neutered === false) return "이 숙소는 중성화를 마친 반려동물만 입실할 수 있어요.";
     if (p.weight != null && profile.max_pet_weight_kg != null && p.weight > profile.max_pet_weight_kg) return `이 숙소는 ${profile.max_pet_weight_kg}kg 이하 반려동물만 동반할 수 있어요.`;
   }
   return null;
@@ -197,12 +234,12 @@ export function petsNightlyTotal(
   return fees.slice(0, charged).reduce((sum, f) => sum + f, 0);
 }
 
-/** 부가 옵션 한 줄의 금액 — 1회는 수량만큼, 1박마다는 수량×박 수, 1인당은 수량(인원)만큼 */
-export function extraAmount(extra: Pick<LodgingExtra, "price" | "unit">, qty: number, nights: number): number {
-  return extra.price * qty * (extra.unit === "night" ? nights : 1);
+/** 부가 옵션 한 줄의 금액 — 1회는 수량만큼, 1박마다는 수량×박 수, 이용일마다는 수량×고른 날 수, 1인당은 수량(인원)만큼 */
+export function extraAmount(extra: Pick<LodgingExtra, "price" | "unit">, qty: number, nights: number, useDays = 1): number {
+  return extra.price * qty * (extra.unit === "night" ? nights : extra.unit === "day" ? useDays : 1);
 }
 
-export type QuotedExtra = { id: string; name: string; unit: LodgingExtra["unit"]; price: number; qty: number; amount: number };
+export type QuotedExtra = { id: string; name: string; unit: LodgingExtra["unit"]; price: number; qty: number; amount: number; days?: string[] };
 
 /**
  * 예약 금액 — 객실(날짜별) + 기준 인원 초과 1명당 추가 요금 + 반려동물 추가 요금(마리별·1박) + 부가 옵션.
@@ -234,7 +271,12 @@ export function quoteStay(
     const extra = extras.find((x) => x.id === pick.id);
     if (!extra) return { error: "고른 부가 옵션을 찾을 수 없어요. 다시 골라 주세요." };
     if (pick.qty > extra.max) return { error: `${extra.name}은(는) ${extra.max}개까지 고를 수 있어요.` };
-    quotedExtras.push({ id: extra.id, name: extra.name, unit: extra.unit, price: extra.price, qty: pick.qty, amount: extraAmount(extra, pick.qty, priced.length) });
+    let days: string[] | undefined;
+    if (extra.unit === "day") {
+      days = (pick.days ?? []).filter((d) => priced.some((n) => n.day === d));
+      if (days.length === 0) return { error: `${extra.name}을(를) 이용할 날을 골라 주세요.` };
+    }
+    quotedExtras.push({ id: extra.id, name: extra.name, unit: extra.unit, price: extra.price, qty: pick.qty, amount: extraAmount(extra, pick.qty, priced.length, days?.length ?? 1), ...(days ? { days } : {}) });
   }
   const extrasTotal = quotedExtras.reduce((s, x) => s + x.amount, 0);
   return { nights: priced, roomTotal, extraGuestTotal, petTotal, extras: quotedExtras, extrasTotal, total: roomTotal + extraGuestTotal + petTotal + extrasTotal };
@@ -281,6 +323,12 @@ export function stayDayLabel(day: string): string {
   return `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}(${WEEKDAYS[new Date(`${day}T00:00:00Z`).getUTCDay()]})`;
 }
 /** "강아지 소형견 5kg" · "토끼 2kg" (예전 예약은 이름도 붙음) */
+/** "3살 · 수컷 · 중성화 완료" — 사장님 화면용 */
+export function petDetailText(p: StayPet): string {
+  const age = p.age_months == null ? null : p.age_months >= 12 ? `${Math.floor(p.age_months / 12)}살${p.age_months % 12 ? ` ${p.age_months % 12}개월` : ""}` : `${p.age_months}개월`;
+  return [age, p.gender === "male" ? "수컷" : p.gender === "female" ? "암컷" : null, p.neutered === true ? "중성화 완료" : p.neutered === false ? "중성화 안 함" : null].filter(Boolean).join(" · ");
+}
+
 export function petLabel(p: StayPet): string {
   return [
     p.species === "other" && p.kind ? p.kind : PET_SPECIES.find((s) => s.id === p.species)?.label,

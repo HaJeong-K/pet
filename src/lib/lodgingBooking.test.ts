@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
+import { cleanCashReceiptNumber,
   addDays, canChangeStay, cleanStayRequest, isDay, isWeekendNight, kstToday, nightPrice, nightsOf, petNightFee, petsNightlyTotal, petsAllowed, quoteStay, staysOverlap,
 } from "./lodgingBooking";
 
@@ -157,5 +157,39 @@ describe("예약 상태", () => {
     expect(canChangeStay("guest", "completed", "cancelled_by_guest")).toBe(false);
     expect(canChangeStay("guest", "requested", "confirmed")).toBe(false);
     expect(canChangeStay("guest", "confirmed", "completed")).toBe(true);
+  });
+});
+
+describe("추가 옵션·현금영수증·반려동물 정보", () => {
+  const room = { base_price: 100000, weekend_price: null, weekday_prices: null, std_guests: 2, max_guests: 4, extra_guest_fee: 20000 } as never;
+  const bbq = { id: "b", name: "바비큐", price: 30000, unit: "day", max: 2, note: null } as never;
+  const towel = { id: "t", name: "침구", price: 10000, unit: "night", max: 1, note: null } as never;
+  it("이용일마다 옵션은 고른 날 수만큼만 받는다", () => {
+    const q = quoteStay(room, 0, [], "2026-11-02", "2026-11-05", 2, [{ id: "b", qty: 1, days: ["2026-11-02", "2026-11-04"] }], [bbq]);
+    expect("error" in q).toBe(false);
+    if (!("error" in q)) { expect(q.extras[0].amount).toBe(60000); expect(q.extras[0].days).toEqual(["2026-11-02", "2026-11-04"]); }
+  });
+  it("숙박 기간 밖의 날이나 빈 날짜는 받지 않는다", () => {
+    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-03", 2, [{ id: "b", qty: 1, days: ["2026-12-01"] }], [bbq])).toBe(true);
+    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-03", 2, [{ id: "b", qty: 1 }], [bbq])).toBe(true);
+  });
+  it("1박마다 옵션과 인원 추가금은 박 수만큼 받는다", () => {
+    const q = quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 3, [{ id: "t", qty: 1 }], [towel]);
+    if ("error" in q) throw new Error(q.error);
+    expect(q.extrasTotal).toBe(20000);
+    expect(q.extraGuestTotal).toBe(40000);
+  });
+  it("현금영수증 번호를 확인한다", () => {
+    expect(cleanCashReceiptNumber("income", "010-1234-5678")).toBe("01012345678");
+    expect(cleanCashReceiptNumber("income", "123")).toBeNull();
+    expect(cleanCashReceiptNumber("expense", "123-45-67890")).toBe("1234567890");
+    expect(cleanCashReceiptNumber("none", "01012345678")).toBeNull();
+  });
+  it("입실 조건에 맞지 않는 나이·중성화는 막는다", () => {
+    const profile = { pet_species: ["dog"], pet_sizes: ["small"], max_pet_weight_kg: null, max_pets: null, pet_requirements: { min_age_months: 5, neutered: true } } as never;
+    const pet = { species: "dog", size: "small", weight: null } as const;
+    expect(petsAllowed(profile, { max_pets: null } as never, [{ ...pet, age_months: 3 }])).toContain("5개월");
+    expect(petsAllowed(profile, { max_pets: null } as never, [{ ...pet, age_months: 24, neutered: false }])).toContain("중성화");
+    expect(petsAllowed(profile, { max_pets: null } as never, [{ ...pet, age_months: 24, neutered: true }])).toBeNull();
   });
 });

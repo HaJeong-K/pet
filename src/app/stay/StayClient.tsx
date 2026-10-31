@@ -27,7 +27,7 @@ type Stay = {
   largeDog: boolean | null; bookable: boolean; minPrice: number | null; roomCount: number; petSummary: string | null; petSizes: PetSize[];
 };
 
-const BLUE = "#1D4F91";
+const BLUE = "#2F3B28";
 // 지역 분류와 순서는 커뮤니티 지역 게시판과 같습니다(src/lib/communityBoards.ts)
 const NEARBY = "내 주변";
 const ALL_REGIONS = "전체 지역";
@@ -58,7 +58,7 @@ function StayImage({ stay, height }: { stay: Stay; height: number }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} style={{ width: "100%", height, objectFit: "cover", display: "block" }} />
   ) : (
-    <div aria-hidden style={{ width: "100%", height, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#4a6a99" }}>
+    <div aria-hidden style={{ width: "100%", height, background: "linear-gradient(135deg,#EEF3E8,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#4a6a99" }}>
       <BedDouble size={height > 120 ? 30 : 22} /><PawPrint size={height > 120 ? 20 : 15} />
     </div>
   );
@@ -128,7 +128,7 @@ export default function StayClient() {
       <PageGuide storageKey={STAY_GUIDE_KEY} steps={STAY_GUIDE_STEPS} enabled={stays !== null} />
       <div>
         {/* 머리말 + 검색 */}
-        <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#1D4F91 0%,#3D7BC8 70%,#6FA3DD 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
+        <div style={{ padding: "26px 18px 20px", background: "linear-gradient(160deg,#1F2A1A 0%,#2F3B28 50%,#4A6339 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.18)", fontSize: 11.5, fontWeight: 800 }}>
             <PawPrint size={12} />반려동물 동반 숙소
           </div>
@@ -156,7 +156,7 @@ export default function StayClient() {
                 const on = subRegion === x.key;
                 return (
                   <button key={x.key ?? "all"} onClick={() => { setSubRegion(x.key); setLimit(PAGE); }} aria-pressed={on}
-                    style={{ flexShrink: 0, padding: "6px 11px", borderRadius: 10, border: `1px solid ${on ? BLUE : "#dfe5ee"}`, background: on ? "#E3EDFA" : "white", color: on ? BLUE : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ flexShrink: 0, padding: "6px 11px", borderRadius: 10, border: `1px solid ${on ? BLUE : "#E6E2D6"}`, background: on ? "#EEF3E8" : "white", color: on ? BLUE : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     {x.label} <span style={{ fontWeight: 600, color: on ? BLUE : "#6e6e6e" }}>{x.count}</span>
                   </button>
                 );

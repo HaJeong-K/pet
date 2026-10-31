@@ -13,7 +13,7 @@ import Image from "next/image";
 import {
   ArrowLeft, Heart, Eye, Send, Mail, X, Shield,
   ChevronLeft, ChevronRight, MessageCircle,
-  MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown,
+  MoreVertical, Pencil, Trash2, AlertCircle, ThumbsUp, ThumbsDown, Bookmark, Share2,
 } from "lucide-react";
 import SiteFooter from "@/components/SiteFooter";
 import { reviewStatusOf, notifyPostReview, HELD_MESSAGE } from "@/lib/postReview";
@@ -308,12 +308,71 @@ export default function CommunityDetailPage() {
   // ─────────────────────────────
   // 댓글 작성
   // ─────────────────────────────
+  // 글·댓글 작성자에게 알림(실패해도 댓글에는 영향 없음)
+  const notifyCommentCreated = (commentId: unknown) => {
+    if (commentId == null || !session?.access_token) return;
+    fetch("/api/community/comment-notify", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ commentId }) }).catch(() => {});
+  };
+
+  // ── 글 저장·공유·사용자 차단 ──
+  const [saved, setSaved] = useState(false);
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      const [saves, blocks] = await Promise.all([
+        supabase.from("community_saves").select("post_id").eq("post_id", Number(postId)).maybeSingle(),
+        supabase.from("community_blocks").select("blocked_user_id"),
+      ]);
+      if (cancelled) return;
+      setSaved(!!saves.data);
+      setBlockedIds(new Set((blocks.data ?? []).map((b) => b.blocked_user_id)));
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id, postId]);
+  const toggleSave = async () => {
+    const userId = session?.user?.id;
+    if (!userId) { alert("로그인한 뒤 저장할 수 있어요."); return; }
+    const next = !saved;
+    setSaved(next);
+    const { error } = next
+      ? await supabase.from("community_saves").insert([{ auth_user_id: userId, post_id: Number(postId) }])
+      : await supabase.from("community_saves").delete().eq("post_id", Number(postId));
+    if (error) { setSaved(!next); alert("저장하지 못했어요. 다시 시도해 주세요."); }
+  };
+  const sharePost = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) { await navigator.share({ title: post?.title, url }); return; }
+      await navigator.clipboard.writeText(url);
+      setShareMessage("링크를 복사했어요.");
+      window.setTimeout(() => setShareMessage(null), 2000);
+    } catch { /* 공유 창을 닫은 경우 */ }
+  };
+  const blockUser = async (targetId: string | null | undefined, nickname: string | null | undefined) => {
+    const userId = session?.user?.id;
+    if (!userId) { alert("로그인한 뒤 차단할 수 있어요."); return; }
+    if (!targetId || targetId === userId) return;
+    if (!window.confirm(`${nickname ?? "이 사용자"}님을 차단할까요?\n이 사용자의 글과 댓글이 보이지 않고, 내 글에 단 댓글 알림도 오지 않아요.`)) return;
+    const { error } = await supabase.from("community_blocks").insert([{ auth_user_id: userId, blocked_user_id: targetId }]);
+    if (error && error.code !== "23505") { alert("차단하지 못했어요. 다시 시도해 주세요."); return; }
+    setBlockedIds((prev) => new Set(prev).add(targetId));
+  };
+  const unblockUser = async (targetId: string) => {
+    const { error } = await supabase.from("community_blocks").delete().eq("blocked_user_id", targetId);
+    if (error) { alert("해제하지 못했어요. 다시 시도해 주세요."); return; }
+    setBlockedIds((prev) => { const next = new Set(prev); next.delete(targetId); return next; });
+  };
+
   const handleComment = async () => {
     if (!session) return;
     if (!comment.trim()) return;
 
     const user = session.user;
-    const { error } = await supabase
+    const { data: created, error } = await supabase
       .from("community_comments")
       .insert([
         {
@@ -328,10 +387,11 @@ export default function CommunityDetailPage() {
           avatar_url: toHttps(user.user_metadata?.avatar_url || null),
           content: comment.trim(),
         },
-      ]);
+      ]).select("id").single();
 
     if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setComment("");
+    notifyCommentCreated(created?.id);
     await bumpCommentCount(1);
     fetchComments();
   };
@@ -345,7 +405,7 @@ export default function CommunityDetailPage() {
     if (!value?.trim()) return;
 
     const user = session.user;
-    const { error } = await supabase
+    const { data: created, error } = await supabase
       .from("community_comments")
       .insert([
         {
@@ -360,11 +420,12 @@ export default function CommunityDetailPage() {
           avatar_url: toHttps(user.user_metadata?.avatar_url || null),
           content: value.trim(),
         },
-      ]);
+      ]).select("id").single();
 
     if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
     setReplyMap((prev) => ({ ...prev, [parentId]: "" }));
     setReplyTarget(null);
+    notifyCommentCreated(created?.id);
     await bumpCommentCount(1);
     fetchComments();
   };
@@ -1011,12 +1072,21 @@ export default function CommunityDetailPage() {
                             신고
                           </button>
                         )}
+                        {post && session?.user?.id && session.user.id !== (post as any).author_auth_key && (post as any).author_auth_key && (
+                          <button onClick={() => { setShowPostMenu(false); blockUser((post as any).author_auth_key, post.nickname); }} style={{ ...dropdownBtnStyleCom, color: "#dc2626" }}>사용자 차단</button>
+                        )}
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
+              {post && blockedIds.has((post as any).author_auth_key) && (
+                <div style={{ margin: "4px 0 10px", padding: "10px 12px", borderRadius: 10, background: "#F7F3E8", fontSize: 12.5, color: "#555", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ flex: 1 }}>차단한 사용자의 글이에요.</span>
+                  <button onClick={() => unblockUser((post as any).author_auth_key)} style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, color: "#444", cursor: "pointer" }}>차단 해제</button>
+                </div>
+              )}
               {/* 제목 */}
               <div
                 className="ggk-logo"
@@ -1272,6 +1342,14 @@ export default function CommunityDetailPage() {
                       좋아요
                     </button>
 
+                    <button onClick={toggleSave} aria-pressed={saved} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: saved ? "1px solid #3F5230" : "1px solid #e5e7eb", background: saved ? "#EEF3E8" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: saved ? "#3F5230" : "#444" }}>
+                      <Bookmark size={14} fill={saved ? "#3F5230" : "none"} />{saved ? "저장됨" : "저장"}
+                    </button>
+
+                    <button onClick={sharePost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: "#444" }}>
+                      <Share2 size={14} />{shareMessage ?? "공유"}
+                    </button>
+
                     <button
                       style={{
                         display: "flex",
@@ -1387,10 +1465,22 @@ export default function CommunityDetailPage() {
                 )}
               </div>
 
+              {/* 차단한 사용자의 댓글은 숨기고, 여기서 해제할 수 있습니다 */}
+              {(() => {
+                const hidden = [...new Set(comments.filter((c) => blockedIds.has((c as any).author_auth_key)).map((c) => (c as any).author_auth_key as string))];
+                if (hidden.length === 0) return null;
+                return (
+                  <div style={{ margin: "6px 0", padding: "8px 10px", borderRadius: 10, background: "#F7F3E8", fontSize: 12, color: "#555", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                    차단한 사용자의 댓글을 숨겼어요.
+                    {hidden.map((id) => <button key={id} onClick={() => unblockUser(id)} style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 11.5, color: "#444", cursor: "pointer" }}>{comments.find((c) => (c as any).author_auth_key === id)?.nickname} 해제</button>)}
+                  </div>
+                );
+              })()}
+
               {/* ── 댓글 리스트 ── */}
               <div style={{ display:"flex", flexDirection:"column", gap:"0" }}>
                 {[...comments]
-                  .filter(c => !c.parent_id)
+                  .filter(c => !c.parent_id && !blockedIds.has((c as any).author_auth_key))
                   .sort((a, b) => {
                     if (sort === "like") {
                       const diff = (b.likes || 0) - (a.likes || 0);
@@ -1403,7 +1493,7 @@ export default function CommunityDetailPage() {
                       r => r.parent_id === item.id && !(r as any).deleted
                     );
                     if ((item as any).deleted && !(item as any).is_admin_deleted && itemReplies.length === 0) return null;
-                    const replies = comments.filter(r => r.parent_id === item.id);
+                    const replies = comments.filter(r => r.parent_id === item.id && !blockedIds.has((r as any).author_auth_key));
                     return (
                       <div key={item.id} style={{ borderBottom:"1px solid #eee", padding:"10px 0" }}>
 
@@ -1446,6 +1536,7 @@ export default function CommunityDetailPage() {
                                     ) : (
                                       <button onClick={() => { setOpenedCommentMenuId(null); setCommentReportTargetId(item.id); setCommentReportType("community_comment"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
                                     )}
+                                    {session?.user?.id && !isCommentOwner(item) && (item as any).author_auth_key && <button onClick={() => { setOpenedCommentMenuId(null); blockUser((item as any).author_auth_key, item.nickname); }} style={{ ...dropdownBtnStyleCom, color: "#dc2626" }}>사용자 차단</button>}
                                   </div>
                                 </>
                               )}

@@ -60,6 +60,8 @@ export const ALL_BOARD_ID = "all";
 export const BEST_BOARD_ID = "best";
 /** 공지 게시판 — 관리자만 씁니다(글에 is_notice=true로 저장. DB에서도 관리자 외에는 막습니다: scripts/sql/community-notices.sql) */
 export const NOTICE_BOARD_ID = "notice";
+/** 내가 저장한 글(로그인한 회원만) */
+export const SAVED_BOARD_ID = "saved";
 /**
  * 인기 게시판에 오르는 기준 — 좋아요와 조회수를 둘 다 넘어야 합니다.
  * 좋아요만 보면 지인 몇 명이 눌러 줘도 오르고, 조회수만 보면 제목만 자극적인 글이 오르기 때문에
@@ -71,6 +73,7 @@ export const BEST_MIN_VIEWS = 100;
 export const BOARDS: Board[] = [
   { id: ALL_BOARD_ID, label: "전체" },
   { id: NOTICE_BOARD_ID, label: "공지", desc: "같이가개 운영진이 올리는 공지예요. 서비스 소식과 이용 안내를 확인해 주세요." },
+  { id: SAVED_BOARD_ID, label: "저장한 글", desc: "저장해 둔 글을 모아 봐요." },
   { id: BEST_BOARD_ID, label: "인기", desc: `좋아요 ${BEST_MIN_LIKES}개 이상, 조회 ${BEST_MIN_VIEWS}회 이상인 글을 좋아요 많은 순으로 모아 봐요.` },
   ...TOPIC_BOARDS,
   { id: "business", label: "사장님 게시판" },
@@ -78,7 +81,7 @@ export const BOARDS: Board[] = [
 ];
 
 /** 글을 쓸 수 있는 게시판(전체·인기 제외) */
-export const WRITABLE_BOARDS: Board[] = BOARDS.filter((b) => b.id !== ALL_BOARD_ID && b.id !== BEST_BOARD_ID);
+export const WRITABLE_BOARDS: Board[] = BOARDS.filter((b) => b.id !== ALL_BOARD_ID && b.id !== BEST_BOARD_ID && b.id !== SAVED_BOARD_ID);
 
 const REGION_POST_TYPES = ["산책친구", "정보공유", "질문", "방문후기"];
 
@@ -97,7 +100,7 @@ const POST_TYPES_BY_BOARD: Record<string, string[]> = {
 
 /** 그 게시판에서 고를 수 있는 말머리(전체·인기는 여러 게시판이 섞여 있어 말머리 필터를 두지 않음) */
 export function postTypesFor(boardId: string | null | undefined): string[] {
-  if (!boardId || boardId === ALL_BOARD_ID || boardId === BEST_BOARD_ID) return [];
+  if (!boardId || boardId === ALL_BOARD_ID || boardId === BEST_BOARD_ID || boardId === SAVED_BOARD_ID) return [];
   if (POST_TYPES_BY_BOARD[boardId]) return POST_TYPES_BY_BOARD[boardId];
   return REGION_BOARDS.some((b) => b.id === boardId) ? REGION_POST_TYPES : [];
 }

@@ -24,7 +24,7 @@ function loadSdk(): Promise<TossSdk> {
 }
 
 /** 결제창으로 넘어갑니다. 손님이 창을 닫으면 조용히 돌아오고, 그 밖의 문제는 오류를 던집니다. */
-export async function startPayment(kind: PaymentKind, id: number): Promise<void> {
+export async function startPayment(kind: PaymentKind, id: number, method: "card" | "transfer" = "card"): Promise<void> {
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
   if (!clientKey) throw new Error("카드 결제를 준비하고 있어요.");
   const { data: { session } } = await supabase.auth.getSession();
@@ -35,14 +35,14 @@ export async function startPayment(kind: PaymentKind, id: number): Promise<void>
   const TossPayments = await loadSdk();
   try {
     await TossPayments(clientKey).payment({ customerKey: session.user.id }).requestPayment({
-      method: "CARD",
+      method: method === "transfer" ? "TRANSFER" : "CARD",
       amount: { currency: "KRW", value: json.amount },
       orderId: json.orderId,
       orderName: json.orderName,
       successUrl: `${window.location.origin}/pay/success`,
       failUrl: `${window.location.origin}/pay/fail`,
       customerEmail: session.user.email ?? undefined,
-      card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false },
+      ...(method === "transfer" ? { transfer: { useEscrow: false } } : { card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false } }),
     });
   } catch (e) {
     // 손님이 결제창을 닫은 경우 — 내역에서 이어서 결제할 수 있습니다

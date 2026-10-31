@@ -8,10 +8,12 @@ import { useSearchParams } from "next/navigation";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import LogoLoader from "@/components/LogoLoader";
+import StayFrame from "@/components/lodging/StayFrame";
 
-const box: React.CSSProperties = { minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px calc(var(--ggk-tabbar-space) + 24px)", background: "#FBF7F1", wordBreak: "keep-all" };
+// 아래 여백(--ggk-tabbar-space)과 양옆 레일은 StayFrame이 맡습니다
+const box: React.CSSProperties = { minHeight: "70dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", wordBreak: "keep-all" };
 const card: React.CSSProperties = { width: "100%", maxWidth: 420, padding: "28px 22px", borderRadius: 20, background: "white", border: "1px solid #EFE6DA", textAlign: "center", color: "#23201B" };
-const link: React.CSSProperties = { display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#111111", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" };
+const link: React.CSSProperties = { display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#2F3B28", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" };
 
 function Confirm() {
   const params = useSearchParams();
@@ -53,5 +55,5 @@ function Confirm() {
 }
 
 export default function PaySuccessPage() {
-  return <div className="ggk-body" style={box}><Suspense fallback={null}><Confirm /></Suspense></div>;
+  return <StayFrame><div style={box}><Suspense fallback={null}><Confirm /></Suspense></div></StayFrame>;
 }

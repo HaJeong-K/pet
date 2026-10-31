@@ -24,6 +24,22 @@ function CommunityWritePageContent() {
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  // 쓰던 글 자동 임시저장(이 기기에만) — 등록하면 지웁니다
+  const [draft, setDraft] = useState<{ title: string; content: string } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      const saved = raw ? JSON.parse(raw) : null;
+      if (saved?.title || saved?.content) { const t = window.setTimeout(() => setDraft({ title: saved.title ?? "", content: saved.content ?? "" }), 0); return () => window.clearTimeout(t); }
+    } catch { /* 저장소를 못 쓰면 임시저장 없이 */ }
+  }, []);
+  useEffect(() => {
+    if (!title.trim() && !content.trim()) return;
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content })); } catch { /* 무시 */ }
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [title, content]);
 
   const [loading, setLoading] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -287,6 +303,7 @@ function CommunityWritePageContent() {
       }
 
       setLoading(false);
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* 무시 */ }
 
       setTimeout(() => {
         router.replace("/community");
@@ -485,6 +502,14 @@ function CommunityWritePageContent() {
                   ))}
                 </select>
               </div>
+
+              {draft && (
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#F7F3E8", fontSize: 13, color: "#444", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 160 }}>작성하던 글이 있어요.</span>
+                  <button type="button" onClick={() => { setTitle(draft.title); setContent(draft.content); setDraft(null); }} style={{ padding: "5px 11px", borderRadius: 999, border: "none", background: "#2F3B28", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>불러오기</button>
+                  <button type="button" onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* 무시 */ } setDraft(null); }} style={{ padding: "5px 11px", borderRadius: 999, border: "1px solid #ddd", background: "white", color: "#555", fontSize: 12.5, cursor: "pointer" }}>지우기</button>
+                </div>
+              )}
 
               {/* 제목 */}
               <div style={{ marginBottom: 12 }}>
@@ -853,6 +878,8 @@ function CommunityWritePageContent() {
     </>
   );
 }
+
+const DRAFT_KEY = "ggk_community_draft";
 
 export default function CommunityWritePage() {
   return (

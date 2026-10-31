@@ -148,6 +148,8 @@ export async function POST(req: NextRequest) {
   const guestInfo = {
     guest_email: r.email, stay_guest_name: r.stayGuestName, stay_guest_phone: r.stayGuestPhone,
     arrival_method: r.arrivalMethod, arrival_time: r.arrivalTime,
+    payment_method: r.paymentMethod,
+    cash_receipt: r.cashReceipt ? { ...r.cashReceipt, status: r.cashReceipt.type === "none" ? "not_requested" : "requested" } : null,
     consents: { version: STAY_CONSENT_VERSION, at: new Date().toISOString(), items: r.consents, petConditions, ruleAgreement: { label: RULE_AGREEMENT_LABEL, sanctions: RULE_SANCTIONS.map((x) => x.text), petRules: profile?.pet_rules ?? null, stayRules: profile?.stay_rules ?? null } },
   };
   let { data, error } = await db.from("lodging_bookings").insert([{ ...base, ...guestInfo, booked_on: kstToday(), payment_status: "unpaid" }]).select(BOOKING_COLUMNS).single();

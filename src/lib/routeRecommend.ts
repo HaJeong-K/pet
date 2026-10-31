@@ -82,6 +82,8 @@ export interface RouteResult {
   origin: { lat: number; lng: number };
   /** 출발지에서 첫 정거장까지의 도보 거리(km). */
   distanceFromOriginKm: number;
+  /** 산책 중심(동네 한 바퀴): 마지막 정거장에서 출발지로 돌아오는 도보 거리(km) */
+  returnToOriginKm?: number;
   /** 거리 출처 — "estimate"(직선거리×보정계수) 또는 "tmap"(실제 보행자 경로) */
   distanceSource: "estimate" | "tmap";
 }
@@ -270,6 +272,8 @@ const THEME_ROLE_SEQUENCE: Record<RouteTheme, StopRole[]> = {
 };
 
 const CRITICAL_ROLES: StopRole[] = ["vet", "pharmacy"];
+/** 산책 코스에서 같은 종류가 연달아 나오면 더하는 비용(km) */
+const SAME_ROLE_PENALTY_KM = 0.6;
 
 // ── 관광 중심 필수 정거장 ──────────────────────────────────────────────
 // 관광 중심 코스는 ① 근방의 유명 관광지 ② 후기가 핫한 장소를 반드시 포함해야 합니다(요청사항).
@@ -329,6 +333,18 @@ function isIndoorCandidate(place: RoutablePlace): boolean {
 const INDOOR_ATTRACTION_PATTERN = /문화시설|박물관|미술관|전시|갤러리|기념관/;
 
 /** 코스에 넣지 않는 장소 — 관광공사 "쇼핑"(안경점·의류매장 등)은 반려동물 동반 코스로 어색합니다. */
+/** 산책 중 잠시 쉬어 가기 좋은 곳 — 식당이 아니라 카페·디저트 가게 */
+function isRestCafe(place: RoutablePlace): boolean {
+  return /카페|커피|디저트|베이커리|제과|찻집|티룸/.test(`${place.category ?? ""} ${place.name ?? ""}`);
+}
+
+/** 취향 추천 대상인지 — 공원·동물병원·동물약국은 추천하지 않습니다 */
+export function isTasteRecommendable(place: Pick<RoutablePlace, "name" | "category">): boolean {
+  const role = classifyStopRole(place as RoutablePlace);
+  if (role === "vet" || role === "pharmacy") return false;
+  return !/공원/.test(place.category ?? "") && !/공원$/.test((place.name ?? "").trim());
+}
+
 function isCourseExcluded(place: RoutablePlace): boolean {
   return (place.category || "").includes("쇼핑");
 }
@@ -511,6 +527,8 @@ export interface BuildRouteOptions {
   includeVet?: boolean;
   /** 코스에 동물약국 1곳을 넣을지(코스 패널 토글). 기본 false */
   includePharmacy?: boolean;
+  /** 산책 중심 코스에 쉬어 갈 카페를 넣을지(코스 패널 토글). 기본 true */
+  includeCafe?: boolean;
   /** 사용자가 핀으로 고정한 장소 id — 반경·필터·excludeIds와 무관하게 항상 코스에 넣습니다. */
   pinnedIds?: Iterable<string | number>;
   /**
@@ -546,6 +564,8 @@ function buildRouteWithin(
   radiusKm: number
 ): RouteResult | null {
   const { comfortHopKm } = THEME_TUNING[theme];
+  const isWalkLoop = theme === "walk";
+  const walkWithoutCafe = isWalkLoop && options?.includeCafe === false;
   const startAt = options?.startAt ?? new Date();
   const statusAt = (place: RoutablePlace, minutesFromStart: number): OpenStatus =>
     getOpenStatus(place.hours, place.closed_days, new Date(startAt.getTime() + minutesFromStart * 60_000));
@@ -554,6 +574,7 @@ function buildRouteWithin(
   const excludedRoles = new Set<StopRole>([
     ...(options?.includeVet ? [] : (["vet"] as StopRole[])),
     ...(options?.includePharmacy ? [] : (["pharmacy"] as StopRole[])),
+    ...(walkWithoutCafe ? (["cafe"] as StopRole[]) : []),
   ]);
 
   let pool = dedupeSamePlace(
@@ -623,7 +644,7 @@ function buildRouteWithin(
   const slotBudget = maxStops - (fixedFirst ? 1 : 0);
   const medicalRoles = CRITICAL_ROLES.filter((role) => !excludedRoles.has(role));
   const reservedSlots = medicalRoles.length + (requiredStop ? 1 : 0) + pinnedStops.length;
-  const themeRoles = THEME_ROLE_SEQUENCE[theme].slice(0, Math.max(0, slotBudget - reservedSlots));
+  const themeRoles = (walkWithoutCafe ? (["walk", "walk", "walk", "walk"] as StopRole[]) : THEME_ROLE_SEQUENCE[theme]).slice(0, Math.max(0, slotBudget - reservedSlots));
   const slots: Slot[] = [
     ...(requiredStop ? [{ role: classifyStopRole(requiredStop.place), candidates: [requiredStop.place], fixed: true }] : []),
     ...pinnedStops.map((p) => ({ role: classifyStopRole(p), candidates: [p], fixed: true })),
@@ -631,7 +652,12 @@ function buildRouteWithin(
   for (const role of [...themeRoles, ...medicalRoles]) {
     if (slots.length >= slotBudget) break;
     const isCritical = CRITICAL_ROLES.includes(role);
-    const roleCandidates = pool.filter((p) => available(p) && classifyStopRole(p) === role && withinWalk(anchor, p));
+    let roleCandidates = pool.filter((p) => available(p) && classifyStopRole(p) === role && withinWalk(anchor, p));
+    // 산책 코스의 쉬는 자리는 식당보다 카페를 먼저 고릅니다
+    if (isWalkLoop && role === "cafe") {
+      const restCafes = roleCandidates.filter(isRestCafe);
+      if (restCafes.length > 0) roleCandidates = restCafes;
+    }
     // 동물병원/약국은 후보가 없으면 다른 역할로 대충 채우지 않습니다("동물약국" 정거장이
     // 실제로는 카페인 상황 방지).
     if (roleCandidates.length === 0) {
@@ -673,9 +699,13 @@ function buildRouteWithin(
       let cursor = anchor;
       let minutes = anchorDwell;
       let feasible = true;
+      let previousRole: StopRole | null = null;
       for (const idx of order) {
         const place = chosen[idx];
         const role = classifyStopRole(place);
+        // 공원-카페-공원처럼 번갈아 가야 걷다가 쉬는 코스가 됩니다
+        if (isWalkLoop && !walkWithoutCafe && role === previousRole) cost += SAME_ROLE_PENALTY_KM;
+        previousRole = role;
         const legKm = estimateWalkKm(haversineKm(cursor.lat, cursor.lng, Number(place.lat), Number(place.lng)));
         minutes += (legKm / WALK_SPEED_KMH) * 60;
         const status = statusAt(place, minutes);
@@ -688,6 +718,8 @@ function buildRouteWithin(
         minutes += DWELL_MINUTES[role];
         cursor = { lat: Number(place.lat), lng: Number(place.lng) };
       }
+      // 동네 한 바퀴: 출발지로 돌아오는 길까지 재서, 왔던 길을 되돌아가지 않는 순서를 고릅니다
+      if (feasible && isWalkLoop) cost += estimateWalkKm(haversineKm(cursor.lat, cursor.lng, center.lat, center.lng));
       if (feasible && cost < bestCost) {
         bestCost = cost;
         bestPlan = order.map((i) => chosen[i]);
@@ -811,6 +843,11 @@ function buildRouteWithin(
     }
   }
 
+  // 동네 한 바퀴는 출발지로 돌아오는 길까지 코스에 넣습니다
+  const lastPlace = dedupedStops[dedupedStops.length - 1].place;
+  const returnToOriginKm = isWalkLoop ? estimateWalkKm(haversineKm(Number(lastPlace.lat), Number(lastPlace.lng), center.lat, center.lng)) : 0;
+  totalDistanceKm += returnToOriginKm;
+
   const walkMinutes = (totalDistanceKm / WALK_SPEED_KMH) * 60;
   const estimatedMinutes = Math.round(walkMinutes + totalDwellMinutes);
   const avgFriendliness = Math.round(
@@ -824,6 +861,7 @@ function buildRouteWithin(
     avgFriendliness,
     origin: center,
     distanceFromOriginKm: Math.round(distanceFromOriginKm * 10) / 10,
+    ...(isWalkLoop ? { returnToOriginKm: Math.round(returnToOriginKm * 100) / 100 } : {}),
     distanceSource: "estimate",
   };
 }
@@ -839,8 +877,9 @@ export function applyWalkingLegs(route: RouteResult, legsKm: number[], legsMinut
     ...s,
     distanceToNextKm: i < route.stops.length - 1 ? legsKm[i + 1] : null,
   }));
-  const totalDistanceKm = legsKm.reduce((a, b) => a + b, 0);
-  const walkMinutes = legsMinutes.reduce((a, b) => a + b, 0);
+  const returnKm = route.returnToOriginKm ?? 0;
+  const totalDistanceKm = legsKm.reduce((a, b) => a + b, 0) + returnKm;
+  const walkMinutes = legsMinutes.reduce((a, b) => a + b, 0) + (returnKm / WALK_SPEED_KMH) * 60;
   const dwell = route.stops.reduce((sum, s) => sum + DWELL_MINUTES[s.role], 0);
   return {
     ...route,

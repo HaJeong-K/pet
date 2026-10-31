@@ -4,7 +4,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import StayFrame from "@/components/lodging/StayFrame";
 import LodgingBookingSheet, { type GuestRoom } from "@/components/lodging/LodgingBookingSheet";
 import LogoLoader from "@/components/LogoLoader";
@@ -27,11 +26,8 @@ export default function StayBookClient({ placeId, placeName, profile, rooms, roo
   const back = () => router.push(`/stay/${placeId}`);
   return (
     <StayFrame>
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "14px 16px 0" }}>
-        <button onClick={back} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 4px", border: "none", background: "transparent", color: "#555", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-          <ChevronLeft size={17} />{placeName}
-        </button>
-        <div style={{ marginTop: 8 }}>
+      <div>
+        <div>
           {ready
             ? <LodgingBookingSheet variant="page" placeName={placeName} profile={profile} rooms={rooms} initialRoomId={roomId} onClose={back} />
             : <div style={{ padding: 40, textAlign: "center" }}><LogoLoader /></div>}

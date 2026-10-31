@@ -107,16 +107,19 @@ export type LodgingProfile = {
 };
 
 // ── 부가 옵션 ──
-export type ExtraUnit = "stay" | "night" | "person";
+export type ExtraUnit = "stay" | "night" | "day" | "person";
 export const EXTRA_UNITS: { id: ExtraUnit; label: string; hint: string }[] = [
   { id: "stay", label: "1회", hint: "숙박 한 번에" },
-  { id: "night", label: "1박마다", hint: "숙박하는 밤 수만큼" },
+  { id: "night", label: "1박마다", hint: "숙박하는 밤 수만큼 자동으로" },
+  { id: "day", label: "이용일마다", hint: "손님이 이용할 날을 골라요(바비큐·불멍 등)" },
   { id: "person", label: "1인당", hint: "고른 인원 수만큼" },
 ];
 export type LodgingExtra = { id: string; name: string; price: number; unit: ExtraUnit; max: number; note: string | null };
 export const EXTRAS_MAX = 12;
 export const EXTRA_QTY_MAX = 20;
-export const EXTRA_PRESETS = ["바비큐(숯·그릴)", "불멍(화로대)", "추가 침구", "조식", "얼리 체크인", "레이트 체크아웃", "반려동물 용품 대여", "온수 수영장"];
+export const EXTRA_PRESETS = ["바비큐(숯·그릴)", "불멍 세트", "캠프파이어 세팅", "추가 침구", "수건 추가", "조식", "얼리 체크인", "레이트 체크아웃", "반려동물 용품 대여", "온수 수영장", "역·터미널 픽업"];
+/** 자주 쓰는 항목의 기본 단위 — 사장님이 바꿀 수 있습니다 */
+export const EXTRA_PRESET_UNIT: Record<string, ExtraUnit> = { "바비큐(숯·그릴)": "day", "불멍 세트": "day", "캠프파이어 세팅": "day", "조식": "person", "온수 수영장": "day" };
 export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {

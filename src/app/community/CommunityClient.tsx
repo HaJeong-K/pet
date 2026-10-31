@@ -5,7 +5,7 @@ import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import { useMemberLevels } from "@/lib/useMemberLevels";
 import PageGuide from "@/components/PageGuide";
-import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, NOTICE_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard, boardIdsFor } from "@/lib/communityBoards";
+import { BOARDS, TOPIC_BOARDS, REGION_BOARDS, ALL_BOARD_ID, BEST_BOARD_ID, NOTICE_BOARD_ID, SAVED_BOARD_ID, BEST_MIN_LIKES, BEST_MIN_VIEWS, postTypesFor, findBoard, boardIdsFor } from "@/lib/communityBoards";
 import { COMMUNITY_GUIDE_KEY, COMMUNITY_GUIDE_STEPS } from "@/lib/pageGuides";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
@@ -203,6 +203,10 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
       try {
         // 자동 검토 대기·반려 글은 목록에서 뺍니다. review_status 컬럼이 아직 없는 환경(SQL 실행 전)에서는
         // 조회가 오류를 내므로, 그때는 조건 없이 한 번 더 조회합니다.
+        // 저장한 글 탭과 차단한 사용자(로그인했을 때만)
+        const { data: { session: viewer } } = await supabase.auth.getSession();
+        const savedIds = viewer && activeBoard === SAVED_BOARD_ID ? ((await supabase.from("community_saves").select("post_id")).data ?? []).map((s) => s.post_id) : [];
+        const blocked = viewer ? new Set(((await supabase.from("community_blocks").select("blocked_user_id")).data ?? []).map((b) => b.blocked_user_id)) : new Set<string>();
         const runList = async (withReview: boolean) => {
         let q = supabase
           .from("community_posts")
@@ -220,6 +224,8 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         const isBest = activeBoard === BEST_BOARD_ID;
         if (isBest) {
           q = q.gte("likes", BEST_MIN_LIKES).gte("views", BEST_MIN_VIEWS);
+        } else if (activeBoard === SAVED_BOARD_ID) {
+          q = q.in("id", savedIds.length > 0 ? savedIds : [-1]);
         } else if (activeBoard !== ALL_BOARD_ID && activeBoard !== NOTICE_BOARD_ID) {
           q = q.in("board_id", boardIdsFor(activeBoard)); // 합쳐지기 전 게시판(광주 → 전남광주)의 글도 함께
         }
@@ -268,7 +274,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
             likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1;
           });
         }
-        const postsWithLiveCounts = (postData || []).map((p: any) => ({
+        const postsWithLiveCounts = (postData || []).filter((p: any) => !blocked.has(p.author_auth_key)).map((p: any) => ({
           ...p,
           comment_count: commentCountMap[p.id] ?? p.comment_count ?? 0,
           likes: likeCountMap[p.id] ?? p.likes ?? 0,
@@ -383,7 +389,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 : { display: "flex", gap: "6px", flexWrap: "wrap", flex: 1, minWidth: 0 }}
             >
               <style>{`.ggk-board-strip::-webkit-scrollbar { display: none; }`}</style>
-              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: NOTICE_BOARD_ID, label: "공지" }, { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
+              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: NOTICE_BOARD_ID, label: "공지" }, ...(session ? [{ id: SAVED_BOARD_ID, label: "저장한 글" }] : []), { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
                 const active = activeBoard === board.id;
                 const best = board.id === BEST_BOARD_ID;
                 return (

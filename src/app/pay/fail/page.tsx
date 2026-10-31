@@ -5,6 +5,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CircleAlert } from "lucide-react";
+import StayFrame from "@/components/lodging/StayFrame";
 
 function Fail() {
   const params = useSearchParams();
@@ -17,15 +18,18 @@ function Fail() {
         {message ? <>{message.slice(0, 120)}<br /></> : null}
         돈은 빠져나가지 않았어요.<br />20분 안에 내역에서 다시 결제할 수 있어요.
       </p>
-      <a href="/orders" style={{ display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#111111", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" }}>주문·예약 내역 보기</a>
+      <a href="/orders" style={{ display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#2F3B28", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" }}>주문·예약 내역 보기</a>
     </div>
   );
 }
 
 export default function PayFailPage() {
   return (
-    <div className="ggk-body" style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px calc(var(--ggk-tabbar-space) + 24px)", background: "#FBF7F1", wordBreak: "keep-all" }}>
-      <Suspense fallback={null}><Fail /></Suspense>
-    </div>
+    // 아래 여백(--ggk-tabbar-space)과 양옆 레일은 StayFrame이 맡습니다
+    <StayFrame>
+      <div style={{ minHeight: "70dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px" }}>
+        <Suspense fallback={null}><Fail /></Suspense>
+      </div>
+    </StayFrame>
   );
 }

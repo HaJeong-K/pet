@@ -29,10 +29,10 @@ export type StayPlace = {
 type Writable = { id: number; room_name: string; check_in: string; check_out: string };
 type ReviewData = { ready: boolean; reviews: StayReview[]; summary: ReviewSummary; writable: Writable[] };
 
-const BLUE = "#1D4F91";
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #e3eaf3", padding: "18px 18px", scrollMarginTop: 60 };
+const BLUE = "#2F3B28";
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E6E2D6", padding: "18px 18px", scrollMarginTop: 60 };
 const h2: React.CSSProperties = { margin: 0, fontSize: 17, fontWeight: 800, color: "#222" };
-const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#E3EDFA", color: BLUE };
+const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#EEF3E8", color: BLUE };
 const outline: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 14px", borderRadius: 11, border: "1px solid #d7e2f0", background: "white", color: BLUE, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", textDecoration: "none" };
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -100,7 +100,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             ))}
           </div>
         ) : (
-          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#E3EDFA,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#4a6a99" }}>
+          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#EEF3E8,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#4a6a99" }}>
             <BedDouble size={44} /><PawPrint size={30} />
           </div>
         )}
@@ -126,7 +126,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
           </button>
           {place.address && <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12.5, color: "#666" }}><MapPin size={13} />{place.address}</div>}
           <div style={{ marginTop: 6 }}><OwnerManagedBadge placeId={place.id} /></div>
-          {profile && <div style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12, background: "#E3EDFA", color: BLUE, fontSize: 13, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}><PawPrint size={15} style={{ flexShrink: 0, marginTop: 3 }} />{petPolicySummary(profile)}</div>}
+          {profile && <div style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12, background: "#EEF3E8", color: BLUE, fontSize: 13, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}><PawPrint size={15} style={{ flexShrink: 0, marginTop: 3 }} />{petPolicySummary(profile)}</div>}
         </div>
 
         {/* 숙소 소식(사장님 공지) — 이름 바로 아래, 공지가 있을 때만 */}
@@ -134,7 +134,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
 
         {/* 바로가기 — 스크롤해도 위에 붙어 있음 */}
         <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 -16px", padding: "8px 16px", background: "rgba(247,243,232,0.96)", backdropFilter: "blur(6px)", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
-          {nav.map((n) => <button key={n.id} onClick={() => jump(n.id)} style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #dfe5ee", background: "white", color: "#444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>)}
+          {nav.map((n) => <button key={n.id} onClick={() => jump(n.id)} style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #E6E2D6", background: "white", color: "#444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>)}
         </div>
 
         {/* 객실 */}
@@ -151,7 +151,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                     ))}
                   </div>
                 ) : (
-                  <div aria-hidden style={{ aspectRatio: "16 / 7", background: "#F2F6FC", display: "flex", alignItems: "center", justifyContent: "center", color: "#9db4d6" }}><BedDouble size={28} /></div>
+                  <div aria-hidden style={{ aspectRatio: "16 / 7", background: "#F5F7F1", display: "flex", alignItems: "center", justifyContent: "center", color: "#A9C48A" }}><BedDouble size={28} /></div>
                 )}
                 <div style={{ padding: "12px 13px", display: "flex", flexDirection: "column", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -198,8 +198,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                 )}
               </div>
               {petRequirementItems(profile.pet_requirements).length > 0 && (
-                <div data-guide="stay-requirements" style={{ padding: "12px 13px", borderRadius: 12, background: "#F7F9FC", border: "1px solid #E3EAF3" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 800, color: "#1D4F91" }}><ClipboardCheck size={15} />같이가개 입실 체크리스트</div>
+                <div data-guide="stay-requirements" style={{ padding: "12px 13px", borderRadius: 12, background: "#F7F8F3", border: "1px solid #E6E2D6" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 800, color: "#2F3B28" }}><ClipboardCheck size={15} />같이가개 입실 체크리스트</div>
                   <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 2 }}>숙소가 정한 조건을 같은 기준으로 정리했어요. 예약할 때 다시 확인해요.</div>
                   {PET_REQUIREMENT_GROUPS.map((g) => {
                     const items = petRequirementItems(profile.pet_requirements).filter((i) => i.group === g.id);
@@ -207,7 +207,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                     return (
                       <div key={g.id} style={{ marginTop: 9 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, color: "#333" }}>{g.title}</div>
-                        {items.map((i) => <div key={i.id} style={{ display: "flex", gap: 5, marginTop: 3, fontSize: 12.5, color: "#444", lineHeight: 1.55 }}><Check size={13} color="#1D4F91" style={{ flexShrink: 0, marginTop: 3 }} />{i.text}</div>)}
+                        {items.map((i) => <div key={i.id} style={{ display: "flex", gap: 5, marginTop: 3, fontSize: 12.5, color: "#444", lineHeight: 1.55 }}><Check size={13} color="#2F3B28" style={{ flexShrink: 0, marginTop: 3 }} />{i.text}</div>)}
                       </div>
                     );
                   })}
@@ -251,7 +251,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
               {reviews.summary.count > 0 && <ReviewSummaryBox summary={reviews.summary} />}
               {reviews.writable.length > 0 && <ReviewForm writable={reviews.writable} onDone={loadReviews} />}
               {reviews.summary.count === 0 && reviews.writable.length === 0 && (
-                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F7F9FC", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
+                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F7F8F3", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
                   아직 숙박 후기가 없어요.<br />첫 손님이 되어 후기를 남겨 주세요.
                 </div>
               )}
@@ -336,7 +336,7 @@ function ReviewItem({ review: r }: { review: StayReview }) {
       <div style={{ fontSize: 11.5, color: "#666", marginTop: 3 }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</div>
       <div style={{ fontSize: 13.5, color: "#333", marginTop: 7, lineHeight: 1.7, whiteSpace: "pre-line" }}>{r.content}</div>
       {r.owner_reply && (
-        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F7F9FC", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
+        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F7F8F3", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
           <b style={{ color: BLUE }}>사장님 답글</b><br />{r.owner_reply}
         </div>
       )}
