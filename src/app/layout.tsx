@@ -20,7 +20,7 @@ import { siteUrl } from "@/lib/siteUrl";
 // 카카오맵 안내 파일 주소(지도 엔진의 시작점).
 const KAKAO_MAP_SDK = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_KEY}&libraries=clusterer&autoload=false`;
 
-const siteTitle = "같이가개";
+const siteTitle = "펫츠로드";
 const siteDescription = "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.";
 
 export const metadata: Metadata = {

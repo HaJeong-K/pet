@@ -5,7 +5,7 @@ import { notifyAdmin } from "@/lib/server/notify";
 import { ownerKindOf } from "@/lib/ownerKind";
 import { LODGING_CONTRACT_VERSION, promoLastDay } from "@/lib/lodgingPolicy";
 
-// 숙소 입점 신청(「같이가개 숙소 입점 계약서」 제5조) — 인증된 "숙소" 사장님 본인만
+// 숙소 입점 신청(「펫츠로드 숙소 입점 계약서」 제5조) — 인증된 "숙소" 사장님 본인만
 //   GET  → 내 입점 신청 상태 { ready, partner: { status, place_name, partner_since, promoLastDay, admin_note } | null }
 //   POST (multipart) → 신청·다시 신청
 //        placeId(선택, 지도에서 고른 숙소 번호 — 공공데이터 숙소도 됨), placeName, placeAddress, placePhone,

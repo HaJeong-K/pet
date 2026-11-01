@@ -220,6 +220,6 @@ export const AFFINITY_TIER_COLOR: Record<AffinityTier, string> = {
 
 export const AFFINITY_TIER_BG: Record<AffinityTier, string> = {
   green: "#f0fdf4",
-  yellow: "#fefce8",
+  yellow: "#FBFAF9",
   red: "#fef2f2",
 };

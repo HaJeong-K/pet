@@ -22,10 +22,10 @@ export async function generateMetadata({
       .maybeSingle();
 
     if (post && !post.is_admin_deleted) {
-      const title = `${post.title} | 같이가개 커뮤니티`;
+      const title = `${post.title} | 펫츠로드 커뮤니티`;
       const description =
         (post.content || "").slice(0, 100).replace(/\s+/g, " ").trim() ||
-        "반려동물 동반 지역 커뮤니티 — 같이가개";
+        "반려동물 동반 지역 커뮤니티 — 펫츠로드";
       const image = post.image_urls?.[0] || DEFAULT_IMAGE;
 
       return {
@@ -35,7 +35,7 @@ export async function generateMetadata({
           title,
           description,
           url: `${siteUrl}/community/post/${postId}`,
-          siteName: "같이가개",
+          siteName: "펫츠로드",
           images: [{ url: image, alt: post.title }],
           locale: "ko_KR",
           type: "article",
@@ -51,8 +51,8 @@ export async function generateMetadata({
   }
 
   return {
-    title: "커뮤니티 게시글 | 같이가개",
-    description: "반려동물 동반 지역 커뮤니티 — 같이가개",
+    title: "커뮤니티 게시글 | 펫츠로드",
+    description: "반려동물 동반 지역 커뮤니티 — 펫츠로드",
   };
 }
 

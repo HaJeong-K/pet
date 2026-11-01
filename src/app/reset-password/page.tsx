@@ -12,6 +12,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { JOIN_THEMES } from "@/components/brand/JoinLayout";
 import { PEEK_SPACE, PeekingDogs } from "@/components/brand/SchnauzerPeek";
+import { PageFooter } from "@/components/SiteFooter";
 
 const t = JOIN_THEMES.oat;
 // 회원가입과 같은 비밀번호 규칙(영문 소문자 1개 이상 + 6자 이상)
@@ -66,7 +67,7 @@ export default function ResetPasswordPage() {
           <PeekingDogs right={28} />
           <div style={{ position: "relative", zIndex: 1, background: "white", borderRadius: 24, overflow: "hidden", border: `1px solid ${t.cardLine}`, boxShadow: `0 24px 60px ${t.shadow}` }}>
             <div style={{ background: t.band, padding: "20px 24px 18px", color: t.ink }}>
-              <Link href="/" aria-label="같이가개 지도"><Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ height: 30, width: "auto", display: "block" }} priority /></Link>
+              <Link href="/" aria-label="펫츠로드 지도"><Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 30, width: "auto", display: "block" }} priority /></Link>
               <h1 className="ggk-logo" style={{ margin: "14px 0 0", fontSize: 23, fontWeight: 800, letterSpacing: "-0.4px" }}>
                 {state === "done" ? "비밀번호를 바꿨어요" : "새 비밀번호 정하기"}
               </h1>
@@ -104,11 +105,12 @@ export default function ResetPasswordPage() {
                 </div>
               )}
 
-              {state === "done" && <Link href="/" style={primary}>같이가개 지도로 가기</Link>}
+              {state === "done" && <Link href="/" style={primary}>펫츠로드 지도로 가기</Link>}
             </div>
           </div>
         </div>
       </div>
+      <PageFooter overTabBar={false} />
     </div>
   );
 }

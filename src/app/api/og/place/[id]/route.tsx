@@ -8,7 +8,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const meta = await getPlaceMeta(id);
   if (!meta) {
-    return renderShareCard({ title: "반려동물과 함께 갈 곳 찾기", subtitle: "같이가개에서 동반 가능한 장소를 확인하세요" });
+    return renderShareCard({ title: "반려동물과 함께 갈 곳 찾기", subtitle: "펫츠로드에서 동반 가능한 장소를 확인하세요" });
   }
   return renderShareCard({
     title: meta.name,

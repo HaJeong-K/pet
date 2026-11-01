@@ -36,14 +36,14 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
   const km = routeDistanceKm(stops);
 
   return (
-    <div style={{ marginBottom: 12, padding: "14px 15px", background: "white", borderRadius: 18, border: "1px solid #cfdcc3", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+    <div style={{ marginBottom: 12, padding: "14px 15px", background: "white", borderRadius: 18, border: "1px solid #ECCAB3", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}><MapPinned size={10} />내 경로</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#F8E6D9", color: "#85482A" }}><MapPinned size={10} />내 경로</span>
           {editingTitle ? (
             <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
               <input value={draft} onChange={(e) => setDraft(e.target.value.slice(0, MY_ROUTE_TITLE_MAX))} onKeyDown={(e) => { if (e.key === "Enter") { setEditingTitle(false); save(stops, draft); } }} autoFocus style={{ flex: 1, minWidth: 0, padding: "7px 9px", borderRadius: 8, border: "1px solid #ddd", fontSize: 13.5, fontFamily: "inherit" }} />
-              <button onClick={() => { setEditingTitle(false); save(stops, draft); }} aria-label="이름 저장" style={iconButton}><Check size={13} color="#3F6B2B" /></button>
+              <button onClick={() => { setEditingTitle(false); save(stops, draft); }} aria-label="이름 저장" style={iconButton}><Check size={13} color="#8A4A26" /></button>
               <button onClick={() => { setEditingTitle(false); setDraft(title); }} aria-label="이름 바꾸기 취소" style={iconButton}><X size={13} color="#999" /></button>
             </div>
           ) : (
@@ -62,7 +62,7 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
       <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
         {stops.map((st, i) => (
           <div key={`${st.id}-${i}`} style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 8px", borderRadius: 11, border: "1px solid #f0f0f0", background: "#fafafa" }}>
-            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#5C7A4A", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+            <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#A05A32", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
             <button onClick={() => router.push(`/place/${st.id}`)} style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", padding: 0, cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
               <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.name}</span>
               {(st.category || st.address) && <span style={{ display: "block", fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[st.category, st.address].filter(Boolean).join(" · ")}</span>}
@@ -78,7 +78,7 @@ export default function MyRouteCard({ route, onDelete }: { route: SavedCourse; o
 
       {points.length > 0 && (
         <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-          <button onClick={() => (points.length >= 2 ? openKakaoWalk(points) : router.push(`/place/${stops[0].id}`))} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          <button onClick={() => (points.length >= 2 ? openKakaoWalk(points) : router.push(`/place/${stops[0].id}`))} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #ECCAB3", background: "white", color: "#85482A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
             <Navigation size={12} />카카오맵 길찾기
           </button>
           <button onClick={() => openNaverWalk(points[points.length - 1], points.slice(1, -1), points.length >= 2 ? points[0] : undefined)} style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #03C75A", background: "white", color: "#03A24A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>

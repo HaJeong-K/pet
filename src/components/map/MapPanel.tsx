@@ -10,11 +10,11 @@ import { ParkIcon } from "@/components/PlaceIcon";
 import { shortAddress } from "@/lib/shortAddress";
 
 export const MAP_PANEL_INK = "#1f1a12";
-export const MAP_PANEL_GREEN = "#3F5230";
+export const MAP_PANEL_GREEN = "#6F3D24";
 
 /** 패널 바깥 틀 — 메인 목록과 같은 색·모서리·그림자 */
 export const mapPanelFrame: CSSProperties = {
-  background: "#FAF8F3",
+  background: "#F9F8F7",
   border: "1px solid rgba(60,50,30,0.08)",
   borderRadius: "22px",
   overflow: "hidden",
@@ -35,11 +35,11 @@ export function MapPanelHeader({ Icon = MapPin, title, count, sub, right }: { Ic
   return (
     <div style={{ padding: "13px 13px 11px", background: "white", borderBottom: "1px solid rgba(60,50,30,0.07)", flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-        <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg,#5C7A4A,#7F9B67)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg,#A05A32,#BE8458)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Icon size={13} color="white" />
         </div>
         <div className="ggk-logo" style={{ fontSize: "13.5px", fontWeight: 800, color: MAP_PANEL_INK, letterSpacing: "-0.2px", whiteSpace: "nowrap" }}>{title}</div>
-        {count && <div style={{ fontSize: "10px", color: "#6b6150", fontWeight: 700, flexShrink: 0, background: "#F1ECE1", borderRadius: 999, padding: "2px 7px" }}>{count}</div>}
+        {count && <div style={{ fontSize: "10px", color: "#6b6150", fontWeight: 700, flexShrink: 0, background: "#EDECEB", borderRadius: 999, padding: "2px 7px" }}>{count}</div>}
         {right && <div style={{ marginLeft: "auto", flexShrink: 0 }}>{right}</div>}
       </div>
       {sub && <div style={{ marginTop: 5, fontSize: "11px", color: "#655d4f", lineHeight: 1.5 }}>{sub}</div>}
@@ -85,8 +85,8 @@ export function PlaceRowCard({ image, name, isPark, ad, badge, selected, chip, a
         background: "white",
         borderRadius: "16px",
         cursor: onClick ? "pointer" : "default",
-        border: selected ? "1.5px solid #5C7A4A" : ad ? "1px solid rgba(212,162,76,0.6)" : "1px solid rgba(60,50,30,0.08)",
-        boxShadow: selected ? "0 6px 18px rgba(92,122,74,0.22)" : ad ? "0 6px 16px rgba(196,148,60,0.16)" : "0 2px 8px rgba(40,32,16,0.05)",
+        border: selected ? "1.5px solid #A05A32" : ad ? "1px solid rgba(212,162,76,0.6)" : "1px solid rgba(60,50,30,0.08)",
+        boxShadow: selected ? "0 6px 18px rgba(160, 90, 50,0.22)" : ad ? "0 6px 16px rgba(196,148,60,0.16)" : "0 2px 8px rgba(40,32,16,0.05)",
         overflow: "hidden",
         display: "flex",
         alignItems: "stretch",
@@ -95,7 +95,7 @@ export function PlaceRowCard({ image, name, isPark, ad, badge, selected, chip, a
     >
       <div style={{ position: "relative", width: imageSize, minHeight: imageSize, flexShrink: 0 }}>
         {isPark ? (
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(145deg,#DCE7CD,#A9C48A)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(145deg,#F0D6C4,#DDB08C)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ParkIcon size={Math.round(imageSize * 0.3)} color={MAP_PANEL_GREEN} />
           </div>
         ) : (
@@ -134,7 +134,7 @@ export function PlaceRowCard({ image, name, isPark, ad, badge, selected, chip, a
         </div>
         {chip && (
           <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: "5px", flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, whiteSpace: "nowrap", color: "#5a5141", background: "#F4F0E7", padding: "2px 7px", borderRadius: "999px" }}>{chip}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, whiteSpace: "nowrap", color: "#5a5141", background: "#F1F0EF", padding: "2px 7px", borderRadius: "999px" }}>{chip}</span>
           </div>
         )}
         {address && (
@@ -143,7 +143,7 @@ export function PlaceRowCard({ image, name, isPark, ad, badge, selected, chip, a
             <span title={address} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{shortAddress(address)}</span>
           </div>
         )}
-        {meta && <div style={{ fontSize: "10.5px", color: "#48603A", fontWeight: 700, marginTop: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>}
+        {meta && <div style={{ fontSize: "10.5px", color: "#85482A", fontWeight: 700, marginTop: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{meta}</div>}
         {footer}
       </div>
     </div>

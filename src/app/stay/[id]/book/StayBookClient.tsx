@@ -10,8 +10,8 @@ import LogoLoader from "@/components/LogoLoader";
 import { supabase } from "@/lib/supabase";
 import type { LodgingProfile } from "@/lib/lodgingRules";
 
-export default function StayBookClient({ placeId, placeName, profile, rooms, roomId }: {
-  placeId: number; placeName: string; profile: LodgingProfile | null; rooms: GuestRoom[]; roomId: number;
+export default function StayBookClient({ placeId, placeName, placePhone, profile, rooms, roomId }: {
+  placeId: number; placeName: string; placePhone?: string | null; profile: LodgingProfile | null; rooms: GuestRoom[]; roomId: number;
 }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -25,11 +25,11 @@ export default function StayBookClient({ placeId, placeName, profile, rooms, roo
 
   const back = () => router.push(`/stay/${placeId}`);
   return (
-    <StayFrame>
+    <StayFrame wide>
       <div>
         <div>
           {ready
-            ? <LodgingBookingSheet variant="page" placeName={placeName} profile={profile} rooms={rooms} initialRoomId={roomId} onClose={back} />
+            ? <LodgingBookingSheet variant="page" placeName={placeName} placePhone={placePhone} profile={profile} rooms={rooms} initialRoomId={roomId} onClose={back} />
             : <div style={{ padding: 40, textAlign: "center" }}><LogoLoader /></div>}
         </div>
       </div>

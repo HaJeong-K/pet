@@ -25,11 +25,11 @@ export default function OwnerKindPicker({ value, onChange }: { value: OwnerKind;
               onClick={() => onChange(k.id)}
               style={{
                 position: "relative", textAlign: "left", padding: "16px 16px 15px", borderRadius: 16, cursor: "pointer",
-                border: `1.5px solid ${on ? k.color : "#E8E3D7"}`, background: on ? k.background : "#FCFBF8",
+                border: `1.5px solid ${on ? k.color : "#E4E3E2"}`, background: on ? k.background : "#FCFBF8",
                 boxShadow: on ? `0 8px 20px ${k.color}22` : "none", transition: "all .15s ease", fontFamily: "inherit",
               }}
             >
-              <span style={{ width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: on ? k.color : "white", border: on ? "none" : "1px solid #E8E3D7", color: on ? "white" : k.color }}>
+              <span style={{ width: 38, height: 38, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: on ? k.color : "white", border: on ? "none" : "1px solid #E4E3E2", color: on ? "white" : k.color }}>
                 <Icon size={19} />
               </span>
               <div style={{ marginTop: 10, fontSize: 15.5, fontWeight: 800, color: on ? k.color : "#2a2620" }}>{k.label}</div>

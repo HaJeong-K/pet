@@ -16,7 +16,7 @@ export async function generateMetadata({
   const meta = await getPlaceMeta(id);
 
   if (meta) {
-    const title = `${meta.name} | 같이가개`;
+    const title = `${meta.name} | 펫츠로드`;
     const description = placeShareDescription(meta);
     const image = placeShareImage(meta);
     return {
@@ -27,7 +27,7 @@ export async function generateMetadata({
         title,
         description,
         url: `${siteUrl}/place/${meta.id}`,
-        siteName: "같이가개",
+        siteName: "펫츠로드",
         images: [{ url: image, alt: meta.name, ...(meta.photo ? {} : { width: 1200, height: 630 }) }],
         locale: "ko_KR",
         type: "article",
@@ -42,7 +42,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: "장소 상세 | 같이가개",
+    title: "장소 상세 | 펫츠로드",
     description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
   };
 }

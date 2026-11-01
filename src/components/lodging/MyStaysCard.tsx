@@ -35,11 +35,11 @@ type Stay = {
   canReview?: boolean; reviewed?: boolean;
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E6E2D6", padding: "16px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E3E2E1", padding: "16px 16px" };
 const button = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "9px 13px", borderRadius: 10, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
   border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2e4e8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#2F3B28" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
+  background: disabled ? "#D4D3D2" : kind === "primary" ? "#3B2A20" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
 export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean }) {
@@ -112,14 +112,14 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
         </div>
         <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 3 }}>{s.guests}명 · {s.pets.map(petLabel).join(", ")}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
-          <b style={{ fontSize: 14, color: "#2F3B28" }}>{won(s.total)}</b>
+          <b style={{ fontSize: 14, color: "#3B2A20" }}>{won(s.total)}</b>
           {(s.stamp_discount ?? 0) > 0 && <span style={{ fontSize: 11.5, color: "#8A6D1F" }}>스탬프 {won(s.stamp_discount ?? 0)} 할인</span>}
           {s.payment_status === "unpaid" && (s.status === "requested" || s.status === "confirmed") && <span style={{ fontSize: 11.5, color: "#B45309" }}>결제 안내를 기다리는 중</span>}
           {s.payment_status === "paid" && <span style={{ fontSize: 12, color: "#555" }}>결제 완료{s.payment?.method ? ` · ${s.payment.method}` : ""}</span>}
           {(s.payment_status === "refunded" || s.payment_status === "partially_refunded") && <span style={{ fontSize: 12, color: "#555" }}>{s.refund_done_at ? "환불 완료" : "환불 처리 중"}</span>}
           {s.cash_receipt && s.cash_receipt.type !== "none" && <span style={{ fontSize: 12, color: "#555" }}>현금영수증 {s.cash_receipt.status === "issued" ? "발급 완료" : "숙소 발급 대기"}</span>}
-          {s.payment?.receiptUrl && <a href={s.payment.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#2F3B28" }}>영수증</a>}
-          {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#2F3B28", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
+          {s.payment?.receiptUrl && <a href={s.payment.receiptUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: "#3B2A20" }}>영수증</a>}
+          {s.place?.phone && <a href={`tel:${s.place.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "#3B2A20", textDecoration: "none" }}><Phone size={12} />숙소에 전화</a>}
         </div>
 
         {/* 끝난 예약의 결과 */}
@@ -132,7 +132,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
         {isOwnerViolation(s.issue_kind) && (
           <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 10, background: "#FFF8F6", border: "1px solid #F3D9D2", fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}>
             <b style={{ color: "#9A3B27" }}>숙소가 규정 위반을 접수했어요</b> · {OWNER_VIOLATION_KINDS[s.issue_kind ?? ""]}
-            {s.issue_status === "open" && <><br />같이가개가 양쪽 의견을 확인하고 있어요. 이의가 있으면 <a href={`mailto:infoker12@naver.com?subject=${encodeURIComponent(`[같이가개] 예약 #${s.id} 이의 제기`)}`} style={{ color: "#9A3B27", fontWeight: 700 }}>메일로 알려 주세요</a>.</>}
+            {s.issue_status === "open" && <><br />펫츠로드가 양쪽 의견을 확인하고 있어요. 이의가 있으면 <a href={`mailto:infoker12@naver.com?subject=${encodeURIComponent(`[펫츠로드] 예약 #${s.id} 이의 제기`)}`} style={{ color: "#9A3B27", fontWeight: 700 }}>메일로 알려 주세요</a>.</>}
           </div>
         )}
         {s.issue_resolution && <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>처리 결과: {s.issue_resolution}</div>}
@@ -157,15 +157,15 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
         </div>
 
         {issueFor === s.id && (
-          <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "#F7F3E8", display: "grid", gap: 8 }}>
+          <div style={{ marginTop: 10, padding: 12, borderRadius: 12, background: "#F4F3F2", display: "grid", gap: 8 }}>
             <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>어떤 문제가 있었나요?</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {Object.entries(issueKinds).map(([key, text]) => (
-                <button key={key} onClick={() => setIssue((v) => ({ ...v, kind: key }))} aria-pressed={issue.kind === key} style={{ padding: "7px 11px", borderRadius: 999, border: `1px solid ${issue.kind === key ? "#B91C1C" : "#e2dcc8"}`, background: issue.kind === key ? "#FEE2E2" : "white", color: issue.kind === key ? "#B91C1C" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{text}</button>
+                <button key={key} onClick={() => setIssue((v) => ({ ...v, kind: key }))} aria-pressed={issue.kind === key} style={{ padding: "7px 11px", borderRadius: 999, border: `1px solid ${issue.kind === key ? "#B91C1C" : "#DDDCDB"}`, background: issue.kind === key ? "#FEE2E2" : "white", color: issue.kind === key ? "#B91C1C" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{text}</button>
               ))}
             </div>
             <textarea value={issue.detail} onChange={(e) => setIssue((v) => ({ ...v, detail: e.target.value.slice(0, 600) }))} rows={3} placeholder="무슨 일이 있었는지 적어 주세요. 숙소와 나눈 메시지·사진이 있으면 담당자가 연락드릴 때 보내 주세요." style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
-            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6 }}>접수하면 이용 확정과 숙소 정산이 멈추고, 같이가개가 숙소 의견을 들은 뒤 환불 여부를 알려 드려요.</div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6 }}>접수하면 이용 확정과 숙소 정산이 멈추고, 펫츠로드가 숙소 의견을 들은 뒤 환불 여부를 알려 드려요.</div>
             <button onClick={() => act({ id: s.id, action: "issue", ...issue }, "문제를 접수했어요. 확인 후 알려 드릴게요.")} disabled={busy || !issue.kind || !issue.detail.trim()} style={button("primary", busy || !issue.kind || !issue.detail.trim())}>접수하기</button>
           </div>
         )}
@@ -176,7 +176,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
   return (
     <div id="stays" style={{ ...card, margin: "0 0 16px", scrollMarginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-        <BedDouble size={17} color="#2F3B28" />
+        <BedDouble size={17} color="#3B2A20" />
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>내 숙박 예약</div>
         {open.length > 0 && <span style={{ fontSize: 12, color: "#5c5c5c" }}>진행 중 {open.length}건</span>}
       </div>

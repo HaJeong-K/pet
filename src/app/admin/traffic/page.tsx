@@ -10,7 +10,7 @@ import TrafficCard from "@/components/admin/TrafficCard";
 
 export default function AdminTrafficPage() {
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="traffic" />
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
         <div>

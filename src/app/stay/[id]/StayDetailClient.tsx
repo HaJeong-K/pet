@@ -29,17 +29,18 @@ export type StayPlace = {
 type Writable = { id: number; room_name: string; check_in: string; check_out: string };
 type ReviewData = { ready: boolean; reviews: StayReview[]; summary: ReviewSummary; writable: Writable[] };
 
-const BLUE = "#2F3B28";
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E6E2D6", padding: "18px 18px", scrollMarginTop: 60 };
+const BLUE = "#3B2A20";
+// 쇼핑 화면처럼 칸마다 테두리를 두르지 않고 넉넉한 여백과 구분선으로 나눕니다
+const card: React.CSSProperties = { background: "white", padding: "30px 0", borderTop: "1px solid #EDECEB", scrollMarginTop: 60 };
 const h2: React.CSSProperties = { margin: 0, fontSize: 17, fontWeight: 800, color: "#222" };
-const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#EEF3E8", color: BLUE };
+const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#FCF1E9", color: BLUE };
 const outline: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 14px", borderRadius: 11, border: "1px solid #d7e2f0", background: "white", color: BLUE, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", textDecoration: "none" };
 const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 function Stars({ value, size = 14 }: { value: number; size?: number }) {
   return (
     <span aria-label={`별점 ${value}점`} style={{ display: "inline-flex", gap: 1 }}>
-      {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={size} fill={i <= Math.round(value) ? "#F59E0B" : "none"} color={i <= Math.round(value) ? "#F59E0B" : "#d6d3c9"} />)}
+      {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={size} fill={i <= Math.round(value) ? "#F59E0B" : "none"} color={i <= Math.round(value) ? "#F59E0B" : "#D4D3D2"} />)}
     </span>
   );
 }
@@ -48,7 +49,7 @@ function StarPicker({ value, onChange, size = 28, label }: { value: number; onCh
     <span role="radiogroup" aria-label={label} style={{ display: "inline-flex", gap: 2 }}>
       {[1, 2, 3, 4, 5].map((i) => (
         <button key={i} type="button" role="radio" aria-checked={value === i} aria-label={`${i}점`} onClick={() => onChange(i)} style={{ padding: 2, border: "none", background: "transparent", cursor: "pointer", display: "flex" }}>
-          <Star size={size} fill={i <= value ? "#F59E0B" : "none"} color={i <= value ? "#F59E0B" : "#d6d3c9"} />
+          <Star size={size} fill={i <= value ? "#F59E0B" : "none"} color={i <= value ? "#F59E0B" : "#D4D3D2"} />
         </button>
       ))}
     </span>
@@ -58,7 +59,7 @@ function StarPicker({ value, onChange, size = 28, label }: { value: number; onCh
 export default function StayDetailClient({ place, profile, rooms }: { place: StayPlace; profile: LodgingProfile | null; rooms: GuestRoom[] }) {
   const router = useRouter();
   const [reviews, setReviews] = useState<ReviewData | null>(null);
-  const [showRules, setShowRules] = useState(false);
+  const [showRules, setShowRules] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const loadReviews = useCallback(async () => {
@@ -89,7 +90,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
   ];
 
   return (
-    <StayFrame>
+    <StayFrame wide>
       {/* 맨 위: 뒤로·공유 + 사진 */}
       <div style={{ position: "relative" }}>
         {photos.length > 0 ? (
@@ -100,7 +101,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             ))}
           </div>
         ) : (
-          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#EEF3E8,#F6F1E4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#4a6a99" }}>
+          <div aria-hidden style={{ height: 220, background: "linear-gradient(135deg,#FCF1E9,#F2F1F0)", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "#4a6a99" }}>
             <BedDouble size={44} /><PawPrint size={30} />
           </div>
         )}
@@ -110,13 +111,13 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
         </div>
       </div>
 
-      <div style={{ padding: "0 16px", display: "grid", gap: 14 }}>
+      <div style={{ padding: "0 clamp(18px, 4vw, 32px)", display: "grid", gap: 0 }}>
         {/* 이름·별점 */}
-        <div style={{ ...card, marginTop: -26, position: "relative", boxShadow: "0 6px 20px rgba(29,79,145,0.10)" }}>
+        <div style={{ ...card, marginTop: -26, marginBottom: 24, padding: "26px clamp(20px, 3vw, 30px)", border: "1px solid #EDECEB", borderRadius: 20, position: "relative", boxShadow: "0 8px 24px rgba(42,28,20,0.10)" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {place.category && <span style={tag}>{place.category}</span>}
             {place.premium && <span style={{ ...tag, background: "#FEF3C7", color: "#92400E", display: "inline-flex", alignItems: "center", gap: 3 }}><Crown size={11} />PREMIUM</span>}
-            <span style={{ ...tag, background: BLUE, color: "white" }}>같이가개 바로 예약</span>
+            <span style={{ ...tag, background: BLUE, color: "white" }}>펫츠로드 바로 예약</span>
           </div>
           <h1 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 23, fontWeight: 800, color: "#222", lineHeight: 1.35 }}>{place.name}</h1>
           <button onClick={() => jump("stay-reviews")} style={{ marginTop: 6, padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>
@@ -126,48 +127,55 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
           </button>
           {place.address && <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12.5, color: "#666" }}><MapPin size={13} />{place.address}</div>}
           <div style={{ marginTop: 6 }}><OwnerManagedBadge placeId={place.id} /></div>
-          {profile && <div style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12, background: "#EEF3E8", color: BLUE, fontSize: 13, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}><PawPrint size={15} style={{ flexShrink: 0, marginTop: 3 }} />{petPolicySummary(profile)}</div>}
+          {profile && <div style={{ marginTop: 12, padding: "11px 13px", borderRadius: 12, background: "#FCF1E9", color: BLUE, fontSize: 13, fontWeight: 800, lineHeight: 1.6, display: "flex", gap: 7 }}><PawPrint size={15} style={{ flexShrink: 0, marginTop: 3 }} />{petPolicySummary(profile)}</div>}
         </div>
 
         {/* 숙소 소식(사장님 공지) — 이름 바로 아래, 공지가 있을 때만 */}
         <StayNotices placeId={place.id} placeName={place.name} />
 
         {/* 바로가기 — 스크롤해도 위에 붙어 있음 */}
-        <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 -16px", padding: "8px 16px", background: "rgba(247,243,232,0.96)", backdropFilter: "blur(6px)", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
-          {nav.map((n) => <button key={n.id} onClick={() => jump(n.id)} style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #E6E2D6", background: "white", color: "#444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>)}
+        <div style={{ position: "sticky", top: 0, zIndex: 5, margin: "0 calc(-1 * clamp(18px, 4vw, 32px))", padding: "10px clamp(18px, 4vw, 32px)", background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+          {nav.map((n) => <button key={n.id} onClick={() => jump(n.id)} style={{ flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid #E3E2E1", background: "white", color: "#444", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{n.label}</button>)}
         </div>
 
         {/* 객실 */}
         <section id="stay-rooms" style={card}>
           <h2 className="ggk-logo" style={h2}>객실 선택</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: 12, marginTop: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 250px), 1fr))", gap: 12, marginTop: 14 }}>
             {rooms.map((r) => (
-              <div key={r.id} style={{ borderRadius: 14, border: "1px solid #eee", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <div key={r.id} style={{ borderRadius: 14, border: "1px solid #EDECEB", overflow: "hidden", display: "flex", flexDirection: "column" }}>
                 {r.images.length > 0 ? (
                   <div style={{ display: "flex", gap: 2, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none" }}>
                     {r.images.map((src, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={src} src={src} alt={`${r.name} 사진 ${i + 1}`} loading="lazy" style={{ width: r.images.length > 1 ? "85%" : "100%", flexShrink: 0, aspectRatio: "4 / 3", objectFit: "cover", scrollSnapAlign: "start" }} />
+                      <img key={src} src={src} alt={`${r.name} 사진 ${i + 1}`} loading="lazy" style={{ width: r.images.length > 1 ? "85%" : "100%", flexShrink: 0, aspectRatio: "16 / 8", objectFit: "cover", scrollSnapAlign: "start" }} />
                     ))}
                   </div>
                 ) : (
-                  <div aria-hidden style={{ aspectRatio: "16 / 7", background: "#F5F7F1", display: "flex", alignItems: "center", justifyContent: "center", color: "#A9C48A" }}><BedDouble size={28} /></div>
+                  <div aria-hidden style={{ aspectRatio: "16 / 8", background: "#FBF3ED", display: "flex", alignItems: "center", justifyContent: "center", color: "#DDB08C" }}><BedDouble size={22} /></div>
                 )}
                 <div style={{ padding: "12px 13px", display: "flex", flexDirection: "column", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{r.name}</span>
+                    <span className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222", lineHeight: 1.35 }}>{r.name}</span>
                     {r.room_type && <span style={tag}>{r.room_type}</span>}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5, fontSize: 12, color: "#555", flexWrap: "wrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Users size={12} />기준 {r.std_guests}명 · 최대 {r.max_guests}명</span>
-                    {(r.max_pets ?? profile?.max_pets) != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><PawPrint size={12} />최대 {r.max_pets ?? profile?.max_pets}마리</span>}
+                  <div style={{ display: "grid", gap: 2, marginTop: 6, fontSize: 12.5, color: "#444" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Users size={13} color="#6B5E55" />기준 {r.std_guests}명, 최대 {r.max_guests}명</span>
+                    {(r.max_pets ?? profile?.max_pets) != null && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><PawPrint size={13} color="#6B5E55" />반려동물 최대 {r.max_pets ?? profile?.max_pets}마리</span>}
                   </div>
-                  {r.amenities.length > 0 && <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{r.amenities.join(" · ")}</div>}
-                  {r.description && <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-line" }}>{r.description}</div>}
+                  {r.description && <div style={{ fontSize: 12.5, color: "#444", marginTop: 7, lineHeight: 1.55, whiteSpace: "pre-line" }}>{r.description}</div>}
+                  {r.amenities.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 7 }}>
+                      {r.amenities.map((a) => <span key={a} style={{ padding: "2px 7px", borderRadius: 6, background: "#F4F3F2", fontSize: 11.5, fontWeight: 600, color: "#444", whiteSpace: "nowrap" }}>{a}</span>)}
+                    </div>
+                  )}
                   <div style={{ flex: 1 }} />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-                    <div style={{ flex: 1, fontSize: 15, fontWeight: 800, color: "#222" }}>{roomPriceText(r)}</div>
-                    <button onClick={() => book(r.id)} style={{ padding: "11px 18px", borderRadius: 11, border: "none", background: BLUE, color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>예약하기</button>
+                  <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid #EDECEB" }}>
+                    {/* 평일과 주말 요금은 줄을 나눠 보여 줍니다 */}
+                    <div style={{ flex: 1, minWidth: 0, display: "grid", gap: 2 }}>
+                      {roomPriceText(r).split(" · ").map((line, i) => <span key={line} style={i === 0 ? { fontSize: 14.5, fontWeight: 800, color: "#222" } : { fontSize: 12.5, fontWeight: 600, color: "#555" }}>{line}</span>)}
+                    </div>
+                    <button onClick={() => book(r.id)} style={{ flexShrink: 0, padding: "9px 14px", borderRadius: 10, border: "none", background: BLUE, color: "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>예약하기</button>
                   </div>
                 </div>
               </div>
@@ -198,8 +206,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                 )}
               </div>
               {petRequirementItems(profile.pet_requirements).length > 0 && (
-                <div data-guide="stay-requirements" style={{ padding: "12px 13px", borderRadius: 12, background: "#F7F8F3", border: "1px solid #E6E2D6" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 800, color: "#2F3B28" }}><ClipboardCheck size={15} />같이가개 입실 체크리스트</div>
+                <div data-guide="stay-requirements" style={{ padding: "12px 13px", borderRadius: 12, background: "#F4F3F2", border: "1px solid #E3E2E1" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13.5, fontWeight: 800, color: "#3B2A20" }}><ClipboardCheck size={15} />펫츠로드 입실 체크리스트</div>
                   <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 2 }}>숙소가 정한 조건을 같은 기준으로 정리했어요. 예약할 때 다시 확인해요.</div>
                   {PET_REQUIREMENT_GROUPS.map((g) => {
                     const items = petRequirementItems(profile.pet_requirements).filter((i) => i.group === g.id);
@@ -207,13 +215,13 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                     return (
                       <div key={g.id} style={{ marginTop: 9 }}>
                         <div style={{ fontSize: 12, fontWeight: 800, color: "#333" }}>{g.title}</div>
-                        {items.map((i) => <div key={i.id} style={{ display: "flex", gap: 5, marginTop: 3, fontSize: 12.5, color: "#444", lineHeight: 1.55 }}><Check size={13} color="#2F3B28" style={{ flexShrink: 0, marginTop: 3 }} />{i.text}</div>)}
+                        {items.map((i) => <div key={i.id} style={{ display: "flex", gap: 5, marginTop: 3, fontSize: 12.5, color: "#444", lineHeight: 1.55 }}><Check size={13} color="#3B2A20" style={{ flexShrink: 0, marginTop: 3 }} />{i.text}</div>)}
                       </div>
                     );
                   })}
                 </div>
               )}
-              <details style={{ borderRadius: 12, border: "1px solid #F3D9D2", background: "#FFF8F6", padding: "0 12px" }}>
+              <details open style={{ borderRadius: 12, border: "1px solid #F3D9D2", background: "#FFF8F6", padding: "0 12px" }}>
                 <summary style={{ cursor: "pointer", padding: "11px 0", fontSize: 13, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면 어떻게 되나요?</summary>
                 <div style={{ display: "grid", gap: 6, paddingBottom: 11 }}>
                   {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 12.5, color: "#5A4A44", lineHeight: 1.6 }}><b>{x.title}</b> · {x.text}</div>)}
@@ -236,22 +244,30 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             </div>
           ) : <div style={{ fontSize: 13, color: "#5c5c5c", marginTop: 10 }}>동반 조건은 예약을 보내면 숙소가 확인해 드려요.</div>}
           {/* 맹견은 숙소마다 받는 여부가 달라 전화 문의를 먼저 안내합니다(필수 안내) */}
-          <div role="note" style={{ display: "flex", gap: 6, marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12.5, color: "#991B1B", lineHeight: 1.6 }}>
-            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 3 }} />
-            <span>{DANGEROUS_DOG_NOTICE}{place.phone && <> <a href={`tel:${place.phone}`} style={{ color: "#991B1B", fontWeight: 800 }}>{place.phone}</a></>}</span>
+          <div role="note" style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12.5, color: "#991B1B", lineHeight: 1.6 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 3 }} />
+              <span style={{ whiteSpace: "pre-line" }}>{DANGEROUS_DOG_NOTICE}</span>
+            </div>
+            {place.phone && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 9, paddingTop: 9, borderTop: "1px solid #FBD5D5" }}>
+                <span style={{ flex: 1, minWidth: 0, color: "#333", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{place.name} · {place.phone}</span>
+                <a href={`tel:${place.phone}`} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 999, background: "#991B1B", color: "white", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}><Phone size={13} />전화하기</a>
+              </div>
+            )}
           </div>
         </section>
 
         {/* 숙박 후기 */}
         <section id="stay-reviews" style={card}>
           <h2 className="ggk-logo" style={h2}>숙박 후기</h2>
-          <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>같이가개에서 예약하고 이용한 손님만 남길 수 있어요.</div>
+          <div style={{ fontSize: 12, color: "#666", marginTop: 3 }}>펫츠로드에서 예약하고 이용한 손님만 남길 수 있어요.</div>
           {!reviews ? <div style={{ fontSize: 13, color: "#6e6e6e", marginTop: 12 }}>불러오는 중…</div> : (
             <>
               {reviews.summary.count > 0 && <ReviewSummaryBox summary={reviews.summary} />}
               {reviews.writable.length > 0 && <ReviewForm writable={reviews.writable} onDone={loadReviews} />}
               {reviews.summary.count === 0 && reviews.writable.length === 0 && (
-                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F7F8F3", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
+                <div style={{ marginTop: 12, padding: "22px 14px", borderRadius: 14, background: "#F4F3F2", textAlign: "center", fontSize: 13, color: "#5c5c5c", lineHeight: 1.7 }}>
                   아직 숙박 후기가 없어요.<br />첫 손님이 되어 후기를 남겨 주세요.
                 </div>
               )}
@@ -272,17 +288,17 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             </div>
           )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            <a href={place.lat != null && place.lng != null ? `/?focusLat=${place.lat}&focusLng=${place.lng}&focusName=${encodeURIComponent(place.name)}` : `/?placeId=${place.id}`} style={outline}><MapPin size={14} />지도에서 근처 동반 장소 보기</a>
+            <a href={place.lat != null && place.lng != null ? `/?focusLat=${place.lat}&focusLng=${place.lng}&focusName=${encodeURIComponent(place.name)}&focusPlaceId=${place.id}&focusBack=${encodeURIComponent(`/stay/${place.id}`)}` : `/?placeId=${place.id}`} style={outline}><MapPin size={14} />지도에서 근처 동반 장소 보기</a>
             {place.lat != null && place.lng != null && <a href={`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`} target="_blank" rel="noreferrer" style={outline}><Navigation size={14} />길찾기</a>}
             {place.phone && <a href={`tel:${place.phone}`} style={outline}><Phone size={14} />숙소에 전화</a>}
           </div>
-          <div style={{ fontSize: 11.5, color: "#666", marginTop: 12, lineHeight: 1.6 }}>같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.</div>
+          <div style={{ fontSize: 11.5, color: "#666", marginTop: 12, lineHeight: 1.6 }}>펫츠로드는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.</div>
         </section>
       </div>
 
       {/* 아래 예약 띠 */}
       {minPrice != null && (
-        <div style={{ position: "sticky", bottom: "calc(var(--ggk-tabbar-space) - 16px)", zIndex: 6, margin: "14px 16px 0", padding: "12px 14px", borderRadius: 16, background: "white", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ position: "sticky", bottom: "calc(var(--ggk-tabbar-space) + 8px)", zIndex: 6, margin: "20px clamp(18px, 4vw, 32px) 28px", padding: "14px 18px", borderRadius: 16, background: "white", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>1박 요금</div>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{minPrice.toLocaleString("ko-KR")}원~</div>
@@ -309,7 +325,7 @@ function ReviewSummaryBox({ summary }: { summary: ReviewSummary }) {
         {summary.stars.map((n, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#555" }}>
             <span style={{ width: 22 }}>{5 - i}점</span>
-            <div style={{ flex: 1, height: 6, borderRadius: 999, background: "#F3E8C8", overflow: "hidden" }}><div style={{ width: `${(n / max) * 100}%`, height: "100%", background: "#F59E0B" }} /></div>
+            <div style={{ flex: 1, height: 6, borderRadius: 999, background: "#E9E8E7", overflow: "hidden" }}><div style={{ width: `${(n / max) * 100}%`, height: "100%", background: "#F59E0B" }} /></div>
             <span style={{ width: 18, textAlign: "right" }}>{n}</span>
           </div>
         ))}
@@ -336,7 +352,7 @@ function ReviewItem({ review: r }: { review: StayReview }) {
       <div style={{ fontSize: 11.5, color: "#666", marginTop: 3 }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</div>
       <div style={{ fontSize: 13.5, color: "#333", marginTop: 7, lineHeight: 1.7, whiteSpace: "pre-line" }}>{r.content}</div>
       {r.owner_reply && (
-        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F7F8F3", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
+        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F4F3F2", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
           <b style={{ color: BLUE }}>사장님 답글</b><br />{r.owner_reply}
         </div>
       )}
@@ -370,7 +386,7 @@ function ReviewForm({ writable, onDone }: { writable: Writable[]; onDone: () => 
   };
 
   return (
-    <div style={{ marginTop: 12, padding: "14px 14px", borderRadius: 14, border: "1px solid #F3D58A", background: "#FFFDF5", display: "grid", gap: 10 }}>
+    <div style={{ marginTop: 12, padding: "14px 14px", borderRadius: 14, border: "1px solid #F3D58A", background: "#FEFDFC", display: "grid", gap: 10 }}>
       <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>이용한 숙소는 어떠셨나요?</div>
       {writable.length > 1 ? (
         <select value={bookingId} onChange={(e) => setBookingId(Number(e.target.value))} aria-label="후기를 남길 예약" style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, fontFamily: "inherit" }}>
@@ -392,7 +408,7 @@ function ReviewForm({ writable, onDone }: { writable: Writable[]; onDone: () => 
       <textarea value={content} onChange={(e) => setContent(e.target.value.slice(0, REVIEW_TEXT_MAX))} rows={4} placeholder={"반려동물과 함께 머물며 좋았던 점, 아쉬웠던 점을 적어 주세요.\n예: 마당이 넓어 뛰어놀기 좋았어요."} style={{ width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
       <div style={{ fontSize: 11.5, color: "#6e6e6e", textAlign: "right", marginTop: -6 }}>{content.trim().length}/{REVIEW_TEXT_MAX}자 (최소 {REVIEW_TEXT_MIN}자)</div>
       {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-      <button onClick={submit} disabled={!ready} style={{ padding: "12px 0", borderRadius: 11, border: "none", background: ready ? BLUE : "#d6d3c9", color: "white", fontSize: 14, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "남기는 중…" : "후기 남기기"}</button>
+      <button onClick={submit} disabled={!ready} style={{ padding: "12px 0", borderRadius: 11, border: "none", background: ready ? BLUE : "#D4D3D2", color: "white", fontSize: 14, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "남기는 중…" : "후기 남기기"}</button>
     </div>
   );
 }

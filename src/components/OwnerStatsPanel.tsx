@@ -138,14 +138,14 @@ export default function OwnerStatsPanel({ previewPlaceId }: { previewPlaceId?: n
               style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", cursor: "pointer" }}
             >
               {d.views > 0 && (
-                <span style={{ fontSize: 9.5, fontWeight: 800, color: picked ? "#A8551F" : "#48603A", lineHeight: 1, marginBottom: 2, whiteSpace: "nowrap" }}>{d.views}</span>
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: picked ? "#A8551F" : "#85482A", lineHeight: 1, marginBottom: 2, whiteSpace: "nowrap" }}>{d.views}</span>
               )}
               <div
                 style={{
                   width: "100%", borderRadius: "3px 3px 0 0", flexShrink: 0,
                   // 숫자 자리(14px)를 남기고 가장 높은 막대가 꽉 차도록
                   height: d.views === 0 ? 2 : `max(5px, calc((100% - 14px) * ${d.views / max}))`,
-                  background: d.views === 0 ? "#e5e7eb" : picked ? "#A8551F" : "#5C7A4A",
+                  background: d.views === 0 ? "#e5e7eb" : picked ? "#A8551F" : "#A05A32",
                 }}
               />
             </div>

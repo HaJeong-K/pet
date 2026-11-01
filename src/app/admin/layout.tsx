@@ -8,7 +8,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (isChecking) {
     return (
-      <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}>
+      <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F3F2" }}>
         <LogoLoader size={56} label="권한 확인 중…" />
       </div>
     );
@@ -24,7 +24,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <AdminAuthProvider>
-      <AdminGate>{children}</AdminGate>
+      <AdminGate><div className="ad-page">{children}</div></AdminGate>
     </AdminAuthProvider>
   );
 }

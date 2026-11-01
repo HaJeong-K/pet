@@ -30,10 +30,10 @@ function deviceLabel(): string {
 type Device = { id: string; label: string | null; addedAt: string };
 type Status = { ready: boolean; configured: boolean; devices: Device[] };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "16px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const button = (primary: boolean, disabled = false): React.CSSProperties => ({
   padding: "9px 14px", borderRadius: 10, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-  border: primary ? "none" : "1px solid #ddd", background: disabled ? "#d6d3c9" : primary ? "#B45309" : "white", color: primary ? "white" : "#555",
+  border: primary ? "none" : "1px solid #ddd", background: disabled ? "#D4D3D2" : primary ? "#B45309" : "white", color: primary ? "white" : "#555",
 });
 
 export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number; isPreview: boolean }) {
@@ -87,7 +87,7 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
     setMessage(null);
     try {
       const permission = await Notification.requestPermission();
-      if (permission !== "granted") { setMessage("알림이 차단돼 있어요. 휴대폰 설정(또는 주소창 왼쪽 자물쇠)에서 같이가개 알림을 허용해 주세요."); return; }
+      if (permission !== "granted") { setMessage("알림이 차단돼 있어요. 휴대폰 설정(또는 주소창 왼쪽 자물쇠)에서 펫츠로드 알림을 허용해 주세요."); return; }
       const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
       await navigator.serviceWorker.ready;
       const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) }));
@@ -138,7 +138,7 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
         <div style={{ marginTop: 10, fontSize: 12.5, color: "#9a3412", background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "9px 11px" }}>알림 기능을 준비하고 있어요.</div>
       ) : supported === false || !status.configured ? (
         <div style={{ marginTop: 10, fontSize: 12.5, color: "#555", background: "#fafafa", border: "1px solid #eee", borderRadius: 10, padding: "9px 11px", lineHeight: 1.6 }}>
-          이 브라우저에서는 알림을 켤 수 없어요. 같이가개 앱이나 크롬에서 열어 주세요(아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요).
+          이 브라우저에서는 알림을 켤 수 없어요. 펫츠로드 앱이나 크롬에서 열어 주세요(아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요).
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -154,7 +154,7 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
         </button>
         <button onClick={listen} style={button(false)}>소리 들어보기</button>
         <span style={{ flex: "1 1 200px", fontSize: 11.5, color: "#666", lineHeight: 1.55 }}>
-          사장님 화면을 열어 둔 동안 새 예약이 오면 이 소리가 나요. 같이가개 앱에서는 알림 자체도 이 소리로 울려요.
+          사장님 화면을 열어 둔 동안 새 예약이 오면 이 소리가 나요. 펫츠로드 앱에서는 알림 자체도 이 소리로 울려요.
         </span>
       </div>
 

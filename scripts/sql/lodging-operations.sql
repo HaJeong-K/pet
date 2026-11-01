@@ -4,7 +4,7 @@
 -- 1) 손님 알림함(user_notifications): 예약 확정·거절·취소, 체크인 전날 안내, 체크아웃 후 후기 요청 등.
 --    마이페이지 "알림"과 아래 탭바 빨간 숫자에 쓰고, 알림을 켜 둔 기기로도 보냅니다.
 -- 2) 중복 예약 방지(iCal): 다른 예약 사이트(에어비앤비·부킹닷컴 등)의 객실 달력 주소를 넣으면
---    그쪽에서 팔린 날을 같이가개에서 자동으로 막고(lodging_ical_blocks), 같이가개 예약은 우리 달력 주소로 내보냅니다.
+--    그쪽에서 팔린 날을 펫츠로드에서 자동으로 막고(lodging_ical_blocks), 펫츠로드 예약은 우리 달력 주소로 내보냅니다.
 -- 3) 체크인 전날 안내·후기 요청을 한 번만 보내도록 표시(guest_reminded_at, review_requested_at)
 -- 4) 관리자 환불 처리 기록(refund_done_at·refund_done_by) — 결제대행 연동 전에는 직접 돌려준 뒤 표시
 -- 5) 관리자 숙소 입점 영업 리스트(lodging_leads) — 연락 상태·메모
@@ -43,7 +43,7 @@ alter table lodging_bookings add column if not exists refund_done_at timestamptz
 alter table lodging_bookings add column if not exists refund_done_by text;
 
 create table if not exists lodging_leads (
-  place_id bigint primary key,             -- 공공데이터 숙소 번호(또는 같이가개 장소 번호)
+  place_id bigint primary key,             -- 공공데이터 숙소 번호(또는 펫츠로드 장소 번호)
   status text not null default 'todo',     -- todo | contacted | interested | declined | joined
   memo text,
   contacted_at timestamptz,

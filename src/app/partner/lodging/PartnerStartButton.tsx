@@ -13,9 +13,9 @@ import { supabase } from "@/lib/supabase";
 export const PARTNER_PLACE_KEY = "ggk-partner-place";
 
 const STYLES: Record<"hero" | "nav" | "dark", React.CSSProperties> = {
-  hero: { padding: "15px 24px", borderRadius: 999, background: "#F3DA9B", color: "#2F3B28", fontSize: 15.5, boxShadow: "0 10px 26px rgba(0,0,0,0.25)" },
-  nav: { padding: "9px 16px", borderRadius: 999, background: "#2F3B28", color: "white", fontSize: 13 },
-  dark: { padding: "15px 26px", borderRadius: 999, background: "#F3DA9B", color: "#2F3B28", fontSize: 16 },
+  hero: { padding: "15px 24px", borderRadius: 999, background: "#F3DA9B", color: "#3B2A20", fontSize: 15.5, boxShadow: "0 10px 26px rgba(0,0,0,0.25)" },
+  nav: { padding: "9px 16px", borderRadius: 999, background: "#3B2A20", color: "white", fontSize: 13 },
+  dark: { padding: "15px 26px", borderRadius: 999, background: "#F3DA9B", color: "#3B2A20", fontSize: 16 },
 };
 
 export default function PartnerStartButton({ variant = "hero" }: { variant?: "hero" | "nav" | "dark" }) {

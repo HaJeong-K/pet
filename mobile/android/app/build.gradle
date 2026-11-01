@@ -24,15 +24,15 @@ def twaManifest = [
     applicationId: 'kr.gachigagae.app',
     hostName: 'gachigagae.vercel.app', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
-    name: '같이가개', // The application name.
-    launcherName: '같이가개', // The name shown on the Android Launcher.
+    name: '펫츠로드', // The application name.
+    launcherName: '펫츠로드', // The name shown on the Android Launcher.
     themeColor: '#FFFFFF', // The color used for the status bar.
     themeColorDark: '#FFFFFF', // The color used for the dark status bar.
-    navigationColor: '#F7F3E8', // The color used for the navigation bar.
-    navigationColorDark: '#F7F3E8', // The color used for the dark navbar.
-    navigationDividerColor: '#F7F3E8', // The navbar divider color.
-    navigationDividerColorDark: '#F7F3E8', // The dark navbar divider color.
-    backgroundColor: '#F7F3E8', // The color used for the splash screen background.
+    navigationColor: '#F4F3F2', // The color used for the navigation bar.
+    navigationColorDark: '#F4F3F2', // The color used for the dark navbar.
+    navigationDividerColor: '#F4F3F2', // The navbar divider color.
+    navigationDividerColorDark: '#F4F3F2', // The dark navbar divider color.
+    backgroundColor: '#F4F3F2', // The color used for the splash screen background.
     enableNotifications: true, // Set to true to enable notification delegation.
     // Every shortcut must include the following fields:
     // - name: String that will show up in the shortcut.

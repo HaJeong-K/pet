@@ -35,7 +35,7 @@ function Content() {
     return () => { cancelled = true; };
   }, [router]);
 
-  if (!state) return <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}><LogoLoader /></div>;
+  if (!state) return <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F3F2" }}><LogoLoader /></div>;
   return (
     <OwnerJoinFrame kind={kind} mode={state.userId ? "upgrade" : "signup"}>
       {state.userId

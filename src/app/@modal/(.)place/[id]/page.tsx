@@ -186,9 +186,9 @@ export default function ModalPage() {
   const handleSnsShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
+        title: placeName ? `${placeName} - 펫츠로드` : "펫츠로드",  // ← 변경
         text: placeName
-          ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 같이가개에서 확인해보세요.`
+          ? `${placeName} 반려동물과 함께 가볼 수 있는 장소예요! 펫츠로드에서 확인해보세요.`
           : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",  // ← 변경
         url: shareUrl,
       });
@@ -211,7 +211,7 @@ export default function ModalPage() {
     Kakao.Share.sendDefault({
       objectType: "feed",
       content: {
-        title: placeName ? `${placeName} - 같이가개` : "같이가개",  // ← 변경
+        title: placeName ? `${placeName} - 펫츠로드` : "펫츠로드",  // ← 변경
         description: placeName
           ? `${placeAddress ? placeAddress + " · " : ""}반려동물과 함께 갈 수 있는 곳이에요.`
           : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",

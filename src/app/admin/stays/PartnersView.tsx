@@ -1,6 +1,6 @@
 "use client";
 
-// 관리자 "숙박 예약 → 입점 심사" — 「같이가개 숙소 입점 계약서」 제5조
+// 관리자 "숙박 예약 → 입점 심사" — 「펫츠로드 숙소 입점 계약서」 제5조
 //   영업신고증(10분 동안만 열리는 주소)·정산 계좌·사장님 정보를 보고 승인/반려합니다.
 //   승인하면 고른 숙소가 사장님 숙소로 연결되고, 그날이 입점일(3개월 수수료 5%)이 됩니다.
 // 서버는 /api/admin/lodging-partners.
@@ -19,10 +19,10 @@ type Partner = {
 };
 
 const STATUS = { pending: { label: "심사 대기", bg: "#FEF3C7", color: "#92400E" }, approved: { label: "승인", bg: "#DCFCE7", color: "#166534" }, rejected: { label: "반려", bg: "#FEE2E2", color: "#991B1B" } };
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const btn = (kind: "primary" | "danger", disabled: boolean): React.CSSProperties => ({
   padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
-  border: kind === "primary" ? "none" : "1px solid #f3c7c5", background: disabled ? "#d6d3c9" : kind === "primary" ? "#5C7A4A" : "white", color: kind === "primary" ? "white" : "#b42318",
+  border: kind === "primary" ? "none" : "1px solid #f3c7c5", background: disabled ? "#D4D3D2" : kind === "primary" ? "#A05A32" : "white", color: kind === "primary" ? "white" : "#b42318",
 });
 
 export default function PartnersView() {
@@ -69,7 +69,7 @@ export default function PartnersView() {
       {rows?.map((p) => {
         const st = STATUS[p.status];
         return (
-          <div key={p.id} style={{ ...card, borderLeft: `4px solid ${p.status === "pending" ? "#F59E0B" : "#e5e0d0"}` }}>
+          <div key={p.id} style={{ ...card, borderLeft: `4px solid ${p.status === "pending" ? "#F59E0B" : "#E1E0DF"}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color }}>{st.label}</span>
               <b style={{ fontSize: 14 }}>{p.place_name}</b>

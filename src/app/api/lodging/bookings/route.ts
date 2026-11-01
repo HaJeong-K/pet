@@ -16,7 +16,7 @@ import { won } from "@/lib/ownerPlans";
 import { paymentInfoOf, paymentsEnabled } from "@/lib/server/payments";
 import { missingPetAcks, petRequirementItems } from "@/lib/petRequirements";
 
-// 손님의 숙박 예약 — 로그인한 회원만(「같이가개 숙소 입점 계약서」 제8~15조).
+// 손님의 숙박 예약 — 로그인한 회원만(「펫츠로드 숙소 입점 계약서」 제8~15조).
 //   GET   → 내 숙박 예약 목록 + 숙소 이름 + 지금 취소하면 돌려받는 금액·날짜별 환불 안내
 //   POST  → 예약 { roomId, checkIn, checkOut, guests, pets, name, phone, memo, agreed }
 //           손님은 전액을 미리 결제합니다. 'pending_payment'로 만들고 needsPayment를 돌려주면 화면이 결제창을 엽니다.
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
   const { data: flags } = await db.from("lodging_profiles").select("instant_confirm").eq("place_id", placeId).maybeSingle();
   const instant = flags?.instant_confirm === true;
   const needsPayment = paymentsEnabled();
-  // 추억 스탬프 할인 — 가진 개수·한도로 서버가 다시 계산합니다. 할인분은 같이가개가 부담합니다.
+  // 추억 스탬프 할인 — 가진 개수·한도로 서버가 다시 계산합니다. 할인분은 펫츠로드가 부담합니다.
   const { used: stampsUsed, discount } = STAMPS_ENABLED && r.stamps > 0 ? stampDiscount(q.total, r.stamps, await availableStamps(user.id)) : { used: 0, discount: 0 };
   const base = {
     place_id: placeId, room_id: room.id, room_name: room.name, guest_auth_user_id: user.id,

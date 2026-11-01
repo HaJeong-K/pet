@@ -64,7 +64,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
 
   const button = (primary: boolean, disabled = false): React.CSSProperties => ({
     flex: 1, padding: "13px 0", borderRadius: 12, border: primary ? "none" : "1px solid #ddd", fontSize: 14, fontWeight: 800, fontFamily: "inherit",
-    background: disabled ? "#d6d3c9" : primary ? "#B45309" : "white", color: primary ? "white" : "#666", cursor: disabled ? "default" : "pointer",
+    background: disabled ? "#D4D3D2" : primary ? "#B45309" : "white", color: primary ? "white" : "#666", cursor: disabled ? "default" : "pointer",
   });
 
   return (
@@ -96,7 +96,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             <div style={{ fontSize: 13, fontWeight: 800, color: "#444", marginTop: 16 }}>해지하시는 이유 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택)</span></div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
               {REASONS.map((r) => (
-                <button key={r} onClick={() => setReason(reason === r ? "" : r)} aria-pressed={reason === r} style={{ padding: "7px 11px", borderRadius: 999, border: `1px solid ${reason === r ? "#B45309" : "#e2dcc8"}`, background: reason === r ? "#FEF3C7" : "white", color: reason === r ? "#92400E" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>
+                <button key={r} onClick={() => setReason(reason === r ? "" : r)} aria-pressed={reason === r} style={{ padding: "7px 11px", borderRadius: 999, border: `1px solid ${reason === r ? "#B45309" : "#DDDCDB"}`, background: reason === r ? "#FEF3C7" : "white", color: reason === r ? "#92400E" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>
               ))}
             </div>
             <textarea value={detail} onChange={(e) => setDetail(e.target.value)} maxLength={200} rows={2} placeholder="더 알려 주실 내용이 있으면 적어 주세요(선택)" style={{ width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
@@ -130,7 +130,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             </div>
             {error && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
             <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
-              <button onClick={accept} disabled={busy} style={{ ...button(true, busy), background: busy ? "#d6d3c9" : "linear-gradient(135deg,#7C3AED,#DB2777)" }}>{busy ? "처리 중…" : `${RETENTION_DISCOUNT_PERCENT}% 할인받고 계속 이용하기`}</button>
+              <button onClick={accept} disabled={busy} style={{ ...button(true, busy), background: busy ? "#D4D3D2" : "linear-gradient(135deg,#7C3AED,#DB2777)" }}>{busy ? "처리 중…" : `${RETENTION_DISCOUNT_PERCENT}% 할인받고 계속 이용하기`}</button>
               <button onClick={() => cancel(true)} disabled={busy} style={{ ...button(false, busy), border: "none", background: "transparent", fontSize: 12.5, color: "#666", textDecoration: "underline", padding: "6px 0" }}>그래도 해지할게요</button>
             </div>
           </>

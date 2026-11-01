@@ -47,8 +47,8 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: any; label: string;
   return (
     <div style={cardStyle}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 9, background: "#E4EBDC", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icon size={14} color="#48603A" />
+        <div style={{ width: 28, height: 28, borderRadius: 9, background: "#F8E6D9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon size={14} color="#85482A" />
         </div>
         <span style={{ fontSize: 11.5, color: "#5c5c5c", fontWeight: 700 }}>{label}</span>
       </div>
@@ -58,7 +58,7 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: any; label: string;
   );
 }
 
-function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: number }[]; color?: string }) {
+function BarTrend({ data, color = "#A05A32" }: { data: { date: string; count: number }[]; color?: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
@@ -86,7 +86,7 @@ function BarTrend({ data, color = "#5C7A4A" }: { data: { date: string; count: nu
               width: "100%",
               height: Math.max(3, (d.count / max) * 78),
               flexShrink: 0,
-              background: hoverIdx === i ? "#48603A" : color,
+              background: hoverIdx === i ? "#85482A" : color,
               borderRadius: 4,
               cursor: "default",
               transition: "background 0.1s ease",
@@ -174,7 +174,7 @@ export default function AdminAnalytics() {
   };
 
   return (
-    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
+    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F4F3F2", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="analytics" onRefresh={() => fetchAnalytics()} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
         {/* ⚠ 막대그래프에 말풍선(툴팁)이 뜰 때 컨텐츠 높이가 살짝 바뀌면서
@@ -213,7 +213,7 @@ export default function AdminAnalytics() {
                 <span style={{ color: "#707070" }}>~</span>
                 <input type="date" value={trendTo} min={trendFrom} max={daysAgo(0)} onChange={(e) => setTrendTo(e.target.value)} style={dateInputStyle} />
                 <button onClick={applyTrendRange} style={{
-                  padding: "6px 12px", borderRadius: 8, border: "none", background: "#5C7A4A", color: "white",
+                  padding: "6px 12px", borderRadius: 8, border: "none", background: "#A05A32", color: "white",
                   fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   조회
@@ -231,13 +231,13 @@ export default function AdminAnalytics() {
                   <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 14 }}>
                     일별 신규 가입자 추이 ({fmtDate(data.trendFrom)} ~ {fmtDate(data.trendTo)})
                   </div>
-                  <BarTrend data={data.signupsTrend} color="#5C7A4A" />
+                  <BarTrend data={data.signupsTrend} color="#A05A32" />
                 </div>
                 <div style={cardStyle}>
                   <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 14 }}>
                     일별 순 이용자 추이 ({fmtDate(data.trendFrom)} ~ {fmtDate(data.trendTo)})
                   </div>
-                  <BarTrend data={data.dailyVisitorsTrend} color="#8FA876" />
+                  <BarTrend data={data.dailyVisitorsTrend} color="#C9966E" />
                 </div>
               </div>
 
@@ -245,7 +245,7 @@ export default function AdminAnalytics() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 16 }}>
                 <div style={cardStyle}>
                   <div className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 14 }}>
-                    <Search size={14} color="#5C7A4A" /> 인기 검색어 TOP 10 (최근 30일)
+                    <Search size={14} color="#A05A32" /> 인기 검색어 TOP 10 (최근 30일)
                   </div>
                   {data.topSearches.length === 0 ? (
                     <div style={{ fontSize: 12, color: "#6e6e6e" }}>아직 데이터가 쌓이지 않았습니다.</div>
@@ -265,7 +265,7 @@ export default function AdminAnalytics() {
                 <div style={cardStyle}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
                     <div className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111" }}>
-                      <MapPin size={14} color="#5C7A4A" /> 지역별 인기 장소 TOP 10
+                      <MapPin size={14} color="#A05A32" /> 지역별 인기 장소 TOP 10
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <select value={sido} onChange={(e) => onSidoChange(e.target.value)} style={selectStyle}>
@@ -293,7 +293,7 @@ export default function AdminAnalytics() {
                         <div key={`${p.region}-${p.subRegion}-${p.placeName}`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#6e6e6e" }}>{i + 1}</span>
                           <span style={{
-                            fontSize: 10, fontWeight: 700, color: "#48603A", background: "#E4EBDC",
+                            fontSize: 10, fontWeight: 700, color: "#85482A", background: "#F8E6D9",
                             padding: "2px 6px", borderRadius: 999, flexShrink: 0, whiteSpace: "nowrap",
                           }}>{p.region} {p.subRegion !== "기타" ? p.subRegion : ""}</span>
                           <span style={{ flex: 1, fontSize: 12.5, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.placeName}</span>

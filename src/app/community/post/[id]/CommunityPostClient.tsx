@@ -55,7 +55,7 @@ const sortBtn = (active: boolean) => ({
   padding: "5px 11px",
   borderRadius: "8px",
   border: "none",
-  background: active ? "linear-gradient(145deg,#5C7A4A,#48603A)" : "linear-gradient(145deg,#f5f6f8,#eaebee)",
+  background: active ? "linear-gradient(145deg,#A05A32,#85482A)" : "linear-gradient(145deg,#f5f6f8,#eaebee)",
   color: active ? "white" : "#555",
   cursor: "pointer",
   marginLeft: "5px",
@@ -725,10 +725,10 @@ export default function CommunityDetailPage() {
 
       {/* ★ 관리자 삭제 게시글 팝업 */}
       {heldFromView && (
-        <div className="ggk-body" style={{ position: "fixed", inset: 0, zIndex: 300, background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
+        <div className="ggk-body" style={{ position: "fixed", inset: 0, zIndex: 300, background: "#F4F3F2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: "#333" }}>확인 중인 글이에요</div>
           <div style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>관리자 확인이 끝나면 볼 수 있어요.</div>
-          <button onClick={() => router.replace("/community")} style={{ marginTop: 6, padding: "11px 20px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>커뮤니티로 돌아가기</button>
+          <button onClick={() => router.replace("/community")} style={{ marginTop: 6, padding: "11px 20px", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>커뮤니티로 돌아가기</button>
         </div>
       )}
 
@@ -867,7 +867,7 @@ export default function CommunityDetailPage() {
         style={{
           height: "100dvh",       /* ← 뷰포트 높이 고정 */
           overflow: "hidden",    /* ← 바깥 스크롤 차단 */
-          background: "#F7F3E8", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
+          background: "#F4F3F2", // 다른 페이지(커뮤니티 목록/마이페이지 등)와 동일한 배경색으로 통일
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
           gridTemplateRows: "minmax(0, 1fr)",
@@ -1082,7 +1082,7 @@ export default function CommunityDetailPage() {
               </div>
 
               {post && blockedIds.has((post as any).author_auth_key) && (
-                <div style={{ margin: "4px 0 10px", padding: "10px 12px", borderRadius: 10, background: "#F7F3E8", fontSize: 12.5, color: "#555", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ margin: "4px 0 10px", padding: "10px 12px", borderRadius: 10, background: "#F4F3F2", fontSize: 12.5, color: "#555", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ flex: 1 }}>차단한 사용자의 글이에요.</span>
                   <button onClick={() => unblockUser((post as any).author_auth_key)} style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, color: "#444", cursor: "pointer" }}>차단 해제</button>
                 </div>
@@ -1342,8 +1342,8 @@ export default function CommunityDetailPage() {
                       좋아요
                     </button>
 
-                    <button onClick={toggleSave} aria-pressed={saved} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: saved ? "1px solid #3F5230" : "1px solid #e5e7eb", background: saved ? "#EEF3E8" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: saved ? "#3F5230" : "#444" }}>
-                      <Bookmark size={14} fill={saved ? "#3F5230" : "none"} />{saved ? "저장됨" : "저장"}
+                    <button onClick={toggleSave} aria-pressed={saved} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: saved ? "1px solid #6F3D24" : "1px solid #e5e7eb", background: saved ? "#FCF1E9" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: saved ? "#6F3D24" : "#444" }}>
+                      <Bookmark size={14} fill={saved ? "#6F3D24" : "none"} />{saved ? "저장됨" : "저장"}
                     </button>
 
                     <button onClick={sharePost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: "#444" }}>
@@ -1428,7 +1428,7 @@ export default function CommunityDetailPage() {
                       style={{
                         width: "100%", height: "44px", marginTop: "10px",
                         borderRadius: "12px", border: "none",
-                        background: "linear-gradient(145deg, #5C7A4A, #48603A)",
+                        background: "linear-gradient(145deg, #A05A32, #85482A)",
                         color: "white", fontWeight: 700, cursor: "pointer",
                         display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                         fontFamily: "'Noto Sans KR', sans-serif",
@@ -1470,7 +1470,7 @@ export default function CommunityDetailPage() {
                 const hidden = [...new Set(comments.filter((c) => blockedIds.has((c as any).author_auth_key)).map((c) => (c as any).author_auth_key as string))];
                 if (hidden.length === 0) return null;
                 return (
-                  <div style={{ margin: "6px 0", padding: "8px 10px", borderRadius: 10, background: "#F7F3E8", fontSize: 12, color: "#555", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  <div style={{ margin: "6px 0", padding: "8px 10px", borderRadius: 10, background: "#F4F3F2", fontSize: 12, color: "#555", display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                     차단한 사용자의 댓글을 숨겼어요.
                     {hidden.map((id) => <button key={id} onClick={() => unblockUser(id)} style={{ padding: "2px 8px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 11.5, color: "#444", cursor: "pointer" }}>{comments.find((c) => (c as any).author_auth_key === id)?.nickname} 해제</button>)}
                   </div>
@@ -1530,8 +1530,8 @@ export default function CommunityDetailPage() {
                                         <button onClick={() => { setOpenedCommentMenuId(null); setDeletingCommentId(item.id); }} style={{ ...dropdownBtnStyleCom, color:"#dc2626" }}>삭제</button>
                                       </>
                                     ) : isAdmin ? (
-                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
-                                        <Shield size={11} color="#5C7A4A" />관리자 삭제
+                                      <button onClick={() => handleAdminDeleteComment(item.id)} style={{ ...dropdownBtnStyleCom, color:"#A05A32", display:"flex", alignItems:"center", gap:5 }}>
+                                        <Shield size={11} color="#A05A32" />관리자 삭제
                                       </button>
                                     ) : (
                                       <button onClick={() => { setOpenedCommentMenuId(null); setCommentReportTargetId(item.id); setCommentReportType("community_comment"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
@@ -1617,7 +1617,7 @@ export default function CommunityDetailPage() {
                               <button
                                 disabled={!(replyMap[item.id] || "").trim()}
                                 onClick={() => handleReply(item.id)}
-                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#5C7A4A,#48603A)", color: !(replyMap[item.id] || "").trim() ? "#4f4a3f" : "white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
+                                style={{ width:"46px", borderRadius:"6px", border:"none", background:!(replyMap[item.id] || "").trim() ? "#ccc" : "linear-gradient(145deg,#A05A32,#85482A)", color: !(replyMap[item.id] || "").trim() ? "#4f4a3f" : "white", cursor:!(replyMap[item.id] || "").trim() ? "default" : "pointer", fontSize:"11px", fontWeight:700 }}>
                                 등록
                               </button>
                             </div>
@@ -1659,8 +1659,8 @@ export default function CommunityDetailPage() {
                                             <button onClick={() => { setOpenedReplyMenuId2(null); setDeletingReplyId2(reply.id); }} style={{ ...dropdownBtnStyleCom, color:"#dc2626" }}>삭제</button>
                                           </>
                                         ) : isAdmin ? (
-                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#5C7A4A", display:"flex", alignItems:"center", gap:5 }}>
-                                            <Shield size={11} color="#5C7A4A" />관리자 삭제
+                                          <button onClick={() => handleAdminDeleteReply2(reply.id)} style={{ ...dropdownBtnStyleCom, color:"#A05A32", display:"flex", alignItems:"center", gap:5 }}>
+                                            <Shield size={11} color="#A05A32" />관리자 삭제
                                           </button>
                                         ) : (
                                           <button onClick={() => { setOpenedReplyMenuId2(null); setCommentReportTargetId(reply.id); setCommentReportType("community_reply"); setCommentReportOpen(true); }} style={dropdownBtnStyleCom}>신고</button>
@@ -1735,7 +1735,7 @@ export default function CommunityDetailPage() {
                 차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
                 하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
             <div style={{
-              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -14px 0",
+              flexShrink: 0, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", margin: "28px -14px 0",
               padding: "18px 14px calc(78px + 18px)", boxSizing: "border-box",
             }}>
               <SiteFooter />
@@ -2027,7 +2027,7 @@ const dropdownBtnStyleCom: React.CSSProperties = {
 };
 const saveBtnCom: React.CSSProperties = {
   padding: "5px 12px", borderRadius: "5px", border: "none",
-  background: "linear-gradient(145deg,#5C7A4A,#48603A)", color: "white",
+  background: "linear-gradient(145deg,#A05A32,#85482A)", color: "white",
   cursor: "pointer", fontSize: "12px", fontFamily: "'Noto Sans KR', sans-serif",
 };
 const cancelBtnCom: React.CSSProperties = {

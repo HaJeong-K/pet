@@ -21,9 +21,10 @@ type Product = {
   id: number; name: string; description: string | null; price: number;
   category?: string | null; image_url?: string | null; unit?: string | null; ingredients?: string | null; allergy?: string | null;
   origin?: string | null; caution?: string | null; is_featured?: boolean; sold_out?: boolean;
+  allergens?: string[] | null; options?: { name: string }[] | null;
 };
 type MyReservation = { id: number; items: ReservationLine[]; total: number; pickup_at: string | null; status: ReservationStatus; owner_note: string | null; created_at: string; order_type?: OrderType | null; party_size?: number | null };
-type StoreData = { enabled: boolean; orderModes?: OrderType[]; products: Product[]; mine: MyReservation[] };
+type StoreData = { enabled: boolean; orderModes?: OrderType[]; products: Product[]; mine: MyReservation[]; contact?: { name: string; phone: string } | null };
 
 const STATUS_COLOR: Record<ReservationStatus, { bg: string; color: string }> = {
   requested: { bg: "#FEF3C7", color: "#92400E" },
@@ -123,19 +124,20 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
   };
 
   const now = new Date(openedAt);
-  const canSubmit = picked.length > 0 && form.name.trim() !== "" && form.phone.replace(/\D/g, "").length >= 9 && !busy && (!dineIn || (!!form.pickupAt && Number(form.partySize) >= 1));
+  const contact = data.contact ?? null;
+  const canSubmit = picked.length > 0 && (!!contact || (form.name.trim() !== "" && form.phone.replace(/\D/g, "").length >= 9)) && !busy && (!dineIn || (!!form.pickupAt && Number(form.partySize) >= 1));
 
   return (
-    <div data-store-section style={{ marginTop: 14, borderRadius: 12, border: "1px solid #F3E3BC", background: "#FFFDF5", padding: "13px 12px" }}>
+    <div data-store-section style={{ marginTop: 14, borderRadius: 12, border: "1px solid #E7E6E5", background: "white", padding: "14px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <ShoppingBag size={14} color="#B45309" />
+        <ShoppingBag size={14} color="#A05A32" />
         <h3 className="ggk-title" style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#111" }}>{modes.map((m) => ORDER_TYPE_LABEL[m]).join(" · ")}</h3>
       </div>
-      <div className="ggk-body" style={{ fontSize: 11, color: "#8A6D1F", marginTop: 3, lineHeight: 1.5 }}>메뉴를 고르고 미리 결제해요. 가게가 확정하기 전에는 취소하면 전액 환불돼요.</div>
+      <div className="ggk-body" style={{ fontSize: 11, color: "#6B5E55", marginTop: 3, lineHeight: 1.5 }}>메뉴를 고르고 미리 결제해요. 가게가 확정하기 전에는 취소하면 전액 환불돼요.</div>
       {modes.length > 1 && (
         <div role="group" aria-label="주문 방식" style={{ display: "flex", gap: 6, marginTop: 9 }}>
           {modes.map((m) => (
-            <button key={m} type="button" onClick={() => setPickedMode(m)} aria-pressed={mode === m} className="ggk-body" style={{ flex: 1, padding: "9px 6px", borderRadius: 10, border: `1px solid ${mode === m ? "#B45309" : "#EAD9A8"}`, background: mode === m ? "#B45309" : "white", color: mode === m ? "white" : "#6B5525", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>{ORDER_TYPE_LABEL[m]}</button>
+            <button key={m} type="button" onClick={() => { setPickedMode(m); setForm((f) => ({ ...f, pickupAt: "" })); }} aria-pressed={mode === m} className="ggk-body" style={{ flex: 1, padding: "9px 6px", borderRadius: 10, border: `1px solid ${mode === m ? "#A05A32" : "#E7E6E5"}`, background: mode === m ? "#A05A32" : "white", color: mode === m ? "white" : "#555", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>{ORDER_TYPE_LABEL[m]}</button>
           ))}
         </div>
       )}
@@ -143,14 +145,14 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
       {/* 대표 상품 먼저, 그다음 분류별로 묶어 보여 줍니다(src/lib/storeRules.ts의 groupProducts) */}
       {groupProducts(data.products).map((group, groupIndex, groups) => (
         <div key={group.title} style={{ marginTop: groupIndex === 0 ? 10 : 12 }}>
-          {groups.length > 1 && <div className="ggk-title" style={{ fontSize: 11.5, fontWeight: 800, color: "#8A6D1F", marginBottom: 5 }}>{group.title}</div>}
+          {groups.length > 1 && <div className="ggk-title" style={{ fontSize: 11.5, fontWeight: 800, color: "#6B5E55", marginBottom: 5 }}>{group.title}</div>}
           <div style={{ display: "grid", gap: 6 }}>
             {group.items.map((p) => {
               const count = qty[p.id] ?? 0;
-              const facts: [string, string][] = ([["재료·소재", p.ingredients], ["알레르기", p.allergy], ["원산지·제조", p.origin], ["주의사항·보관", p.caution]] as [string, string | null | undefined][]).filter((f): f is [string, string] => !!f[1]);
+              const facts: [string, string][] = ([["재료·소재", p.ingredients], ["알레르기", [p.allergens?.length ? `${p.allergens.join("·")} 포함` : "", p.allergy].filter(Boolean).join(" / ")], ["원산지·제조", p.origin], ["주의사항·보관", p.caution]] as [string, string | null | undefined][]).filter((f): f is [string, string] => !!f[1]);
               const open = openId === p.id;
               return (
-                <div key={p.id} style={{ padding: "9px 10px", borderRadius: 10, background: "white", border: `1px solid ${count > 0 ? "#F0C36A" : "#f0ece0"}`, opacity: p.sold_out ? 0.65 : 1 }}>
+                <div key={p.id} style={{ padding: "9px 10px", borderRadius: 10, background: "white", border: `1px solid ${count > 0 ? "#A05A32" : "#EDECEB"}`, opacity: p.sold_out ? 0.65 : 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                     {p.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -164,9 +166,11 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
                       </div>
                       {p.unit && <div className="ggk-body" style={{ fontSize: 10.5, color: "#666", marginTop: 1 }}>{p.unit}</div>}
                       {p.description && <div className="ggk-body" style={{ fontSize: 11, color: "#5c5c5c", marginTop: 1, lineHeight: 1.45, wordBreak: "break-word" }}>{p.description}</div>}
-                      <div className="ggk-body" style={{ fontSize: 12.5, fontWeight: 800, color: "#B45309", marginTop: 2 }}>{won(p.price)}</div>
+                      <div className="ggk-body" style={{ fontSize: 12.5, fontWeight: 800, color: "#A05A32", marginTop: 2 }}>{won(p.price)}</div>
                     </div>
-                    {!p.sold_out && (
+                    {!p.sold_out && (p.options?.length ? (
+                      <a href={`/shop/${placeId}`} className="ggk-body" style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, border: "1px solid #ddd", color: "#3B2A20", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>옵션 고르기</a>
+                    ) : (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                         {count > 0 && (
                           <>
@@ -174,17 +178,17 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
                             <span className="ggk-body" style={{ minWidth: 16, textAlign: "center", fontSize: 13, fontWeight: 800 }}>{count}</span>
                           </>
                         )}
-                        <button onClick={() => change(p.id, 1)} aria-label={`${p.name} 하나 담기`} style={{ ...stepButton, background: "#B45309", borderColor: "#B45309", color: "white" }}><Plus size={13} /></button>
+                        <button onClick={() => change(p.id, 1)} aria-label={`${p.name} 하나 담기`} style={{ ...stepButton, background: "#A05A32", borderColor: "#A05A32", color: "white" }}><Plus size={13} /></button>
                       </div>
-                    )}
+                    ))}
                   </div>
                   {facts.length > 0 && (
                     <>
-                      <button onClick={() => setOpenId(open ? null : p.id)} aria-expanded={open} className="ggk-body" style={{ display: "inline-flex", alignItems: "center", gap: 3, marginTop: 6, padding: 0, border: "none", background: "transparent", fontSize: 10.5, fontWeight: 700, color: "#8A6D1F", cursor: "pointer" }}>
+                      <button onClick={() => setOpenId(open ? null : p.id)} aria-expanded={open} className="ggk-body" style={{ display: "inline-flex", alignItems: "center", gap: 3, marginTop: 6, padding: 0, border: "none", background: "transparent", fontSize: 10.5, fontWeight: 700, color: "#6B5E55", cursor: "pointer" }}>
                         {facts.map((f) => f[0]).join(" · ")} {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                       </button>
                       {open && (
-                        <div style={{ marginTop: 5, padding: "8px 9px", borderRadius: 8, background: "#FBF8EF", display: "grid", gap: 4 }}>
+                        <div style={{ marginTop: 5, padding: "8px 9px", borderRadius: 8, background: "#F9F8F7", display: "grid", gap: 4 }}>
                           {facts.map(([title, text]) => (
                             <div key={title} className="ggk-body" style={{ fontSize: 11, color: "#555", lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}><b style={{ color: title === "알레르기" ? "#B91C1C" : "#444" }}>{title}</b> {text}</div>
                           ))}
@@ -200,18 +204,26 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
       ))}
 
       {picked.length > 0 && (
-        <div style={{ marginTop: 10, padding: 11, borderRadius: 10, background: "#F7F3E8", display: "grid", gap: 7 }}>
+        <div style={{ marginTop: 10, padding: 11, borderRadius: 10, background: "#F4F3F2", display: "grid", gap: 7 }}>
           <div className="ggk-body" style={{ display: "flex", fontSize: 13, fontWeight: 800, color: "#222" }}>
             <span style={{ flex: 1 }}>고른 메뉴 {picked.reduce((sum, p) => sum + (qty[p.id] ?? 0), 0)}개</span>
             <span>합계 {won(total)}</span>
           </div>
           {isLoggedIn ? (
             <>
-              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="주문자 이름" maxLength={20} style={input} />
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="연락받을 전화번호" inputMode="tel" maxLength={13} style={input} />
+              {contact ? (
+                <div className="ggk-body" style={{ padding: "10px 11px", borderRadius: 9, background: "white", border: "1px solid #E7E6E5", fontSize: 13, color: "#333" }}>주문자 <b>{contact.name}</b> · {contact.phone}</div>
+              ) : (
+                <>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="주문자 이름" maxLength={20} style={input} />
+                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="연락받을 전화번호" inputMode="tel" maxLength={13} style={input} />
+                </>
+              )}
               <label className="ggk-body" style={{ fontSize: 11, color: "#555" }}>
-                {dineIn ? `방문 시간 (필수, ${PICKUP_MAX_DAYS}일 안)` : `가지러 갈 시간 (선택, ${PICKUP_MAX_DAYS}일 안)`}
-                <input type="datetime-local" value={form.pickupAt} min={toLocalInput(now)} max={toLocalInput(new Date(now.getTime() + PICKUP_MAX_DAYS * 86_400_000))} onChange={(e) => setForm({ ...form, pickupAt: e.target.value })} style={{ ...input, marginTop: 3 }} />
+                {dineIn ? `방문 시간 (필수, ${PICKUP_MAX_DAYS}일 안)` : "오늘 받을 시간 (선택, 포장은 당일만)"}
+                {dineIn
+                  ? <input type="datetime-local" value={form.pickupAt} min={toLocalInput(now)} max={toLocalInput(new Date(now.getTime() + PICKUP_MAX_DAYS * 86_400_000))} onChange={(e) => setForm({ ...form, pickupAt: e.target.value })} style={{ ...input, marginTop: 3 }} />
+                  : <input type="time" value={form.pickupAt.slice(11, 16)} min={toLocalInput(now).slice(11, 16)} max="23:59" onChange={(e) => setForm({ ...form, pickupAt: e.target.value ? `${toLocalInput(now).slice(0, 10)}T${e.target.value}` : "" })} style={{ ...input, marginTop: 3 }} />}
               </label>
               {dineIn && (
                 <label className="ggk-body" style={{ fontSize: 11, color: "#555" }}>
@@ -225,7 +237,7 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
           ) : (
             <div className="ggk-body" style={{ fontSize: 11.5, color: "#555" }}>주문은 로그인한 뒤에 할 수 있어요.</div>
           )}
-          <button onClick={reserve} disabled={isLoggedIn && !canSubmit} className="ggk-body" style={{ padding: "11px 0", borderRadius: 10, border: "none", background: isLoggedIn && !canSubmit ? "#d6d3c9" : "#B45309", color: isLoggedIn && !canSubmit ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: isLoggedIn && !canSubmit ? "default" : "pointer" }}>
+          <button onClick={reserve} disabled={isLoggedIn && !canSubmit} className="ggk-body" style={{ padding: "11px 0", borderRadius: 10, border: "none", background: isLoggedIn && !canSubmit ? "#D4D3D2" : "#A05A32", color: isLoggedIn && !canSubmit ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: isLoggedIn && !canSubmit ? "default" : "pointer" }}>
             {!isLoggedIn ? "로그인하고 주문하기" : busy ? "주문 넣는 중…" : paymentsReady() ? `${won(picked.reduce((sum, p) => sum + p.price * (qty[p.id] ?? 0), 0))} 결제하기` : `${ORDER_TYPE_LABEL[mode]} 넣기`}
           </button>
         </div>
@@ -234,11 +246,11 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
       {message && <div role="status" className="ggk-body" style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c", lineHeight: 1.5 }}>{message.text}</div>}
 
       {data.mine.length > 0 && (
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #EAD9A8" }}>
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #E7E6E5" }}>
           <div className="ggk-title" style={{ fontSize: 11.5, fontWeight: 800, color: "#666", marginBottom: 6, display: "flex" }}><span style={{ flex: 1 }}>내 주문</span><a href="/orders?tab=store" style={{ color: "#8C5E3A", fontWeight: 700 }}>전체 내역</a></div>
           <div style={{ display: "grid", gap: 6 }}>
             {data.mine.map((r) => (
-              <div key={r.id} style={{ padding: "9px 10px", borderRadius: 10, background: "white", border: "1px solid #f0ece0", opacity: isOpenStatus(r.status) ? 1 : 0.75 }}>
+              <div key={r.id} style={{ padding: "9px 10px", borderRadius: 10, background: "white", border: "1px solid #EDECEB", opacity: isOpenStatus(r.status) ? 1 : 0.75 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <span className="ggk-body" style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: STATUS_COLOR[r.status].bg, color: STATUS_COLOR[r.status].color }}>{STATUS_LABEL[r.status]}</span>
                   <span className="ggk-body" style={{ fontSize: 12, fontWeight: 700, color: "#333" }}>{ORDER_TYPE_LABEL[r.order_type ?? "pickup"]}{r.party_size ? ` ${r.party_size}명` : ""} · {won(r.total)}</span>

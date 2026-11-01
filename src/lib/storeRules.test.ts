@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReservationLines, canChangeStatus, canRequestCancel, canReviewOrder, cleanOrderModes, cleanOrderOptions, cleanStoreReview, cleanProduct, groupProducts, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
+import { cleanCoupon, cleanOrderWeek, cleanReviewPhotos, couponProblem, orderHoursToday, cleanProductOptions, cleanStoreInfo, isWithinOrderHours, buildReservationLines, canChangeStatus, canRequestCancel, canReviewOrder, cleanOrderModes, cleanOrderOptions, cleanStoreReview, cleanProduct, groupProducts, cleanReservationContact, isOpenStatus, ownerNextStatuses, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX } from "./storeRules";
 import { normalizePlan, planAtLeast, PLAN_MONTHLY_PRICE, quote } from "./ownerPlans";
 import { BANNER_ROTATE_MS, bannerRegionOf, bannerSource, isInSigungu, pickLocalAds, rotateByTime, type AdPlace, type BannerPerk } from "./localAds";
 import { adjustExpiry } from "./premiumPeriod";
@@ -8,7 +8,7 @@ describe("상품 입력값", () => {
   it("이름 앞뒤 공백을 다듬고 그대로 받는다", () => {
     expect(cleanProduct({ name: "  수제  육포 ", price: 5000 })).toEqual({ product: {
       name: "수제 육포", description: null, price: 5000, is_active: true,
-      category: null, imageUrl: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, is_featured: false, sold_out: false,
+      category: null, imageUrl: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, allergens: [], options: [], feed_reg_no: null, is_featured: false, sold_out: false,
     } });
   });
   it("자세한 정보는 모두 선택 — 적은 것만 남기고, 장난감처럼 비워 둬도 된다", () => {
@@ -198,5 +198,111 @@ describe("프리미엄 기간을 며칠 늘리고 줄이기", () => {
     expect(adjustExpiry(new Date(now + day).toISOString(), 1.5, now)).toHaveProperty("error");
     expect(adjustExpiry(new Date(now + day).toISOString(), 1000, now)).toHaveProperty("error");
     expect(adjustExpiry(new Date(now - day).toISOString(), -1, now)).toHaveProperty("error");
+  });
+});
+
+describe("포장 주문은 당일만", () => {
+  // 2026-11-01 12:00 (한국 시간)
+  const noon = new Date("2026-11-01T03:00:00Z").getTime();
+  it("오늘 시간이거나 시간을 정하지 않으면 받는다", () => {
+    expect(cleanOrderOptions({ orderType: "pickup" }, ["pickup"], "2026-11-01T14:50:00Z", noon)).toEqual({ orderType: "pickup", partySize: null });
+    expect(cleanOrderOptions({ orderType: "pickup" }, ["pickup"], null, noon)).toEqual({ orderType: "pickup", partySize: null });
+  });
+  it("한국 시간으로 내일이면 받지 않는다", () => {
+    expect(cleanOrderOptions({ orderType: "pickup" }, ["pickup"], "2026-11-01T15:10:00Z", noon)).toHaveProperty("error");
+  });
+  it("매장 식사는 다른 날도 예약할 수 있다", () => {
+    expect(cleanOrderOptions({ orderType: "dine_in", partySize: 2 }, ["dine_in"], "2026-11-05T03:00:00Z", noon)).toEqual({ orderType: "dine_in", partySize: 2 });
+  });
+});
+
+describe("포장 주문 가능 시간", () => {
+  // 2026-11-01 12:00 (한국 시간)
+  const noon = new Date("2026-11-01T03:00:00Z").getTime();
+  it("정하지 않았으면 제한이 없다", () => {
+    expect(isWithinOrderHours(null, null, noon)).toBe(true);
+  });
+  it("한국 시간으로 범위 안에서만 받는다", () => {
+    expect(isWithinOrderHours("11:00", "20:00", noon)).toBe(true);
+    expect(isWithinOrderHours("13:00", "20:00", noon)).toBe(false);
+    expect(isWithinOrderHours("09:00", "12:00", noon)).toBe(false);
+  });
+  it("자정을 넘기는 영업도 처리한다", () => {
+    expect(isWithinOrderHours("18:00", "02:00", noon)).toBe(false);
+    expect(isWithinOrderHours("18:00", "02:00", new Date("2026-11-01T16:00:00Z").getTime())).toBe(true);
+  });
+});
+
+describe("메뉴 옵션", () => {
+  const size = { name: "사이즈", required: true, multi: false, choices: [{ name: "TALL", price: 0 }, { name: "GRANDE", price: 1000 }] };
+  const extra = { name: "추가", required: false, multi: true, choices: [{ name: "치즈", price: 500 }, { name: "연어", price: 800 }] };
+  const products = [{ id: 1, name: "멍푸치노", price: 6000, is_active: true, options: [size, extra] }];
+  it("옵션 금액은 가게 값으로 더하고 이름에 적는다", () => {
+    const built = buildReservationLines([{ productId: 1, qty: 2, options: [{ group: "사이즈", choice: "GRANDE" }, { group: "추가", choice: "치즈" }], price: 1 }], products);
+    expect(built).toEqual({ lines: [{ productId: 1, name: "멍푸치노 (GRANDE, 치즈)", price: 7500, qty: 2, options: [{ group: "사이즈", choice: "GRANDE" }, { group: "추가", choice: "치즈" }] }], total: 15000 });
+  });
+  it("옵션이 다르면 다른 줄이 된다", () => {
+    const built = buildReservationLines([{ productId: 1, qty: 1, options: [{ group: "사이즈", choice: "TALL" }] }, { productId: 1, qty: 1, options: [{ group: "사이즈", choice: "GRANDE" }] }], products);
+    expect(built).toHaveProperty("total", 13000);
+  });
+  it("필수 옵션이 없거나, 없는 선택지거나, 하나만 고를 옵션을 여러 개 고르면 막는다", () => {
+    expect(buildReservationLines([{ productId: 1, qty: 1 }], products)).toHaveProperty("error");
+    expect(buildReservationLines([{ productId: 1, qty: 1, options: [{ group: "사이즈", choice: "VENTI" }] }], products)).toHaveProperty("error");
+    expect(buildReservationLines([{ productId: 1, qty: 1, options: [{ group: "사이즈", choice: "TALL" }, { group: "사이즈", choice: "GRANDE" }] }], products)).toHaveProperty("error");
+  });
+  it("입력을 다듬을 때 이름 없는 옵션과 선택지를 뺀다", () => {
+    expect(cleanProductOptions([{ name: " ", choices: [{ name: "A" }] }, { name: "맛", choices: [{ name: "" }, { name: "닭", price: -5 }] }])).toEqual([{ name: "맛", required: false, multi: false, choices: [{ name: "닭", price: 0 }] }]);
+  });
+});
+
+describe("가게 안내", () => {
+  it("비어 있으면 기본값, 이상한 숫자는 버린다", () => {
+    expect(cleanStoreInfo(null).minOrder).toBe(0);
+    expect(cleanStoreInfo({ minOrder: -1, prepMinutes: 9999 })).toMatchObject({ minOrder: 0, prepMinutes: null });
+    expect(cleanStoreInfo({ minOrder: 10000, prepMinutes: 20 })).toMatchObject({ minOrder: 10000, prepMinutes: 20 });
+  });
+});
+
+describe("요일별 주문 시간", () => {
+  // 2026-11-01은 일요일(한국 시간 12:00)
+  const sunday = new Date("2026-11-01T03:00:00Z").getTime();
+  const week = (day: unknown) => [day, null, null, null, null, null, null];
+  it("그 요일 시간이 있으면 먼저 쓰고, 없으면 기본 시간", () => {
+    expect(orderHoursToday({ order_open_time: "09:00", order_close_time: "18:00", order_week: week({ open: "11:00", close: "15:00" }) }, sunday)).toEqual({ open: "11:00", close: "15:00", closedDay: false });
+    expect(orderHoursToday({ order_open_time: "09:00", order_close_time: "18:00" }, sunday)).toEqual({ open: "09:00", close: "18:00", closedDay: false });
+  });
+  it("안 받는 날", () => {
+    expect(orderHoursToday({ order_week: week({ closed: true }) }, sunday).closedDay).toBe(true);
+  });
+  it("한국 시간 기준으로 요일을 정한다", () => {
+    // 11월 1일 15:30 UTC = 한국 11월 2일 월요일
+    expect(orderHoursToday({ order_week: week({ closed: true }) }, new Date("2026-11-01T15:30:00Z").getTime()).closedDay).toBe(false);
+  });
+  it("다 비우면 요일별 설정이 없는 것", () => {
+    expect(cleanOrderWeek([{ open: "", close: "" }])).toBeNull();
+  });
+});
+
+describe("쿠폰", () => {
+  const now = new Date("2026-11-01T03:00:00Z").getTime();
+  const base = { discount: 1000, min_order: 5000, expires_on: "2026-11-30", is_active: true };
+  it("조건을 채우면 쓸 수 있다", () => expect(couponProblem(base, 6000, now)).toBeNull());
+  it("꺼졌거나 지났거나 금액이 모자라면 못 쓴다", () => {
+    expect(couponProblem({ ...base, is_active: false }, 6000, now)).toBeTruthy();
+    expect(couponProblem({ ...base, expires_on: "2026-10-31" }, 6000, now)).toBeTruthy();
+    expect(couponProblem(base, 4000, now)).toBeTruthy();
+  });
+  it("할인이 주문 금액 이상이면 못 쓴다", () => expect(couponProblem({ ...base, min_order: 0 }, 1000, now)).toBeTruthy());
+  it("만들 때 할인은 최소 주문보다 작아야 한다", () => {
+    expect(cleanCoupon({ name: "첫 주문", discount: 5000, minOrder: 5000 })).toHaveProperty("error");
+    expect(cleanCoupon({ name: "첫 주문", discount: 1000, minOrder: 5000, expiresOn: "2026-12-01" })).toEqual({ coupon: { name: "첫 주문", discount: 1000, min_order: 5000, expires_on: "2026-12-01" } });
+  });
+});
+
+describe("후기 사진", () => {
+  const url = "https://x.supabase.co";
+  const ok = `${url}/storage/v1/object/public/community-images/store-reviews/u/1.jpg`;
+  it("후기 폴더의 사진만 3장까지 받는다", () => {
+    expect(cleanReviewPhotos([ok, "https://evil.example/a.jpg", ok, ok, ok], url)).toEqual([ok, ok, ok]);
   });
 });

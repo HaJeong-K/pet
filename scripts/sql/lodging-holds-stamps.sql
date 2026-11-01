@@ -12,7 +12,7 @@ alter table public.lodging_bookings add constraint lodging_bookings_no_overlap
   exclude using gist (room_id with =, daterange(check_in, check_out, '[)') with &&)
   where (status in ('requested', 'confirmed'));
 
--- ③ 스탬프 할인액 — total은 손님이 내는 금액(할인 후). 할인분은 같이가개가 부담해서, 정산은 total + stamp_discount 기준입니다.
+-- ③ 스탬프 할인액 — total은 손님이 내는 금액(할인 후). 할인분은 펫츠로드가 부담해서, 정산은 total + stamp_discount 기준입니다.
 alter table public.lodging_bookings add column if not exists stamp_discount integer not null default 0;
 
 -- ④ 추억 스탬프 — 한 줄이 스탬프 한 개. 예약에 쓰면 spent_booking_id가 채워지고, 예약이 취소되면 비워져 돌아옵니다.

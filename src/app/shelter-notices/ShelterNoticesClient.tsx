@@ -12,6 +12,7 @@ import ShelterAlertToggle from "@/components/ShelterAlertToggle";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
 import PageGuide from "@/components/PageGuide";
 import { ADOPT_GUIDE_KEY, ADOPT_GUIDE_STEPS } from "@/lib/pageGuides";
+import { PageFooter } from "@/components/SiteFooter";
 
 // ── 전국 보호소 공고 전체보기 ──
 // 예전에는 이 버튼이 animal.go.kr의 검색결과 페이지로 직접 딥링크됐는데, 그 사이트가
@@ -30,15 +31,15 @@ const PAGE_SIZE = 20;
 const NEAR = "__near__";
 
 const pagerBtn = (active: boolean, disabled = false): React.CSSProperties => ({
-  minWidth: 34, height: 34, padding: "0 10px", borderRadius: 10, border: active ? "none" : "1px solid #e3e0d6",
-  background: active ? "#5C7A4A" : "white", color: active ? "white" : disabled ? "#707070" : "#555",
+  minWidth: 34, height: 34, padding: "0 10px", borderRadius: 10, border: active ? "none" : "1px solid #E1E0DF",
+  background: active ? "#A05A32" : "white", color: active ? "white" : disabled ? "#707070" : "#555",
   fontWeight: 700, fontSize: 12.5, cursor: disabled ? "default" : "pointer",
 });
 
 const chipStyle = (active: boolean, small = false): React.CSSProperties => ({
   flexShrink: 0, padding: small ? "5px 11px" : "7px 14px", borderRadius: 999,
-  border: small && !active ? "1px solid #e3e0d6" : "none",
-  background: active ? (small ? "#48603A" : "#5C7A4A") : "white",
+  border: small && !active ? "1px solid #E1E0DF" : "none",
+  background: active ? (small ? "#85482A" : "#A05A32") : "white",
   color: active ? "white" : "#555",
   fontWeight: 700, fontSize: small ? 11.5 : 12, cursor: "pointer", whiteSpace: "nowrap",
   boxShadow: active || small ? "none" : "0 1px 2px rgba(0,0,0,0.06)",
@@ -188,18 +189,18 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
       style={{
         // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
         display: "flex", flexDirection: "column", height: "100dvh", overflowY: "auto",
-        background: "#F7F3E8", alignItems: "center",
+        background: "#F4F3F2", alignItems: "center",
       }}
     >
       {/* 공고가 다 뜬 뒤에 안내를 시작합니다(카드를 짚는 단계가 있어서) */}
       <PageGuide storageKey={ADOPT_GUIDE_KEY} steps={ADOPT_GUIDE_STEPS} enabled={!loading} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column" }}>
         {/* 머리 띠 — 이 화면의 한마디. 차분한 갈색 바탕에 흰 글씨(커뮤니티 화면의 초록 띠와 같은 틀). */}
-        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
+        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", borderRadius: "0 0 26px 26px", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
           <PawPrint aria-hidden="true" size={150} color="rgba(255,255,255,0.07)" style={{ position: "absolute", right: -18, bottom: -34, transform: "rotate(-14deg)" }} />
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#F3E6D4", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>
+              <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#E9E8E7", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>
                 유기동물 공고 · 마감 임박순
               </span>
               {/* 입양은 어렵지만 돕고 싶은 분을 위한 화면 — 보호센터 문의처와 후원 단체의 공식 창구 */}
@@ -264,7 +265,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
         </div>
 
         {nearNote && !loading && (
-          <div style={{ margin: "8px 20px 0", padding: "9px 12px", borderRadius: 10, background: "#EEF3E8", color: "#48603A", fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
+          <div style={{ margin: "8px 20px 0", padding: "9px 12px", borderRadius: 10, background: "#FCF1E9", color: "#85482A", fontSize: 12, fontWeight: 600, lineHeight: 1.5 }}>
             <MapPin size={12} style={{ display: "inline", verticalAlign: "-2px", marginRight: 4 }} />{nearNote}
           </div>
         )}
@@ -314,6 +315,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
             )}
           </>)}
         </div>
+        <PageFooter />
       </div>
     </div>
   );

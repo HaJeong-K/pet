@@ -7,7 +7,9 @@ import {
 } from "lucide-react";
 import { siteUrl } from "@/lib/siteUrl";
 import { OWNER_PLANS, won } from "@/lib/ownerPlans";
+import { SchnauzerHead } from "@/components/brand/SchnauzerPeek";
 import PartnershipForm from "./PartnershipForm";
+import { PageFooter } from "@/components/SiteFooter";
 
 // ── 광고·제휴 안내(/partnership) ──
 // 사이트 아래의 "광고·제휴 문의"에서 들어옵니다. 광고주·제휴사가 읽는 사업 안내 화면이라 용어와 말투를 그에 맞춥니다
@@ -17,23 +19,23 @@ import PartnershipForm from "./PartnershipForm";
 // ⚠ 가독성: 문장을 한 줄에 몰아 적지 않습니다. 글 안의 줄바꿈(\n)이 화면에 그대로 반영됩니다(whiteSpace: pre-line).
 // 숫자는 과장 없이 확인할 수 있는 것만 적습니다(방문자 수처럼 확인되지 않은 수치는 싣지 않음).
 
-const title = "광고·제휴 안내 | 같이가개";
+const title = "광고·제휴 안내 | 펫츠로드";
 const description = "반려동물과 함께 사는 보호자에게 매장·브랜드·상품을 알리는 방법을 안내합니다. 지역 배너 광고, 사료·간식·용품 브랜드 협업, 기관·서비스 제휴를 문의해 주세요.";
 
 export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${siteUrl}/partnership` },
-  openGraph: { title, description, url: `${siteUrl}/partnership`, siteName: "같이가개", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
+  openGraph: { title, description, url: `${siteUrl}/partnership`, siteName: "펫츠로드", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
-const GREEN = "#5C7A4A", DARK = "#2f3a26", BEIGE = "#F7F3E8";
+const BRAND = "#A05A32", DARK = "#3B2A20", PAGE_BG = "#F4F3F2";
 const wrap: React.CSSProperties = { width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 22px", boxSizing: "border-box" };
-const navLink: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, color: "#59624f", textDecoration: "none", whiteSpace: "nowrap" };
-const eyebrow: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: GREEN, letterSpacing: "0.2px" };
+const navLink: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, color: "#6B5E55", textDecoration: "none", whiteSpace: "nowrap" };
+const eyebrow: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: BRAND, letterSpacing: "0.2px" };
 const h2: React.CSSProperties = { margin: "8px 0 0", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800, lineHeight: 1.36, whiteSpace: "pre-line" };
 /** 본문 글 — 글 안의 줄바꿈을 그대로 보여 줍니다 */
-const body = (size = 14): React.CSSProperties => ({ fontSize: size, lineHeight: 1.8, color: "#59624f", whiteSpace: "pre-line" });
+const body = (size = 14): React.CSSProperties => ({ fontSize: size, lineHeight: 1.8, color: "#6B5E55", whiteSpace: "pre-line" });
 
 const AUDIENCE = [
   { Icon: Search, title: "정보를 찾아 비교하는 보호자", text: "방문할 곳과 구매할 상품을\n직접 찾아보고 비교하는 이용자입니다.\n광고가 구매·방문 결정의 참고 정보로 쓰입니다." },
@@ -57,7 +59,7 @@ const OFFERS = [
     chips: [{ Icon: Megaphone, label: "신제품·브랜드 소개" }, { Icon: Gift, label: "체험·샘플 프로모션" }, { Icon: Store, label: "지역 매장 연계" }, { Icon: BarChart3, label: "성과 리포트" }],
   },
   {
-    no: "03", Icon: Handshake, tone: "#E4EBDC", color: "#48603A",
+    no: "03", Icon: Handshake, tone: "#F8E6D9", color: "#85482A",
     name: "기관·서비스 제휴", who: "지자체 · 기관 · 단체 · 서비스",
     title: "공공·민간 서비스와\n제휴합니다.",
     text: "지자체·기관의 반려동물 정책·시설 안내,\n지역 행사, 유기동물 입양 홍보,\n장소 데이터 연계 등을 함께 추진합니다.",
@@ -82,7 +84,7 @@ const STEPS = [
 const RULES = [
   { Icon: BadgeCheck, title: "광고 표시", text: "모든 배너에 AD 표시를 붙입니다.\n후기나 추천으로 오인될 수 있는 형태로 게재하지 않습니다." },
   { Icon: ShieldCheck, title: "허위·과장 광고 제한", text: "사실과 다른 내용, 확인되지 않은 효능 표현,\n타 업체 비방, 타인의 사진·상표를 사용한 광고는 게재를 중단합니다." },
-  { Icon: Ban, title: "동물 매매 광고 불가", text: "분양·교배 홍보는 받지 않습니다.\n같이가개는 입양을 권장합니다." },
+  { Icon: Ban, title: "동물 매매 광고 불가", text: "분양·교배 홍보는 받지 않습니다.\n펫츠로드는 입양을 권장합니다." },
 ];
 
 const FAQ = [
@@ -99,12 +101,12 @@ export default function PartnershipPage() {
   const paidPlans = OWNER_PLANS.filter((p) => p.id !== "basic");
   return (
     // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: BEIGE, color: DARK, wordBreak: "keep-all" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: DARK, wordBreak: "keep-all" }}>
       {/* ── 상단 ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(247,243,232,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e8e2d2" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
-          <Link href="/" aria-label="같이가개 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
+          <Link href="/" aria-label="펫츠로드 지도" style={{ display: "flex", alignItems: "center" }}>
+            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
           </Link>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* 좁은 화면에서는 로고와 "문의하기"만 남깁니다 */}
@@ -114,13 +116,16 @@ export default function PartnershipPage() {
             <a href="#process" className="partner-nav-link" style={navLink}>진행 절차</a>
             <a href="#price" className="partner-nav-link" style={navLink}>요금</a>
             <a href="#faq" className="partner-nav-link" style={navLink}>자주 묻는 질문</a>
-            <a href="#inquiry" style={{ marginLeft: 6, padding: "9px 16px", borderRadius: 999, background: GREEN, color: "white", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>문의하기</a>
+            <a href="#inquiry" style={{ marginLeft: 6, padding: "9px 16px", borderRadius: 999, background: BRAND, color: "white", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>문의하기</a>
           </nav>
         </div>
       </header>
 
       {/* ── 첫 화면 ── */}
-      <section style={{ background: "linear-gradient(160deg,#48603A,#5C7A4A 55%,#7b9a66)", color: "white" }}>
+      <section style={{ position: "relative", overflow: "hidden", background: "linear-gradient(160deg,#85482A,#A05A32 55%,#C08457)", color: "white" }}>
+        {/* 슈나우저 — 넓은 화면은 오른쪽 아래에서 올려다보고, 좁은 화면은 오른쪽 위에 작게 둡니다 */}
+        <style>{`.partner-dog { position: absolute; right: max(22px, calc(50% - 498px)); bottom: -44px; } .partner-dog svg { width: 210px; height: auto; } @media (max-width: 860px) { .partner-dog { bottom: auto; top: 34px; right: 20px; } .partner-dog svg { width: 56px; } }`}</style>
+        <div className="partner-dog"><SchnauzerHead width={210} /></div>
         <div style={{ ...wrap, padding: "clamp(48px, 9vw, 92px) 22px clamp(44px, 8vw, 80px)" }}>
           <div style={{ display: "inline-block", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.16)", fontSize: 12.5, fontWeight: 700, letterSpacing: "0.2px" }}>광고·제휴 안내</div>
           <h1 className="ggk-logo" style={{ margin: "18px 0 0", fontSize: "clamp(28px, 6vw, 52px)", fontWeight: 800, lineHeight: 1.26 }}>
@@ -128,7 +133,7 @@ export default function PartnershipPage() {
             <span style={{ color: "#FFE9A8" }}>먼저 떠오르는 이름으로.</span>
           </h1>
           <p style={{ margin: "20px 0 0", fontSize: "clamp(15px, 2.4vw, 18px)", lineHeight: 1.8, color: "rgba(255,255,255,0.92)", maxWidth: 600, whiteSpace: "pre-line" }}>
-            {"같이가개는 반려동물과 함께 사는 보호자가 이용하는 서비스입니다.\n지역 매장부터 사료·간식·용품 브랜드까지,\n필요한 보호자에게 정확히 전달합니다."}
+            {"펫츠로드는 반려동물과 함께 사는 보호자가 이용하는 서비스입니다.\n지역 매장부터 사료·간식·용품 브랜드까지,\n필요한 보호자에게 정확히 전달합니다."}
           </p>
           <div style={{ marginTop: 30, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <a href="#inquiry" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 22px", borderRadius: 999, background: "#FFE9A8", color: "#3b3215", fontSize: 15, fontWeight: 800, textDecoration: "none" }}>
@@ -156,8 +161,8 @@ export default function PartnershipPage() {
         <h2 className="ggk-logo" style={h2}>{"방문·구매 의사가 분명한\n반려 가구가 이용합니다."}</h2>
         <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
           {AUDIENCE.map((a) => (
-            <div key={a.title} style={{ padding: "22px 20px", borderRadius: 20, background: "white", border: "1px solid #ece6d6" }}>
-              <div style={{ width: 42, height: 42, borderRadius: 14, background: "#E4EBDC", display: "flex", alignItems: "center", justifyContent: "center" }}><a.Icon size={20} color="#48603A" /></div>
+            <div key={a.title} style={{ padding: "22px 20px", borderRadius: 20, background: "white", border: "1px solid #E7E6E5" }}>
+              <div style={{ width: 42, height: 42, borderRadius: 14, background: "#F8E6D9", display: "flex", alignItems: "center", justifyContent: "center" }}><a.Icon size={20} color="#85482A" /></div>
               <div className="ggk-logo" style={{ marginTop: 12, fontSize: 17, fontWeight: 800 }}>{a.title}</div>
               <div style={{ ...body(14), marginTop: 8 }}>{a.text}</div>
             </div>
@@ -175,7 +180,7 @@ export default function PartnershipPage() {
               <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: f.color }}>{f.no} · {f.name}</div>
               <h3 className="ggk-logo" style={{ ...h2, fontSize: "clamp(20px, 3.2vw, 28px)" }}>{f.title}</h3>
               <p style={{ ...body(15), margin: "14px 0 0" }}>{f.text}</p>
-              <div style={{ marginTop: 14, fontSize: 12.5, color: "#5f6456" }}>대상 <b style={{ color: "#59624f", marginLeft: 4 }}>{f.who}</b></div>
+              <div style={{ marginTop: 14, fontSize: 12.5, color: "#6B5E55" }}>대상 <b style={{ color: "#6B5E55", marginLeft: 4 }}>{f.who}</b></div>
             </div>
             <div style={{ flex: "1 1 300px", minWidth: 0, borderRadius: 26, background: f.tone, padding: "clamp(22px, 4vw, 36px)" }}>
               <div style={{ width: 54, height: 54, borderRadius: 18, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,0.07)" }}>
@@ -194,23 +199,23 @@ export default function PartnershipPage() {
       </section>
 
       {/* ── 배너 집행 방식 ── */}
-      <section id="how" style={{ background: "white", borderTop: "1px solid #ece6d6", borderBottom: "1px solid #ece6d6", scrollMarginTop: 58 }}>
+      <section id="how" style={{ background: "white", borderTop: "1px solid #E7E6E5", borderBottom: "1px solid #E7E6E5", scrollMarginTop: 58 }}>
         <div style={{ ...wrap, padding: "clamp(40px, 7vw, 68px) 22px" }}>
           <div style={eyebrow}>지역 배너 집행 방식</div>
           <h2 className="ggk-logo" style={h2}>{"가까운 이용자에게,\n모든 매장을 동일하게 노출합니다."}</h2>
           <div style={{ marginTop: 26, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
             {HOW.map((s, i) => (
-              <div key={s.title} style={{ padding: "22px 20px", borderRadius: 20, background: BEIGE, border: "1px solid #ece6d6" }}>
+              <div key={s.title} style={{ padding: "22px 20px", borderRadius: 20, background: PAGE_BG, border: "1px solid #E7E6E5" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>0{i + 1}</span>
-                  <s.Icon size={18} color={GREEN} />
+                  <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>0{i + 1}</span>
+                  <s.Icon size={18} color={BRAND} />
                 </div>
                 <div className="ggk-logo" style={{ marginTop: 10, fontSize: 17, fontWeight: 800 }}>{s.title}</div>
                 <div style={{ ...body(14), marginTop: 8 }}>{s.text}</div>
               </div>
             ))}
           </div>
-          <div style={{ ...body(12.5), marginTop: 16, color: "#5f6456" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
+          <div style={{ ...body(12.5), marginTop: 16, color: "#6B5E55" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
         </div>
       </section>
 
@@ -220,8 +225,8 @@ export default function PartnershipPage() {
         <h2 className="ggk-logo" style={h2}>{"문의 접수부터 결과 보고까지"}</h2>
         <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
           {STEPS.map((s) => (
-            <div key={s.no} style={{ padding: "20px 18px", borderRadius: 18, background: "white", border: "1px solid #ece6d6" }}>
-              <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#c9d6bd" }}>{s.no}</div>
+            <div key={s.no} style={{ padding: "20px 18px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5" }}>
+              <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: "#E2C5B1" }}>{s.no}</div>
               <div className="ggk-logo" style={{ marginTop: 6, fontSize: 16.5, fontWeight: 800 }}>{s.title}</div>
               <div style={{ ...body(13.5), marginTop: 7 }}>{s.text}</div>
             </div>
@@ -264,8 +269,8 @@ export default function PartnershipPage() {
         <h2 className="ggk-logo" style={h2}>{"이용자의 신뢰를 기준으로\n광고를 운영합니다."}</h2>
         <div style={{ marginTop: 22, display: "grid", gap: 10 }}>
           {RULES.map((r) => (
-            <div key={r.title} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "16px 18px", borderRadius: 16, background: "white", border: "1px solid #ece6d6" }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: "#E4EBDC", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><r.Icon size={18} color="#48603A" /></div>
+            <div key={r.title} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "16px 18px", borderRadius: 16, background: "white", border: "1px solid #E7E6E5" }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: "#F8E6D9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><r.Icon size={18} color="#85482A" /></div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800 }}>{r.title}</div>
                 <div style={{ ...body(13.5), marginTop: 4 }}>{r.text}</div>
@@ -281,7 +286,7 @@ export default function PartnershipPage() {
         <h2 className="ggk-logo" style={h2}>자주 묻는 질문</h2>
         <div style={{ marginTop: 20, display: "grid", gap: 8 }}>
           {FAQ.map((item) => (
-            <details key={item.q} style={{ borderRadius: 16, background: "white", border: "1px solid #ece6d6", padding: "15px 18px" }}>
+            <details key={item.q} style={{ borderRadius: 16, background: "white", border: "1px solid #E7E6E5", padding: "15px 18px" }}>
               <summary style={{ cursor: "pointer", fontSize: 15, fontWeight: 800, lineHeight: 1.5 }}>{item.q}</summary>
               <div style={{ ...body(14), marginTop: 10 }}>{item.a}</div>
             </details>
@@ -297,8 +302,9 @@ export default function PartnershipPage() {
           <p style={{ ...body(14), margin: "10px 0 0" }}>{"구체적인 계획이 정해지지 않아도 괜찮습니다.\n홍보 대상(매장·브랜드·상품)을 기재해 주시면\n적합한 방식을 제안드립니다."}</p>
         </div>
         <PartnershipForm />
-        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#5f6456" }}>© 2026 같이가개</div>
+        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#6B5E55" }}>© 2026 펫츠로드</div>
       </section>
+      <PageFooter />
     </div>
   );
 }

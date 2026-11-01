@@ -48,7 +48,7 @@ const field: React.CSSProperties = { height: 38, padding: "0 10px", borderRadius
 const smallBtn = (bg: string, color: string, border = "none"): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" });
 const chip = (bg: string, color: string): React.CSSProperties => ({ fontSize: 11.5, fontWeight: 700, color, background: bg, padding: "4px 10px", borderRadius: 999, display: "inline-flex", alignItems: "center", gap: 4 });
 const sectionTitle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "#655a3c", letterSpacing: "0.2px", marginBottom: 7 };
-const section: React.CSSProperties = { padding: "13px 16px", borderTop: "1px solid #f3ecd9" };
+const section: React.CSSProperties = { padding: "13px 16px", borderTop: "1px solid #EDECEB" };
 const PLAN_COLOR: Record<PaidPlanId, { bg: string; color: string }> = { premium: { bg: "#ffe9c2", color: "#92650a" }, store: { bg: "#DBEAFE", color: "#1D4ED8" }, local: { bg: "#f3e8ff", color: "#7c3aed" } };
 const DAY_PRESETS = [1, 7, 30, 90];
 const CHANGE_LABEL: Record<string, string> = { extend: "연장", shorten: "단축", end: "종료", plan: "요금제", perks: "혜택", approve: "신청 승인" };
@@ -109,15 +109,15 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
             </div>
             <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 3, display: "flex", alignItems: "center", gap: 4, wordBreak: "break-all" }}><MapPin size={11} />{place.address || "주소 없음"}</div>
           </div>
-          <a href={`/place/${place.id}`} target="_blank" rel="noreferrer" title="장소 화면 열기" style={{ flexShrink: 0, color: "#5C7A4A", padding: 4 }}><ExternalLink size={15} /></a>
+          <a href={`/place/${place.id}`} target="_blank" rel="noreferrer" title="장소 화면 열기" style={{ flexShrink: 0, color: "#A05A32", padding: 4 }}><ExternalLink size={15} /></a>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 11 }}>
-          <span style={chip("#f5f6f8", "#444")}><User size={11} color="#5C7A4A" />{place.owner ? `${place.owner.businessName || place.owner.nickname || "사장님"} · ${place.owner.email || "이메일 없음"}${place.owner.phone ? ` · ${place.owner.phone}` : ""}` : "연결된 사장님 없음"}</span>
+          <span style={chip("#f5f6f8", "#444")}><User size={11} color="#A05A32" />{place.owner ? `${place.owner.businessName || place.owner.nickname || "사장님"} · ${place.owner.email || "이메일 없음"}${place.owner.phone ? ` · ${place.owner.phone}` : ""}` : "연결된 사장님 없음"}</span>
           <span style={chip("#f5f6f8", "#444")}>신청 승인 누적 {place.paidMonths}개월</span>
           {place.firstApprovedAt && <span style={chip("#f5f6f8", "#444")}>첫 승인 {fmt(place.firstApprovedAt)}</span>}
-          {perks && perks.discount_percent > 0 && <span style={chip("#FBEEDD", "#A8551F")}><Percent size={11} />{perks.discount_percent}% 할인 · {perks.discount_months}개월</span>}
-          {perks && perks.free_months_granted > 0 && <span style={chip("#E4EBDC", "#48603A")}><Gift size={11} />무료 연장 누적 {perks.free_months_granted}개월</span>}
+          {perks && perks.discount_percent > 0 && <span style={chip("#F1F0EF", "#A8551F")}><Percent size={11} />{perks.discount_percent}% 할인 · {perks.discount_months}개월</span>}
+          {perks && perks.free_months_granted > 0 && <span style={chip("#F8E6D9", "#85482A")}><Gift size={11} />무료 연장 누적 {perks.free_months_granted}개월</span>}
         </div>
         {perks?.memo && <div style={{ marginTop: 8, fontSize: 12, color: "#666", background: "#fafafa", border: "1px solid #eee", borderRadius: 9, padding: "7px 10px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>메모: {perks.memo}</div>}
       </div>
@@ -126,7 +126,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
       <div style={section}>
         <div style={sectionTitle}>이용 기간</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={chip("#f5f6f8", "#333")}><CalendarClock size={11} color="#5C7A4A" />만료 {fmt(place.expiresAt)}</span>
+          <span style={chip("#f5f6f8", "#333")}><CalendarClock size={11} color="#A05A32" />만료 {fmt(place.expiresAt)}</span>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 0, borderRadius: 10, border: "1px solid #ddd", overflow: "hidden", background: "white" }}>
             <button disabled={busy || !place.active} onClick={() => adjust(-1)} aria-label={`${dayCount}일 줄이기`} title={place.active ? `${dayCount}일 줄이기` : "이미 끝난 프리미엄은 줄일 수 없어요"} style={{ width: 40, height: 38, border: "none", background: place.active ? "#fff5f5" : "#f5f5f5", color: place.active ? "#dc2626" : "#707070", cursor: place.active ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={15} /></button>
             <input type="number" min={1} max={PREMIUM_ADJUST_DAYS_MAX} value={days} onChange={(e) => setDays(e.target.value)} aria-label="조절할 날짜 수" style={{ width: 62, height: 38, border: "none", borderLeft: "1px solid #eee", textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "inherit", padding: "0 2px 0 6px", boxSizing: "border-box" }} />
@@ -145,8 +145,8 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           {!place.active && <> · 끝난 가게는 + 를 누르면 오늘부터 다시 시작해요</>}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          <button disabled={busy} onClick={() => run({ action: "extend", months: 1 }, "1개월 연장했어요.", `"${place.name}"의 프리미엄을 1개월 무료 연장할까요?`)} style={smallBtn("#5C7A4A", "white")}>+1개월 무료 연장</button>
-          <button disabled={busy} onClick={() => run({ action: "extend", months: 3 }, "3개월 연장했어요.", `"${place.name}"의 프리미엄을 3개월 무료 연장할까요?`)} style={smallBtn("#E4EBDC", "#48603A")}>+3개월 무료 연장</button>
+          <button disabled={busy} onClick={() => run({ action: "extend", months: 1 }, "1개월 연장했어요.", `"${place.name}"의 프리미엄을 1개월 무료 연장할까요?`)} style={smallBtn("#A05A32", "white")}>+1개월 무료 연장</button>
+          <button disabled={busy} onClick={() => run({ action: "extend", months: 3 }, "3개월 연장했어요.", `"${place.name}"의 프리미엄을 3개월 무료 연장할까요?`)} style={smallBtn("#F8E6D9", "#85482A")}>+3개월 무료 연장</button>
           {place.active && <button disabled={busy} onClick={() => run({ action: "end" }, "프리미엄을 종료했어요.", `"${place.name}"의 프리미엄을 지금 종료할까요?\n지도 상단 노출·추천 우대·배너·상품 예약이 바로 사라져요.`)} style={{ ...smallBtn("#fff5f5", "#dc2626", "1px solid #fecaca"), marginLeft: "auto" }}>지금 종료</button>}
         </div>
       </div>
@@ -183,7 +183,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
       </div>
 
       {open && (
-        <div style={{ padding: "14px 16px 16px", background: "#fffdf7", borderTop: "1px solid #f3e7c8" }}>
+        <div style={{ padding: "14px 16px 16px", background: "#FEFDFC", borderTop: "1px solid #E8E7E6" }}>
           {!data.perksReady && (
             <div style={{ padding: "9px 11px", borderRadius: 9, background: "#fff7ed", border: "1px solid #fed7aa", fontSize: 12, color: "#9a3412", lineHeight: 1.6, marginBottom: 12 }}>
               혜택을 저장할 표가 아직 없어요. Supabase SQL 편집기에서 <b>scripts/sql/premium-perks.sql</b>을 실행하면 저장할 수 있어요.
@@ -283,14 +283,14 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, margin: "2px 0 12px" }}>
         {summary.map((s) => (
-          <div key={s.label} style={{ background: "white", borderRadius: 14, border: "1px solid #ece6d6", padding: "11px 13px" }}>
+          <div key={s.label} style={{ background: "white", borderRadius: 14, border: "1px solid #E7E6E5", padding: "11px 13px" }}>
             <div style={{ fontSize: 11.5, color: "#5c5c5c", fontWeight: 600 }}>{s.label}</div>
             <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: s.color, marginTop: 2 }}>{s.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ background: "white", borderRadius: 14, border: "1px solid #ece6d6", padding: "12px 14px", marginBottom: 14 }}>
+      <div style={{ background: "white", borderRadius: 14, border: "1px solid #E7E6E5", padding: "12px 14px", marginBottom: 14 }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, color: "#333", display: "flex", alignItems: "center", gap: 5 }}><Megaphone size={13} color="#7c3aed" />동네별 배너 가게</div>
         {data.bannerRegions.length === 0
           ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>지금 배너를 내는 가게가 없어요. 가게를 &lsquo;동네 대표&rsquo; 요금제로 바꾸거나 혜택 설정에서 배너를 켜면 그 동네 사용자에게 보여요.</div>

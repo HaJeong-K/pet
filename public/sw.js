@@ -1,4 +1,4 @@
-// 같이가개 서비스 워커 — 브라우저 알림(유기동물 공고 지역 알림 · 관리자 알림 · 사장님 새 예약 알림) 전용
+// 펫츠로드 서비스 워커 — 브라우저 알림(유기동물 공고 지역 알림 · 관리자 알림 · 사장님 새 예약 알림) 전용
 // 사이트를 닫아 둔 상태에서도 서버가 보낸 알림을 받아 화면에 띄우고, 누르면 해당 화면을 엽니다.
 // (오프라인 캐시 같은 다른 기능은 넣지 않았습니다 — 화면 갱신이 꼬이지 않게 알림만 다룹니다.)
 
@@ -8,7 +8,7 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
-  const title = data.title || "같이가개";
+  const title = data.title || "펫츠로드";
   const options = {
     body: data.body || "",
     // icon: 알림창을 내렸을 때 보이는 컬러 그림(글자 없는 핀 로고).

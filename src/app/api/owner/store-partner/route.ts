@@ -5,7 +5,7 @@ import { getPlaceMeta } from "@/lib/server/placeMeta";
 import { cleanOrderModes } from "@/lib/storeRules";
 import { isStoreEligibleCategory } from "@/lib/storeCategories";
 
-// 쇼핑 입점 상담 — 같이가개에 가입한 사장님이면 누구나(인증 대기 포함).
+// 쇼핑 입점 상담 — 펫츠로드에 가입한 사장님이면 누구나(인증 대기 포함).
 //   GET  → 내 신청 상태와 미리 채울 가게 정보
 //   POST → 상담 신청·수정 { placeId?, placeName, address, phone, orderModes, message }
 // 승인은 관리자가 상담 후 합니다(/api/admin/store-partners).

@@ -144,7 +144,7 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
       <div
         style={{
           position: "fixed", top, left, width, height, borderRadius: 12, zIndex: 3001, pointerEvents: "none",
-          boxShadow: "0 0 0 3px white, 0 0 0 5px #3a7438",
+          boxShadow: "0 0 0 3px white, 0 0 0 5px #7D4E2F",
           transition: "top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease",
         }}
       />
@@ -170,7 +170,7 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
           </button>
           <div style={{ display: "flex", gap: 4 }}>
             {active.map((_, i) => (
-              <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === index ? "#3a7438" : "#ddd" }} />
+              <span key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: i === index ? "#7D4E2F" : "#ddd" }} />
             ))}
           </div>
           <div style={{ display: "flex", gap: 5 }}>
@@ -181,7 +181,7 @@ export default function PageGuide({ storageKey, steps, enabled = true, delayMs =
             )}
             <button
               onClick={() => (last ? finish() : setIndex(index + 1))}
-              style={{ border: "none", background: "#3a7438", color: "white", fontSize: 12, fontWeight: 700, padding: "6px 13px", borderRadius: 8, cursor: "pointer" }}
+              style={{ border: "none", background: "#7D4E2F", color: "white", fontSize: 12, fontWeight: 700, padding: "6px 13px", borderRadius: 8, cursor: "pointer" }}
             >
               {last ? "완료" : `다음 ${index + 1}/${active.length}`}
             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-// 관리자 "숙박 예약" — 「같이가개 숙소 입점 계약서」 제11·14·20조 처리 화면
+// 관리자 "숙박 예약" — 「펫츠로드 숙소 입점 계약서」 제11·14·20조 처리 화면
 //   · 문제 접수: 손님 접수 내용 + 사장님 의견을 보고 판단(정상 이용 / 숙소 사정 / 손님 정보 불일치)
 //   · 배상금 미정: 기준에 비율이 없는 구간(성수기 2일 전~당일)의 숙소 사정 취소 배상금을 정함
 //   · 정산 예정: 결제대행 연동 전에는 직접 이체한 뒤 "보냄"으로 표시
@@ -33,11 +33,11 @@ type Row = {
 type View = "issues" | "payouts" | "refunds" | "all" | "partners" | "reviews" | "leads" | "store" | "orders";
 
 const ISSUE_LABEL: Record<string, string> = { ...OWNER_VIOLATION_KINDS, refused: "반려동물과 함께 입실 거부", different_room: "예약한 객실·시설과 다름", pet_condition: "동반 조건이 안내와 다름", facility: "시설·위생 문제", other: "기타" };
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const btn = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
   border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2e4e8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#5C7A4A" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
+  background: disabled ? "#D4D3D2" : kind === "primary" ? "#A05A32" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
 export default function AdminStays() {
@@ -74,7 +74,7 @@ export default function AdminStays() {
   };
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="stays" onRefresh={load} />
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 12, wordBreak: "keep-all" }}>
         <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>숙박 예약</div>
@@ -84,7 +84,7 @@ export default function AdminStays() {
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {([["issues", "문제 접수 · 배상금 미정"], ["payouts", "정산 예정"], ["refunds", "환불 처리"], ["all", "최근 예약"], ["partners", "입점 심사"], ["leads", "입점 영업"], ["reviews", "후기 신고"], ["store", "쇼핑 입점"], ["orders", "쇼핑 주문"]] as [View, string][]).map(([key, text]) => (
-            <button key={key} onClick={() => { setView(key); setRows(null); }} aria-pressed={view === key} style={{ padding: "7px 13px", borderRadius: 999, border: "none", background: view === key ? "#5C7A4A" : "white", color: view === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: view === key ? "none" : "inset 0 0 0 1px #e5e0d0" }}>{text}</button>
+            <button key={key} onClick={() => { setView(key); setRows(null); }} aria-pressed={view === key} style={{ padding: "7px 13px", borderRadius: 999, border: "none", background: view === key ? "#A05A32" : "white", color: view === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: view === key ? "none" : "inset 0 0 0 1px #E1E0DF" }}>{text}</button>
           ))}
         </div>
         {view === "orders" ? <StoreOrdersView /> : view === "store" ? <StorePartnersView /> : view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : view === "leads" ? <LeadsView /> : <>
@@ -97,7 +97,7 @@ export default function AdminStays() {
           const st = STAY_STATUS[b.status];
           const needsComp = b.compensation_amount == null && (b.cancel_cause === "owner" || b.cancel_cause === "owner_pet_refused");
           return (
-            <div key={b.id} style={{ ...card, borderLeft: `4px solid ${b.issue_status === "open" ? "#DC2626" : needsComp ? "#F59E0B" : "#e5e0d0"}` }}>
+            <div key={b.id} style={{ ...card, borderLeft: `4px solid ${b.issue_status === "open" ? "#DC2626" : needsComp ? "#F59E0B" : "#E1E0DF"}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.background, color: st.color }}>{st.label}</span>
                 <b style={{ fontSize: 14 }}>{b.placeName ?? `장소 #${b.place_id}`}</b>

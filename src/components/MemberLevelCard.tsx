@@ -56,8 +56,8 @@ export default function MemberLevelCard({ accessToken, onLevel, variant = "card"
   const hero = variant === "hero";
   // 색 묶음 — 흰 카드 / 초록 칸
   const t = hero
-    ? { title: "white", strong: "white", text: "rgba(255,255,255,0.86)", muted: "rgba(255,255,255,0.62)", accent: "#E8F0DD", track: "rgba(255,255,255,0.22)", bar: "white", box: "rgba(255,255,255,0.12)", line: "rgba(255,255,255,0.18)", warn: "#FFD7B0", bad: "#FFB4A8" }
-    : { title: "#111", strong: "#333", text: "#777", muted: "#aaa", accent: "#5C7A4A", track: "#EEF0EA", bar: "#5C7A4A", box: "#F6F7F3", line: "#f0f1f3", warn: "#A8551F", bad: "#C0392B" };
+    ? { title: "white", strong: "white", text: "rgba(255,255,255,0.86)", muted: "rgba(255,255,255,0.62)", accent: "#F5E4D8", track: "rgba(255,255,255,0.22)", bar: "white", box: "rgba(255,255,255,0.12)", line: "rgba(255,255,255,0.18)", warn: "#FFD7B0", bad: "#FFB4A8" }
+    : { title: "#111", strong: "#333", text: "#777", muted: "#aaa", accent: "#A05A32", track: "#F8EBE2", bar: "#A05A32", box: "#F6F7F3", line: "#f0f1f3", warn: "#A8551F", bad: "#C0392B" };
   const card: React.CSSProperties = hero
     ? { padding: "13px 15px", borderRadius: 16, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.24)", boxSizing: "border-box" }
     : { margin: "12px 16px 0", padding: "14px 16px", borderRadius: 16, background: "white", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" };
@@ -73,7 +73,7 @@ export default function MemberLevelCard({ accessToken, onLevel, variant = "card"
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 800, color: t.title }}>내 레벨</div>
         <LevelBadge level={current.level} size="large" onDark={hero} />
-        <div style={{ marginLeft: "auto", fontSize: hero ? 14 : 12, fontWeight: 800, color: hero ? "white" : "#48603A" }}>{score.total.toLocaleString()}점</div>
+        <div style={{ marginLeft: "auto", fontSize: hero ? 14 : 12, fontWeight: 800, color: hero ? "white" : "#85482A" }}>{score.total.toLocaleString()}점</div>
       </div>
       <div style={{ ...small, marginTop: 6 }}>{current.description}</div>
 

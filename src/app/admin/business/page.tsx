@@ -16,7 +16,7 @@ type Saved = { costs: CostItem[]; mix: PlanMix; fee: number; other: number; pric
 const defaults = (): Saved => ({ costs: DEFAULT_COSTS.map((c) => ({ ...c })), mix: { ...DEFAULT_MIX }, fee: 3.3, other: 0, prices: { ...PLAN_MONTHLY_PRICE } });
 const SCENARIOS = [10, 30, 50, 100, 200, 500];
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "16px 18px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "16px 18px" };
 const numInput: React.CSSProperties = { width: 120, padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", fontFamily: "inherit", boxSizing: "border-box" };
 const label: React.CSSProperties = { fontSize: 13, color: "#333", fontWeight: 600 };
 const toNum = (v: string) => Number(v.replace(/[^\d.]/g, "")) || 0;
@@ -41,11 +41,11 @@ export default function AdminBusiness() {
   const mixTotal = state.mix.premium + state.mix.store + state.mix.local;
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="business" />
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Calculator size={18} color="#5C7A4A" />
+          <Calculator size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>사업성 계산 (손익분기)</div>
           <button onClick={() => update(defaults())} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}><RotateCcw size={12} />처음 값으로</button>
         </div>
@@ -55,7 +55,7 @@ export default function AdminBusiness() {
         </div>
 
         {/* 결과 */}
-        <div style={{ ...card, background: "#2f3a26", border: "none", color: "white", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+        <div style={{ ...card, background: "#3B2A20", border: "none", color: "white", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
           <div>
             <div style={{ fontSize: 12, opacity: 0.75 }}>손익분기 유료 가게 수</div>
             <div className="ggk-logo" style={{ fontSize: 32, fontWeight: 800, color: "#FFE9A8", fontVariantNumeric: "tabular-nums" }}>{result.shopsNeeded == null ? "-" : `${result.shopsNeeded.toLocaleString("ko-KR")}곳`}</div>
@@ -108,7 +108,7 @@ export default function AdminBusiness() {
                 </div>
               ))}
               {mixTotal !== 100 && <div style={{ fontSize: 11.5, color: "#B45309" }}>비율 합이 {mixTotal}%예요. 비율대로 나눠 계산합니다.</div>}
-              <div style={{ height: 1, background: "#f1efe6", margin: "4px 0" }} />
+              <div style={{ height: 1, background: "#F0EFEE", margin: "4px 0" }} />
               <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ flex: 1 }}><span style={label}>결제 수수료</span><span style={{ display: "block", fontSize: 11, color: "#666" }}>카드 결제대행 등(계좌 입금이면 0)</span></span>
                 <input id="fee" inputMode="decimal" value={state.fee} onChange={(e) => update({ ...state, fee: toNum(e.target.value) })} style={{ ...numInput, width: 70 }} />
@@ -131,11 +131,11 @@ export default function AdminBusiness() {
               <thead><tr style={{ color: "#5c5c5c", fontSize: 12, textAlign: "right" }}><th style={{ textAlign: "left", padding: "6px 8px" }}>유료 가게</th><th style={{ padding: "6px 8px" }}>월 매출</th><th style={{ padding: "6px 8px" }}>월 이익</th><th style={{ padding: "6px 8px" }}>연 이익</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.shops} style={{ borderTop: "1px solid #f1efe6", textAlign: "right", background: result.shopsNeeded != null && r.shops >= result.shopsNeeded && (rows.find((x) => x.shops >= result.shopsNeeded!)?.shops === r.shops) ? "#F3F8EE" : undefined }}>
+                  <tr key={r.shops} style={{ borderTop: "1px solid #F0EFEE", textAlign: "right", background: result.shopsNeeded != null && r.shops >= result.shopsNeeded && (rows.find((x) => x.shops >= result.shopsNeeded!)?.shops === r.shops) ? "#FAF2EC" : undefined }}>
                     <td style={{ textAlign: "left", padding: "8px", fontWeight: 700 }}>{r.shops.toLocaleString("ko-KR")}곳</td>
                     <td style={{ padding: "8px" }}>{won(Math.round(r.revenue))}</td>
-                    <td style={{ padding: "8px", fontWeight: 700, color: r.profit >= 0 ? "#3F6B2B" : "#B91C1C" }}>{r.profit >= 0 ? "" : "−"}{won(Math.abs(Math.round(r.profit)))}</td>
-                    <td style={{ padding: "8px", color: r.profit >= 0 ? "#3F6B2B" : "#B91C1C" }}>{r.profit >= 0 ? "" : "−"}{won(Math.abs(Math.round(r.profit * 12)))}</td>
+                    <td style={{ padding: "8px", fontWeight: 700, color: r.profit >= 0 ? "#8A4A26" : "#B91C1C" }}>{r.profit >= 0 ? "" : "−"}{won(Math.abs(Math.round(r.profit)))}</td>
+                    <td style={{ padding: "8px", color: r.profit >= 0 ? "#8A4A26" : "#B91C1C" }}>{r.profit >= 0 ? "" : "−"}{won(Math.abs(Math.round(r.profit * 12)))}</td>
                   </tr>
                 ))}
               </tbody>

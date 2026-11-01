@@ -16,13 +16,112 @@ export const RESERVATION_LINES_MAX = 20;
 export const RESERVATION_QTY_MAX = 30;
 /** 며칠 뒤까지 예약할 수 있는지 */
 export const PICKUP_MAX_DAYS = 14;
+/** 지금(한국 시간)이 포장 주문 가능 시간 안인지. 비어 있으면 제한 없음, 마감이 시작보다 이르면 자정을 넘기는 영업 */
+export function isWithinOrderHours(open: string | null | undefined, close: string | null | undefined, now = Date.now()): boolean {
+  if (!open || !close || open === close) return true;
+  const time = new Date(now).toLocaleTimeString("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" });
+  return open < close ? time >= open && time < close : time >= open || time < close;
+}
+/** 한국 시간 기준 날짜(예: 2026-11-01) — 포장 주문은 이 날짜가 오늘일 때만 받습니다 */
+export const koreaDay = (time: number | string) => new Date(time).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 
 /** 자세한 정보 칸(모두 선택)의 글자 수 한도 */
 export const PRODUCT_CATEGORY_MAX = 20;
 export const PRODUCT_UNIT_MAX = 40;
 export const PRODUCT_DETAIL_MAX = 300;
 /** 분류를 고를 때 보여 주는 예시 — 직접 적어도 됩니다 */
-export const PRODUCT_CATEGORY_SUGGESTIONS = ["수제 간식", "사료·영양제", "케이크·특식", "장난감", "의류·액세서리", "산책 용품", "위생·미용 용품", "미용·서비스"];
+export const PRODUCT_CATEGORY_SUGGESTIONS = ["수제 간식", "화식", "음료·멍푸치노", "사료·영양제", "케이크·특식", "장난감", "의류·액세서리", "산책 용품", "위생·미용 용품", "미용·서비스"];
+
+/** 반려동물 알레르기 표시용 재료 — 사장님이 고르고, 손님은 피할 재료로 메뉴를 걸러 봅니다 */
+export const PET_ALLERGENS = ["닭", "소", "돼지", "오리", "양", "생선", "달걀", "유제품", "밀·곡물", "콩", "견과류"];
+
+/** 메뉴 옵션(사이즈·추가 재료 등). price는 옵션을 고를 때 더해지는 금액 */
+export type ProductOptionGroup = { name: string; required: boolean; multi: boolean; choices: { name: string; price: number }[] };
+export type PickedOption = { group: string; choice: string };
+const OPTION_GROUPS_MAX = 5;
+const OPTION_CHOICES_MAX = 10;
+const OPTION_TEXT_MAX = 20;
+
+export function cleanProductOptions(raw: unknown): ProductOptionGroup[] {
+  if (!Array.isArray(raw)) return [];
+  const groups: ProductOptionGroup[] = [];
+  for (const g of raw.slice(0, OPTION_GROUPS_MAX)) {
+    const r = (g ?? {}) as Record<string, unknown>;
+    const name = typeof r.name === "string" ? r.name.trim().slice(0, OPTION_TEXT_MAX) : "";
+    const choices = (Array.isArray(r.choices) ? r.choices : []).slice(0, OPTION_CHOICES_MAX).map((c) => {
+      const x = (c ?? {}) as Record<string, unknown>;
+      const price = Number(x.price);
+      return { name: typeof x.name === "string" ? x.name.trim().slice(0, OPTION_TEXT_MAX) : "", price: Number.isInteger(price) && price >= 0 && price <= PRODUCT_PRICE_MAX ? price : 0 };
+    }).filter((c) => c.name);
+    if (name && choices.length > 0 && !groups.some((x) => x.name === name)) groups.push({ name, required: r.required === true, multi: r.multi === true, choices });
+  }
+  return groups;
+}
+
+/** 요일별 주문 시간(0=일요일 ~ 6=토요일). 비어 있는 요일은 기본 주문 시간을 씁니다 */
+export type OrderDay = { open: string; close: string; closed: boolean } | null;
+const ORDER_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+export function cleanOrderWeek(raw: unknown): OrderDay[] | null {
+  if (!Array.isArray(raw)) return null;
+  const week = Array.from({ length: 7 }, (_, i): OrderDay => {
+    const r = (raw[i] ?? {}) as Record<string, unknown>;
+    if (r.closed === true) return { open: "", close: "", closed: true };
+    const open = typeof r.open === "string" ? r.open : "", close = typeof r.close === "string" ? r.close : "";
+    return ORDER_TIME.test(open) && ORDER_TIME.test(close) && open !== close ? { open, close, closed: false } : null;
+  });
+  return week.some(Boolean) ? week : null;
+}
+/** 오늘(한국 시간) 적용되는 주문 시간 */
+export function orderHoursToday(place: { order_open_time?: string | null; order_close_time?: string | null; order_week?: unknown }, now = Date.now()): { open: string | null; close: string | null; closedDay: boolean } {
+  const day = new Date(now + 9 * 3_600_000).getUTCDay();
+  const today = cleanOrderWeek(place.order_week)?.[day];
+  if (today?.closed) return { open: null, close: null, closedDay: true };
+  if (today) return { open: today.open, close: today.close, closedDay: false };
+  return { open: place.order_open_time ?? null, close: place.order_close_time ?? null, closedDay: false };
+}
+
+/** 가게 쿠폰 */
+export const COUPONS_PER_PLACE_MAX = 20;
+export function cleanCoupon(raw: unknown): { coupon: { name: string; discount: number; min_order: number; expires_on: string | null } } | { error: string } {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const name = typeof r.name === "string" ? r.name.trim().slice(0, 30) : "";
+  if (!name) return { error: "쿠폰 이름을 적어 주세요." };
+  const discount = Number(r.discount), min = Number(r.minOrder ?? 0);
+  if (!Number.isInteger(discount) || discount <= 0 || discount > PRODUCT_PRICE_MAX) return { error: "할인 금액을 확인해 주세요." };
+  if (!Number.isInteger(min) || min < 0 || min > PRODUCT_PRICE_MAX) return { error: "최소 주문 금액을 확인해 주세요." };
+  if (min > 0 && discount >= min) return { error: "할인 금액은 최소 주문 금액보다 작아야 해요." };
+  const expires = typeof r.expiresOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.expiresOn) ? r.expiresOn : null;
+  return { coupon: { name, discount, min_order: min, expires_on: expires } };
+}
+/** 쿠폰을 이 주문에 쓸 수 있는지 — 할인이 주문 금액 이상이면 쓰지 못합니다 */
+export function couponProblem(c: { discount: number; min_order: number; expires_on: string | null; is_active: boolean }, total: number, now = Date.now()): string | null {
+  if (!c.is_active) return "지금은 쓸 수 없는 쿠폰이에요.";
+  if (c.expires_on && c.expires_on < koreaDay(now)) return "기간이 끝난 쿠폰이에요.";
+  if (total < c.min_order) return "쿠폰의 최소 주문 금액을 채우지 못했어요.";
+  if (c.discount >= total) return "주문 금액보다 할인이 커서 쓸 수 없어요.";
+  return null;
+}
+/** 후기 사진 — 3장까지, 후기 사진 폴더에 올린 것만 */
+export const REVIEW_PHOTOS_MAX = 3;
+export const REVIEW_PHOTO_FOLDER = "community-images/store-reviews/";
+export function cleanReviewPhotos(raw: unknown, supabaseUrl: string): string[] {
+  const prefix = `${supabaseUrl}/storage/v1/object/public/${REVIEW_PHOTO_FOLDER}`;
+  return (Array.isArray(raw) ? raw : []).filter((u): u is string => typeof u === "string" && u.startsWith(prefix) && !/["'<>\s]/.test(u)).slice(0, REVIEW_PHOTOS_MAX);
+}
+
+/** 가게 안내(사장님 센터에서 입력) — 소개·알레르기·원산지·준비 시간·최소 주문·사업자 정보 */
+export type StoreInfo = { intro: string; allergyNotice: string; originNotice: string; prepMinutes: number | null; minOrder: number; bizName: string; ceoName: string; bizNo: string; bizAddress: string };
+export function cleanStoreInfo(raw: unknown): StoreInfo {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  const prep = Number(r.prepMinutes), min = Number(r.minOrder);
+  return {
+    intro: text(r.intro, 300), allergyNotice: text(r.allergyNotice, 300), originNotice: text(r.originNotice, 500),
+    prepMinutes: Number.isInteger(prep) && prep > 0 && prep <= 600 ? prep : null,
+    minOrder: Number.isInteger(min) && min > 0 && min <= PRODUCT_PRICE_MAX ? min : 0,
+    bizName: text(r.bizName, 50), ceoName: text(r.ceoName, 30), bizNo: text(r.bizNo, 20), bizAddress: text(r.bizAddress, 100),
+  };
+}
 
 export type ProductInput = {
   name: string; description: string | null; price: number; is_active: boolean;
@@ -41,6 +140,12 @@ export type ProductInput = {
   origin: string | null;
   /** 주의사항·보관 방법·급여 대상 */
   caution: string | null;
+  /** 포함된 알레르기 재료(PET_ALLERGENS 중에서) */
+  allergens: string[];
+  /** 메뉴 옵션 */
+  options: ProductOptionGroup[];
+  /** 사료 성분등록번호(판매용 간식·사료) */
+  feed_reg_no: string | null;
   /** 대표 상품 */
   is_featured: boolean;
   /** 품절 — 손님에게 보이지만 예약은 받지 않음 */
@@ -72,6 +177,9 @@ export function cleanProduct(raw: unknown): { product: ProductInput } | { error:
       allergy: text(r.allergy, PRODUCT_DETAIL_MAX),
       origin: text(r.origin, PRODUCT_DETAIL_MAX),
       caution: text(r.caution, PRODUCT_DETAIL_MAX),
+      allergens: Array.isArray(r.allergens) ? PET_ALLERGENS.filter((a) => (r.allergens as unknown[]).includes(a)) : [],
+      options: cleanProductOptions(r.options),
+      feed_reg_no: text(r.feed_reg_no, 40),
       is_featured: r.is_featured === true,
       sold_out: r.sold_out === true,
     },
@@ -132,11 +240,14 @@ export function cleanOrderModes(raw: unknown): OrderType[] {
 }
 
 /** 손님 주문의 방식·인원을 다듬습니다. 매장 식사는 인원과 방문 시간이 꼭 있어야 합니다. */
-export function cleanOrderOptions(raw: unknown, allowed: OrderType[], pickupAt: string | null): { orderType: OrderType; partySize: number | null } | { error: string } {
+export function cleanOrderOptions(raw: unknown, allowed: OrderType[], pickupAt: string | null, now = Date.now()): { orderType: OrderType; partySize: number | null } | { error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
   const orderType: OrderType = r.orderType === "dine_in" ? "dine_in" : "pickup";
   if (!allowed.includes(orderType)) return { error: `이 가게는 ${ORDER_TYPE_LABEL[orderType]}을 받지 않아요.` };
-  if (orderType === "pickup") return { orderType, partySize: null };
+  if (orderType === "pickup") {
+    if (pickupAt && koreaDay(pickupAt) !== koreaDay(now)) return { error: "포장 주문은 오늘 받을 수 있는 시간만 고를 수 있어요." };
+    return { orderType, partySize: null };
+  }
   const partySize = Number(r.partySize);
   if (!Number.isInteger(partySize) || partySize < 1 || partySize > PARTY_SIZE_MAX) return { error: "방문 인원을 확인해 주세요." };
   if (!pickupAt) return { error: "방문 시간을 골라 주세요." };
@@ -184,7 +295,7 @@ export const ownerNextStatuses = (from: ReservationStatus): ReservationStatus[] 
 /** 아직 끝나지 않은 예약인지(사장님이 챙겨야 하는 것) */
 export const isOpenStatus = (status: ReservationStatus) => status === "requested" || status === "accepted" || status === "ready";
 
-export type ReservationLine = { productId: number; name: string; price: number; qty: number };
+export type ReservationLine = { productId: number; name: string; price: number; qty: number; options?: PickedOption[] };
 
 /**
  * 손님이 고른 것(상품 번호·수량)을 가게의 실제 상품과 맞춰 예약 내역을 만듭니다.
@@ -192,25 +303,39 @@ export type ReservationLine = { productId: number; name: string; price: number; 
  */
 export function buildReservationLines(
   picked: unknown,
-  products: { id: number; name: string; price: number; is_active: boolean; sold_out?: boolean | null }[],
+  products: { id: number; name: string; price: number; is_active: boolean; sold_out?: boolean | null; options?: ProductOptionGroup[] | null }[],
 ): { lines: ReservationLine[]; total: number } | { error: string } {
   if (!Array.isArray(picked) || picked.length === 0) return { error: "예약할 상품을 골라 주세요." };
   if (picked.length > RESERVATION_LINES_MAX) return { error: `한 번에 ${RESERVATION_LINES_MAX}가지까지 예약할 수 있어요.` };
   const byId = new Map(products.map((p) => [p.id, p]));
-  const merged = new Map<number, number>();
+  const merged = new Map<string, { productId: number; qty: number; picks: PickedOption[] }>();
   for (const item of picked) {
     const productId = Number((item as Record<string, unknown>)?.productId);
     const qty = Number((item as Record<string, unknown>)?.qty);
     if (!Number.isInteger(productId) || !Number.isInteger(qty) || qty <= 0) return { error: "수량을 다시 확인해 주세요." };
-    merged.set(productId, (merged.get(productId) ?? 0) + qty);
+    const rawPicks = (item as Record<string, unknown>)?.options;
+    const picks = (Array.isArray(rawPicks) ? rawPicks : []).map((p) => ({ group: String((p as PickedOption)?.group ?? ""), choice: String((p as PickedOption)?.choice ?? "") }));
+    const key = `${productId}|${picks.map((p) => `${p.group}:${p.choice}`).sort().join(",")}`;
+    const same = merged.get(key);
+    merged.set(key, { productId, qty: (same?.qty ?? 0) + qty, picks });
   }
   const lines: ReservationLine[] = [];
-  for (const [productId, qty] of merged) {
+  for (const { productId, qty, picks } of merged.values()) {
     const product = byId.get(productId);
     if (!product || !product.is_active) return { error: "지금은 예약할 수 없는 상품이 들어 있어요. 화면을 새로 고쳐 주세요." };
     if (product.sold_out) return { error: `"${product.name}"은(는) 품절이에요. 빼고 다시 예약해 주세요.` };
     if (qty > RESERVATION_QTY_MAX) return { error: `상품 하나는 ${RESERVATION_QTY_MAX}개까지 예약할 수 있어요.` };
-    lines.push({ productId, name: product.name, price: product.price, qty });
+    // 옵션 금액은 손님이 보낸 값이 아니라 가게가 정한 값으로 계산합니다
+    let extra = 0;
+    const labels: string[] = [];
+    for (const group of product.options ?? []) {
+      const chosen = picks.filter((p) => p.group === group.name).map((p) => group.choices.find((c) => c.name === p.choice));
+      if (chosen.some((c) => !c)) return { error: "옵션이 바뀌었어요. 화면을 새로 고쳐 주세요." };
+      if (group.required && chosen.length === 0) return { error: `"${product.name}"의 ${group.name}을(를) 골라 주세요.` };
+      if (!group.multi && chosen.length > 1) return { error: `"${product.name}"의 ${group.name}은(는) 하나만 고를 수 있어요.` };
+      for (const c of chosen) { extra += c!.price; labels.push(c!.name); }
+    }
+    lines.push({ productId, name: labels.length ? `${product.name} (${labels.join(", ")})` : product.name, price: product.price + extra, qty, ...(picks.length ? { options: picks } : {}) });
   }
   return { lines, total: lines.reduce((sum, line) => sum + line.price * line.qty, 0) };
 }

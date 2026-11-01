@@ -30,9 +30,9 @@ export default function VisitorReportsCard() {
   }, []);
 
   return (
-    <div style={{ background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px", marginBottom: 16 }}>
+    <div style={{ background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <Users size={15} color="#5C7A4A" />
+        <Users size={15} color="#A05A32" />
         <div className="ggk-logo" style={{ fontSize: 14.5, fontWeight: 800, color: "#222" }}>방문자 제보 (최근 3개월)</div>
         {data?.places && data.places.length > 0 && <span style={{ fontSize: 11.5, fontWeight: 800, padding: "1px 8px", borderRadius: 999, background: "#FEE2E2", color: "#B91C1C" }}>{data.places.filter((p) => p.warn).length}곳 확인 필요</span>}
       </div>

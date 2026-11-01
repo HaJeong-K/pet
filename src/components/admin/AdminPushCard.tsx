@@ -157,8 +157,8 @@ export default function AdminPushCard() {
 
   return (
     <div className="ggk-body" style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: "16px 18px", marginBottom: 24, display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div style={{ width: 40, height: 40, borderRadius: 12, background: on ? "#E4EBDC" : "#f1f2f4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <BellRing size={19} color={on ? "#48603A" : "#888"} />
+      <div style={{ width: 40, height: 40, borderRadius: 12, background: on ? "#F8E6D9" : "#f1f2f4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <BellRing size={19} color={on ? "#85482A" : "#888"} />
       </div>
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: "#111" }}>
@@ -166,11 +166,11 @@ export default function AdminPushCard() {
         </div>
         <div style={{ fontSize: 12, color: "#555", lineHeight: 1.6, marginTop: 3 }}>
           {supported
-            ? "새 제보·신고·글 검토와 새벽 작업 결과를 소리 없이 알림으로 받아요. 같이가개 앱에서 켜면 앱 알림으로 떠요(기기마다 한 번씩 켜야 해요)."
+            ? "새 제보·신고·글 검토와 새벽 작업 결과를 소리 없이 알림으로 받아요. 펫츠로드 앱에서 켜면 앱 알림으로 떠요(기기마다 한 번씩 켜야 해요)."
             : "이 브라우저에서는 알림을 쓸 수 없어요. (아이폰은 홈 화면에 추가한 뒤에 쓸 수 있어요.)"}
           {others.length > 0 && ` 다른 기기 ${others.length}대도 받는 중이에요(${others.map((d) => d.label).join(", ")}).`}
         </div>
-        {message && <div role="status" style={{ fontSize: 12, color: "#48603A", fontWeight: 600, marginTop: 6 }}>{message}</div>}
+        {message && <div role="status" style={{ fontSize: 12, color: "#85482A", fontWeight: 600, marginTop: 6 }}>{message}</div>}
         {diag.length > 0 && (
           <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 9, background: "#f8fafc", border: "1px solid #eef0f2", fontSize: 11.5, color: "#444", lineHeight: 1.7, wordBreak: "break-all" }}>
             {diag.map((line, i) => <div key={i}>{line}</div>)}
@@ -178,11 +178,11 @@ export default function AdminPushCard() {
         )}
         {supported && (
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-            <button onClick={on ? disable : enable} disabled={busy} style={{ padding: "8px 14px", borderRadius: 10, border: on ? "1px solid #ddd" : "none", background: on ? "white" : "#5C7A4A", color: on ? "#555" : "white", fontSize: 12.5, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+            <button onClick={on ? disable : enable} disabled={busy} style={{ padding: "8px 14px", borderRadius: 10, border: on ? "1px solid #ddd" : "none", background: on ? "white" : "#A05A32", color: on ? "#555" : "white", fontSize: 12.5, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
               {busy ? "처리 중…" : on ? "이 기기 알림 끄기" : "이 기기에서 알림 받기"}
             </button>
             {on && (
-              <button onClick={test} disabled={busy} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#E4EBDC", color: "#48603A", fontSize: 12.5, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+              <button onClick={test} disabled={busy} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#F8E6D9", color: "#85482A", fontSize: 12.5, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
                 시험 알림
               </button>
             )}

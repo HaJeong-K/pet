@@ -18,12 +18,12 @@ const ACTIVITY_ICON: Record<ActivityType, LucideIcon> = {
 };
 const ACTIVITY_ORDER: ActivityType[] = ["tip_approved", "info_update_approved", "report_accepted", "review", "place_photo", "post", "comment"];
 
-const INK = "#1f1a12", MUTED = "#7a7263", LINE = "#ECE6D8", GREEN = "#2F3B28";
+const INK = "#1f1a12", MUTED = "#7a7263", LINE = "#E7E6E5", BRAND = "#3B2A20";
 
 function SectionTitle({ no, title, sub }: { no: string; title: string; sub?: string }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: "#5C7A4A", letterSpacing: "0.4px" }}>{no}</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: "#A05A32", letterSpacing: "0.4px" }}>{no}</div>
       <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: INK, marginTop: 3, letterSpacing: "-0.3px" }}>{title}</div>
       {sub && <div style={{ fontSize: 13, color: MUTED, marginTop: 5, lineHeight: 1.65 }}>{sub}</div>}
     </div>
@@ -34,7 +34,7 @@ export default function LevelGuide() {
   return (
     <div className="ggk-body" style={{ whiteSpace: "normal", wordBreak: "keep-all", color: INK, display: "grid", gap: 16, margin: "6px 0" }}>
       {/* 머리말 */}
-      <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: "24px 22px 22px", background: "linear-gradient(150deg,#1F2A1A 0%,#2F3B28 50%,#4A6339 100%)", color: "white" }}>
+      <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, padding: "24px 22px 22px", background: "linear-gradient(150deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white" }}>
         <div style={{ position: "absolute", right: 14, bottom: -38, opacity: 0.95 }}><SchnauzerHead width={74} /></div>
         <div style={{ display: "inline-block", padding: "4px 10px", borderRadius: 8, background: "rgba(255,255,255,0.14)", fontSize: 12, fontWeight: 800 }}>회원 레벨 안내</div>
         <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, marginTop: 10, letterSpacing: "-0.4px" }}>
@@ -49,7 +49,7 @@ export default function LevelGuide() {
       <div style={{ borderRadius: 18, border: `1px solid ${LINE}`, background: "white", padding: "20px 18px" }}>
         <SectionTitle no="STEP 1" title="6단계로 올라가요" sub="점수를 모으면 다음 단계로 올라가요. 가장 높은 두 단계는 지도에 도움이 된 기여도 함께 있어야 해요." />
         <div style={{ position: "relative", display: "grid", gap: 10 }}>
-          <div aria-hidden style={{ position: "absolute", left: 21, top: 22, bottom: 22, width: 2, background: "#E7E2D5" }} />
+          <div aria-hidden style={{ position: "absolute", left: 21, top: 22, bottom: 22, width: 2, background: "#E3E2E1" }} />
           {MEMBER_LEVELS.map((lv) => (
             <div key={lv.level} style={{ position: "relative", display: "flex", gap: 12, alignItems: "flex-start" }}>
               <div className="ggk-logo" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: lv.background, color: lv.color, border: "2px solid white", boxShadow: "0 0 0 1px rgba(0,0,0,0.05)", zIndex: 1 }}>
@@ -81,12 +81,12 @@ export default function LevelGuide() {
             const Icon = ACTIVITY_ICON[type];
             const top = i === 0;
             return (
-              <div key={type} style={{ padding: "13px 13px 12px", borderRadius: 14, background: top ? "#F1F6EB" : "#FCFBF8", border: `1px solid ${top ? "#CFDDBF" : LINE}` }}>
+              <div key={type} style={{ padding: "13px 13px 12px", borderRadius: 14, background: top ? "#F9EFE8" : "#FCFBF8", border: `1px solid ${top ? "#EBC8B1" : LINE}` }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ width: 30, height: 30, borderRadius: 9, background: top ? GREEN : "#EFEAE0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 9, background: top ? BRAND : "#EBEAE9", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Icon size={15} color={top ? "#F3DA9B" : "#6b604d"} />
                   </span>
-                  <span className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: top ? GREEN : INK }}>+{rule.points}</span>
+                  <span className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: top ? BRAND : INK }}>+{rule.points}</span>
                 </div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, marginTop: 9 }}>{rule.label}</div>
                 <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>{rule.dailyLimit ? `하루 ${rule.dailyLimit}번까지` : top ? "가장 큰 점수" : "횟수 제한 없음"}</div>
@@ -121,7 +121,7 @@ export default function LevelGuide() {
               ].map(([head, text], i) => (
                 <div key={head} style={{ padding: "11px 12px", borderRadius: 12, background: "white", border: `1px solid ${LINE}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ width: 20, height: 20, borderRadius: 999, background: GREEN, color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                    <span style={{ width: 20, height: 20, borderRadius: 999, background: BRAND, color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
                     <span style={{ fontSize: 13.5, fontWeight: 800 }}>{head}</span>
                   </div>
                   <div style={{ fontSize: 12.5, color: MUTED, marginTop: 6, lineHeight: 1.6 }}>{text}</div>
@@ -132,7 +132,7 @@ export default function LevelGuide() {
         </div>
       </div>
 
-      <Link href="/mypage" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px", borderRadius: 14, background: "linear-gradient(135deg,#2F3B28,#4A6339)", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none", boxShadow: "0 10px 22px rgba(47,59,40,0.2)" }}>
+      <Link href="/mypage" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px", borderRadius: 14, background: "linear-gradient(135deg,#3B2A20,#70482F)", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none", boxShadow: "0 10px 22px rgba(59, 42, 32,0.2)" }}>
         내 레벨 확인하러 가기
       </Link>
     </div>
@@ -141,7 +141,7 @@ export default function LevelGuide() {
 
 function Chip({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: strong ? "#2F3B28" : "white", color: strong ? "white" : "#5b5444", border: strong ? "none" : `1px solid ${LINE}` }}>
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 999, fontSize: 11.5, fontWeight: 700, background: strong ? "#3B2A20" : "white", color: strong ? "white" : "#5b5444", border: strong ? "none" : `1px solid ${LINE}` }}>
       {children}
     </span>
   );

@@ -9,17 +9,17 @@ import { getLodging } from "@/lib/server/lodgingStore";
 // 로그인이 필요하고, 예약을 받지 않는 숙소면 장소 상세로 보냅니다.
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "숙소 예약 | 같이가개", robots: { index: false } };
+export const metadata: Metadata = { title: "숙소 예약 | 펫츠로드", robots: { index: false } };
 
 export default async function StayBookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ room?: string }> }) {
   const [{ id: idText }, { room }] = await Promise.all([params, searchParams]);
   const id = Number(idText);
   if (!Number.isInteger(id) || id <= 0) notFound();
   const [{ data: place }, lodging] = await Promise.all([
-    db.from("places").select("id, name").eq("id", id).maybeSingle<{ id: number; name: string }>(),
+    db.from("places").select("id, name, phone").eq("id", id).maybeSingle<{ id: number; name: string; phone: string | null }>(),
     getLodging(id, true).catch(() => null),
   ]);
   if (!place || !lodging?.ready || lodging.rooms.length === 0) redirect(`/place/${id}`);
   const roomId = lodging.rooms.some((r) => r.id === Number(room)) ? Number(room) : lodging.rooms[0].id;
-  return <StayBookClient placeId={id} placeName={place.name} profile={lodging.profile} rooms={lodging.rooms} roomId={roomId} />;
+  return <StayBookClient placeId={id} placeName={place.name} placePhone={place.phone} profile={lodging.profile} rooms={lodging.rooms} roomId={roomId} />;
 }

@@ -401,7 +401,7 @@ export default function MyPage() {
   const renderOwnerPreviewPicker = (onPick: (p: { id: number; name: string }) => void) => (
     <div style={{ marginBottom:14, padding:"10px 12px", background:"#f8fafc", border:"1px solid #e8eaed", borderRadius:11 }}>
       <div style={{ fontSize:11, fontWeight:700, color:"#555", marginBottom:6 }}>
-        관리자 미리보기 · 미리 볼 업장{previewPlace ? <>: <span style={{ color:"#5C7A4A" }}>{previewPlace.name}</span></> : " 선택"}
+        관리자 미리보기 · 미리 볼 업장{previewPlace ? <>: <span style={{ color:"#A05A32" }}>{previewPlace.name}</span></> : " 선택"}
       </div>
       <input
         value={previewQuery}
@@ -415,8 +415,8 @@ export default function MyPage() {
         ) : previewResults.map((p) => (
           <button key={p.id} onClick={() => { setPreviewPlace({ id: p.id, name: p.name }); onPick(p); }} style={{
             textAlign:"left", padding:"7px 9px", borderRadius:8, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif",
-            border: previewPlace?.id === p.id ? "1.5px solid #5C7A4A" : "1px solid #eef0f2",
-            background: previewPlace?.id === p.id ? "#f0f7ec" : "white",
+            border: previewPlace?.id === p.id ? "1.5px solid #A05A32" : "1px solid #eef0f2",
+            background: previewPlace?.id === p.id ? "#FAF0E9" : "white",
           }}>
             <div style={{ fontSize:12, fontWeight:700, color:"#222" }}>{p.name}</div>
             {p.address && <div style={{ fontSize:10.5, color:"#666" }}>{p.address}</div>}
@@ -530,7 +530,7 @@ export default function MyPage() {
           레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
       {loading && loadStalled && (
         <div role="alert" style={{
-          position: "fixed", inset: 0, zIndex: 50, background: "#F7F3E8", opacity: 1,
+          position: "fixed", inset: 0, zIndex: 50, background: "#F4F3F2", opacity: 1,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
           fontFamily: "'Noto Sans KR', sans-serif", textAlign: "center", padding: 24,
         }}>
@@ -539,7 +539,7 @@ export default function MyPage() {
           <div style={{ fontSize: 13, color: "#5c5c5c" }}>네트워크 상태를 확인하고 다시 불러와 주세요.</div>
           <button onClick={() => window.location.reload()} style={{
             marginTop: 4, padding: "10px 20px", borderRadius: 10, border: "none",
-            background: "#5C7A4A", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer",
+            background: "#A05A32", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer",
           }}>다시 불러오기</button>
         </div>
       )}
@@ -549,7 +549,7 @@ export default function MyPage() {
         // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
         columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
         minHeight: "100dvh",
-        background: "#F7F3E8",
+        background: "#F4F3F2",
         opacity: loading ? 0 : 1,
         transition: "opacity 0.2s ease",
       }}>
@@ -565,33 +565,22 @@ export default function MyPage() {
           width: "100%",
           height: "100dvh",
           overflow: "hidden",
-          background: "#F7F3E8",
+          background: "#F4F3F2",
           display: "flex",
           flexDirection: "column",
         }}>
 
-          {/* ── 헤더 — 커뮤니티/관리자 페이지와 동일한 사이트형 상단바 구성 */}
-          <div style={{
-            background: "white", borderBottom: "1px solid #e8eaed",
-            padding: "16px 28px", display: "flex", alignItems: "center",
-            justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50,
-            boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="ggk-logo" style={{ fontSize:"15px", fontWeight:800, color:"#111" }}>마이페이지</div>
-            </div>
-          </div>
-
           {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
           <LocalAdStrip />
 
-          {/* ── 프로필 히어로 배너 — 시안 .mypage-hero 스펙: solid primary, full-bleed, no radius ── */}
+          {/* ── 프로필 머리말 — 서비스 소개·광고 제휴 화면과 같은 짙은 그라데이션 ── */}
 					<div
 						style={{
 							position: "relative",
 							overflow: "hidden",
-							background: "#5C7A4A",
-							padding: "26px 40px",
+							background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)",
+							borderRadius: "0 0 26px 26px",
+							padding: "26px clamp(18px, 4vw, 40px)",
 							flexShrink: 0,
 						}}
 					>
@@ -671,7 +660,7 @@ export default function MyPage() {
 									>
 										{userProfile?.owner_status === "verified" && (
 											<span title="인증된 사장님 계정" style={{ display: "inline-flex" }}>
-												<BadgeCheck size={18} color="#8FA876" fill="white" />
+												<BadgeCheck size={18} color="#C9966E" fill="white" />
 											</span>
 										)}
 										{userProfile?.nickname}
@@ -748,11 +737,11 @@ export default function MyPage() {
 							data-guide="mypage-tabs"
 							style={{
 								margin: "20px auto",
-									maxWidth: "760px",
-									padding: "0 28px",
+									maxWidth: "1000px",
+									padding: "0 clamp(14px, 3vw, 28px)",
 									boxSizing: "border-box",
 								display: "grid",
-								gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))",
+								gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
 								gap: 10,
 							}}
 						>
@@ -762,11 +751,11 @@ export default function MyPage() {
                 style={{
                   padding: 20,
                   borderRadius: 16,
-                  border: activeSection === "bookmarks" ? "none" : "1px solid #e8eaed",
-                  background: activeSection === "bookmarks" ? "#5C7A4A" : "white",
+                  border: activeSection === "bookmarks" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: activeSection === "bookmarks" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: activeSection === "bookmarks" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: "none",
                   transition: "all 0.18s ease",
                   display: "flex",
                   flexDirection: "column",
@@ -789,11 +778,11 @@ export default function MyPage() {
                 style={{
                   padding: "20px 8px",
                   borderRadius: 16,
-                  border: activeSection === "courses" ? "none" : "1px solid #e8eaed",
-                  background: activeSection === "courses" ? "#5C7A4A" : "white",
+                  border: activeSection === "courses" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: activeSection === "courses" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: activeSection === "courses" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: "none",
                   transition: "all 0.18s ease",
                   display: "flex",
                   flexDirection: "column",
@@ -816,11 +805,11 @@ export default function MyPage() {
                 style={{
                   padding: "20px 8px",
                   borderRadius: 16,
-                  border: activeSection === "posts" ? "none" : "1px solid #e8eaed",
-                  background: activeSection === "posts" ? "#5C7A4A" : "white",
+                  border: activeSection === "posts" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: activeSection === "posts" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: activeSection === "posts" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: "none",
                   transition: "all 0.18s ease",
                   display: "flex",
                   flexDirection: "column",
@@ -843,11 +832,11 @@ export default function MyPage() {
                 style={{
                   padding: 20,
                   borderRadius: 16,
-                  border: activeSection === "reviews" ? "none" : "1px solid #e8eaed",
-                  background: activeSection === "reviews" ? "#5C7A4A" : "white",
+                  border: activeSection === "reviews" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: activeSection === "reviews" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
-                  boxShadow: activeSection === "reviews" ? "0 8px 20px rgba(92,122,74,0.28)" : "0 4px 14px rgba(0,0,0,0.06)",
+                  boxShadow: "none",
                   transition: "all 0.18s ease",
                   display: "flex",
                   flexDirection: "column",
@@ -1051,7 +1040,7 @@ export default function MyPage() {
                     </div>
                     <button
                       onClick={() => router.push("/")}
-                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
                     >
                       지도에서 코스 보기
                     </button>
@@ -1097,7 +1086,7 @@ export default function MyPage() {
                               className="card-hover"
                               style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 11, border: "1px solid #f0f0f0", background: "#fafafa", cursor: "pointer", textAlign: "left" }}
                             >
-                              <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#5C7A4A", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                              <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: "#A05A32", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
                               <span style={{ flex: 1, minWidth: 0 }}>
                                 <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.name}</span>
                                 {(st.category || st.address) && (
@@ -1116,7 +1105,7 @@ export default function MyPage() {
                           <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
                             <button
                               onClick={() => (points.length >= 2 ? openKakaoWalk(points) : router.push(`/place/${course.stops[0].id}`))}
-                              style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                              style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid #ECCAB3", background: "white", color: "#85482A", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
                             >
                               <Navigation size={12} />카카오맵 길찾기
                             </button>
@@ -1151,7 +1140,7 @@ export default function MyPage() {
                     </div>
                     <button
                       onClick={() => router.push("/community/write")}
-                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                      style={{ marginTop: 14, padding: "9px 16px", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
                     >
                       커뮤니티에 글 쓰기
                     </button>
@@ -1170,7 +1159,7 @@ export default function MyPage() {
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#F8E6D9", color: "#85482A" }}>
                             {boardLabel(post.board_id)}
                           </span>
                           {post.post_type && (
@@ -1319,7 +1308,7 @@ export default function MyPage() {
                                 <MessageCircle size={16} color="#2563eb" />
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 10, color: "#5C7A4A", fontWeight: 700, marginBottom: 2 }}>
+                                <div style={{ fontSize: 10, color: "#A05A32", fontWeight: 700, marginBottom: 2 }}>
                                   {getBoardLabel(item.community_posts?.board_id)}
                                 </div>
                                 <div className="ggk-logo" style={{ fontSize: 12, fontWeight: 700, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1376,7 +1365,7 @@ export default function MyPage() {
                 차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
                 하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
             <div style={{
-              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -40px 0",
+              flexShrink: 0, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", margin: "28px -40px 0",
               padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
             }}>
               <SiteFooter />
@@ -1425,7 +1414,7 @@ export default function MyPage() {
                   </div>
                   <div>
                     <div style={{ fontSize:13, fontWeight:700, color:"#111", display:"flex", alignItems:"center", gap:4 }}>
-                      {userProfile?.owner_status === "verified" && <BadgeCheck size={13} color="#5C7A4A" />}
+                      {userProfile?.owner_status === "verified" && <BadgeCheck size={13} color="#A05A32" />}
                       {userProfile?.nickname}
                     </div>
                     <div style={{ fontSize:10, color:"#666" }}>{session?.user?.email}</div>
@@ -1434,8 +1423,8 @@ export default function MyPage() {
 
                 <div style={{ padding:"0 14px 18px" }}>
                   <button className="setting-row" onClick={() => setSettingView("level")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
-                    <div style={{ width:32, height:32, borderRadius:9, background:"#EAF0E3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                      <Award size={15} color="#48603A" />
+                    <div style={{ width:32, height:32, borderRadius:9, background:"#FBEDE3", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                      <Award size={15} color="#85482A" />
                     </div>
                     <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>내 레벨·점수</div>
                     {myLevel != null && <LevelBadge level={myLevel} />}
@@ -1524,7 +1513,7 @@ export default function MyPage() {
                     {nickMsg.ok && <Check size={12}/>}{nickMsg.text}
                   </div>
                 )}
-                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#5C7A4A,#48603A)", color: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#4f4a3f" : "white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                <button onClick={handleNicknameChange} disabled={!nickChecked || (nickMsg !== null && !nickMsg.ok)} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#d1d5db" : "linear-gradient(145deg,#A05A32,#85482A)", color: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "#4f4a3f" : "white", fontWeight:700, fontSize:13, cursor: !nickChecked || (nickMsg !== null && !nickMsg.ok) ? "default" : "pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
               </div>
@@ -1559,7 +1548,7 @@ export default function MyPage() {
                     {pwMsg.ok && <Check size={12}/>}{pwMsg.text}
                   </div>
                 )}
-                <button onClick={handlePasswordChange} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"linear-gradient(145deg,#5C7A4A,#48603A)", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
+                <button onClick={handlePasswordChange} style={{ width:"100%", padding:12, borderRadius:9, border:"none", background:"linear-gradient(145deg,#A05A32,#85482A)", color:"white", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Noto Sans KR',sans-serif" }}>
                   변경하기
                 </button>
               </div>
@@ -1673,7 +1662,7 @@ export default function MyPage() {
               <div style={{ padding:"18px" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
                   <div className="ggk-logo" style={{ fontSize:14, fontWeight:800, color:"#111", display:"flex", alignItems:"center", gap:5 }}>
-                    <Store size={15} color="#5C7A4A" />가게 정보 수정
+                    <Store size={15} color="#A05A32" />가게 정보 수정
                   </div>
                   <button onClick={closeSettings} style={{ border:"none", background:"#f0f2f5", borderRadius:"50%", width:28, height:28, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                     <X size={14} color="#666" />
@@ -1793,11 +1782,11 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
           onClick={() => onChange(p)}
           style={{
             width: 34, height: 34, borderRadius: 12,
-            border: p === page ? "1.5px solid #5C7A4A" : "1px solid #ececf3",
-            background: p === page ? "#5C7A4A" : "white",
+            border: p === page ? "1.5px solid #A05A32" : "1px solid #ececf3",
+            background: p === page ? "#A05A32" : "white",
             color: p === page ? "white" : "#666",
             cursor: "pointer", fontSize: 13, fontWeight: p === page ? 700 : 500,
-            boxShadow: p === page ? "0 2px 8px rgba(92,122,74,0.25)" : "0 1px 4px rgba(0,0,0,0.04)",
+            boxShadow: p === page ? "0 2px 8px rgba(160, 90, 50,0.25)" : "0 1px 4px rgba(0,0,0,0.04)",
             transition: "all 0.15s ease",
           }}
         >{p}</button>

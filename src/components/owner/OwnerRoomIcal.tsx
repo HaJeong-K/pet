@@ -1,8 +1,8 @@
 "use client";
 
 // 객실 "달력 연동" — 같은 객실을 다른 예약 사이트(에어비앤비·부킹닷컴 등)에서도 팔 때 중복 예약을 막습니다.
-//   ① 가져오기: 그 사이트의 객실 달력(iCal) 주소를 넣으면, 그쪽에서 팔린 날을 같이가개에서 자동으로 막아요(매일 새벽 + 손님이 예약할 때).
-//   ② 내보내기: 같이가개 달력 주소를 복사해 그 사이트의 "달력 가져오기"에 넣으면, 같이가개 예약이 그쪽에서도 막혀요.
+//   ① 가져오기: 그 사이트의 객실 달력(iCal) 주소를 넣으면, 그쪽에서 팔린 날을 펫츠로드에서 자동으로 막아요(매일 새벽 + 손님이 예약할 때).
+//   ② 내보내기: 펫츠로드 달력 주소를 복사해 그 사이트의 "달력 가져오기"에 넣으면, 펫츠로드 예약이 그쪽에서도 막혀요.
 // 서버는 /api/owner/lodging/ical, 규칙은 src/lib/ical.ts.
 
 import { useCallback, useEffect, useState } from "react";
@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 
 type Info = { importUrl: string | null; exportUrl: string; syncedAt: string | null; error: string | null; blockedNights: number };
 const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
-const btn = (primary: boolean, disabled = false): React.CSSProperties => ({ padding: "9px 13px", borderRadius: 10, border: primary ? "none" : "1px solid #e2e4e8", background: disabled ? "#d6d3c9" : primary ? "#1D4F91" : "white", color: primary ? "white" : "#555", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" });
+const btn = (primary: boolean, disabled = false): React.CSSProperties => ({ padding: "9px 13px", borderRadius: 10, border: primary ? "none" : "1px solid #e2e4e8", background: disabled ? "#D4D3D2" : primary ? "#1D4F91" : "white", color: primary ? "white" : "#555", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" });
 
 export default function OwnerRoomIcal({ roomId, placeId, isPreview, canAct }: { roomId: number; placeId: number; isPreview: boolean; canAct: boolean }) {
   const [info, setInfo] = useState<Info | null>(null);
@@ -80,9 +80,9 @@ export default function OwnerRoomIcal({ roomId, placeId, isPreview, canAct }: { 
       </div>
 
       <div>
-        <div style={{ fontSize: 12, fontWeight: 800, color: "#444", marginBottom: 5 }}>② 같이가개 달력 내보내기</div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#444", marginBottom: 5 }}>② 펫츠로드 달력 내보내기</div>
         <div style={{ display: "flex", gap: 6 }}>
-          <input value={info?.exportUrl ?? "불러오는 중…"} readOnly aria-label="같이가개 달력 주소" style={{ ...input, color: "#555", background: "#fff" }} onFocus={(e) => e.currentTarget.select()} />
+          <input value={info?.exportUrl ?? "불러오는 중…"} readOnly aria-label="펫츠로드 달력 주소" style={{ ...input, color: "#555", background: "#fff" }} onFocus={(e) => e.currentTarget.select()} />
           <button onClick={copy} disabled={!info} style={btn(false)}><Copy size={12} style={{ verticalAlign: -2 }} /> {copied ? "복사됨" : "복사"}</button>
         </div>
         <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 5 }}>이 주소를 다른 사이트의 &ldquo;달력 가져오기(iCal)&rdquo;에 넣어 주세요. 손님 이름·연락처는 담기지 않고 날짜만 담겨요.</div>

@@ -11,9 +11,9 @@ import { Megaphone, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { NOTICE_CONTENT_MAX, NOTICE_TITLE_MAX, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
-const small = (danger = false): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 10px", borderRadius: 9, border: `1px solid ${danger ? "#f3c7c5" : "#e2dcc8"}`, background: "white", color: danger ? "#b42318" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const small = (danger = false): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 10px", borderRadius: 9, border: `1px solid ${danger ? "#f3c7c5" : "#DDDCDB"}`, background: "white", color: danger ? "#b42318" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const EMPTY = { title: "", content: "", pinned: false };
 
 export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: boolean; canAct: boolean }) {
@@ -90,7 +90,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             {editId && <button onClick={() => { setEditId(null); setForm(EMPTY); }} style={{ ...small(), padding: "12px 16px" }}>취소</button>}
-            <button onClick={save} disabled={!formReady} style={{ flex: 1, padding: "12px 0", borderRadius: 11, border: "none", background: formReady ? "#B45309" : "#d6d3c9", color: "white", fontSize: 14, fontWeight: 800, cursor: formReady ? "pointer" : "default", fontFamily: "inherit" }}>
+            <button onClick={save} disabled={!formReady} style={{ flex: 1, padding: "12px 0", borderRadius: 11, border: "none", background: formReady ? "#B45309" : "#D4D3D2", color: "white", fontSize: 14, fontWeight: 800, cursor: formReady ? "pointer" : "default", fontFamily: "inherit" }}>
               {busy ? "저장하는 중…" : editId ? "고친 내용 저장" : "공지 올리기"}
             </button>
           </div>
@@ -104,7 +104,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
         {notices?.length === 0 && <div style={{ marginTop: 10, fontSize: 13, color: "#6e6e6e" }}>아직 올린 공지가 없어요.</div>}
         <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
           {notices?.map((n) => (
-            <div key={n.id} style={{ padding: "12px 13px", borderRadius: 12, border: `1px solid ${n.pinned ? "#F3D58A" : "#eee"}`, background: n.pinned ? "#FFFBF0" : "white" }}>
+            <div key={n.id} style={{ padding: "12px 13px", borderRadius: 12, border: `1px solid ${n.pinned ? "#F3D58A" : "#eee"}`, background: n.pinned ? "#FCFBFA" : "white" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 {n.pinned && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, color: "#B45309" }}><Pin size={11} />대표</span>}
                 <b style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</b>

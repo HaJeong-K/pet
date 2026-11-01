@@ -16,23 +16,24 @@ import LogoLoader from "@/components/LogoLoader";
 import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
 import {
-  PRODUCT_CATEGORY_MAX, PRODUCT_CATEGORY_SUGGESTIONS, PRODUCT_DESC_MAX, PRODUCT_DETAIL_MAX, PRODUCT_NAME_MAX, PRODUCT_UNIT_MAX, PRODUCTS_PER_PLACE_MAX,
+  PET_ALLERGENS, type ProductOptionGroup, PRODUCT_CATEGORY_MAX, PRODUCT_CATEGORY_SUGGESTIONS, PRODUCT_DESC_MAX, PRODUCT_DETAIL_MAX, PRODUCT_NAME_MAX, PRODUCT_UNIT_MAX, PRODUCTS_PER_PLACE_MAX,
 } from "@/lib/storeRules";
 
 type Product = {
   id: number; name: string; description: string | null; price: number; is_active: boolean;
   category: string | null; image_url: string | null; unit: string | null; ingredients: string | null; allergy: string | null;
   origin: string | null; caution: string | null; is_featured: boolean; sold_out: boolean;
+  allergens?: string[] | null; options?: ProductOptionGroup[] | null; feed_reg_no?: string | null;
 };
-type Form = { name: string; price: string; description: string; category: string; imageUrl: string | null; unit: string; ingredients: string; allergy: string; origin: string; caution: string; is_featured: boolean; sold_out: boolean };
-const EMPTY: Form = { name: "", price: "", description: "", category: "", imageUrl: null, unit: "", ingredients: "", allergy: "", origin: "", caution: "", is_featured: false, sold_out: false };
+type Form = { allergens: string[]; options: ProductOptionGroup[]; feed_reg_no: string; name: string; price: string; description: string; category: string; imageUrl: string | null; unit: string; ingredients: string; allergy: string; origin: string; caution: string; is_featured: boolean; sold_out: boolean };
+const EMPTY: Form = { allergens: [], options: [], feed_reg_no: "", name: "", price: "", description: "", category: "", imageUrl: null, unit: "", ingredients: "", allergy: "", origin: "", caution: "", is_featured: false, sold_out: false };
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6 };
 const optional: React.CSSProperties = { fontWeight: 600, color: "#6e6e6e" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#D4D3D2" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const iconButton: React.CSSProperties = { width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e4e8", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
 const tag = (bg: string, color: string): React.CSSProperties => ({ fontSize: 10.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: bg, color, flexShrink: 0 });
 
@@ -70,10 +71,11 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
       name: target.name, price: String(target.price), description: target.description ?? "", category: target.category ?? "", imageUrl: target.image_url,
       unit: target.unit ?? "", ingredients: target.ingredients ?? "", allergy: target.allergy ?? "", origin: target.origin ?? "", caution: target.caution ?? "",
       is_featured: target.is_featured, sold_out: target.sold_out,
+      allergens: target.allergens ?? [], options: target.options ?? [], feed_reg_no: target.feed_reg_no ?? "",
     };
     setForm(next);
     // 이미 적어 둔 자세한 정보가 있으면 펼쳐서 보여 줍니다.
-    setShowMore(!!(next.ingredients || next.allergy || next.origin || next.caution));
+    setShowMore(!!(next.ingredients || next.allergy || next.origin || next.caution || next.allergens.length || next.options.length || next.feed_reg_no));
     setError(null);
     window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -168,13 +170,13 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
           결제는 가게에서 받아요(건당 수수료 없음).
         </div>
         {state.enabled && (
-          <a href="/shop" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 9, padding: "7px 12px", borderRadius: 9, background: "#E4EBDC", fontSize: 12, fontWeight: 800, color: "#3F5230", textDecoration: "none" }}>손님이 보는 쇼핑 탭 열어 보기 →</a>
+          <a href="/shop" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 9, padding: "7px 12px", borderRadius: 9, background: "#F8E6D9", fontSize: 12, fontWeight: 800, color: "#6F3D24", textDecoration: "none" }}>손님이 보는 쇼핑 탭 열어 보기 →</a>
         )}
         {!canAct && <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>보기 전용이에요. 대신 수정하려면 위의 &quot;사장님 요청으로 대신 처리하기&quot;를 켜 주세요.</div>}
         {error && !editing && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
 
         {editing && (
-          <div ref={formRef} style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#F7F3E8", display: "grid", gap: 14, scrollMarginTop: 12 }}>
+          <div ref={formRef} style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#F4F3F2", display: "grid", gap: 14, scrollMarginTop: 12 }}>
             <div className="ggk-logo" style={{ fontSize: 14.5, fontWeight: 800, color: "#333" }}>{editing === "new" ? "새 상품 올리기" : "상품 수정"}</div>
 
             {/* 사진 + 이름·가격 */}
@@ -183,7 +185,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                 <div style={{ flex: "0 0 112px" }}>
                   <div style={label}>사진 <span style={optional}>(선택)</span></div>
                   <input ref={fileRef} type="file" accept={IMAGE_TYPES.join(",")} onChange={(e) => upload(e.target.files?.[0])} style={{ display: "none" }} />
-                  <button onClick={() => fileRef.current?.click()} disabled={busy !== ""} aria-label="상품 사진 올리기" style={{ width: 112, height: 112, borderRadius: 14, border: form.imageUrl ? "1px solid #e2dcc8" : "1.5px dashed #c9b98a", background: form.imageUrl ? `url("${form.imageUrl}") center/cover no-repeat` : "#FFFBEB", color: "#8a6d1f", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 11.5, fontWeight: 700, fontFamily: "inherit", padding: 0 }}>
+                  <button onClick={() => fileRef.current?.click()} disabled={busy !== ""} aria-label="상품 사진 올리기" style={{ width: 112, height: 112, borderRadius: 14, border: form.imageUrl ? "1px solid #DDDCDB" : "1.5px dashed #c9b98a", background: form.imageUrl ? `url("${form.imageUrl}") center/cover no-repeat` : "#FFFBEB", color: "#8a6d1f", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 11.5, fontWeight: 700, fontFamily: "inherit", padding: 0 }}>
                     {!form.imageUrl && <><ImagePlus size={20} />{busy === "upload" ? "올리는 중…" : "사진 올리기"}</>}
                   </button>
                   {form.imageUrl && (
@@ -224,7 +226,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
                   {categories.map((name) => {
                     const active = form.category.trim() === name;
-                    return <button key={name} onClick={() => set({ category: active ? "" : name })} style={{ padding: "6px 11px", borderRadius: 999, border: `1px solid ${active ? "#B45309" : "#e2dcc8"}`, background: active ? "#FEF3C7" : "white", color: active ? "#92400E" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{name}</button>;
+                    return <button key={name} onClick={() => set({ category: active ? "" : name })} style={{ padding: "6px 11px", borderRadius: 999, border: `1px solid ${active ? "#B45309" : "#DDDCDB"}`, background: active ? "#FEF3C7" : "white", color: active ? "#92400E" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{name}</button>;
                   })}
                 </div>
               </div>
@@ -236,7 +238,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
             </div>
 
             {detail && (
-              <div style={{ borderRadius: 12, background: "white", border: "1px solid #e8e2d2" }}>
+              <div style={{ borderRadius: 12, background: "white", border: "1px solid #E3E2E1" }}>
                 <button onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 13px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 800, color: "#444" }}>자세한 정보 <span style={optional}>(선택)</span></span>
@@ -247,8 +249,57 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                 {showMore && (
                   <div style={{ padding: "2px 13px 14px", display: "grid", gap: 12 }}>
                     {area("ingredients", "재료·소재", "예: 닭가슴살 100% (먹는 것) / 면 100%, 솜 (용품)")}
-                    {area("allergy", "알레르기 정보", "예: 닭고기 포함. 같은 시설에서 소고기·연어 제품을 만들어요")}
+                    <div>
+                      <div style={label}>포함된 알레르기 재료 <span style={optional}>(손님이 피할 재료로 걸러 봅니다)</span></div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {PET_ALLERGENS.map((a) => {
+                          const on = form.allergens.includes(a);
+                          return <button key={a} type="button" aria-pressed={on} onClick={() => set({ allergens: on ? form.allergens.filter((x) => x !== a) : [...form.allergens, a] })} style={{ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#B91C1C" : "#DDDCDB"}`, background: on ? "#FEF2F2" : "white", color: on ? "#B91C1C" : "#555", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>{a}</button>;
+                        })}
+                      </div>
+                    </div>
+                    {area("allergy", "알레르기 추가 안내", "예: 같은 시설에서 소고기·연어 제품을 만들어요")}
                     {area("origin", "원산지·제조", "예: 닭가슴살(국내산) / 제조: 우리 가게에서 직접 만듦")}
+                    <div style={{ fontSize: 12.5, color: "#5c5c5c", lineHeight: 1.6, marginTop: -6 }}>
+                      원산지 표시 대상인 음식은 주문 전에 보이도록 적어 주세요.<br />
+                      포장재에도 따로 표시해야 합니다. 위반하면 제재를 받을 수 있습니다.
+                    </div>
+                    <div>
+                      <div style={label}>사료 성분등록번호 <span style={optional}>(판매용 간식·사료)</span></div>
+                      <input value={form.feed_reg_no} onChange={(e) => set({ feed_reg_no: e.target.value })} maxLength={40} placeholder="예: 제 00-000호" style={input} />
+                    </div>
+                    <div>
+                      <div style={label}>메뉴 옵션 <span style={optional}>(사이즈·추가 재료 등)</span></div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {form.options.map((g, gi) => {
+                          const change = (patch: Partial<ProductOptionGroup>) => set({ options: form.options.map((x, i) => (i === gi ? { ...x, ...patch } : x)) });
+                          return (
+                            <div key={gi} style={{ padding: 11, borderRadius: 11, border: "1px solid #E7E6E5", display: "grid", gap: 8 }}>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <input value={g.name} onChange={(e) => change({ name: e.target.value })} maxLength={20} placeholder="옵션 이름 예: 사이즈" aria-label="옵션 이름" style={{ ...input, flex: 1, minWidth: 0 }} />
+                                <button type="button" onClick={() => set({ options: form.options.filter((_, i) => i !== gi) })} aria-label="옵션 지우기" style={{ flexShrink: 0, width: 38, border: "1px solid #DDDCDB", borderRadius: 9, background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Trash2 size={14} color="#666" /></button>
+                              </div>
+                              <div style={{ display: "flex", gap: 14, fontSize: 13, color: "#444" }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: 5 }}><input type="checkbox" checked={g.required} onChange={(e) => change({ required: e.target.checked })} />꼭 고르기</label>
+                                <label style={{ display: "flex", alignItems: "center", gap: 5 }}><input type="checkbox" checked={g.multi} onChange={(e) => change({ multi: e.target.checked })} />여러 개 고르기</label>
+                              </div>
+                              {g.choices.map((c, ci) => {
+                                const changeChoice = (patch: Partial<{ name: string; price: number }>) => change({ choices: g.choices.map((x, i) => (i === ci ? { ...x, ...patch } : x)) });
+                                return (
+                                  <div key={ci} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    <input value={c.name} onChange={(e) => changeChoice({ name: e.target.value })} maxLength={20} placeholder="선택지 예: TALL" aria-label="선택지 이름" style={{ ...input, flex: 2, minWidth: 0 }} />
+                                    <input value={c.price || ""} onChange={(e) => changeChoice({ price: Number(e.target.value.replace(/\D/g, "")) || 0 })} inputMode="numeric" placeholder="추가 금액" aria-label="추가 금액" style={{ ...input, flex: 1, minWidth: 0 }} />
+                                    <button type="button" onClick={() => change({ choices: g.choices.filter((_, i) => i !== ci) })} aria-label="선택지 지우기" style={{ flexShrink: 0, width: 34, height: 34, border: "none", background: "transparent", cursor: "pointer" }}>×</button>
+                                  </div>
+                                );
+                              })}
+                              <button type="button" onClick={() => change({ choices: [...g.choices, { name: "", price: 0 }] })} style={{ justifySelf: "start", padding: "6px 10px", border: "1px solid #DDDCDB", borderRadius: 9, background: "white", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>선택지 추가</button>
+                            </div>
+                          );
+                        })}
+                        <button type="button" onClick={() => set({ options: [...form.options, { name: "", required: true, multi: false, choices: [{ name: "", price: 0 }] }] })} style={{ padding: 10, border: "1px dashed #BDBBB9", borderRadius: 10, background: "white", fontSize: 13.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>옵션 추가</button>
+                      </div>
+                    </div>
                     {area("caution", "주의사항·보관 방법", "예: 냉장 보관, 개봉 후 3일 안에 급여 / 3개월 미만 강아지는 피해 주세요")}
                   </div>
                 )}
@@ -277,9 +328,9 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
           {state.products.length === 0 && !editing && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 올린 상품이 없어요. &ldquo;상품 추가&rdquo;로 첫 상품을 올려 보세요.</div>}
           {state.products.map((p, index) => {
-            const facts = [p.ingredients && "재료", p.allergy && "알레르기", p.origin && "원산지", p.caution && "주의사항"].filter(Boolean);
+            const facts = [p.ingredients && "재료", (p.allergy || p.allergens?.length) && "알레르기", p.origin && "원산지", p.caution && "주의사항"].filter(Boolean);
             return (
-              <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: p.is_active ? "white" : "#fafafa", opacity: p.is_active ? 1 : 0.7 }}>
+              <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #EDECEB", background: p.is_active ? "white" : "#fafafa", opacity: p.is_active ? 1 : 0.7 }}>
                 {p.image_url
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 11, objectFit: "cover", flexShrink: 0 }} />

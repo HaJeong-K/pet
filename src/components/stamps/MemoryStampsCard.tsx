@@ -70,10 +70,10 @@ export default function MemoryStampsCard() {
             <div key={c.id}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.title}</span>
-                <b style={{ flexShrink: 0, color: c.completed ? "#48603A" : "#6B5525" }}>{c.completed ? "완주" : `${c.done}/${c.total}`}</b>
+                <b style={{ flexShrink: 0, color: c.completed ? "#85482A" : "#6B5525" }}>{c.completed ? "완주" : `${c.done}/${c.total}`}</b>
               </div>
-              <div style={{ height: 6, borderRadius: 999, background: "#F1ECE0", marginTop: 4, overflow: "hidden" }}>
-                <div style={{ width: `${Math.round((c.done / c.total) * 100)}%`, height: "100%", background: c.completed ? "#5C7A4A" : "#C9A95C" }} />
+              <div style={{ height: 6, borderRadius: 999, background: "#EDECEB", marginTop: 4, overflow: "hidden" }}>
+                <div style={{ width: `${Math.round((c.done / c.total) * 100)}%`, height: "100%", background: c.completed ? "#A05A32" : "#C9A95C" }} />
               </div>
             </div>
           ))}

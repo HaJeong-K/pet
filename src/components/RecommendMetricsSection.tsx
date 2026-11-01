@@ -99,7 +99,7 @@ function PositionBars({ data }: { data: { pos: number; clicks: number }[] }) {
       {data.map((d) => (
         <div key={d.pos} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
           <span style={{ fontSize: 9, lineHeight: "12px", color: "#666", fontWeight: 700 }}>{d.clicks}</span>
-          <div style={{ width: "100%", height: `${(d.clicks / max) * 40}px`, minHeight: 2, flexShrink: 0, background: "#8FA876", borderRadius: 3 }} />
+          <div style={{ width: "100%", height: `${(d.clicks / max) * 40}px`, minHeight: 2, flexShrink: 0, background: "#C9966E", borderRadius: 3 }} />
           <span style={{ fontSize: 9, lineHeight: "12px", color: "#707070" }}>{d.pos}</span>
         </div>
       ))}
@@ -161,7 +161,7 @@ export default function RecommendMetricsSection() {
       </div>
 
       {message && (
-        <div style={{ ...cardStyle, fontSize: 12, color: "#8a6d2b", background: "#fffaf0" }}>{message}</div>
+        <div style={{ ...cardStyle, fontSize: 12, color: "#8a6d2b", background: "#FBFAF9" }}>{message}</div>
       )}
       {!message && loading && !rows && (
         <div style={{ ...cardStyle, fontSize: 12, color: "#666" }}><LogoLoader /></div>
@@ -175,13 +175,13 @@ export default function RecommendMetricsSection() {
           {rows.map((r) => (
             <div key={r.variant} style={cardStyle}>
               {rows.length > 1 && (
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#48603A", marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#85482A", marginBottom: 12 }}>
                   {VARIANT_LABEL[r.variant] ?? r.variant}
                 </div>
               )}
 
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#333", marginBottom: 8 }}>
-                <Sparkles size={13} color="#5C7A4A" /> 추천 장소
+                <Sparkles size={13} color="#A05A32" /> 추천 장소
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 10, marginBottom: 12 }}>
                 <Metric label="노출(목록)" value={r.rec.impressions} hint={`${r.rec.users}명`} />

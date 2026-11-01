@@ -65,15 +65,15 @@ const toRoomForm = (r: Room): RoomForm => ({
 });
 const digits = (v: string, max = 8) => v.replace(/[^\d]/g, "").slice(0, max);
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6, flexWrap: "wrap" };
 const optional: React.CSSProperties = { fontWeight: 600, color: "#6e6e6e" };
 const section: React.CSSProperties = { fontSize: 13.5, fontWeight: 800, color: "#1D4F91", margin: "4px 0 -2px" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#D4D3D2" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const iconButton: React.CSSProperties = { width: 32, height: 32, borderRadius: 9, border: "1px solid #e2e4e8", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
 const tag = (bg: string, color: string): React.CSSProperties => ({ fontSize: 10.5, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: bg, color, flexShrink: 0 });
-const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#e2dcc8"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#DDDCDB"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
 /** 원 단위 숫자 입력칸 */
@@ -453,7 +453,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
         </div>
 
         {editing && (
-          <div ref={formRef} style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#F7F3E8", display: "grid", gap: 14, scrollMarginTop: 12 }}>
+          <div ref={formRef} style={{ marginTop: 14, padding: 14, borderRadius: 14, background: "#F4F3F2", display: "grid", gap: 14, scrollMarginTop: 12 }}>
             <div className="ggk-logo" style={{ fontSize: 14.5, fontWeight: 800, color: "#333" }}>{editing === "new" ? "새 객실 올리기" : "객실 수정"}</div>
 
             <div>
@@ -462,7 +462,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {room.images.map((url, i) => (
                   <div key={url} style={{ position: "relative", width: 96 }}>
-                    <div style={{ width: 96, height: 96, borderRadius: 12, background: `url("${url}") center/cover no-repeat`, border: i === 0 ? "2px solid #1D4F91" : "1px solid #e2dcc8" }} />
+                    <div style={{ width: 96, height: 96, borderRadius: 12, background: `url("${url}") center/cover no-repeat`, border: i === 0 ? "2px solid #1D4F91" : "1px solid #DDDCDB" }} />
                     {i === 0 && <span style={{ ...tag("#1D4F91", "white"), position: "absolute", left: 5, top: 5 }}>대표</span>}
                     <button onClick={() => setR({ images: room.images.filter((u) => u !== url) })} aria-label={`${i + 1}번째 사진 빼기`} style={{ position: "absolute", right: 4, top: 4, width: 22, height: 22, borderRadius: 999, border: "none", background: "rgba(0,0,0,0.55)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}><X size={12} /></button>
                     <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 4 }}>
@@ -571,7 +571,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
         <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
           {state.rooms.length === 0 && !editing && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 올린 객실이 없어요. &ldquo;객실 추가&rdquo;로 첫 객실을 올려 보세요.</div>}
           {state.rooms.map((r, index) => (
-            <div key={r.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: r.is_active ? "white" : "#fafafa", opacity: r.is_active ? 1 : 0.7 }}>
+            <div key={r.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #EDECEB", background: r.is_active ? "white" : "#fafafa", opacity: r.is_active ? 1 : 0.7 }}>
               {r.images[0]
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={r.images[0]} alt="" style={{ width: 72, height: 72, borderRadius: 11, objectFit: "cover", flexShrink: 0 }} />

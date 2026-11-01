@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Phone, MapPin, ExternalLink, Copy, Check, PawPrint } from "lucide-react";
 import type { ShelterNoticeDetail } from "@/lib/shelterNotices";
 import { shelterImageSrc } from "@/lib/shelterImage";
+import { PageFooter } from "@/components/SiteFooter";
 
 export default function ShelterNoticeDetailView({
   notice,
@@ -71,7 +72,7 @@ export default function ShelterNoticeDetailView({
             <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 6, lineHeight: 1.6 }}>
               공고가 종료됐거나 일시적인 오류일 수 있어요.<br />공고 원문에서 확인해 주세요.
             </div>
-            <a href={officialUrl} target="_blank" rel="noopener noreferrer" style={{ ...btnStyle("#5C7A4A", "white"), marginTop: 16, display: "inline-flex" }}>
+            <a href={officialUrl} target="_blank" rel="noopener noreferrer" style={{ ...btnStyle("#A05A32", "white"), marginTop: 16, display: "inline-flex" }}>
               <ExternalLink size={15} /> 공고 원문 보기
             </a>
           </div>
@@ -116,7 +117,7 @@ export default function ShelterNoticeDetailView({
         {header}
 
         {/* ── 사진 (좌우로 넘기기) ── */}
-        <div style={{ position: "relative", background: "#e9e4d6", aspectRatio: "4 / 3", maxHeight: 460, width: "100%", flexShrink: 0 }}>
+        <div style={{ position: "relative", background: "#E5E4E3", aspectRatio: "4 / 3", maxHeight: 460, width: "100%", flexShrink: 0 }}>
           {images.length > 0 ? (
             <div
               ref={sliderRef}
@@ -147,7 +148,7 @@ export default function ShelterNoticeDetailView({
             </div>
           ) : (
             <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <PawPrint size={40} color="#5C7A4A" />
+              <PawPrint size={40} color="#A05A32" />
             </div>
           )}
           {images.length > 1 && (
@@ -182,8 +183,8 @@ export default function ShelterNoticeDetailView({
           {/* ── 이름·상태 ── */}
           <div style={cardStyle}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-              {notice.kind && <span style={chip("#EEF3E8", "#48603A")}>{notice.kind}</span>}
-              <span style={chip("#EEF3E8", "#48603A")}>{notice.region} {notice.subRegion}</span>
+              {notice.kind && <span style={chip("#FCF1E9", "#85482A")}>{notice.kind}</span>}
+              <span style={chip("#FCF1E9", "#85482A")}>{notice.region} {notice.subRegion}</span>
               {ended ? (
                 <span style={chip("#f1f2f4", "#666")}>{notice.processState || "공고 종료"}</span>
               ) : (
@@ -208,13 +209,13 @@ export default function ShelterNoticeDetailView({
 
           {/* ── 보호소 연락 ── */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#5C7A4A", marginBottom: 4 }}>보호하고 있는 곳</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#A05A32", marginBottom: 4 }}>보호하고 있는 곳</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{notice.careName || notice.orgName}</div>
             {notice.careAddr && <div style={{ fontSize: 13, color: "#555", marginTop: 4, lineHeight: 1.5 }}>{notice.careAddr}</div>}
             {notice.careTel && <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>{notice.careTel}</div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
               {telHref && (
-                <a href={telHref} style={{ ...btnStyle("#5C7A4A", "white"), gridColumn: "1 / -1" }}>
+                <a href={telHref} style={{ ...btnStyle("#A05A32", "white"), gridColumn: "1 / -1" }}>
                   <Phone size={16} /> 전화로 입양·임보 문의하기
                 </a>
               )}
@@ -241,7 +242,7 @@ export default function ShelterNoticeDetailView({
             <div style={{ marginTop: 12, padding: "11px 12px", background: "#f8f7f2", borderRadius: 10, fontSize: 12.5, color: "#666", lineHeight: 1.6 }}>
               {inquiryText}
             </div>
-            <button onClick={copyInquiry} style={{ ...btnStyle(copied ? "#EEF3E8" : "white", "#48603A"), border: "1px solid #cfdcc3", width: "100%", marginTop: 8 }}>
+            <button onClick={copyInquiry} style={{ ...btnStyle(copied ? "#FCF1E9" : "white", "#85482A"), border: "1px solid #ECCAB3", width: "100%", marginTop: 8 }}>
               {copied ? <><Check size={15} /> 복사했어요</> : <><Copy size={15} /> 문의 문구 복사하기</>}
             </button>
           </div>
@@ -251,6 +252,7 @@ export default function ShelterNoticeDetailView({
             실제 보호 상태는 보호소에 꼭 확인해 주세요.
           </div>
         </div>
+        <PageFooter />
       </div>
     </div>
   );
@@ -258,7 +260,7 @@ export default function ShelterNoticeDetailView({
 
 // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
 const pageStyle: React.CSSProperties = {
-  height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", justifyContent: "center", alignItems: "flex-start",
+  height: "100dvh", overflowY: "auto", background: "#F4F3F2", display: "flex", justifyContent: "center", alignItems: "flex-start",
 };
 const arrowStyle = (side: "left" | "right"): React.CSSProperties => ({
   position: "absolute", top: "50%", [side]: 10, transform: "translateY(-50%)",

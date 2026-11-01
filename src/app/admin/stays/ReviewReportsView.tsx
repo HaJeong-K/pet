@@ -21,8 +21,8 @@ type Report = {
   reported_at: string | null; report_decided_at: string | null; report_admin_note: string | null; writer_banned: boolean;
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
-const btn = (color: string, disabled: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border: "none", background: disabled ? "#d6d3c9" : color, color: disabled ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
+const btn = (color: string, disabled: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border: "none", background: disabled ? "#D4D3D2" : color, color: disabled ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const STATUS_COLOR: Record<ReviewReportStatus, { bg: string; color: string }> = {
   pending: { bg: "#FEF3C7", color: "#92400E" }, kept: { bg: "#DCFCE7", color: "#166534" }, hidden: { bg: "#E0E7FF", color: "#3730A3" }, deleted: { bg: "#FEE2E2", color: "#991B1B" },
 };
@@ -71,7 +71,7 @@ export default function ReviewReportsView() {
       {rows?.map((r) => {
         const st = STATUS_COLOR[r.report_status];
         return (
-          <div key={r.id} style={{ ...card, borderLeft: `4px solid ${r.report_status === "pending" ? "#F59E0B" : "#e5e0d0"}` }}>
+          <div key={r.id} style={{ ...card, borderLeft: `4px solid ${r.report_status === "pending" ? "#F59E0B" : "#E1E0DF"}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.bg, color: st.color }}>{REVIEW_REPORT_STATUS[r.report_status]}</span>
               <a href={`/stay/${r.place_id}`} target="_blank" rel="noreferrer" style={{ fontSize: 13.5, fontWeight: 800, color: "#1D4F91" }}>{r.place_name ?? `숙소 #${r.place_id}`}</a>
@@ -83,7 +83,7 @@ export default function ReviewReportsView() {
             </div>
             <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#F8FAFC" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#555" }}>
-                <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#d6d3c9"} />)}</span>
+                <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#D4D3D2"} />)}</span>
                 {r.guest_display_name ?? "손님"} · {r.room_name} · {stayDayLabel(r.created_at.slice(0, 10))} 작성
                 {r.writer_banned && <b style={{ color: "#b91c1c" }}>· 작성자 후기 제한 중</b>}
               </div>
@@ -101,7 +101,7 @@ export default function ReviewReportsView() {
                   가리기·삭제하면서 작성자의 숙박 후기 작성도 제한(제재)
                 </label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <button disabled={busy} onClick={() => act(r, "keep")} style={btn("#5C7A4A", busy)}>유지(문제 없음)</button>
+                  <button disabled={busy} onClick={() => act(r, "keep")} style={btn("#A05A32", busy)}>유지(문제 없음)</button>
                   <button disabled={busy} onClick={() => act(r, "hide")} style={btn("#4F46E5", busy)}>가리기</button>
                   <button disabled={busy} onClick={() => act(r, "delete")} style={btn("#b42318", busy)}>삭제</button>
                 </div>

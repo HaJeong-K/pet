@@ -38,7 +38,7 @@ const LIST: GuideStep[] = [
   { selector: '[data-guide="list-panel"]', title: "주변 장소 목록", text: "지도에 보이는 장소와 검색 결과가 여기에 나와요.\n누르면 지도가 그 장소로 이동해요." },
 ];
 
-export const MAP_GUIDE_KEY = "ggk_guide_map_v5";
+export const MAP_GUIDE_KEY = "ggk_guide_map_v6";
 const MAP_STEPS: Record<GuideInterest, GuideStep[]> = {
   places: [
     { selector: SEARCH, title: "검색", text: "가게 이름이나 지역으로 찾아요.\n‘우리동네 핫플’, ‘내주변 카페’처럼 말하듯이 써도 돼요." },
@@ -73,7 +73,16 @@ const MAP_STEPS: Record<GuideInterest, GuideStep[]> = {
   ],
 };
 /** 고른 목적에 맞는 지도 안내 */
-export const mapGuideSteps = (): GuideStep[] => MAP_STEPS[getGuideInterest()];
+const PARK_STEP: GuideStep = { selector: '[data-guide="park-toggle"]', title: "공원", text: "공원 버튼으로 지도와 목록의\n공원을 켜고 꺼요." };
+export const mapGuideSteps = (): GuideStep[] => [...MAP_STEPS[getGuideInterest()], PARK_STEP];
+
+// 산책 코스 패널을 처음 열 때 — 코스를 고쳐 가는 방법
+export const ROUTE_GUIDE_KEY = "ggk_guide_route_v1";
+export const routeGuideSteps = (): GuideStep[] => [
+  { selector: '[data-guide="route-options"]', title: "코스 옵션", text: "코스 테마와 카페·동물병원·동물약국 포함을\n여기서 바꿔요." },
+  { selector: '[data-guide="route-pin"]', title: "마음에 드는 곳 고정", text: "핀을 누르면 이 장소는\n다른 코스를 봐도 그대로 남아요." },
+  { selector: '[data-guide="route-regen"]', title: "다른 코스 추천", text: "고정한 곳만 두고\n나머지 장소를 새로 추천해요." },
+];
 
 // ── 그 밖의 화면 ──
 
@@ -88,7 +97,7 @@ export const STAY_GUIDE_STEPS: GuideStep[] = [
 export const SHOP_GUIDE_KEY = "ggk_guide_shop_v1";
 export const SHOP_GUIDE_STEPS: GuideStep[] = [
   { selector: 'input[placeholder*="가게나 상품"]', title: "가게·메뉴 찾기", text: "가게나 메뉴 이름으로 찾아요." },
-  { selector: '[data-guide="shop-store"]', title: "입점 가게", text: "가게를 펼치면 메뉴를 고를 수 있어요.\n포장 주문이나 매장 식사 예약을 넣어 보세요." },
+  { selector: '[data-guide="shop-store"]', title: "입점 가게", text: "가게를 누르면 전체 메뉴를 보고\n주문할 수 있어요." },
   ...LOGIN_OR_MYPAGE,
 ];
 

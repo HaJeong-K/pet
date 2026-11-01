@@ -47,7 +47,7 @@ export default function LogoLoader({
   );
   if (!page) return body;
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F7F3E8" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F3F2" }}>
       {body}
     </div>
   );

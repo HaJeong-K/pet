@@ -52,7 +52,7 @@ const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
   wrong_info:    { bg: "#fef3c7", color: "#92400e" },
   different:     { bg: "#f0fdf4", color: "#15803d" },
   wrong_image:   { bg: "#ede9fe", color: "#6d28d9" },
-  duplicate:     { bg: "#f3ede4", color: "#6b4a2f" },
+  duplicate:     { bg: "#EFEEED", color: "#6b4a2f" },
   inappropriate: { bg: "#fff1f2", color: "#be123c" },
 };
 
@@ -642,7 +642,7 @@ export default function AdminReportsPage() {
         display: "flex",
         flexDirection: "column",
         height: "100dvh",
-        background: "#F7F3E8",
+        background: "#F4F3F2",
         overflow: "hidden",
         alignItems: "center",      // 수평 중앙
       }}>
@@ -902,11 +902,11 @@ export default function AdminReportsPage() {
                         display:"flex", alignItems:"flex-start", gap:8,
                       }}>
                         <div style={{ width:26, height:26, borderRadius:7,
-                          background: report.place_name ? "#E4EBDC" : "#E4EBDC",
+                          background: report.place_name ? "#F8E6D9" : "#F8E6D9",
                           display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>
                           {report.place_name
-                            ? <MapPin size={12} color="#5C7A4A" />
-                            : <MessageSquare size={12} color="#48603A" />}
+                            ? <MapPin size={12} color="#A05A32" />
+                            : <MessageSquare size={12} color="#85482A" />}
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div className="ggk-logo" style={{ fontSize:13, fontWeight:700, color:"#111", marginBottom:1 }}>
@@ -1130,10 +1130,10 @@ export default function AdminReportsPage() {
                             <button className="action-btn ggk-body"
                               onClick={() => handleAdminDeletePlace(report.place_id)}
                               style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
-                                background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
+                                background:"linear-gradient(135deg,#A05A32,#85482A)", color:"white",
                                 fontWeight:700, cursor:"pointer", fontSize:12,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                                boxShadow:"0 2px 8px rgba(92,122,74,0.30)",
+                                boxShadow:"0 2px 8px rgba(160, 90, 50,0.30)",
                                 fontFamily:"'Noto Sans KR', sans-serif" }}>
                               <Trash2 size={13} />장소 삭제
                             </button>
@@ -1158,10 +1158,10 @@ export default function AdminReportsPage() {
                             <button className="action-btn ggk-body"
                               onClick={() => handleAdminDeletePost(report.target_id)}
                               style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"none",
-                                background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
+                                background:"linear-gradient(135deg,#A05A32,#85482A)", color:"white",
                                 fontWeight:700, cursor:"pointer", fontSize:12,
                                 display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                                boxShadow:"0 2px 8px rgba(92,122,74,0.30)",
+                                boxShadow:"0 2px 8px rgba(160, 90, 50,0.30)",
                                 fontFamily:"'Noto Sans KR', sans-serif" }}>
                               <Trash2 size={13} />게시글 삭제
                             </button>

@@ -39,7 +39,7 @@ export default function OwnerJoinFrame({ kind, mode, children }: { kind: OwnerKi
       heading={copy.title}
       points={copy.points}
       highlights={["가입비·광고비 없이 무료로 시작", "사업자 정보는 국세청 확인에만 쓰고 공개하지 않아요"]}
-      label="같이가개 사장님 센터"
+      label="펫츠로드 사장님 센터"
       title={mode === "signup" ? "사장님으로 가입하기" : "사장님으로 전환하기"}
       sub={mode === "signup" ? "사업자 인증을 마치면 바로 사장님 센터를 쓸 수 있어요." : "지금 계정 그대로, 사업장 정보만 더하면 돼요."}
     >

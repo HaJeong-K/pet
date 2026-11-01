@@ -21,10 +21,10 @@ export default function OwnerManagedBadge({ placeId }: { placeId: number }) {
   if (!info?.managed) return null;
   return (
     <div title="사업자 인증을 마친 사장님이 직접 관리하는 가게예요" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", margin: "2px 0 8px" }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 999, background: "#E8F5E9", border: "1px solid #B7DFB9", color: "#1B5E20", fontSize: 11, fontWeight: 800 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 8px", borderRadius: 999, background: "#F8EDE5", border: "1px solid #E2C6B4", color: "#4F392A", fontSize: 11, fontWeight: 800 }}>
         <BadgeCheck size={12} />사장님 인증
       </span>
-      <span style={{ fontSize: 11, color: "#4b6b4d" }}>
+      <span style={{ fontSize: 11, color: "#645952" }}>
         사장님이 직접 관리하는 가게 정보예요{info.verifiedAt ? ` · ${fmt(info.verifiedAt)} 확인` : ""}
       </span>
     </div>

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { ORDER_TYPE_LABEL, type OrderType } from "@/lib/storeRules";
 
-type Review = { id: number; display_name: string | null; order_type: OrderType | null; rating: number; content: string; owner_reply: string | null; created_at: string };
+type Review = { photos?: string[] | null; id: number; display_name: string | null; order_type: OrderType | null; rating: number; content: string; owner_reply: string | null; created_at: string };
 
 export default function StoreReviewsList({ placeId }: { placeId: number }) {
   const [data, setData] = useState<{ reviews: Review[]; average: number | null } | null>(null);
@@ -26,6 +26,14 @@ export default function StoreReviewsList({ placeId }: { placeId: number }) {
           <div key={r.id} style={{ padding: "9px 11px", borderRadius: 10, background: "white", border: "1px solid #F3E3BC", fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
             <div style={{ fontSize: 11.5, color: "#666" }}>{r.display_name ?? "손님"} · 별점 {r.rating} · {ORDER_TYPE_LABEL[r.order_type ?? "pickup"]} · {r.created_at.slice(0, 10)}</div>
             {r.content}
+            {!!r.photos?.length && (
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                {r.photos.map((src) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={src} src={src} alt="후기 사진" loading="lazy" style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
+                ))}
+              </div>
+            )}
             {r.owner_reply && <div style={{ marginTop: 3, color: "#6B4426" }}>사장님: {r.owner_reply}</div>}
           </div>
         ))}

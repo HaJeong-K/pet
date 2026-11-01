@@ -30,7 +30,7 @@ const STYLES = `
   .tip-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.10) !important; }
   .action-btn { transition: all 0.15s ease; }
   .action-btn:hover { filter: brightness(0.93); }
-  .edit-input { width:100%; padding:7px 10px; border-radius:8px; border:1.5px solid #5C7A4A; font-size:12px; outline:none; font-family:'Noto Sans KR',sans-serif; background:white; }
+  .edit-input { width:100%; padding:7px 10px; border-radius:8px; border:1.5px solid #A05A32; font-size:12px; outline:none; font-family:'Noto Sans KR',sans-serif; background:white; }
   ::-webkit-scrollbar { width:6px; }
   ::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:999px; }
   .field-rows > div:last-child { border-bottom: none !important; }
@@ -104,7 +104,7 @@ function FieldRow({
         <div style={{ display:"flex", gap:4, flexShrink:0, marginLeft:6 }}>
           {isEditing ? (
             <>
-              <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#5C7A4A", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+              <button onClick={() => onSave(proposalId, fieldKey)} style={{ padding:"3px 9px", borderRadius:6, border:"none", background:"#A05A32", color:"white", fontSize:11, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                 <Save size={11}/>저장
               </button>
               <button onClick={onCancel} style={{ padding:"3px 8px", borderRadius:6, border:"1px solid #ddd", background:"white", color:"#5c5c5c", fontSize:11, cursor:"pointer" }}>
@@ -343,7 +343,7 @@ export default function AdminProposalsPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
+      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F4F3F2", overflow:"hidden", alignItems:"center" }}>
         <AdminNav active="tips" onRefresh={fetchProposals} />
         <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
 
@@ -351,7 +351,7 @@ export default function AdminProposalsPage() {
           <div style={{ padding:"16px 28px 10px", flexShrink:0 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
               {([
-                { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#5C7A4A", activeBg:"#E4EBDC" },
+                { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#A05A32", activeBg:"#F8E6D9" },
                 { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
                 { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
                 { key:"deleted",  label:"삭제됨",    count: deletedList.length,  icon: <Trash2 size={13}/>,       activeColor:"#6b7280", activeBg:"#e5e7eb" },
@@ -393,7 +393,7 @@ export default function AdminProposalsPage() {
               <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
-                <div style={{ width:64, height:64, borderRadius:20, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
+                <div style={{ width:64, height:64, borderRadius:20, background:"#F8E6D9", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
                   <PetIllustration variant="empty" width={44} />
                 </div>
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222" }}>
@@ -413,7 +413,7 @@ export default function AdminProposalsPage() {
                   <div key={tip.id} className="tip-card" style={{
                     background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
                     border:`1.5px solid ${
-                      tip.status === "pending"  ? "#8FA876" :
+                      tip.status === "pending"  ? "#C9966E" :
                       tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
                     }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
@@ -428,10 +428,10 @@ export default function AdminProposalsPage() {
                     <div style={{
                       padding:"11px 16px",
                       background:
-                        tip.status === "pending"  ? "#F7F3E8" :
+                        tip.status === "pending"  ? "#F4F3F2" :
                         tip.status === "on_hold"  ? "#fffbeb" : tip.status === "deleted" ? "#f3f4f6" : "#f0fdf4",
                       borderBottom:`1px solid ${
-                        tip.status === "pending"  ? "#8FA876" :
+                        tip.status === "pending"  ? "#C9966E" :
                         tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
                       }`,
                       display:"flex", alignItems:"center", justifyContent:"space-between",
@@ -449,7 +449,7 @@ export default function AdminProposalsPage() {
                         {tip.is_owner_request && (
                           <span style={{
                             fontSize:10, padding:"3px 9px", borderRadius:999, fontWeight:800,
-                            background:"linear-gradient(135deg,#5C7A4A,#48603A)", color:"white",
+                            background:"linear-gradient(135deg,#A05A32,#85482A)", color:"white",
                             display:"flex", alignItems:"center", gap:3,
                           }}>
                             <BadgeCheck size={10}/>사장님 직접 신청
@@ -480,10 +480,10 @@ export default function AdminProposalsPage() {
                         <span style={{
                           fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
                           background:
-                            tip.status === "pending"  ? "#E4EBDC" :
+                            tip.status === "pending"  ? "#F8E6D9" :
                             tip.status === "on_hold"  ? "#fef3c7" : tip.status === "deleted" ? "#e5e7eb" : "#dcfce7",
                           color:
-                            tip.status === "pending"  ? "#48603A" :
+                            tip.status === "pending"  ? "#85482A" :
                             tip.status === "on_hold"  ? "#92400e" : tip.status === "deleted" ? "#4b5563" : "#15803d",
                           display:"flex", alignItems:"center", gap:4,
                         }}>
@@ -500,8 +500,8 @@ export default function AdminProposalsPage() {
 
                       {/* 장소명 */}
                       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                        <div style={{ width:32, height:32, borderRadius:9, background:"#E4EBDC", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                          <MapPin size={15} color="#5C7A4A" />
+                        <div style={{ width:32, height:32, borderRadius:9, background:"#F8E6D9", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                          <MapPin size={15} color="#A05A32" />
                         </div>
                         <div style={{ flex:1 }}>
                           <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111" }}>{tip.place_name}</div>
@@ -513,21 +513,21 @@ export default function AdminProposalsPage() {
                       {isOnHold ? (
                         <div className="field-rows" style={{ background:"#fafafa", borderRadius:12, border:"1px solid #eee", padding:"4px 12px", marginBottom:12 }}>
 
-                          <FieldRow icon={<MapPin size={12} color="#5C7A4A"/>}       label="장소명"   fieldKey="place_name" value={tip.place_name} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<MapPin size={12} color="#5C7A4A"/>}       label="주소"     fieldKey="address"    value={tip.address}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<ChefHat size={12} color="#5C7A4A"/>}      label="카테고리" fieldKey="category"   value={tip.category}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MapPin size={12} color="#A05A32"/>}       label="장소명"   fieldKey="place_name" value={tip.place_name} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MapPin size={12} color="#A05A32"/>}       label="주소"     fieldKey="address"    value={tip.address}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<ChefHat size={12} color="#A05A32"/>}      label="카테고리" fieldKey="category"   value={tip.category}   proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
 
                           {/* pet_zone 전용 수정 UI */}
                           <FieldRow
-                            icon={<LandPlot size={12} color="#5C7A4A"/>} label="동반범위" fieldKey="pet_zone" value={tip.pet_zone}
+                            icon={<LandPlot size={12} color="#A05A32"/>} label="동반범위" fieldKey="pet_zone" value={tip.pet_zone}
                             proposalId={tip.id} editingField={editingField} editValue={editValue}
                             onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
                             renderEditInput={() => (
                               <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                                 {(["indoor","terrace","both"] as const).map(v => (
                                   <button key={v} onClick={() => setEditValue(v)} style={{
-                                    padding:"4px 10px", borderRadius:8, border:`1.5px solid ${editValue===v?"#5C7A4A":"#ddd"}`,
-                                    background: editValue===v ? "#5C7A4A" : "white",
+                                    padding:"4px 10px", borderRadius:8, border:`1.5px solid ${editValue===v?"#A05A32":"#ddd"}`,
+                                    background: editValue===v ? "#A05A32" : "white",
                                     color: editValue===v ? "white" : "#555",
                                     fontSize:11, fontWeight:600, cursor:"pointer",
                                   }}>
@@ -538,11 +538,11 @@ export default function AdminProposalsPage() {
                             )}
                           />
 
-                          <FieldRow icon={<Clock size={12} color="#5C7A4A"/>}        label="영업시간" fieldKey="hours"      value={tip.hours}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Clock size={12} color="#A05A32"/>}        label="영업시간" fieldKey="hours"      value={tip.hours}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
 
                           {/* large_dog 전용 수정 UI */}
                           <FieldRow
-                            icon={<Dog size={12} color="#5C7A4A"/>} label="대형견" fieldKey="large_dog" value={tip.large_dog}
+                            icon={<Dog size={12} color="#A05A32"/>} label="대형견" fieldKey="large_dog" value={tip.large_dog}
                             proposalId={tip.id} editingField={editingField} editValue={editValue}
                             onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit}
                             renderEditInput={() => (
@@ -562,23 +562,23 @@ export default function AdminProposalsPage() {
                             )}
                           />
 
-                          <FieldRow icon={<Phone size={12} color="#5C7A4A"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<Globe size={12} color="#5C7A4A"/>}        label="홈페이지" fieldKey="website"    value={tip.website}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<CalendarOff size={12} color="#5C7A4A"/>}  label="휴무일"   fieldKey="closed_days" value={tip.closed_days} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<ParkingCircle size={12} color="#5C7A4A"/>} label="주차"    fieldKey="parking"    value={tip.parking}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                          <FieldRow icon={<Ticket size={12} color="#5C7A4A"/>}       label="입장료"   fieldKey="entry_fee"  value={tip.entry_fee}  proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Phone size={12} color="#A05A32"/>}        label="전화번호" fieldKey="phone"      value={tip.phone}      proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Globe size={12} color="#A05A32"/>}        label="홈페이지" fieldKey="website"    value={tip.website}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<CalendarOff size={12} color="#A05A32"/>}  label="휴무일"   fieldKey="closed_days" value={tip.closed_days} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<ParkingCircle size={12} color="#A05A32"/>} label="주차"    fieldKey="parking"    value={tip.parking}    proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<Ticket size={12} color="#A05A32"/>}       label="입장료"   fieldKey="entry_fee"  value={tip.entry_fee}  proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                           {tip.category === "동물병원" && (
                             <>
-                              <FieldRow icon={<Stethoscope size={12} color="#5C7A4A"/>} label="진료과목" fieldKey="specialty_department" value={tip.specialty_department} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
-                              <FieldRow icon={<PawPrint size={12} color="#5C7A4A"/>}    label="가능 동물" fieldKey="treatable_animals" value={tip.treatable_animals} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                              <FieldRow icon={<Stethoscope size={12} color="#A05A32"/>} label="진료과목" fieldKey="specialty_department" value={tip.specialty_department} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                              <FieldRow icon={<PawPrint size={12} color="#A05A32"/>}    label="가능 동물" fieldKey="treatable_animals" value={tip.treatable_animals} proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                             </>
                           )}
-                          <FieldRow icon={<MessageCircle size={12} color="#5C7A4A"/>} label="메모"    fieldKey="memo"      value={tip.memo}       proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
+                          <FieldRow icon={<MessageCircle size={12} color="#A05A32"/>} label="메모"    fieldKey="memo"      value={tip.memo}       proposalId={tip.id} editingField={editingField} editValue={editValue} onEdit={startEdit} onEditValue={setEditValue} onSave={saveField} onCancel={cancelEdit} />
                         </div>
                       ) : (
                         /* 미처리/처리완료: 읽기 전용 뱃지 */
                         <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
-                          {tip.category && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ChefHat size={11} color="#5C7A4A"/>{tip.category}</span>}
+                          {tip.category && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ChefHat size={11} color="#A05A32"/>{tip.category}</span>}
                           {tip.pet_zone && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"inline-flex", alignItems:"center", gap:4 }}><PetZoneIcon zone={tip.pet_zone} /> {PET_ZONE_LABEL[tip.pet_zone]}</span>}
                           {tip.hours    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Clock size={11} color="#888"/>{tip.hours}</span>}
                           {tip.large_dog !== null && tip.large_dog !== undefined && (
@@ -587,11 +587,11 @@ export default function AdminProposalsPage() {
                               {tip.large_dog ? "대형견 가능":"대형견 불가"}
                             </span>
                           )}
-                          {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#5C7A4A"/>{tip.phone}</span>}
-                          {tip.website     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Globe size={11} color="#5C7A4A"/>{tip.website}</span>}
-                          {tip.closed_days && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><CalendarOff size={11} color="#5C7A4A"/>{tip.closed_days}</span>}
-                          {tip.parking     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ParkingCircle size={11} color="#5C7A4A"/>{tip.parking}</span>}
-                          {tip.entry_fee   && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Ticket size={11} color="#5C7A4A"/>{tip.entry_fee}</span>}
+                          {tip.phone    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Phone size={11} color="#A05A32"/>{tip.phone}</span>}
+                          {tip.website     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Globe size={11} color="#A05A32"/>{tip.website}</span>}
+                          {tip.closed_days && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><CalendarOff size={11} color="#A05A32"/>{tip.closed_days}</span>}
+                          {tip.parking     && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><ParkingCircle size={11} color="#A05A32"/>{tip.parking}</span>}
+                          {tip.entry_fee   && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Ticket size={11} color="#A05A32"/>{tip.entry_fee}</span>}
                           {tip.category === "동물병원" && (
                             <span style={{ fontSize:11, color:"#1d4ed8", background:"#eff6ff", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
                               <Stethoscope size={11} color="#2563eb"/>{tip.specialty_department || "종합진료"}
@@ -628,7 +628,7 @@ export default function AdminProposalsPage() {
 
                       {/* 제보자 */}
                       <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:12, padding:"6px 10px", background:"#f8fafc", borderRadius:8, border:"1px solid #e8eaed" }}>
-                        <User size={12} color="#5C7A4A" />
+                        <User size={12} color="#A05A32" />
                         <span style={{ fontSize:10, color:"#5c5c5c", fontWeight:600 }}>{reporter.label}</span>
                         <span style={{ fontSize:11, color: reporter.isEmail ? "#2563eb" : "#666", fontWeight: reporter.isEmail ? 600 : 400 }}>
                           {reporter.value}
@@ -643,8 +643,8 @@ export default function AdminProposalsPage() {
                             onClick={() => handleRestore(tip.id)}
                             style={{
                               flex:1, padding:"10px 12px", borderRadius:11,
-                              border:"1.5px solid #8FA876", background:"#F7F3E8",
-                              color:"#48603A", fontWeight:700, cursor:"pointer", fontSize:12,
+                              border:"1.5px solid #C9966E", background:"#F4F3F2",
+                              color:"#85482A", fontWeight:700, cursor:"pointer", fontSize:12,
                               display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                               fontFamily:"'Noto Sans KR', sans-serif",
                             }}

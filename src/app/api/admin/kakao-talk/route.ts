@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url });
   }
   if (action === "test") {
-    const ok = await sendKakaoTalkMemo("🐾 같이가개 관리자 알림 시험 메시지예요.\n이제 운영 알림이 이 채팅으로 와요.");
+    const ok = await sendKakaoTalkMemo("🐾 펫츠로드 관리자 알림 시험 메시지예요.\n이제 운영 알림이 이 채팅으로 와요.");
     return NextResponse.json({ ok }, { status: ok ? 200 : 502 });
   }
   if (action === "disconnect") {

@@ -1,9 +1,9 @@
 // src/lib/server/lodgingIcal.ts
 //
-// 객실 달력 연동(iCal) — 다른 예약 사이트에서 팔린 날을 같이가개에서 막아 중복 예약을 막습니다.
+// 객실 달력 연동(iCal) — 다른 예약 사이트에서 팔린 날을 펫츠로드에서 막아 중복 예약을 막습니다.
 //   · syncRoomIcal: 그 객실에 넣어 둔 달력 주소를 받아 앞으로 BOOK_AHEAD_DAYS일 안의 막힌 밤을 lodging_ical_blocks에 다시 채움
 //   · 매일 새벽 모든 객실을 동기화하고(runLodgingDaily), 손님이 달력을 열 때 5분 넘게 지났으면, 예약 버튼을 누르면 항상 그 객실을 먼저 동기화합니다
-//   · 가져온 날이 같이가개 예약과 겹치면 사장님·관리자에게 바로 알립니다(양쪽에서 팔린 경우)
+//   · 가져온 날이 펫츠로드 예약과 겹치면 사장님·관리자에게 바로 알립니다(양쪽에서 팔린 경우)
 //   · 달력 주소는 https만, 받는 크기 1MB·시간 8초까지
 // 표는 scripts/sql/lodging-operations.sql. 규칙(읽기·만들기)은 src/lib/ical.ts.
 
@@ -60,7 +60,7 @@ export async function syncRoomIcal(roomId: number, importUrl: string | null): Pr
   }
 }
 
-/** 다른 사이트에서 팔린 날이 같이가개 예약과 겹치면 사장님·관리자에게 바로 알립니다 */
+/** 다른 사이트에서 팔린 날이 펫츠로드 예약과 겹치면 사장님·관리자에게 바로 알립니다 */
 async function warnIfDoubleBooked(roomId: number, days: string[], today: string): Promise<void> {
   const { data } = await db.from("lodging_bookings").select("id, place_id, room_name, check_in, check_out").eq("room_id", roomId).in("status", ["requested", "confirmed"]).gte("check_out", today);
   const blocked = new Set(days);

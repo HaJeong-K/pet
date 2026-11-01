@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await connectKakaoTalk(code, origin);
-    await sendKakaoTalkMemo("✅ 같이가개 카카오톡 알림이 연결됐어요.\n앞으로 운영 알림이 이 채팅으로 와요.");
+    await sendKakaoTalkMemo("✅ 펫츠로드 카카오톡 알림이 연결됐어요.\n앞으로 운영 알림이 이 채팅으로 와요.");
     return back("connected");
   } catch (e) {
     console.error("[kakao-talk/callback]", e instanceof Error ? e.message : e);

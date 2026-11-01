@@ -38,13 +38,13 @@ const PAYOUT_LABEL: Record<string, string> = { scheduled: "정산 예정", held:
 type Room = { id: number; name: string; base_price: number; weekend_price: number | null; is_active: boolean };
 type CalBooking = { id: number; guest_name: string; check_in: string; check_out: string; status: StayStatus };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const tag = (bg: string, color: string): React.CSSProperties => ({ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: bg, color, flexShrink: 0 });
-const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#e2dcc8"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 12px", borderRadius: 999, border: `1px solid ${on ? "#1D4F91" : "#DDDCDB"}`, background: on ? "#E3EDFA" : "white", color: on ? "#1D4F91" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const actionButton = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "8px 13px", borderRadius: 10, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
   border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2e4e8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
+  background: disabled ? "#D4D3D2" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const dayLabel = stayDayLabel;
@@ -177,7 +177,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
             const s = STAY_STATUS[b.status];
             const detail = b.price_detail ?? {};
             return (
-              <div key={b.id} style={{ padding: "13px 14px", borderRadius: 14, border: `1px solid ${b.status === "requested" ? "#FDE68A" : "#f0ece0"}`, background: b.status === "requested" ? "#FFFDF5" : "white" }}>
+              <div key={b.id} style={{ padding: "13px 14px", borderRadius: 14, border: `1px solid ${b.status === "requested" ? "#FDE68A" : "#EDECEB"}`, background: b.status === "requested" ? "#FEFDFC" : "white" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <span style={tag(s.background, s.color)}>{s.label}</span>
                   <span style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{dayLabel(b.check_in)} ~ {dayLabel(b.check_out)}</span>
@@ -202,14 +202,14 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   <PawPrint size={13} color="#B45309" style={{ flexShrink: 0, marginTop: 3 }} />
                   <span>{b.pets.length}마리 — {b.pets.map(petText).join(", ")}</span>
                 </div>
-                {b.memo && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F7F3E8", fontSize: 12.5, color: "#555", lineHeight: 1.6, whiteSpace: "pre-line" }}>요청 사항: {b.memo}</div>}
+                {b.memo && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F4F3F2", fontSize: 12.5, color: "#555", lineHeight: 1.6, whiteSpace: "pre-line" }}>요청 사항: {b.memo}</div>}
                 <div style={{ marginTop: 8, fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>
                   객실 {won(detail.roomTotal ?? b.total)}
                   {(detail.extraGuestTotal ?? 0) > 0 && ` + 인원 추가 ${won(detail.extraGuestTotal!)}`}
                   {(detail.petTotal ?? 0) > 0 && ` + 반려동물 ${won(detail.petTotal!)}`}
                   {(detail.extras ?? []).map((x) => ` + ${x.name}×${x.qty} ${won(x.amount)}`).join("")}
                   <span style={{ marginLeft: 6, fontSize: 14, fontWeight: 800, color: "#B45309" }}>{won(b.total)}</span>
-                  {(b.stamp_discount ?? 0) > 0 && <span style={{ marginLeft: 6, fontSize: 11.5, color: "#8A6D1F" }}>손님 스탬프 할인 {won(b.stamp_discount ?? 0)} — 같이가개 부담, 정산은 할인 전 금액 기준</span>}
+                  {(b.stamp_discount ?? 0) > 0 && <span style={{ marginLeft: 6, fontSize: 11.5, color: "#8A6D1F" }}>손님 스탬프 할인 {won(b.stamp_discount ?? 0)} — 펫츠로드 부담, 정산은 할인 전 금액 기준</span>}
                   <span style={{ marginLeft: 4 }}>· {b.payment_status === "paid" ? "결제 완료" : b.payment_status === "refunded" ? "전액 환불" : b.payment_status === "partially_refunded" ? "일부 환불" : "결제 확인 전"}</span>
                 </div>
                 {b.cancel_cause && (
@@ -220,7 +220,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                   </div>
                 )}
                 {b.payout_amount != null && b.payout_amount !== 0 && (
-                  <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: b.payout_amount < 0 ? "#FEF2F2" : "#F0F7EC", fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
+                  <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: b.payout_amount < 0 ? "#FEF2F2" : "#FAF0E9", fontSize: 12.5, color: "#444", lineHeight: 1.6 }}>
                     {b.payout_amount > 0
                       ? <>정산 {won(b.payout_amount)} <span style={{ color: "#5c5c5c" }}>({b.fee_rate}% 수수료 {won(b.fee_amount ?? 0)} 제외)</span></>
                       : <>다음 정산에서 {won(-b.payout_amount)} 차감(배상금)</>}
@@ -246,15 +246,15 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                 {canAct && settlementReady && canReportViolation(b, today) && (violationFor === b.id ? (
                   <div style={{ marginTop: 8, padding: 11, borderRadius: 10, background: "#FFF8F6", border: "1px solid #F3D9D2", display: "grid", gap: 7 }}>
                     <div style={{ fontSize: 12.5, fontWeight: 800, color: "#9A3B27" }}>규정 위반 접수</div>
-                    <div style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}>같이가개가 양쪽 의견을 확인한 뒤 처리합니다. 등록하지 않은 조건으로는 접수할 수 없습니다.<br />입실 거부·퇴실 요청 전에 접수하고, 사진 등 증빙을 준비해 주십시오.</div>
+                    <div style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}>펫츠로드가 양쪽 의견을 확인한 뒤 처리합니다. 등록하지 않은 조건으로는 접수할 수 없습니다.<br />입실 거부·퇴실 요청 전에 접수하고, 사진 등 증빙을 준비해 주십시오.</div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {Object.entries(OWNER_VIOLATION_KINDS).map(([key, text]) => (
-                        <button key={key} onClick={() => setViolation((v) => ({ ...v, kind: key }))} aria-pressed={violation.kind === key} style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${violation.kind === key ? "#9A3B27" : "#e2dcc8"}`, background: violation.kind === key ? "#FBE9E4" : "white", color: violation.kind === key ? "#9A3B27" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{text}</button>
+                        <button key={key} onClick={() => setViolation((v) => ({ ...v, kind: key }))} aria-pressed={violation.kind === key} style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${violation.kind === key ? "#9A3B27" : "#DDDCDB"}`, background: violation.kind === key ? "#FBE9E4" : "white", color: violation.kind === key ? "#9A3B27" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{text}</button>
                       ))}
                     </div>
                     <textarea value={violation.detail} onChange={(e) => setViolation((v) => ({ ...v, detail: e.target.value.slice(0, 600) }))} rows={3} placeholder="언제, 무슨 일이 있었는지 적어 주십시오(10자 이상)" aria-label="위반 내용" style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 13, fontFamily: "inherit", resize: "vertical" }} />
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => sendViolation(b)} disabled={busy || !violation.kind || violation.detail.trim().length < 10} style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#9A3B27", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", opacity: busy || !violation.kind || violation.detail.trim().length < 10 ? 0.5 : 1 }}>같이가개에 접수</button>
+                      <button onClick={() => sendViolation(b)} disabled={busy || !violation.kind || violation.detail.trim().length < 10} style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#9A3B27", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", opacity: busy || !violation.kind || violation.detail.trim().length < 10 ? 0.5 : 1 }}>펫츠로드에 접수</button>
                       <button onClick={() => setViolationFor(null)} style={{ padding: "8px 12px", borderRadius: 9, border: "1px solid #ddd", background: "white", color: "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>닫기</button>
                     </div>
                   </div>
@@ -266,7 +266,7 @@ export default function OwnerStaysTab({ placeId, isPreview, canAct, onCount }: {
                     <b style={{ color: b.issue_status === "open" ? "#B45309" : "#555" }}>{b.issue_status === "open" ? (isOwnerViolation(b.issue_kind) ? "규정 위반을 접수했어요" : "손님이 문제를 접수했어요") : "문제 처리 완료"}</b> · {ISSUE_LABEL[b.issue_kind ?? ""] ?? b.issue_kind}
                     {b.issue_detail && <div style={{ marginTop: 3, whiteSpace: "pre-line" }}>{b.issue_detail}</div>}
                     {b.issue_owner_reply && <div style={{ marginTop: 5, color: "#666" }}>내 의견: {b.issue_owner_reply}</div>}
-                    {b.issue_resolution && <div style={{ marginTop: 5, color: "#666" }}>같이가개 판단: {b.issue_resolution}</div>}
+                    {b.issue_resolution && <div style={{ marginTop: 5, color: "#666" }}>펫츠로드 판단: {b.issue_resolution}</div>}
                     {b.issue_status === "open" && !b.issue_owner_reply && !isOwnerViolation(b.issue_kind) && canAct && (replyFor === b.id ? (
                       <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
                         <textarea value={reply} onChange={(e) => setReply(e.target.value.slice(0, 600))} rows={3} placeholder="그때 상황을 적어 주세요. 예: 예약 정보와 달리 25kg 대형견이 와서 동반 규정에 따라 입실이 어려웠어요." style={{ width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
@@ -326,7 +326,7 @@ function SettlementSummary({ bookings, today }: { bookings: Booking[]; today: st
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginTop: 12 }}>
         {items.map((i) => (
-          <div key={i.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8" }}>
+          <div key={i.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F4F3F2" }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: "#7a6a3a" }}>{i.label}</div>
             <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{i.value}</div>
             <div style={{ fontSize: 11, color: "#666", marginTop: 1 }}>{i.note}</div>
@@ -452,7 +452,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
       </div>
 
       {canAct && selected.length > 0 && (
-        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#F7F3E8", display: "grid", gap: 10 }}>
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#F4F3F2", display: "grid", gap: 10 }}>
           <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>{selected.length}일 골랐어요 <button onClick={() => setSelected([])} style={{ marginLeft: 6, border: "none", background: "transparent", color: "#666", fontSize: 12, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>선택 풀기</button></div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <button onClick={() => apply({ closed: true }, "예약을 막았어요.")} disabled={busy} style={actionButton("danger", busy)}>예약 막기</button>

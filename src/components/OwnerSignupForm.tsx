@@ -380,7 +380,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
         </button>
       </div>
       {sido && sigungu && (
-        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #48603A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
+        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #85482A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
       )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -403,7 +403,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
       <input placeholder="닉네임" value={nickname} onChange={(e) => { setNickname(e.target.value); void checkNickname(e.target.value); }} aria-label="닉네임" style={inputStyle} />
       {nickname && isNicknameTaken && <p style={errorTextStyle}>이미 사용중인 닉네임입니다.</p>}
       {nicknameReserved && <p style={errorTextStyle}>{RESERVED_NICKNAME_MESSAGE}</p>}
-      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)", lineHeight: 1.6 }}>
+      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #F8E6D9)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #85482A)", lineHeight: 1.6 }}>
         인증되면 닉네임 옆에 <strong>{businessName.trim() || "가게 이름"} 사장님</strong> 표시가 붙어요. 닉네임은 나중에 바꿀 수 있어요.
       </div>
 
@@ -491,8 +491,8 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
             onClick={() => setAgreedTerms((v) => !v)}
             style={{
               width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-              border: `1.5px solid ${agreedTerms ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
-              background: agreedTerms ? "var(--join-strong, #5C7A4A)" : "white",
+              border: `1.5px solid ${agreedTerms ? "var(--join-strong, #A05A32)" : "#ccc"}`,
+              background: agreedTerms ? "var(--join-strong, #A05A32)" : "white",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
             }}
           >
@@ -508,8 +508,8 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
             onClick={() => setAgreedPrivacy((v) => !v)}
             style={{
               width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-              border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
-              background: agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "white",
+              border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #A05A32)" : "#ccc"}`,
+              background: agreedPrivacy ? "var(--join-strong, #A05A32)" : "white",
               display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
             }}
           >
@@ -523,7 +523,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
         width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
-        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: isSubmitDisabled ? "#4f4a3f" : "white",
+        background: isSubmitDisabled ? "#D4D3D2" : "var(--join-btn, linear-gradient(135deg,#3B2A20,#70482F))", color: isSubmitDisabled ? "#4f4a3f" : "white",
         fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
         boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>

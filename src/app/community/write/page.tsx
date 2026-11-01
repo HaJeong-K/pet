@@ -321,7 +321,7 @@ function CommunityWritePageContent() {
       <div
         style={{
           height: "100dvh",
-          background: "#F7F3E8", // 커뮤니티 목록/게시글 상세와 동일한 배경색으로 통일
+          background: "#F4F3F2", // 커뮤니티 목록/게시글 상세와 동일한 배경색으로 통일
 
           overflow: "hidden",
 
@@ -464,7 +464,7 @@ function CommunityWritePageContent() {
 
               {/* 게시판 안내 — 이 게시판에 무엇을 쓰는지, 지켜야 할 점 */}
               {findBoard(boardId)?.desc && (
-                <div style={{ margin: "-4px 0 12px", padding: "9px 12px", borderRadius: 10, background: "#F3F6EE", color: "#48603A", fontSize: 11.5, fontWeight: 600, lineHeight: 1.55 }}>
+                <div style={{ margin: "-4px 0 12px", padding: "9px 12px", borderRadius: 10, background: "#FAF0EA", color: "#85482A", fontSize: 11.5, fontWeight: 600, lineHeight: 1.55 }}>
                   {findBoard(boardId)?.desc}
                 </div>
               )}
@@ -504,9 +504,9 @@ function CommunityWritePageContent() {
               </div>
 
               {draft && (
-                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#F7F3E8", fontSize: 13, color: "#444", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "#F4F3F2", fontSize: 13, color: "#444", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ flex: 1, minWidth: 160 }}>작성하던 글이 있어요.</span>
-                  <button type="button" onClick={() => { setTitle(draft.title); setContent(draft.content); setDraft(null); }} style={{ padding: "5px 11px", borderRadius: 999, border: "none", background: "#2F3B28", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>불러오기</button>
+                  <button type="button" onClick={() => { setTitle(draft.title); setContent(draft.content); setDraft(null); }} style={{ padding: "5px 11px", borderRadius: 999, border: "none", background: "#3B2A20", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>불러오기</button>
                   <button type="button" onClick={() => { try { localStorage.removeItem(DRAFT_KEY); } catch { /* 무시 */ } setDraft(null); }} style={{ padding: "5px 11px", borderRadius: 999, border: "1px solid #ddd", background: "white", color: "#555", fontSize: 12.5, cursor: "pointer" }}>지우기</button>
                 </div>
               )}
@@ -711,7 +711,7 @@ function CommunityWritePageContent() {
                   border: "none",
 
                   background:
-                    "linear-gradient(145deg, #5C7A4A, #48603A)",
+                    "linear-gradient(145deg, #A05A32, #85482A)",
 
                   color: "white",
 
@@ -749,7 +749,7 @@ function CommunityWritePageContent() {
                     marginBottom: "6px",
                   }}
                 >
-                  같이가개 커뮤니티
+                  펫츠로드 커뮤니티
                 </div>
 
                 <div
@@ -813,7 +813,7 @@ function CommunityWritePageContent() {
                     <p style={{ fontSize:11, color:"#666", marginBottom:16 }}>최종 수정일: 2025년 1월 1일</p>
       
                     <Section title="1. 개인정보의 수집 및 이용 목적">
-                      같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
+                      펫츠로드(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br/>
                       • 회원 가입 및 관리: 회원 식별, 서비스 이용 관리<br/>
                       • 서비스 제공: 장소 정보 제공, 댓글·찜 기능 운영<br/>
                       • 고객 지원: 문의 응대 및 민원 처리
@@ -855,7 +855,7 @@ function CommunityWritePageContent() {
                     </Section>
       
                     <Section title="8. 개인정보 보호 책임자">
-                      • <strong>책임자:</strong> 같이가개 운영팀<br/>
+                      • <strong>책임자:</strong> 펫츠로드 운영팀<br/>
                       • <strong>이메일:</strong> {ADMIN_EMAIL}<br/>
                       개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
                     </Section>

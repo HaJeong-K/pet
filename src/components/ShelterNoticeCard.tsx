@@ -102,7 +102,7 @@ export default function ShelterNoticeCard({
               style={{
                 position: "absolute",
                 inset: 0,
-                background: "linear-gradient(160deg,#E4EBDC,#CFE0C4)",
+                background: "linear-gradient(160deg,#F8E6D9,#EDCDB7)",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
@@ -112,8 +112,8 @@ export default function ShelterNoticeCard({
                 textAlign: "center",
               }}
             >
-              <PawPrint size={26} color="#5C7A4A" />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#48603A" }}>
+              <PawPrint size={26} color="#A05A32" />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#85482A" }}>
                 {notice.breed || "보호동물 공고"}
               </span>
             </div>
@@ -141,7 +141,7 @@ export default function ShelterNoticeCard({
               <span
                 style={{
                   background: "rgba(255,255,255,0.92)",
-                  color: "#48603A",
+                  color: "#85482A",
                   fontSize: 10,
                   fontWeight: 700,
                   padding: "3px 7px",

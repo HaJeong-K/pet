@@ -22,10 +22,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import {
-  Store, Map as MapIcon, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
+  Store, ArrowLeft, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
 } from "lucide-react";
 import OwnerLodgingTab from "@/components/owner/OwnerLodgingTab";
 import OwnerNoticesTab from "@/components/owner/OwnerNoticesTab";
+import OwnerStoreSettings from "@/components/owner/OwnerStoreSettings";
+import OwnerTodayClose from "@/components/owner/OwnerTodayClose";
+import OwnerCoupons from "@/components/owner/OwnerCoupons";
 import OwnerLodgingReviews from "@/components/owner/OwnerLodgingReviews";
 import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
 import OwnerStaysTab from "@/components/owner/OwnerStaysTab";
@@ -82,7 +85,7 @@ const TAB_DESC: Record<TabKey, (placeWord: string) => string> = {
   report: () => "최근 성과를 보고서로 보고, 인쇄하거나 PDF로 저장해요.",
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const fmtDate = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }) : "");
 
 export default function OwnerPage() {
@@ -187,10 +190,10 @@ export default function OwnerPage() {
     return (
       <Shell>
         <div style={{ ...card, textAlign: "center", padding: "48px 22px", marginTop: 24 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: "#EAF0E3", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Store size={26} color="#2F3B28" /></div>
+          <div style={{ width: 56, height: 56, borderRadius: 18, background: "#FBEDE3", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}><Store size={26} color="#3B2A20" /></div>
           <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{message.title}</div>
           <div style={{ fontSize: 13.5, color: "#555", marginTop: 8, lineHeight: 1.7 }}>{message.text}</div>
-          <button onClick={() => router.push(message.href)} style={{ marginTop: 18, padding: "12px 22px", borderRadius: 999, border: "none", background: "#2F3B28", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>{message.cta}</button>
+          <button onClick={() => router.push(message.href)} style={{ marginTop: 18, padding: "12px 22px", borderRadius: 999, border: "none", background: "#3B2A20", color: "white", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>{message.cta}</button>
         </div>
       </Shell>
     );
@@ -211,7 +214,7 @@ export default function OwnerPage() {
   return (
     <Shell wide>
       <style>{`
-        .oc-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #ECE6D8; }
+        .oc-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; }
         .oc-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
         .oc-side { display: none; }
         .oc-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
@@ -219,13 +222,13 @@ export default function OwnerPage() {
         .oc-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); }
         .oc-store-top { display: none; }
         .oc-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #4a4437; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; transition: background .12s ease, color .12s ease; }
-        .oc-item:hover { background: #F1ECE0; }
-        .oc-item[aria-current="page"] { background: #2F3B28; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(47,59,40,0.18); }
+        .oc-item:hover { background: #EDECEB; }
+        .oc-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32,0.18); }
         .oc-top-map { margin-left: auto; }
         @media (min-width: 720px) { .oc-store-top { display: flex; } .oc-top-map { margin-left: 12px; } }
         @media (min-width: 980px) {
           .oc-grid { grid-template-columns: 252px minmax(0, 1fr); }
-          .oc-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #ECE6D8; background: #FBF8F2; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
+          .oc-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
           .oc-chips { display: none; }
           .oc-main { padding-top: 28px; }
         }
@@ -234,18 +237,15 @@ export default function OwnerPage() {
       <PageGuide storageKey={OWNER_GUIDE_KEY} steps={OWNER_GUIDE_STEPS} />
       {/* 위 고정 막대 */}
       <header className="oc-top owner-no-print">
-        <Link href="/" aria-label="같이가개 지도로" style={{ display: "flex", alignItems: "center" }}>
-          <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+        <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
+          <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
         </Link>
-        <span style={{ width: 1, height: 18, background: "#E4DFD2" }} />
-        <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#EAF0E3", border: "1px solid #D5E0C9", fontSize: 14.5, fontWeight: 800, color: "#2F3B28", whiteSpace: "nowrap" }}>사장님 센터</span>
+        <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
+        <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>사장님 센터</span>
         <div className="oc-store-top" style={{ marginLeft: "auto", alignItems: "center", gap: 8, minWidth: 0 }}>
           <span style={{ fontSize: 13.5, fontWeight: 700, color: "#2a2520", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>{storeName}</span>
           <KindBadge isPreview={isPreview} label={isPreview ? "관리자 모드" : `인증 ${kindInfo.label}`} />
         </div>
-        <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #E4DFD2", background: "white", color: "#4a4437", fontSize: 12.5, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }} className="oc-top-map">
-          <MapIcon size={13} />지도 보기
-        </Link>
       </header>
 
       {/* 이용 기간이 14일 안으로 남았는데 자동 연장을 아직 정하지 않았으면 팝업으로 물어봅니다 */}
@@ -254,7 +254,7 @@ export default function OwnerPage() {
       <div className="oc-grid">
         {/* 왼쪽 메뉴(넓은 화면) */}
         <aside className="oc-side owner-no-print">
-          <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#1F2A1A,#2F3B28 55%,#4A6339)", color: "white", marginBottom: 18 }}>
+          <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#2A1C14,#3B2A20 55%,#70482F)", color: "white", marginBottom: 18 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.14)", fontSize: 11, fontWeight: 800 }}>
               <BadgeCheck size={11} color="#F3DA9B" />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
             </div>
@@ -269,7 +269,7 @@ export default function OwnerPage() {
                   return (
                     <button key={key} className="oc-item" onClick={() => setTab(key)} aria-current={shown === key ? "page" : undefined}>
                       <Icon size={16} />{labelOf(key)}
-                      {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: shown === key ? "#F3DA9B" : "#DC2626", color: shown === key ? "#2F3B28" : "white", fontSize: 11, fontWeight: 800, lineHeight: "19px", textAlign: "center" }}>{n}</span>}
+                      {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: shown === key ? "#F3DA9B" : "#DC2626", color: shown === key ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, lineHeight: "19px", textAlign: "center" }}>{n}</span>}
                     </button>
                   );
                 })}
@@ -281,6 +281,9 @@ export default function OwnerPage() {
               <ChevronRight size={14} />숙소 입점 안내 다시 보기
             </Link>
           )}
+          <Link href="/" className="oc-item" style={{ marginTop: isLodging ? 4 : "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14, textDecoration: "none" }}>
+            <ArrowLeft size={16} />메인 페이지로 돌아가기
+          </Link>
         </aside>
 
         <div style={{ minWidth: 0 }}>
@@ -292,11 +295,11 @@ export default function OwnerPage() {
               return (
                 <button key={key} onClick={() => setTab(key)} aria-current={on ? "page" : undefined} style={{
                   flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999,
-                  border: on ? "1px solid #2F3B28" : "1px solid #E4DFD2", background: on ? "#2F3B28" : "white", color: on ? "white" : "#4a4437",
+                  border: on ? "1px solid #3B2A20" : "1px solid #E0DFDE", background: on ? "#3B2A20" : "white", color: on ? "white" : "#4a4437",
                   fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   <Icon size={14} />{labelOf(key)}
-                  {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#2F3B28" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
+                  {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
                 </button>
               );
             })}
@@ -307,19 +310,19 @@ export default function OwnerPage() {
               {isPreview && (
                 <div className="owner-no-print" style={{ ...card, marginBottom: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#555", marginBottom: 8 }}>가게 고르기(관리자 전용) — 사장님이 보는 화면 그대로 확인할 수 있어요</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid #E4DFD2", background: "#FCFBF8" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid #E0DFDE", background: "#FCFBF8" }}>
                     <Search size={14} color="#999" />
                     <input value={previewQuery} onChange={(e) => setPreviewQuery(e.target.value)} placeholder="등록 장소 이름으로 검색" style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 13 }} />
                   </div>
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {previewResults.map((p) => (
-                      <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#EAF0E3" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
+                      <button key={p.id} onClick={() => { setPreview({ id: p.id, name: p.name, category: p.category }); setActForOwner(false); }} style={{ textAlign: "left", padding: "8px 10px", borderRadius: 9, border: "none", background: preview?.id === p.id ? "#FBEDE3" : "transparent", cursor: "pointer", fontSize: 12.5 }}>
                         <b>{p.name}</b> <span style={{ color: "#666" }}>{p.address}</span>
                       </button>
                     ))}
                   </div>
                   {preview && (
-                    <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 12, padding: "11px 12px", borderRadius: 12, background: actForOwner ? "#FEF2F2" : "#FCFBF8", border: `1px solid ${actForOwner ? "#FECACA" : "#E4DFD2"}`, cursor: "pointer" }}>
+                    <label style={{ display: "flex", gap: 9, alignItems: "flex-start", marginTop: 12, padding: "11px 12px", borderRadius: 12, background: actForOwner ? "#FEF2F2" : "#FCFBF8", border: `1px solid ${actForOwner ? "#FECACA" : "#E0DFDE"}`, cursor: "pointer" }}>
                       <input type="checkbox" checked={actForOwner} onChange={(e) => setActForOwner(e.target.checked)} style={{ marginTop: 3 }} />
                       <span style={{ fontSize: 12.5, lineHeight: 1.6, color: actForOwner ? "#991b1b" : "#555" }}>
                         <b>사장님 요청으로 대신 처리하기</b><br />
@@ -334,7 +337,7 @@ export default function OwnerPage() {
               <div className="owner-no-print" style={{ marginBottom: 18 }}>
                 <div style={{ fontSize: 12.5, fontWeight: 700, color: "#6a6253" }}>{storeName}<span style={{ margin: "0 6px", color: "#cfc7b6" }}>/</span>{groupOfShown}</div>
                 <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
-                  <span style={{ width: 36, height: 36, borderRadius: 11, background: "#EAF0E3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ShownIcon size={18} color="#2F3B28" /></span>
+                  <span style={{ width: 36, height: 36, borderRadius: 11, background: "#FBEDE3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ShownIcon size={18} color="#3B2A20" /></span>
                   {labelOf(shown)}
                 </h1>
                 <p style={{ margin: "8px 0 0", fontSize: 14, color: "#625a4c", lineHeight: 1.6 }}>{TAB_DESC[shown](placeWord)}</p>
@@ -344,9 +347,12 @@ export default function OwnerPage() {
                 <div style={{ ...card, textAlign: "center", color: "#666", fontSize: 13, padding: "40px 0" }}>위에서 가게를 골라 주세요.</div>
               ) : (
                 <>
+                  {!isLodging && (tab === "dashboard" || tab === "reservations" || tab === "products") && <OwnerTodayClose placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
                   {tab === "dashboard" && <div style={card}><OwnerStatsPanel previewPlaceId={isPreview ? placeId : undefined} /></div>}
                   {/* 숙소 사장님이 가게용 메뉴 주소(#products 등)로 들어오면 숙소·객실을 보여 줍니다 */}
                   {isLodging && (tab === "stays" || tab === "reservations") && <OwnerStaysTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onCount={setWaitingReservations} />}
+                  {(tab === "products" || (isLodging && tab === "lodging")) && <OwnerStoreSettings placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} showModes={!isLodging} />}
+                  {!isLodging && tab === "products" && <OwnerCoupons placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
                   {isLodging && (tab === "lodging" || tab === "products") && <OwnerLodgingTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} />}
                   {!isLodging && tab === "reservations" && <ReservationsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} onCount={setWaitingReservations} />}
                   {!isLodging && tab === "products" && <ProductsTab placeId={placeId} isPreview={isPreview} canAct={!isPreview || actForOwner} onGoAds={() => setTab("ads")} />}
@@ -371,7 +377,7 @@ export default function OwnerPage() {
 
 function KindBadge({ isPreview, label }: { isPreview: boolean; label: string }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 999, background: isPreview ? "#FEF2F2" : "#EAF0E3", color: isPreview ? "#991b1b" : "#2F3B28", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 9px", borderRadius: 999, background: isPreview ? "#FEF2F2" : "#FBEDE3", color: isPreview ? "#991b1b" : "#3B2A20", fontSize: 11.5, fontWeight: 800, whiteSpace: "nowrap" }}>
       <BadgeCheck size={12} />{label}
     </span>
   );
@@ -380,7 +386,7 @@ function KindBadge({ isPreview, label }: { isPreview: boolean; label: string }) 
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
   return (
-    <div className="ggk-body owner-page" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body owner-page" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <style>{`
         @media print {
           body { overflow: visible !important; }
@@ -430,7 +436,7 @@ function ReviewsTab({ placeId, isPreview }: { placeId: number; isPreview: boolea
       <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
         {reviews.length === 0 && <div style={{ fontSize: 13, color: "#6e6e6e", textAlign: "center", padding: "24px 0" }}>아직 후기가 없어요.</div>}
         {reviews.map((r) => (
-          <button key={r.id} onClick={() => router.push(`/place/${placeId}`)} style={{ textAlign: "left", padding: "11px 12px", borderRadius: 12, border: "1px solid #f0ece0", background: r.ownerReplied ? "#fafafa" : "#FFFBEB", cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
+          <button key={r.id} onClick={() => router.push(`/place/${placeId}`)} style={{ textAlign: "left", padding: "11px 12px", borderRadius: 12, border: "1px solid #EDECEB", background: r.ownerReplied ? "#fafafa" : "#FFFBEB", cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#666" }}>
                 <b style={{ color: "#444" }}>{r.nickname}</b>
@@ -466,9 +472,9 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
     <div style={card}>
       <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{place.name}</div>
       <div style={{ fontSize: 12.5, color: "#5c5c5c", margin: "4px 0 12px", lineHeight: 1.6 }}>고객이 가장 먼저 확인하는 정보예요. 영업시간과 동반 조건을 최신으로 유지해 주세요.</div>
-      <div style={{ border: "1px solid #f0ece0", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
+      <div style={{ border: "1px solid #EDECEB", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
         {rows.map(([label, value], i) => (
-          <div key={label} style={{ display: "flex", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #f5f1e6" : "none", fontSize: 13 }}>
+          <div key={label} style={{ display: "flex", gap: 10, padding: "9px 12px", borderTop: i ? "1px solid #F2F1F0" : "none", fontSize: 13 }}>
             <div style={{ width: 64, flexShrink: 0, color: "#666", fontWeight: 700 }}>{label}</div>
             <div style={{ flex: 1, minWidth: 0, color: value ? "#333" : "#c9c4b5", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{value || "아직 입력하지 않았어요"}</div>
           </div>
@@ -562,7 +568,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
   return (
     <div style={{ display: "grid", gap: 12 }}>
       {/* 현재 상태 */}
-      <div style={{ ...card, background: active ? "#FFFBEB" : "white", borderColor: active ? "#FDE68A" : "#ece6d6" }}>
+      <div style={{ ...card, background: active ? "#FFFBEB" : "white", borderColor: active ? "#FDE68A" : "#E7E6E5" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Crown size={18} color={active ? "#B45309" : "#bbb"} />
           <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>{active ? `${PLAN_NAME[currentPlan]} 이용 중` : "지금은 기본 요금제예요"}</div>
@@ -580,7 +586,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
         {active && !isPreview && canAct && cancelInfo?.ready && !cancelled && (
           <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #F5D48A", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 11.5, color: "#666", flex: "1 1 200px" }}>위약금 없이 언제든 해지할 수 있어요. 결제 3일 안에는 전액, 그 뒤에는 남은 날만큼 돌려드려요.</span>
-            <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #e2dcc8", background: "white", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
+            <button onClick={() => setShowCancel(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid #DDDCDB", background: "white", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>해지하기</button>
           </div>
         )}
       </div>
@@ -604,7 +610,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               aria-pressed={premium ? selected : undefined}
               onClick={() => { if (plan.id !== "basic") setPlanId(plan.id); }}
               onKeyDown={(e) => { if (plan.id !== "basic" && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setPlanId(plan.id); } }}
-              style={{ ...card, cursor: premium ? "pointer" : "default", borderColor: selected ? "#B45309" : premium ? "#F5D48A" : "#ece6d6", borderWidth: selected ? 2 : 1, background: selected ? "#FFFBEB" : "white" }}
+              style={{ ...card, cursor: premium ? "pointer" : "default", borderColor: selected ? "#B45309" : premium ? "#F5D48A" : "#E7E6E5", borderWidth: selected ? 2 : 1, background: selected ? "#FFFBEB" : "white" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: premium ? "#B45309" : "#333" }}>{plan.name}</div>
@@ -617,7 +623,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               </div>
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
                 {plan.features.map((f) => (
-                  <div key={f} style={{ display: "flex", gap: 6, fontSize: 12.5, color: "#444", lineHeight: 1.5 }}><Check size={13} color={premium ? "#B45309" : "#5C7A4A"} style={{ flexShrink: 0, marginTop: 3 }} />{f}</div>
+                  <div key={f} style={{ display: "flex", gap: 6, fontSize: 12.5, color: "#444", lineHeight: 1.5 }}><Check size={13} color={premium ? "#B45309" : "#A05A32"} style={{ flexShrink: 0, marginTop: 3 }} />{f}</div>
                 ))}
               </div>
             </div>
@@ -630,7 +636,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>{PLAN_NAME[planId]} · 시범 운영 요금 — 부담 없이 먼저 써 보세요</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
           {PROMO_STEPS.map((s) => (
-            <div key={s.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F7F3E8", border: "1px solid #ece6d6" }}>
+            <div key={s.label} style={{ padding: "11px 12px", borderRadius: 12, background: "#F4F3F2", border: "1px solid #E7E6E5" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#7a6a3a" }}>{lodging ? s.label.replace("첫 달", `첫 ${PERIOD_DAYS}일`).replace("2~3개월째", "2~3회차(30일씩)").replace("4개월째부터", "4회차부터") : s.label}</div>
               <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222", marginTop: 3 }}>{s.discount === 1 ? "0원" : `${lodging ? `${PERIOD_DAYS}일` : "월"} ${won(Math.floor((monthlyPrice * (1 - s.discount)) / 100) * 100)}`}</div>
             </div>
@@ -661,7 +667,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
                 <button key={m} onClick={() => setMonths(m)} style={{ padding: "9px 16px", borderRadius: 10, border: months === m ? "2px solid #B45309" : "1px solid #e2e4e8", background: months === m ? "#FFFBEB" : "white", color: months === m ? "#92400E" : "#555", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{unit(m)}</button>
               ))}
             </div>
-            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#F7F3E8" }}>
+            <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#F4F3F2" }}>
               <div style={{ fontSize: 12, color: "#7a6a3a", lineHeight: 1.7 }}>
                 {q.perMonth.slice(0, 6).map((p, i) => `${usedMonths + i + 1}${lodging ? "회차" : "개월째"} ${p === 0 ? "무료" : won(p)}${i < q.discounted ? "(시크릿 할인)" : ""}`).join(" · ")}{q.perMonth.length > 6 ? " · 이후 정가" : ""}
               </div>
@@ -682,7 +688,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               <span>위 요금과 기간을 확인했고, 유료 기간의 금액은 안내받은 계좌로 입금한 뒤 적용된다는 점에 동의해요.</span>
             </label>
             {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
-            <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#d6d3c9" : "#B45309", color: busy || !canAct || !agree ? "#4f4a3f" : "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
+            <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#D4D3D2" : "#B45309", color: busy || !canAct || !agree ? "#4f4a3f" : "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
               {busy ? "신청 중…" : `${unit(months)} 신청하기`}
             </button>
             </>)}
@@ -748,7 +754,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
     <div className="owner-screen-only" style={card}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, color: "#B45309" }}>같이가개 성과 보고서</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#B45309" }}>펫츠로드 성과 보고서</div>
           <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", marginTop: 3 }}>{stats.placeName ?? "내 가게"}</div>
           <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 3 }}>{fmtDate(from.toISOString())} ~ {fmtDate(today.toISOString())} (최근 30일)</div>
         </div>
@@ -774,7 +780,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
         </thead>
         <tbody>
           {rows.map(([label, value, desc]) => (
-            <tr key={label} style={{ borderTop: "1px solid #f3efe3" }}>
+            <tr key={label} style={{ borderTop: "1px solid #F0EFEE" }}>
               <td style={{ ...td, fontWeight: 700, color: "#333", whiteSpace: "nowrap" }}>{label}</td>
               <td style={{ ...td, textAlign: "right", fontWeight: 800, color: "#222" }}>{value.toLocaleString("ko-KR")}</td>
               <td style={{ ...td, color: "#5c5c5c", fontSize: 12 }}>{desc}</td>
@@ -783,7 +789,7 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
         </tbody>
       </table>
 
-      <div style={{ marginTop: 16, padding: "13px 14px", borderRadius: 13, background: "#F7F3E8", fontSize: 13, color: "#55604a", lineHeight: 1.8 }}>
+      <div style={{ marginTop: 16, padding: "13px 14px", borderRadius: 13, background: "#F4F3F2", fontSize: 13, color: "#6B5E55", lineHeight: 1.8 }}>
         <b style={{ color: "#333" }}>한눈에 보기</b><br />
         · 노출 대비 클릭률 {rate(clicks, exposure)} · 상세 조회 대비 방문·문의 행동 {rate(actions, stats.views.last30)}<br />
         · 가장 많이 본 날: {best && best.views > 0 ? `${best.day.slice(5).replace("-", "월 ")}일 (${best.views}회)` : "아직 조회가 없어요"}<br />

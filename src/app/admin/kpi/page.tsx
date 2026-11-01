@@ -102,7 +102,7 @@ export default function AdminKpi() {
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `같이가개_성과지표_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `펫츠로드_성과지표_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -119,26 +119,26 @@ export default function AdminKpi() {
     : [];
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="kpi" onRefresh={() => load(months)} />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <TrendingUp size={18} color="#5C7A4A" />
+          <TrendingUp size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>성과 지표</div>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {[6, 12, 24].map((m) => (
               <button key={m} onClick={() => setMonths(m)} style={{
                 padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
-                background: months === m ? "#5C7A4A" : "white", color: months === m ? "white" : "#555",
+                background: months === m ? "#A05A32" : "white", color: months === m ? "white" : "#555",
               }}>
                 최근 {m}개월
               </button>
             ))}
             <button onClick={downloadCsv} disabled={monthly.length === 0} style={{
               display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 999,
-              border: "1px solid #cfdcc3", background: "white", color: "#48603A", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
+              border: "1px solid #ECCAB3", background: "white", color: "#85482A", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap",
               cursor: monthly.length === 0 ? "default" : "pointer",
             }}>
               <Download size={13} /> 엑셀(CSV) 내려받기

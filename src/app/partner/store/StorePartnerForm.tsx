@@ -20,8 +20,8 @@ const STATUS_TEXT = {
   approved: "입점이 완료되었습니다. 사장님 센터의 상품 메뉴에서 메뉴를 올리면 쇼핑 탭에 표시됩니다.",
   rejected: "이번에는 입점이 어려웠습니다. 내용을 고쳐 다시 신청할 수 있습니다.",
 };
-const input: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 12, border: "1px solid #E8DFD2", background: "white", fontSize: 15, fontFamily: "inherit", color: "#23201B" };
-const primary: React.CSSProperties = { display: "block", width: "100%", boxSizing: "border-box", padding: 14, borderRadius: 14, border: "none", background: "#2F3B28", color: "white", fontSize: 15.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", textAlign: "center", textDecoration: "none" };
+const input: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "12px 13px", borderRadius: 12, border: "1px solid #E1E0DF", background: "white", fontSize: 15, fontFamily: "inherit", color: "#23201B" };
+const primary: React.CSSProperties = { display: "block", width: "100%", boxSizing: "border-box", padding: 14, borderRadius: 14, border: "none", background: "#3B2A20", color: "white", fontSize: 15.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", textAlign: "center", textDecoration: "none" };
 
 export default function StorePartnerForm() {
   const params = useSearchParams();
@@ -72,7 +72,7 @@ export default function StorePartnerForm() {
   return (
     <div style={{ display: "grid", gap: 10 }}>
       {status && (
-        <div role="status" style={{ padding: "12px 14px", borderRadius: 12, background: status === "rejected" ? "#FDF3F1" : "#E4EBDC", color: status === "rejected" ? "#9A3B27" : "#3F5230", fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>
+        <div role="status" style={{ padding: "12px 14px", borderRadius: 12, background: status === "rejected" ? "#FDF3F1" : "#F8E6D9", color: status === "rejected" ? "#9A3B27" : "#6F3D24", fontSize: 14, fontWeight: 700, lineHeight: 1.6 }}>
           {STATUS_TEXT[status]}
           {state.partner?.admin_note && status === "rejected" && <div style={{ fontWeight: 500, marginTop: 4 }}>{state.partner.admin_note}</div>}
         </div>
@@ -81,12 +81,12 @@ export default function StorePartnerForm() {
       <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} disabled={status === "approved"} placeholder="가게 주소" aria-label="가게 주소" maxLength={200} style={input} />
       <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={status === "approved"} placeholder="연락받을 전화번호" aria-label="연락받을 전화번호" inputMode="tel" maxLength={20} style={input} />
       <div>
-        <div style={{ fontSize: 14, fontWeight: 800, color: "#2F3B28", marginBottom: 6 }}>받고 싶은 방식</div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#3B2A20", marginBottom: 6 }}>받고 싶은 방식</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {(Object.keys(ORDER_TYPE_LABEL) as OrderType[]).map((m) => {
             const on = modes.includes(m);
             return (
-              <button key={m} type="button" onClick={() => toggle(m)} aria-pressed={on} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999, border: `1px solid ${on ? "#5C7A4A" : "#E8DFD2"}`, background: on ? "#E4EBDC" : "white", color: on ? "#3F5230" : "#5f6656", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              <button key={m} type="button" onClick={() => toggle(m)} aria-pressed={on} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999, border: `1px solid ${on ? "#A05A32" : "#E1E0DF"}`, background: on ? "#F8E6D9" : "white", color: on ? "#6F3D24" : "#6B5E55", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                 {on && <Check size={14} />}{ORDER_TYPE_LABEL[m]}
               </button>
             );

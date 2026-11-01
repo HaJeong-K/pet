@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { normalizePlan, planAtLeast, type PaidPlanId } from "@/lib/ownerPlans";
 import type { OrderType } from "@/lib/storeRules";
+import type { ProductOptionGroup } from "@/lib/storeRules";
 
 export const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -72,8 +73,10 @@ export async function storeEnabled(placeId: number): Promise<boolean> {
   return planAtLeast(await activePlanOf(placeId), "store");
 }
 
-/** 손님이 고를 수 있는 방식 — 입점 가게는 사장님이 고른 방식, 요금제로 열린 가게는 포장만 */
+/** 손님이 고를 수 있는 방식 — 사장님이 사장님 센터에서 정한 방식, 정한 적 없으면 입점 신청 때 고른 방식, 그것도 없으면 포장만 */
 export async function storeOrderModes(placeId: number): Promise<OrderType[]> {
+  const { data } = await db.from("places").select("store_order_modes").eq("id", placeId).maybeSingle();
+  if (data?.store_order_modes?.length) return data.store_order_modes as OrderType[];
   return (await storePartnerModes(placeId)) ?? ["pickup"];
 }
 
@@ -82,10 +85,11 @@ export type ProductRow = {
   // 자세한 칸(scripts/sql/owner-products-detail.sql) — 칸이 아직 없으면 비어 있는 값으로 채워 돌려줍니다
   category: string | null; image_url: string | null; unit: string | null; ingredients: string | null; allergy: string | null;
   origin: string | null; caution: string | null; is_featured: boolean; sold_out: boolean;
+  allergens: string[]; options: ProductOptionGroup[]; feed_reg_no: string | null;
 };
 export const PRODUCT_BASE_COLUMNS = "id, place_id, name, description, price, is_active, sort_order";
-export const PRODUCT_COLUMNS = `${PRODUCT_BASE_COLUMNS}, category, image_url, unit, ingredients, allergy, origin, caution, is_featured, sold_out`;
-const EMPTY_DETAIL = { category: null, image_url: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, is_featured: false, sold_out: false };
+export const PRODUCT_COLUMNS = `${PRODUCT_BASE_COLUMNS}, category, image_url, unit, ingredients, allergy, origin, caution, is_featured, sold_out, allergens, options, feed_reg_no`;
+const EMPTY_DETAIL = { allergens: [], options: [], feed_reg_no: null, category: null, image_url: null, unit: null, ingredients: null, allergy: null, origin: null, caution: null, is_featured: false, sold_out: false };
 
 /**
  * 가게의 상품 목록(사장님이 정한 순서).
@@ -109,4 +113,4 @@ export async function listProducts(placeId: number, onlyActive: boolean): Promis
   return { ready: true, detailReady: false, products: ((base.data ?? []) as unknown as ProductRow[]).map((p) => ({ ...EMPTY_DETAIL, ...p })) };
 }
 
-export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at, order_type, party_size, payment_status, refund_amount, cancel_request_status, cancel_request_reason, cancel_request_answer";
+export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at, order_type, party_size, coupon_id, discount, payment_status, refund_amount, cancel_request_status, cancel_request_reason, cancel_request_answer";

@@ -46,7 +46,7 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
     <div role="dialog" aria-modal="true" aria-label="내 경로에 추가" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "85dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <MapPinned size={18} color="#5C7A4A" />
+          <MapPinned size={18} color="#A05A32" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>내 경로에 추가</div>
             <div style={{ fontSize: 12, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stop.name}</div>
@@ -64,12 +64,12 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
             const has = r.stops.some((s) => s.id === stop.id);
             const full = r.stops.length >= MY_ROUTE_STOPS_MAX;
             return (
-              <button key={r.id} onClick={() => add(r)} disabled={busy || has || full} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #e8eaed", background: has ? "#F0F7EC" : "white", cursor: has || full ? "default" : "pointer", textAlign: "left", fontFamily: "inherit" }}>
+              <button key={r.id} onClick={() => add(r)} disabled={busy || has || full} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid #e8eaed", background: has ? "#FAF0E9" : "white", cursor: has || full ? "default" : "pointer", textAlign: "left", fontFamily: "inherit" }}>
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 13.5, fontWeight: 800, color: "#333" }}>{r.title}</span>
                   <span style={{ display: "block", fontSize: 11.5, color: "#666", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.stops.length}곳 · {r.stops.map((s) => s.name).join(" → ")}</span>
                 </span>
-                {has ? <Check size={16} color="#3F6B2B" /> : full ? <span style={{ fontSize: 11, color: "#6e6e6e" }}>가득 참</span> : <Plus size={16} color="#5C7A4A" />}
+                {has ? <Check size={16} color="#8A4A26" /> : full ? <span style={{ fontSize: 11, color: "#6e6e6e" }}>가득 참</span> : <Plus size={16} color="#A05A32" />}
               </button>
             );
           })}
@@ -78,9 +78,9 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
 
         <div style={{ marginTop: 14, display: "flex", gap: 6 }}>
           <input value={newName} onChange={(e) => setNewName(e.target.value.slice(0, MY_ROUTE_TITLE_MAX))} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="새 경로 이름 — 예: 강릉 1박 2일 댕댕 여행" style={{ flex: 1, minWidth: 0, padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, fontFamily: "inherit" }} />
-          <button onClick={create} disabled={busy || !newName.trim()} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: busy || !newName.trim() ? "#d6d3c9" : "#5C7A4A", color: busy || !newName.trim() ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: busy || !newName.trim() ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>만들고 담기</button>
+          <button onClick={create} disabled={busy || !newName.trim()} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: busy || !newName.trim() ? "#D4D3D2" : "#A05A32", color: busy || !newName.trim() ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: busy || !newName.trim() ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>만들고 담기</button>
         </div>
-        {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}{message.ok && <> <a href="/mypage#routes" style={{ color: "#48603A" }}>마이페이지에서 보기</a></>}</div>}
+        {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}{message.ok && <> <a href="/mypage#routes" style={{ color: "#85482A" }}>마이페이지에서 보기</a></>}</div>}
       </div>
     </div>,
     document.body,

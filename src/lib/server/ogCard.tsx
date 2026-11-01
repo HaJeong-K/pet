@@ -4,7 +4,7 @@
 // 사진이 없는 장소도 이름·주소·분류가 담긴 카드로 보기 좋게 나오게 합니다.
 //
 // 디자인은 사이트 기본 공유 그림(public/og-default.png)과 같은 틀입니다:
-//   왼쪽 위 로고(핀 + "같이가개") · 왼쪽에 큰 제목과 한 줄 설명 · 오른쪽에 지도 한 조각과 핀.
+//   왼쪽 위 로고(핀 + "펫츠로드") · 왼쪽에 큰 제목과 한 줄 설명 · 오른쪽에 지도 한 조각과 핀.
 // 기본 그림은 미리 만들어 둔 파일이고, 이 카드는 장소마다 이름이 달라 요청 때 그립니다.
 //
 // 한글 글꼴: 이미지 생성기(next/og)는 한글 글꼴이 내장돼 있지 않아, 카드에 들어갈 글자만 담은
@@ -14,12 +14,12 @@ import { ImageResponse } from "next/og";
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-const BRAND = "같이가개";
+const BRAND = "펫츠로드";
 
 const INK = "#3B2A1C";
 const BROWN = "#8B5E3C";
-const GREEN = "#5C7A4A";
-const CREAM = "#F7F3E8";
+const GREEN = "#A05A32";
+const PAGE_BG = "#F4F3F2";
 
 async function loadFont(family: string, text: string, weight?: number): Promise<ArrayBuffer | null> {
   try {
@@ -68,9 +68,9 @@ function MapTile() {
         <clipPath id="tile"><rect width="400" height="490" rx="48" /></clipPath>
       </defs>
       <g clipPath="url(#tile)">
-      <rect width="400" height="490" fill="#EDF1E5" />
-      <path d="M220 24 q200 49 200 206 v-245 z" fill="#C9D6B7" />
-      <ellipse cx="88" cy="392" rx="104" ry="78" fill="#C9D6B7" />
+      <rect width="400" height="490" fill="#F7E9DF" />
+      <path d="M220 24 q200 49 200 206 v-245 z" fill="#E0C1AD" />
+      <ellipse cx="88" cy="392" rx="104" ry="78" fill="#E0C1AD" />
       <path d="M-20 176 L420 245" stroke="#FFFFFF" strokeWidth="28" strokeLinecap="round" fill="none" />
       <path d="M144 -20 L184 510" stroke="#FFFFFF" strokeWidth="28" strokeLinecap="round" fill="none" />
       <path d="M288 225 L320 510" stroke="#FFFFFF" strokeWidth="16" strokeLinecap="round" fill="none" />
@@ -103,13 +103,13 @@ export async function renderShareCard(opts: { title: string; subtitle?: string; 
 
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", background: CREAM, fontFamily: "Noto Sans KR" }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", background: PAGE_BG, fontFamily: "Noto Sans KR" }}>
         {/* 왼쪽: 로고 · 제목 · 설명 */}
         <div style={{ display: "flex", flexDirection: "column", width: 730, height: "100%", padding: "72px 30px 70px 80px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <Pin size={78} />
             <div style={{ display: "flex", fontFamily: brand ? "Single Day" : "Noto Sans KR", fontSize: 68, color: "#6B4526", lineHeight: 1 }}>
-              <span>같</span><span style={{ color: "#8FA876" }}>이</span><span>가개</span>
+              <span>같</span><span style={{ color: "#C9966E" }}>이</span><span>가개</span>
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export async function renderShareCard(opts: { title: string; subtitle?: string; 
                     key={t}
                     style={{
                       display: "flex", fontSize: 28, fontWeight: 800, borderRadius: 999, padding: "9px 26px",
-                      color: i === 0 ? "#FFFFFF" : GREEN, background: i === 0 ? GREEN : "#E4EBDC",
+                      color: i === 0 ? "#FFFFFF" : GREEN, background: i === 0 ? GREEN : "#F8E6D9",
                     }}
                   >
                     {t}

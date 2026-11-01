@@ -23,7 +23,7 @@ export const NEED_SETTLEMENT_SQL = "예약 정산 기능을 준비하고 있어�
 export type MoneyBooking = {
   id: number; place_id: number; check_in: string; check_out: string; total: number; status: StayStatus;
   booked_on: string | null; created_at: string; payment_status: string;
-  /** 추억 스탬프 할인액 — total은 할인 후 금액. 할인분은 같이가개 부담이라 정산은 total + stamp_discount 기준 */
+  /** 추억 스탬프 할인액 — total은 할인 후 금액. 할인분은 펫츠로드 부담이라 정산은 total + stamp_discount 기준 */
   stamp_discount?: number | null;
 };
 

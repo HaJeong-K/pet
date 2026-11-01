@@ -7,15 +7,16 @@ import { petPolicySummary, type PetSize } from "@/lib/lodgingRules";
 
 // GET /api/lodging/list — 숙소 탭(/stay)에 보여 줄 전국 반려동물 동반 숙소
 //   · 공공데이터(관광공사·문화정보원)의 숙박·펜션 등 + 직접 등록된 장소 중 숙소 분류
-//   · 같이가개에서 바로 예약할 수 있는 숙소(사장님이 객실을 올린 곳)는 최저가·객실 수·동반 조건 요약을 함께
+//   · 펫츠로드에서 바로 예약할 수 있는 숙소(사장님이 객실을 올린 곳)는 최저가·객실 수·동반 조건 요약을 함께
 // 가까운 순 정렬·검색·필터는 화면에서 합니다(이 응답은 누구에게나 같아서 CDN이 잠깐 대신 응답할 수 있게).
 
-export const revalidate = 300;
+// ⚠ 미리 구워 두면 배포 시점의 결과가 계속 나갑니다 — 쇼핑 목록과 같습니다.
+export const dynamic = "force-dynamic";
 
 type Item = {
   id: number; name: string; category: string | null; address: string | null; lat: number | null; lng: number | null;
   image: string | null; phone: string | null; largeDog: boolean | null;
-  bookable: boolean; minPrice: number | null; roomCount: number; petSummary: string | null; petSizes: PetSize[];
+  bookable: boolean; minPrice: number | null; roomCount: number; petSummary: string | null; petSizes: PetSize[]; tags: string[];
 };
 
 const LODGING_PATTERNS = ["숙박", "숙소", "펜션", "호텔", "리조트", "모텔", "민박", "게스트", "캠핑", "글램핑", "스테이", "풀빌라", "한옥"];
@@ -26,7 +27,7 @@ export async function GET() {
   try {
     const [publicPlaces, own] = await Promise.all([
       getMergedPublicDataPlaces().catch(() => [] as any[]),
-      db.from("places").select("id, name, category, address, lat, lng, image_url, phone, large_dog")
+      db.from("places").select("id, name, category, address, lat, lng, image_url, phone, large_dog, search_tags")
         .or(LODGING_PATTERNS.map((w) => `category.ilike.%${w}%`).join(",")).limit(3000),
     ]);
     const items = new Map<number, Item>();
@@ -36,7 +37,7 @@ export async function GET() {
       items.set(id, {
         id, name: p.name, category: p.category ?? null, address: p.address ?? null, lat: num(p.lat), lng: num(p.lng),
         image: p.image_url ?? null, phone: p.phone ?? null, largeDog: p.large_dog ?? null,
-        bookable: false, minPrice: null, roomCount: 0, petSummary: null, petSizes: [],
+        bookable: false, minPrice: null, roomCount: 0, petSummary: null, petSizes: [], tags: p.search_tags ?? [],
       });
     };
     for (const p of own.data ?? []) add(p);

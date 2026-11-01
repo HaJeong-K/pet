@@ -42,7 +42,7 @@ import { parkToPlace } from "@/lib/parkPlace";
 import WelcomeIntro, { shouldShowWelcomeIntro } from "@/components/WelcomeIntro";
 import PageGuide from "@/components/PageGuide";
 import { saveCourse, deleteSavedCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
-import { MAP_GUIDE_KEY, mapGuideSteps } from "@/lib/pageGuides";
+import { MAP_GUIDE_KEY, ROUTE_GUIDE_KEY, mapGuideSteps, routeGuideSteps } from "@/lib/pageGuides";
 import { assignRecVariant, type RecVariant } from "@/lib/experiment";
 import { getImpressionCounts, recordImpressions, clearImpression } from "@/lib/recFatigue";
 import { useMediaQuery } from "@/lib/useMediaQuery";
@@ -54,6 +54,7 @@ import {
   Footprints, Landmark, Navigation, RefreshCw, ChevronLeft, ChevronRight, Sparkles,
   Stethoscope, Pill, MapPinned, Maximize2, Pin, Menu, SlidersHorizontal, ChevronDown, Bookmark,
   Home, Trees, HousePlus, BedDouble, Sprout,
+  ArrowLeft, ChevronUp,
 } from "lucide-react";
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
@@ -145,7 +146,7 @@ const ROUTE_HIGHLIGHT_BADGE: Record<StopHighlight, { label: string; title: strin
   // ⚠ 예전 이름 "후기 HOT"은 후기가 0개인 곳에도 붙었습니다 — 판정이 후기 수뿐 아니라 최근 찜·좋아요,
   // 조회 수까지 합친 점수라서요(2026-09-30 사용자 지적). 기준은 그대로 두고 이름을 실제 의미에 맞게 바꿨습니다.
   hot: { label: "요즘 인기", title: "최근 후기·찜·조회가 많은 곳", color: "#FF7A5C" },
-  pick: { label: "추천", title: "근처에 요즘 인기인 곳이 아직 없어 친화도가 높은 곳을 추천했어요", color: "#48603A" },
+  pick: { label: "추천", title: "근처에 요즘 인기인 곳이 아직 없어 친화도가 높은 곳을 추천했어요", color: "#85482A" },
 };
 
 // 지도 검색어 — 같은 페이지 세션 안에서만 유지(새로고침하면 초기화). 아래 KakaoMap 참고.
@@ -325,11 +326,14 @@ function toolButton(active: boolean, inBar = false): React.CSSProperties {
   return {
     display: "flex", alignItems: "center", gap: 5, padding: inBar ? "6px 10px" : "6px 11px",
     borderRadius: inBar ? 9 : 10, border: inBar ? "none" : "1px solid rgba(30,30,20,0.1)",
-    background: active ? "#5C7A4A" : inBar ? "transparent" : "white", color: active ? "white" : "#3a3a32",
+    background: active ? "#A05A32" : inBar ? "transparent" : "white", color: active ? "white" : "#3a3a32",
     fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Noto Sans KR', sans-serif",
     boxShadow: inBar ? "none" : "0 2px 8px rgba(30,30,20,0.07)", transition: "background 0.15s ease, color 0.15s ease",
   };
 }
+
+// 지도 중심이 내 위치에서 이 거리 안이면 내 위치에서, 더 멀면 보고 있는 지도 영역에서 코스를 만듭니다
+const ROUTE_NEAR_ME_KM = 1.5;
 
 export default function KakaoMap() {
   const router = useRouter();
@@ -340,6 +344,10 @@ export default function KakaoMap() {
   const searchParams = useSearchParams();
   const [mapReady, setMapReady] = useState(false);
   const focusRequestedRef = useRef(searchParams.has("focusLat"));
+  const focusPlaceId = searchParams.get("focusPlaceId");
+  // 숙소·가게 화면에서 지도로 왔을 때 돌아갈 주소(사이트 안 주소만 받습니다)
+  const focusBackParam = searchParams.get("focusBack");
+  const focusBack = focusBackParam && /^\/(?!\/)/.test(focusBackParam) ? focusBackParam : null;
   const mapRef = useRef<any>(null);
   const [session, setSession] = useState<any>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -577,6 +585,15 @@ export default function KakaoMap() {
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
   // 휴대폰에서는 목록이 바텀시트로 항상 깔려 있고(지도 앱 공통 패턴), 신규·추천·AI 코스를
   // 열면 그 시트가 목록 자리를 대신합니다. (showListPanelMobile은 예전 "목록" 버튼용 — 지금은 안 씀)
+  // 코스 출발지 — 지도를 다른 곳으로 옮겨 구경 중이면(숙소 근처 보기·검색·장소 선택) 그 지도 영역에서, 내 위치 근처를 보고 있으면 내 위치에서 시작합니다.
+  const routeOrigin = useMemo(() => {
+    const view = routeFallbackCenter;
+    if (!view) return userLocation || searchCenter || null;
+    if (!userLocation) return view;
+    const km = Math.hypot((view.lat - userLocation.lat) * 111, (view.lng - userLocation.lng) * 88);
+    return km <= ROUTE_NEAR_ME_KM ? userLocation : view;
+  }, [routeFallbackCenter, userLocation, searchCenter]);
+  const [routeOptionsOpen, setRouteOptionsOpen] = useState(false);
   const showListPanel = !isNarrowScreen || (!showRecentPanel && !showRecommendPanel && !showRoutePanel);
   void showListPanelMobile;
 
@@ -1135,7 +1152,7 @@ export default function KakaoMap() {
   }, [userLocation, mapReady, locationAccuracy, locationSource]);
 
   // 숙소 화면의 "지도에서 근처 동반 장소 보기" — 그 숙소를 가운데 두고 지도를 보여 줍니다(/?focusLat=&focusLng=&focusName=).
-  // 숙소가 지도 목록에 없어도 좌표로 옮기고, 이름표를 띄웁니다. 내 위치(GPS)가 나중에 잡혀도 지도를 끌고 가지 않습니다.
+  // 숙소가 지도 목록에 없어도 좌표로 옮기고, 파란 이름표를 띄웁니다(그 장소의 원래 마커는 그리지 않아 겹치지 않습니다). 내 위치(GPS)가 나중에 잡혀도 지도를 끌고 가지 않습니다.
   useEffect(() => {
     const lat = Number(searchParams.get("focusLat")), lng = Number(searchParams.get("focusLng"));
     if (!mapReady || !mapRef.current || !window.kakao?.maps || !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
@@ -1147,8 +1164,9 @@ export default function KakaoMap() {
     if (!name) return;
     const label = document.createElement("div");
     label.textContent = name;
-    label.style.cssText = "padding:7px 12px;border-radius:999px;background:#1D4F91;color:white;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;font-family:inherit";
-    const overlay = new window.kakao.maps.CustomOverlay({ position, content: label, yAnchor: 1.4, zIndex: 20 });
+    label.style.cssText = "padding:7px 12px;border-radius:999px;background:#1D4F91;color:white;font-size:13px;font-weight:800;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap;font-family:inherit;cursor:pointer";
+    label.onclick = () => { if (focusPlaceId) selectPlaceRef.current(Number(focusPlaceId)); };
+    const overlay = new window.kakao.maps.CustomOverlay({ position, content: label, yAnchor: 1, zIndex: 20 });
     overlay.setMap(mapRef.current);
     return () => overlay.setMap(null);
   }, [mapReady, searchParams]);
@@ -1711,7 +1729,7 @@ export default function KakaoMap() {
     }
     if (userLocation) add(tilesForRadius(userLocation, DATA_HOME_KM));
     // 코스는 내 위치 우선, 추천은 검색한 곳 우선(각 계산의 기준점과 같게)
-    if (showRoutePanel && (userLocation || searchCenter || routeFallbackCenter)) wide = userLocation || searchCenter || routeFallbackCenter;
+    if (showRoutePanel && routeOrigin) wide = routeOrigin;
     else if (showRecommendPanel && (searchCenter || userLocation || routeFallbackCenter)) wide = searchCenter || userLocation || routeFallbackCenter;
 
     const focus = searchCenter || userLocation || viewCenter;
@@ -2181,9 +2199,7 @@ export default function KakaoMap() {
   const routeBuild = useMemo<{ route: RouteResult | null; exhausted: boolean }>(() => {
     // 주변(반경 30km) 장소를 다 받은 뒤에 만듭니다 — 일부만 받은 채 만들면 코스가 잠깐 나왔다가 바뀝니다.
     if (!showRoutePanel || wideLoading) return { route: null, exhausted: false };
-    // 코스 출발지는 항상 실제 GPS 기반 현재 위치를 우선합니다(위 dong effect와 동일한
-    // 우선순위). searchCenter는 위치 권한이 없을 때만 대체로 씁니다.
-    const center = userLocation || searchCenter || routeFallbackCenter;
+    const center = routeOrigin;
     if (!center) return { route: null, exhausted: false };
 
     // ⚠ 공원(parks)은 places와 별개 테이블/state라 id 체계가 다릅니다(둘 다 숫자 id라
@@ -2529,6 +2545,7 @@ const courseMeta = (route: RouteResult) => ({
 
     // 가게 이름표 pill(원래 지도 마커) 하나를 그립니다. 누르면 미리보기 카드(정보·후기)가 열립니다.
     const addPlacePill = (place: any, position: any, zIndex = 3) => {
+        if (String(place.id) === focusPlaceId) return; // 파란 이름표가 대신합니다
         const overlay = new window.kakao.maps.CustomOverlay({
           position,
           content: `
@@ -2662,6 +2679,7 @@ const courseMeta = (route: RouteResult) => ({
           const lng = parseFloat(place.lng);
           if (isNaN(lat) || isNaN(lng)) return null;
           if (lat < minLat || lat > maxLat || lng < minLng || lng > maxLng) return null;
+          if (String(place.id) === focusPlaceId) return null; // 파란 이름표가 대신합니다
 
           const marker = new window.kakao.maps.Marker({
             position: new window.kakao.maps.LatLng(lat, lng),
@@ -2769,7 +2787,7 @@ const courseMeta = (route: RouteResult) => ({
                 white-space:nowrap;
                 user-select:none;
                 border:1px solid rgba(58,116,56,0.25);
-                color:#2b5e29;
+                color:#2B5E29;
                 display:inline-flex;
                 align-items:center;
                 gap:4px;
@@ -2816,9 +2834,9 @@ const courseMeta = (route: RouteResult) => ({
         disableClickZoom: true,
         calculator: [10, 50, 100],
         styles: [
-          { width: "30px", height: "30px", background: "rgba(76,140,74,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "30px", fontSize: "11px", fontWeight: "700" },
-          { width: "38px", height: "38px", background: "rgba(58,116,56,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "38px", fontSize: "12px", fontWeight: "700" },
-          { width: "46px", height: "46px", background: "rgba(43,94,41,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "46px", fontSize: "13px", fontWeight: "700" },
+          { width: "30px", height: "30px", background: "rgba(155, 97, 59,0.85)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "30px", fontSize: "11px", fontWeight: "700" },
+          { width: "38px", height: "38px", background: "rgba(125, 78, 47,0.88)", borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "38px", fontSize: "12px", fontWeight: "700" },
+          { width: "46px", height: "46px", background: "rgba(98, 61, 37,0.9)",  borderRadius: "50%", color: "#fff", textAlign: "center", lineHeight: "46px", fontSize: "13px", fontWeight: "700" },
         ],
       });
       window.kakao.maps.event.addListener(parkClustererRef.current, "clusterclick", (cluster: any) => {
@@ -2970,7 +2988,7 @@ const courseMeta = (route: RouteResult) => ({
       const size = count < 100 ? 38 : count < 1000 ? 46 : 56;
       const color = kind === "place"
         ? (count < 100 ? "rgba(76,110,245,0.88)" : count < 1000 ? "rgba(59,90,220,0.9)" : "rgba(37,70,190,0.92)")
-        : "rgba(76,140,74,0.88)";
+        : "rgba(155, 97, 59,0.88)";
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lat, lng),
         content: `<div data-count-bubble="${kind}" onclick="window.ggkZoomInAt(${lat},${lng})" style="width:${kind === "place" ? size : size - 10}px;height:${kind === "place" ? size : size - 10}px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-size:${count >= 1000 ? 13 : 12}px;font-weight:700;font-family:'Noto Sans KR',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.22);border:2px solid rgba(255,255,255,0.85);cursor:pointer;user-select:none;">${formatBubbleCount(count)}</div>`,
@@ -3065,6 +3083,10 @@ const courseMeta = (route: RouteResult) => ({
     const center = mapRef.current?.getCenter?.();
     if (center) setRouteFallbackCenter({ lat: center.getLat(), lng: center.getLng() });
   }, [showRoutePanel, showRecommendPanel]);
+  // 코스를 연 채 검색·장소 이동으로 지도를 옮기면 그곳에서 코스를 다시 만듭니다.
+  useEffect(() => {
+    if (showRoutePanel && searchCenter) setRouteFallbackCenter(searchCenter);
+  }, [showRoutePanel, searchCenter]);
   useEffect(() => {
     if (!showRoutePanel) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -3129,7 +3151,7 @@ const courseMeta = (route: RouteResult) => ({
     const polyline = new window.kakao.maps.Polyline({
       path: hasWalkPath ? walkLatLngs : path,
       strokeWeight: hasWalkPath ? 5 : 4,
-      strokeColor: "#5C7A4A",
+      strokeColor: "#A05A32",
       strokeOpacity: 0.85,
       strokeStyle: hasWalkPath ? "solid" : "shortdot",
     });
@@ -3142,7 +3164,7 @@ const courseMeta = (route: RouteResult) => ({
       if (isValidCoord(lastLat, lastLng)) {
         const back = new window.kakao.maps.Polyline({
           path: [new window.kakao.maps.LatLng(lastLat, lastLng), new window.kakao.maps.LatLng(Number(currentRoute.origin.lat), Number(currentRoute.origin.lng))],
-          strokeWeight: 3, strokeColor: "#5C7A4A", strokeOpacity: 0.6, strokeStyle: "shortdot",
+          strokeWeight: 3, strokeColor: "#A05A32", strokeOpacity: 0.6, strokeStyle: "shortdot",
         });
         back.setMap(map);
         routeReturnLineRef.current = back;
@@ -3153,19 +3175,18 @@ const courseMeta = (route: RouteResult) => ({
       const lat = parseFloat(String(stop.place.lat));
       const lng = parseFloat(String(stop.place.lng));
       if (isNaN(lat) || isNaN(lng)) return;
-      // 방문 순서 번호 — 가게 정보는 위쪽의 원래 가게 마커(이름표)가 보여주므로, 번호는 그 바로
-      // 아래(장소 좌표 기준 아래쪽)에 붙여 겹치지 않게 합니다. 고정(핀)한 정거장은 핀 표시를 붙입니다.
+      // 방문 순서 번호 — 이름표에 가려지지 않도록 이름표 바로 위, 가장 앞쪽에 둡니다. 고정(핀)한 정거장은 핀 표시를 붙입니다.
       const pinned = pinnedStopIds.has(stop.place.id);
-      const pinMark = pinned ? '<span style="position:absolute; top:-8px; right:-9px; width:16px; height:16px; border-radius:50%; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3F5230" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>' : "";
+      const pinMark = pinned ? '<span style="position:absolute; top:-8px; right:-9px; width:16px; height:16px; border-radius:50%; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;"><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6F3D24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></span>' : "";
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lat, lng),
         content: `
           <div
             onclick="window.selectPlace(${typeof stop.place.id === "number" ? stop.place.id : `'${stop.place.id}'`})"
             style="
-              position:relative; margin-top:3px;
+              position:relative; margin:0 auto 32px;
               width:24px; height:24px; border-radius:50%;
-              background:linear-gradient(135deg,#5C7A4A,#2F3B28);
+              background:linear-gradient(135deg,#A05A32,#3B2A20);
               color:white; display:flex; align-items:center; justify-content:center;
               font-size:12px; font-weight:800; font-family:'Noto Sans KR',sans-serif;
               box-shadow:0 2px 8px rgba(124,58,237,0.45); border:2px solid white;
@@ -3173,8 +3194,8 @@ const courseMeta = (route: RouteResult) => ({
             "
           >${idx + 1}${pinMark}</div>
         `,
-        yAnchor: 0,
-        zIndex: 15,
+        yAnchor: 1,
+        zIndex: 40,
       });
       overlay.setMap(map);
       routeMarkerOverlaysRef.current.push(overlay);
@@ -3329,7 +3350,7 @@ const courseMeta = (route: RouteResult) => ({
     Kakao.Share.sendDefault({
       objectType: "feed",
       content: {
-        title: "같이가개",
+        title: "펫츠로드",
         description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
         imageUrl: `${window.location.origin}/og-default.png`,
         link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
@@ -3352,7 +3373,7 @@ const courseMeta = (route: RouteResult) => ({
   const handleSnsShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: "같이가개",
+        title: "펫츠로드",
         text: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
         url: window.location.href,
       });
@@ -3367,7 +3388,7 @@ const courseMeta = (route: RouteResult) => ({
   // 어디서나 열리고, 네이버는 앱 전용이라 PC에서는 카카오맵으로 대신 열지 안내합니다.
   // 출발지 이름은 패널의 "출발:" 표기와 같게 맞춥니다 — 위치 권한이 없어 검색 중심에서
   // 코스를 만든 경우 "현재 위치"라고 부르면 사용자가 엉뚱한 곳에서 출발하는 줄 압니다.
-  const routeOriginLabel = userLocation ? "현재 위치" : (searchQuery.trim() || "지도 중심");
+  const routeOriginLabel = routeOrigin && routeOrigin === userLocation ? "현재 위치" : (searchParams.get("focusName") || searchQuery.trim() || "지도 중심");
   // 새로 생긴 곳·취향 추천·산책 코스 패널의 자리 — 메인 목록의 반대편, 휴대폰에서는 바텀시트
   const sidePanelStyle = (width: number, maxHeight: string): React.CSSProperties => ({
     ...mapPanelFrame,
@@ -3381,7 +3402,7 @@ const courseMeta = (route: RouteResult) => ({
     zIndex: 30,
     ...(isNarrowScreen ? mobileSheetStyle(30) : {}),
   });
-  const routeActionButton: React.CSSProperties = { flex: 1, padding: "8px 0", borderRadius: 10, border: "1px solid rgba(60,50,30,0.14)", background: "white", color: "#3F5230", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: "inherit" };
+  const routeActionButton: React.CSSProperties = { flex: 1, padding: "8px 0", borderRadius: 10, border: "1px solid rgba(60,50,30,0.14)", background: "white", color: "#6F3D24", fontSize: "11.5px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: "inherit" };
 
   const toDirectionPoint = (place: { lat?: unknown; lng?: unknown; name: string }): DirectionPoint | null => {
     const lat = parseFloat(String(place.lat));
@@ -3834,7 +3855,7 @@ const courseMeta = (route: RouteResult) => ({
                 className="ggk-body"
                 style={{
                   marginTop: "10px", width: "100%", padding: "9px 0", borderRadius: "10px", border: "none",
-                  background: "#5C7A4A", color: "white", fontWeight: 700, fontSize: "12px", cursor: "pointer",
+                  background: "#A05A32", color: "white", fontWeight: 700, fontSize: "12px", cursor: "pointer",
                 }}
               >
                 자세히 보기 · 후기 쓰기
@@ -3880,10 +3901,10 @@ const courseMeta = (route: RouteResult) => ({
             // 검색창 글자는 16px(그보다 작으면 아이폰이 입력할 때 화면을 확대해 버림).
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {/* 로고: 핀 속 슈나우저 + "같이가개"(앱 아이콘과 같은 핀). 예전 손그림 두 마리는 빈 화면 등의 마스코트로 남겨 뒀습니다. */}
+                {/* 로고: 핀 속 슈나우저 + "펫츠로드"(앱 아이콘과 같은 핀). 예전 손그림 두 마리는 빈 화면 등의 마스코트로 남겨 뒀습니다. */}
                 <Image
-                  src="/icons/logo_lockup.png"
-                  alt="같이가개"
+                  src="/icons/petsroad_lockup.png"
+                  alt="펫츠로드"
                   width={721}
                   height={231}
                   priority
@@ -3922,7 +3943,7 @@ const courseMeta = (route: RouteResult) => ({
                   style={{
                     width: 38, height: 38, flexShrink: 0, borderRadius: 12,
                     border: showMobileMenu ? "none" : "1px solid rgba(30,30,20,0.12)",
-                    background: showMobileMenu ? "#5C7A4A" : "white",
+                    background: showMobileMenu ? "#A05A32" : "white",
                     color: showMobileMenu ? "white" : "#3a3a32",
                     boxShadow: "0 2px 8px rgba(30,30,20,0.08)",
                     display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
@@ -3953,8 +3974,8 @@ const courseMeta = (route: RouteResult) => ({
                     ...MOBILE_CHIP_STYLE,
                     display: "inline-flex", alignItems: "center", gap: 3,
                     borderRadius: "999px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
-                    border: showParks ? "none" : "1px solid #d8dcd6",
-                    background: showParks ? "#3a7438" : "white",
+                    border: showParks ? "none" : "1px solid #F0D4C2",
+                    background: showParks ? "#7D4E2F" : "white",
                     color: showParks ? "white" : "#666",
                     fontFamily: "'Noto Sans KR', sans-serif",
                   }}
@@ -3969,8 +3990,8 @@ const courseMeta = (route: RouteResult) => ({
           {/* 좌측: 로고 */}
           <div style={{ flexShrink: 0, lineHeight: 1 }}>
             <Image
-              src="/icons/logo_lockup.png"
-              alt="같이가개"
+              src="/icons/petsroad_lockup.png"
+              alt="펫츠로드"
               width={721}
               height={231}
               priority
@@ -3980,7 +4001,7 @@ const courseMeta = (route: RouteResult) => ({
               className="ggk-body"
               style={{ fontSize: "10px", color: "#5c5c5c", fontWeight: 400, marginTop: "6px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}
             >
-              나의 가족인 반려동물과 함께 맛있는 추억을 나눌 장소 찾기
+              나의 가족인 반려동물과 함께 추억을 나눌 장소 찾기
             </div>
           </div>
 
@@ -4048,10 +4069,10 @@ const courseMeta = (route: RouteResult) => ({
                   padding: "4px 9px",
                   fontSize: "11px",
                   borderRadius: "999px",
-                  border: showParks ? "none" : "1px solid #d8dcd6",
+                  border: showParks ? "none" : "1px solid #F0D4C2",
                   fontWeight: 600,
                   cursor: "pointer",
-                  background: showParks ? "#3a7438" : "white",
+                  background: showParks ? "#7D4E2F" : "white",
                   color: showParks ? "white" : "#666",
                   boxShadow: showParks ? "0 1px 6px rgba(0,0,0,0.22)" : "0 1px 3px rgba(0,0,0,0.07)",
                   whiteSpace: "nowrap",
@@ -4123,7 +4144,7 @@ const courseMeta = (route: RouteResult) => ({
             </div>
             <button ref={jeboBtnRef} data-guide="report" title="새 장소나 바뀐 정보 알려 주기" onClick={() => router.push("/jebo")}
               className="ggk-body"
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 12, border: "none", background: "#2F3B28", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(30,30,20,0.18)", fontFamily: "'Noto Sans KR', sans-serif" }}>
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 12, border: "none", background: "#3B2A20", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 2px 10px rgba(30,30,20,0.18)", fontFamily: "'Noto Sans KR', sans-serif" }}>
               <Pencil size={13} />{toolbarLabels ? "제보하기" : "제보"}
             </button>
             </>
@@ -4166,15 +4187,15 @@ const courseMeta = (route: RouteResult) => ({
               <div style={{ width: 40, height: 5, borderRadius: 3, background: "#d9dce1", margin: "0 auto" }} />
             </div>
             {([
-              { key: "recent", label: "새로 생긴 곳", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#3F5230", bg: "#EEF3E8",
+              { key: "recent", label: "새로 생긴 곳", desc: "새로 등록된 장소를 모아 봐요", Icon: MapPinPlus, color: "#6F3D24", bg: "#FCF1E9",
                 run: () => { setShowRecentPanel(true); setShowRecommendPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
-              { key: "recommend", label: "취향 추천", desc: "취향에 맞는 장소를 골라 드려요", Icon: Sparkles, color: "#3F5230", bg: "#EEF3E8",
+              { key: "recommend", label: "취향 추천", desc: "취향에 맞는 장소를 골라 드려요", Icon: Sparkles, color: "#6F3D24", bg: "#FCF1E9",
                 run: () => { setShowRecommendPanel(true); setShowRecentPanel(false); setShowListPanelMobile(false); setShowRoutePanel(false); } },
-              { key: "route", label: "산책·나들이 코스", desc: "반려견과 걷기 좋은 코스를 짜 드려요", Icon: RouteIcon, color: "#3F5230", bg: "#EEF3E8",
+              { key: "route", label: "산책·나들이 코스", desc: "반려견과 걷기 좋은 코스를 짜 드려요", Icon: RouteIcon, color: "#6F3D24", bg: "#FCF1E9",
                 run: () => { setShowRoutePanel(true); setShowRecentPanel(false); setShowRecommendPanel(false); setShowListPanelMobile(false); } },
-              { key: "owner", label: "사장님", desc: "우리 가게를 직접 등록하고 관리해요", Icon: Store, color: "#3F5230", bg: "#EEF3E8",
+              { key: "owner", label: "사장님", desc: "우리 가게를 직접 등록하고 관리해요", Icon: Store, color: "#6F3D24", bg: "#FCF1E9",
                 run: () => { handleOwnerRegisterClick(); } },
-              { key: "jebo", label: "제보하기", desc: "새로운 장소나 바뀐 정보를 알려 주세요", Icon: Pencil, color: "white", bg: "#2F3B28",
+              { key: "jebo", label: "제보하기", desc: "새로운 장소나 바뀐 정보를 알려 주세요", Icon: Pencil, color: "white", bg: "#3B2A20",
                 run: () => { router.push("/jebo"); } },
             ] as const).map(({ key, label, desc, Icon, color, bg, run }) => (
               <button
@@ -4201,6 +4222,12 @@ const courseMeta = (route: RouteResult) => ({
 
       {/* ── 액션 버튼 첫 방문 안내 투어: position:fixed라 트리 안 위치는 상관없습니다. ── */}
       <PageGuide storageKey={MAP_GUIDE_KEY} steps={mapGuideSteps} enabled={demoNoticeChecked && !showDemoNotice} />
+      <PageGuide storageKey={ROUTE_GUIDE_KEY} steps={routeGuideSteps} enabled={showRoutePanel && !!displayRoute} delayMs={500} />
+      {focusBack && (
+        <a href={focusBack} className="ggk-body" style={{ position: "fixed", left: "50%", translate: "-50% 0", bottom: isNarrowScreen ? `${mobileBottomInset + 12}px` : 96, zIndex: 35, display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "calc(100vw - 32px)", padding: "11px 18px", borderRadius: 999, background: "#3B2A20", color: "white", fontSize: 14, fontWeight: 800, textDecoration: "none", whiteSpace: "nowrap", boxShadow: "0 6px 20px rgba(0,0,0,0.28)" }}>
+          <ArrowLeft size={16} style={{ flexShrink: 0 }} /><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{searchParams.get("focusName") || "이전"} 화면으로 돌아가기</span>
+        </a>
+      )}
 
       {/* ── 리스트 패널 (검색 중이면 가게명 매칭 결과, 아니면 현재 지도 화면 영역: displayedPlaces 사용)
           좁은 화면에서는 헤더의 "목록" 토글을 켰을 때만 보이고, 폭도 clamp()로 화면 크기에
@@ -4219,7 +4246,7 @@ const courseMeta = (route: RouteResult) => ({
           ...(effectiveListPanelSide === "left" ? { left: "14px" } : { right: "14px" }),
           width: isNarrowScreen ? "clamp(170px, 48vw, 220px)" : "300px",
           height: "62vh",
-          background: "#FAF8F3",
+          background: "#F9F8F7",
           border: "1px solid rgba(60,50,30,0.08)",
           borderRadius: "22px",
           overflow: "hidden",
@@ -4243,18 +4270,18 @@ const courseMeta = (route: RouteResult) => ({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "7px", minWidth: 0 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg,#5C7A4A,#7F9B67)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg,#A05A32,#BE8458)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <MapPin size={13} color="white" />
             </div>
             <div className="ggk-logo" style={{ fontSize: "13.5px", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.2px" }}>
               주변 장소
             </div>
-            <div style={{ fontSize: "10px", color: "#7a6f5c", fontWeight: 700, flexShrink: 0, background: "#F1ECE1", borderRadius: 999, padding: "2px 7px" }}>
+            <div style={{ fontSize: "10px", color: "#7a6f5c", fontWeight: 700, flexShrink: 0, background: "#EDECEB", borderRadius: 999, padding: "2px 7px" }}>
               {displayedPlaces.length.toLocaleString("ko-KR")}곳
             </div>
             {/* 검색어를 어떻게 알아들었는지 보여 줍니다. 예: "우리동네 · HOT" */}
             {intentLabel && (
-              <div data-search-intent style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px", fontWeight: 700, color: "#48603A", background: "#EEF3E8", borderRadius: 999, padding: "2px 8px" }}>
+              <div data-search-intent style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px", fontWeight: 700, color: "#85482A", background: "#FCF1E9", borderRadius: 999, padding: "2px 8px" }}>
                 {intentLabel}
               </div>
             )}
@@ -4343,7 +4370,7 @@ const courseMeta = (route: RouteResult) => ({
             @media (hover: hover) { .ggk-list-card:hover { box-shadow: 0 8px 20px rgba(40,32,16,0.11) !important; } }
           `}</style>
           {summaryView && (
-            <div data-summary-hint style={{ margin: "2px 2px 8px", padding: "8px 10px", borderRadius: 10, background: "#EEF3E8", color: "#48603A", fontSize: 11, fontWeight: 600, lineHeight: 1.5 }}>
+            <div data-summary-hint style={{ margin: "2px 2px 8px", padding: "8px 10px", borderRadius: 10, background: "#FCF1E9", color: "#85482A", fontSize: 11, fontWeight: 600, lineHeight: 1.5 }}>
               넓게 보는 중이에요. 지도의 숫자를 누르거나 확대하면 그 지역의 장소가 모두 나와요.
             </div>
           )}
@@ -4449,17 +4476,19 @@ const courseMeta = (route: RouteResult) => ({
 
       {/* ── 산책 코스 패널 — 요약(거리·시간·친화도) → 테마 → 정거장 흐름 → 저장·길찾기 */}
       {showRoutePanel && (
-        <div className="ggk-body" style={sidePanelStyle(340, "76vh")}>
+        <div className="ggk-body" style={sidePanelStyle(340, "88vh")}>
           {isNarrowScreen && renderSheetHandle()}
           <MapPanelHeader
             Icon={RouteIcon}
             title="산책 코스"
-            count={displayRoute ? `${displayRoute.stops.length}곳` : null}
+            count={displayRoute ? `${displayRoute.stops.length}곳 · ${displayRoute.totalDistanceKm}km · ${formatEstimatedTime(displayRoute.estimatedMinutes)}` : null}
             sub={routeTheme === "walk" ? `${routeOriginLabel}에서 출발해 동네를 한 바퀴 돌아와요.` : `${routeOriginLabel}에서 출발해요.`}
           />
 
           <div style={{ padding: "10px 12px 11px", background: "white", borderBottom: "1px solid rgba(60,50,30,0.07)", flexShrink: 0 }}>
-            <div role="tablist" aria-label="코스 테마" style={{ display: "flex", gap: 4, padding: 3, borderRadius: 11, background: "#F4F0E7" }}>
+            {/* 옵션은 접어 두어 아래 코스 목록을 길게 봅니다 */}
+            {routeOptionsOpen && <>
+            <div role="tablist" aria-label="코스 테마" style={{ display: "flex", gap: 4, padding: 3, marginBottom: 10, borderRadius: 11, background: "#F1F0EF" }}>
               {(Object.keys(ROUTE_THEME_LABEL) as RouteTheme[]).map((theme) => (
                 <button
                   key={theme}
@@ -4474,7 +4503,7 @@ const courseMeta = (route: RouteResult) => ({
             </div>
 
             {displayRoute && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginTop: 11 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", marginBottom: 10 }}>
                 {[
                   { label: "총 거리", value: `${displayRoute.totalDistanceKm}km` },
                   { label: "예상 시간", value: formatEstimatedTime(displayRoute.estimatedMinutes) },
@@ -4489,20 +4518,26 @@ const courseMeta = (route: RouteResult) => ({
             )}
 
             {/* 코스에 넣을 곳 — 한 줄로 켜고 끕니다. 카페는 산책 중심에서만 */}
-            <div style={{ display: "flex", gap: 5, marginTop: 10, flexWrap: "nowrap" }}>
+            <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "nowrap" }}>
               {([
                 ...(routeTheme === "walk" ? [{ key: "cafe", label: "카페", on: routeIncludeCafe, toggle: () => setRouteIncludeCafe((v) => !v) }] : []),
                 { key: "vet", label: "동물병원", on: routeIncludeVet, toggle: () => setRouteIncludeVet((v) => !v) },
                 { key: "pharmacy", label: "동물약국", on: routeIncludePharmacy, toggle: () => setRouteIncludePharmacy((v) => !v) },
                 { key: "nearby", label: "주변 장소", on: showNearbyInCourse, toggle: () => setShowNearbyInCourse((v) => !v) },
               ]).map(({ key, label, on, toggle }) => (
-                <button key={key} role="switch" aria-checked={on} onClick={toggle} style={{ flex: "1 1 auto", padding: "6px 4px", borderRadius: 999, fontSize: "11px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", border: on ? "1px solid #2F3B28" : "1px solid rgba(60,50,30,0.14)", background: on ? "#2F3B28" : "white", color: on ? "white" : "#4f4738" }}>{label}</button>
+                <button key={key} role="switch" aria-checked={on} onClick={toggle} style={{ flex: "1 1 auto", padding: "6px 4px", borderRadius: 999, fontSize: "11px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", border: on ? "1px solid #3B2A20" : "1px solid rgba(60,50,30,0.14)", background: on ? "#3B2A20" : "white", color: on ? "white" : "#4f4738" }}>{label}</button>
               ))}
             </div>
+            </>}
 
+            <div style={{ display: "flex", gap: 6 }}>
+                <button data-guide="route-options" onClick={() => setRouteOptionsOpen((v) => !v)} aria-expanded={routeOptionsOpen} style={routeActionButton}>
+                  <SlidersHorizontal size={12} />옵션{routeOptionsOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
             {displayRoute && (
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <>
                 <button
+                  data-guide="route-regen"
                   title={pinnedStopIds.size > 0 ? "고정한 곳 빼고 다른 코스 보기" : "이 조합 말고 다른 코스 보기"}
                   onClick={() => {
                     // 지금 보이는 코스의 정거장들을 제외 목록에 더해서 다른 조합이
@@ -4523,16 +4558,17 @@ const courseMeta = (route: RouteResult) => ({
                   }}
                   style={routeActionButton}
                 >
-                  <RefreshCw size={12} />{pinnedStopIds.size > 0 ? "고정 빼고 다른 코스" : "다른 코스 보기"}
+                  <RefreshCw size={12} />다른 코스
                 </button>
                 {/* 지도를 옮기거나 확대해 코스가 화면에서 벗어났을 때, 전체 경로가 한 화면에 보이게 다시 맞춥니다 */}
                 <button onClick={() => fitCourseRef.current()} title="지도를 움직였다면 눌러서 전체 경로를 다시 한 화면에 보여 줘요" style={routeActionButton}>
-                  <Maximize2 size={12} />전체 경로 보기
+                  <Maximize2 size={12} />전체 경로
                 </button>
-              </div>
+              </>
             )}
-            {displayRoute && pinnedStopIds.size > 0 && <div style={{ marginTop: 7, fontSize: "11px", color: "#48603A" }}>고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 남아요.</div>}
-            {displayRoute && routeAlternativesExhausted && <div style={{ marginTop: 7, fontSize: "11px", color: "#48603A" }}>이 근처에서 만들 수 있는 다른 조합이 없어 처음 코스를 다시 보여 드려요.</div>}
+            </div>
+            {displayRoute && pinnedStopIds.size > 0 && <div style={{ marginTop: 7, fontSize: "11px", color: "#85482A" }}>고정한 장소 {pinnedStopIds.size}곳은 다른 코스를 봐도 그대로 남아요.</div>}
+            {displayRoute && routeAlternativesExhausted && <div style={{ marginTop: 7, fontSize: "11px", color: "#85482A" }}>이 근처에서 만들 수 있는 다른 조합이 없어 처음 코스를 다시 보여 드려요.</div>}
           </div>
 
           <div style={{ ...mapPanelScroll, padding: "12px 10px 4px 12px" }}>
@@ -4540,7 +4576,7 @@ const courseMeta = (route: RouteResult) => ({
               <MapPanelEmpty>
                 {wideLoading
                   ? <LogoLoader label="주변 장소를 모으는 중…" />
-                  : !(userLocation || searchCenter || routeFallbackCenter)
+                  : !routeOrigin
                   ? "위치를 확인하고 있어요."
                   : routeTheme === "attraction"
                     ? "근처 5km 안에 함께 갈 수 있는 관광지가 없어 관광 코스를 만들 수 없어요."
@@ -4561,7 +4597,7 @@ const courseMeta = (route: RouteResult) => ({
                 <div key={stop.place.id} style={{ display: "flex", gap: 8 }}>
                   {/* 정거장 순서 — 번호와 이어지는 선 */}
                   <div style={{ width: 26, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <span className="ggk-logo" style={{ width: 24, height: 24, borderRadius: "50%", background: "#2F3B28", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11.5px", fontWeight: 800, flexShrink: 0 }}>{idx + 1}</span>
+                    <span className="ggk-logo" style={{ width: 24, height: 24, borderRadius: "50%", background: "#3B2A20", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11.5px", fontWeight: 800, flexShrink: 0 }}>{idx + 1}</span>
                     {!last && <span style={{ flex: 1, width: 2, margin: "3px 0", background: "rgba(60,50,30,0.14)", borderRadius: 2 }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -4600,11 +4636,12 @@ const courseMeta = (route: RouteResult) => ({
                       action={(
                         // 핀 고정 — 켜두면 "다른 코스 보기"를 눌러도 이 장소는 코스에 남습니다.
                         <button
+                          data-guide="route-pin"
                           onClick={(e) => { e.stopPropagation(); togglePinnedStop(stop.place.id); }}
                           aria-pressed={pinned}
                           aria-label={pinned ? `${stop.place.name} 고정 해제` : `${stop.place.name} 코스에 고정`}
                           title={pinned ? "고정 해제" : "이 장소를 코스에 고정 (다른 코스를 봐도 유지)"}
-                          style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", border: pinned ? "1px solid #2F3B28" : "1px solid rgba(60,50,30,0.14)", background: pinned ? "#2F3B28" : "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
+                          style={{ flexShrink: 0, width: 24, height: 24, borderRadius: "50%", border: pinned ? "1px solid #3B2A20" : "1px solid rgba(60,50,30,0.14)", background: pinned ? "#3B2A20" : "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
                         >
                           <Pin size={12} color={pinned ? "white" : "#7a7263"} fill={pinned ? "white" : "none"} />
                         </button>
@@ -4619,7 +4656,7 @@ const courseMeta = (route: RouteResult) => ({
                                 key={app}
                                 onClick={(e) => { e.stopPropagation(); handleStopDirections(displayRoute, idx, app); }}
                                 aria-label={`${stop.place.name} ${app === "kakao" ? "카카오맵" : "네이버지도"} 길찾기`}
-                                style={{ padding: 0, border: "none", background: "none", fontSize: "10.5px", fontWeight: 700, color: "#48603A", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2, fontFamily: "inherit" }}
+                                style={{ padding: 0, border: "none", background: "none", fontSize: "10.5px", fontWeight: 700, color: "#85482A", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2, fontFamily: "inherit" }}
                               >
                                 {app === "kakao" ? "카카오맵" : "네이버"}
                               </button>
@@ -4658,7 +4695,7 @@ const courseMeta = (route: RouteResult) => ({
                   <div style={{ marginBottom: 7 }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={handleCancelSaveCourse} disabled={mine?.state === "canceling"} style={{ ...routeActionButton, opacity: mine?.state === "canceling" ? 0.6 : 1 }}>{mine?.state === "canceling" ? "취소하는 중…" : "저장 취소"}</button>
-                      <button onClick={() => router.push("/mypage?tab=courses")} style={routeActionButton}><Bookmark size={12} fill="#3F5230" />저장한 코스 보기</button>
+                      <button onClick={() => router.push("/mypage?tab=courses")} style={routeActionButton}><Bookmark size={12} fill="#6F3D24" />저장한 코스 보기</button>
                     </div>
                     {mine?.message && <div role="status" style={{ fontSize: "11px", color: "#b45309", textAlign: "center", marginTop: 5 }}>{mine.message}</div>}
                   </div>
@@ -4676,7 +4713,7 @@ const courseMeta = (route: RouteResult) => ({
                   <button
                     key={app}
                     onClick={() => handleRouteDirections(displayRoute, app)}
-                    style={{ flex: 1, padding: "11px 0", borderRadius: 12, border: "none", background: "#2F3B28", color: "white", fontWeight: 800, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "inherit" }}
+                    style={{ flex: 1, padding: "11px 0", borderRadius: 12, border: "none", background: "#3B2A20", color: "white", fontWeight: 800, fontSize: "12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "inherit" }}
                   >
                     <Navigation size={12} />{app === "kakao" ? "카카오맵으로" : "네이버지도로"}
                   </button>

@@ -89,7 +89,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
       {/* 표지 */}
       <div style={{ minHeight: "250mm", display: "flex", flexDirection: "column", justifyContent: "space-between", breakAfter: "page", padding: "20mm 6mm 10mm" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: ACCENT, letterSpacing: 1 }}>같이가개 · 반려동물 동반 장소 플랫폼</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: ACCENT, letterSpacing: 1 }}>펫츠로드 · 반려동물 동반 장소 플랫폼</div>
           <div style={{ fontSize: 32, fontWeight: 900, marginTop: 18, lineHeight: 1.3 }}>마케팅 성과 보고서</div>
           <div style={{ fontSize: 15, color: SUB, marginTop: 8 }}>노출 · 클릭 · 방문 전환 분석과 개선 제안</div>
         </div>
@@ -99,7 +99,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
             <tbody>
               {[["업종", r.place.category ?? "-"], ["주소", r.place.address ?? "-"], ["분석 기간", `${dot(r.period.from)} ~ ${dot(r.period.to)} (30일)`],
                 ["이용 요금제", r.plan ? `${r.plan.name}${r.paidSince ? ` (${dot(r.paidSince.slice(0, 10))} 시작)` : ""}` : "무료 이용"],
-                ["작성일", generated.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })], ["발행", "같이가개"]].map(([k, v]) => (
+                ["작성일", generated.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })], ["발행", "펫츠로드"]].map(([k, v]) => (
                 <tr key={k}><td style={{ padding: "5px 0", width: 110, color: SUB }}>{k}</td><td style={{ padding: "5px 0", fontWeight: 700 }}>{v}</td></tr>
               ))}
             </tbody>
@@ -205,7 +205,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
       {/* 6. 요일별 관심 */}
       <section style={sectionStyle}>
         <h2 style={h2}>6. 요일별 관심(최근 60일 상세 조회)</h2>
-        <Bars values={r.weekday} labels={WEEK} color="#5C7A4A" height={100} />
+        <Bars values={r.weekday} labels={WEEK} color="#A05A32" height={100} />
         <div style={note}>{Math.max(...r.weekday) > 0 ? `${WEEK[bestWeekday]}요일에 가장 많이 조회됐습니다. 이 요일 전날에 공지·이벤트를 올리면 효과적입니다.` : "아직 요일별 기록이 충분하지 않습니다."}</div>
       </section>
 
@@ -232,7 +232,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
       <section style={sectionStyle}>
         <h2 style={h2}>9. 집계 기준 및 유의사항</h2>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: SUB, lineHeight: 1.8 }}>
-          <li>같이가개 이용 기록(익명)을 기준으로 집계했으며, 개인을 알아볼 수 있는 정보는 포함하지 않습니다.</li>
+          <li>펫츠로드 이용 기록(익명)을 기준으로 집계했으며, 개인을 알아볼 수 있는 정보는 포함하지 않습니다.</li>
           <li>같은 사람이 여러 번 보면 여러 번 세는 횟수 기준입니다. 실제 매장 방문·매출과는 차이가 있을 수 있습니다.</li>
           <li>무료 이용 기간 비교는 기간 길이를 30일로 환산한 값이며, 계절·행사 등 외부 요인이 함께 반영될 수 있습니다.</li>
           <li>비슷한 무료 업체 평균은 같은 업종의 무료 업체를 지역 범위(시·군·구 → 시·도 → 전국)를 넓혀 가며 최대 50곳까지 골라 계산했습니다.</li>

@@ -1,7 +1,7 @@
 // 객실 달력 주고받기(iCal) — 다른 예약 사이트(에어비앤비·부킹닷컴 등)와 같은 객실을 함께 팔 때 중복 예약을 막습니다.
-//   · 가져오기: 그쪽 달력 주소의 일정(VEVENT)에서 "숙박하는 밤"을 뽑아 같이가개에서 그날을 막습니다.
+//   · 가져오기: 그쪽 달력 주소의 일정(VEVENT)에서 "숙박하는 밤"을 뽑아 펫츠로드에서 그날을 막습니다.
 //     DTEND는 체크아웃 날이라 그 밤은 포함하지 않습니다(종일 일정 기준). 시각이 있는 일정은 날짜 부분만 씁니다.
-//   · 내보내기: 같이가개 예약(확정·대기)과 사장님이 막은 날을 종일 일정으로 만들어 그쪽 사이트가 가져가게 합니다.
+//   · 내보내기: 펫츠로드 예약(확정·대기)과 사장님이 막은 날을 종일 일정으로 만들어 그쪽 사이트가 가져가게 합니다.
 // 글자만 다루는 함수라 서버와 테스트가 같이 씁니다.
 
 const DAY = 86_400_000;
@@ -48,7 +48,7 @@ export function buildIcal(calName: string, stays: { id: number; check_in: string
   const stamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//gachigagae//lodging//KO", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${esc(calName)}`];
   for (const s of stays) {
-    lines.push("BEGIN:VEVENT", `UID:stay-${s.id}@gachigagae`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(s.check_in)}`, `DTEND;VALUE=DATE:${ymd(s.check_out)}`, "SUMMARY:같이가개 예약", "END:VEVENT");
+    lines.push("BEGIN:VEVENT", `UID:stay-${s.id}@gachigagae`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(s.check_in)}`, `DTEND;VALUE=DATE:${ymd(s.check_out)}`, "SUMMARY:펫츠로드 예약", "END:VEVENT");
   }
   for (const d of closedDays) {
     lines.push("BEGIN:VEVENT", `UID:closed-${ymd(d)}@gachigagae`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${ymd(d)}`, `DTEND;VALUE=DATE:${ymd(addDay(d, 1))}`, "SUMMARY:예약 막음", "END:VEVENT");

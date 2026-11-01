@@ -12,8 +12,8 @@ import StayFrame from "@/components/lodging/StayFrame";
 
 // 아래 여백(--ggk-tabbar-space)과 양옆 레일은 StayFrame이 맡습니다
 const box: React.CSSProperties = { minHeight: "70dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 16px", wordBreak: "keep-all" };
-const card: React.CSSProperties = { width: "100%", maxWidth: 420, padding: "28px 22px", borderRadius: 20, background: "white", border: "1px solid #EFE6DA", textAlign: "center", color: "#23201B" };
-const link: React.CSSProperties = { display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#2F3B28", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" };
+const card: React.CSSProperties = { width: "100%", maxWidth: 420, padding: "28px 22px", borderRadius: 20, background: "white", border: "1px solid #E8E7E6", textAlign: "center", color: "#23201B" };
+const link: React.CSSProperties = { display: "block", marginTop: 18, padding: 14, borderRadius: 14, background: "#3B2A20", color: "white", fontSize: 15, fontWeight: 800, textDecoration: "none" };
 
 function Confirm() {
   const params = useSearchParams();

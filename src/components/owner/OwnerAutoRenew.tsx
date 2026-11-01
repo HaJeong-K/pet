@@ -17,7 +17,7 @@ import { daysLeft, RENEW_MONTH_OPTIONS, shouldPromptRenew } from "@/lib/premiumR
 type Setting = { ready: boolean; enabled: boolean | null; plan: PaidPlanId | null; months: number; expiresAt: string | null; currentPlan: PaidPlanId | null };
 const DISMISS_KEY = "ggk-renew-later";
 const dateText = (iso: string) => new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
-const chip = (on: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 999, border: `1px solid ${on ? "#B45309" : "#e2dcc8"}`, background: on ? "#FEF3C7" : "white", color: on ? "#92400E" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const chip = (on: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 999, border: `1px solid ${on ? "#B45309" : "#DDDCDB"}`, background: on ? "#FEF3C7" : "white", color: on ? "#92400E" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 
 export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: number; isPreview: boolean; mode: "prompt" | "card" }) {
   const [s, setS] = useState<Setting | null>(null);
@@ -86,7 +86,7 @@ export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: 
           {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
           <div style={{ display: "grid", gap: 6, marginTop: 16 }}>
             <button onClick={() => save(true)} disabled={busy} style={{ padding: "13px 0", borderRadius: 12, border: "none", background: "#B45309", color: "white", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>네, 자동으로 연장할게요</button>
-            <button onClick={() => save(false)} disabled={busy} style={{ padding: "12px 0", borderRadius: 12, border: "1px solid #e2dcc8", background: "white", color: "#555", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>이번 기간만 이용할게요</button>
+            <button onClick={() => save(false)} disabled={busy} style={{ padding: "12px 0", borderRadius: 12, border: "1px solid #DDDCDB", background: "white", color: "#555", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>이번 기간만 이용할게요</button>
             <button onClick={later} style={{ padding: "8px 0", border: "none", background: "transparent", color: "#666", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>나중에 정할게요</button>
           </div>
         </div>
@@ -96,7 +96,7 @@ export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: 
 
   // 광고 상품 메뉴의 설정 칸
   return (
-    <div style={{ background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px" }}>
+    <div style={{ background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <RefreshCw size={16} color="#B45309" />
         <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222" }}>자동 연장</div>
@@ -114,7 +114,7 @@ export default function OwnerAutoRenew({ placeId, isPreview, mode }: { placeId: 
           {options}
           <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
             <button onClick={() => save(true)} disabled={busy} style={{ padding: "10px 16px", borderRadius: 11, border: "none", background: "#B45309", color: "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{s.enabled ? "설정 저장" : "자동 연장 켜기"}</button>
-            {s.enabled !== false && <button onClick={() => save(false)} disabled={busy} style={{ padding: "10px 16px", borderRadius: 11, border: "1px solid #e2dcc8", background: "white", color: "#555", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>이번 기간만 이용</button>}
+            {s.enabled !== false && <button onClick={() => save(false)} disabled={busy} style={{ padding: "10px 16px", borderRadius: 11, border: "1px solid #DDDCDB", background: "white", color: "#555", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>이번 기간만 이용</button>}
           </div>
         </div>
       )}

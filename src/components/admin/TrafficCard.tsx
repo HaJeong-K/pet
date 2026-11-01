@@ -44,13 +44,13 @@ export default function TrafficCard() {
   const total = report?.trackedVisitors ?? 0;
 
   return (
-    <div style={{ background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "16px 18px", marginBottom: 16 }}>
+    <div style={{ background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "16px 18px", marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-        <Route size={16} color="#5C7A4A" />
+        <Route size={16} color="#A05A32" />
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>유입 경로</div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
           {([30, 90] as const).map((d) => (
-            <button key={d} onClick={() => setDays(d)} aria-pressed={days === d} style={{ padding: "5px 11px", borderRadius: 999, border: "none", background: days === d ? "#5C7A4A" : "#f1f2f4", color: days === d ? "white" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>최근 {d}일</button>
+            <button key={d} onClick={() => setDays(d)} aria-pressed={days === d} style={{ padding: "5px 11px", borderRadius: 999, border: "none", background: days === d ? "#A05A32" : "#f1f2f4", color: days === d ? "white" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>최근 {d}일</button>
           ))}
         </div>
       </div>
@@ -76,13 +76,13 @@ export default function TrafficCard() {
             <tbody>
               {report.channels.length === 0 && <tr><td colSpan={6} style={{ padding: "18px 8px", textAlign: "center", color: "#6e6e6e" }}>아직 유입 경로가 기록된 방문이 없어요.</td></tr>}
               {report.channels.map((c) => (
-                <tr key={c.channel} style={{ borderTop: "1px solid #f1efe6", textAlign: "right" }}>
+                <tr key={c.channel} style={{ borderTop: "1px solid #F0EFEE", textAlign: "right" }}>
                   <td style={{ textAlign: "left", padding: "8px", fontWeight: 700, color: "#333" }}>{channelLabel(c.channel)}</td>
                   <td style={{ padding: "8px" }}>{c.visitors.toLocaleString("ko-KR")}</td>
                   <td style={{ padding: "8px", color: "#5c5c5c" }}>{pct(c.visitors, total)}</td>
                   <td style={{ padding: "8px" }}>{c.returning} <span style={{ color: "#666", fontSize: 11.5 }}>({pct(c.returning, c.visitors)})</span></td>
                   <td style={{ padding: "8px" }}>{c.members} <span style={{ color: "#666", fontSize: 11.5 }}>({pct(c.members, c.visitors)})</span></td>
-                  <td style={{ padding: "8px", fontWeight: 700, color: "#3F6B2B" }}>{c.signups}</td>
+                  <td style={{ padding: "8px", fontWeight: 700, color: "#8A4A26" }}>{c.signups}</td>
                 </tr>
               ))}
             </tbody>
@@ -92,7 +92,7 @@ export default function TrafficCard() {
       )}
 
       {/* 홍보 링크 만들기 */}
-      <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "#F7F3E8" }}>
+      <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: "#F4F3F2" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: "#444" }}><Link2 size={14} />홍보 링크 만들기</div>
         <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 3, lineHeight: 1.6 }}>
           채널마다 이 링크를 붙이면 그 채널로 들어온 사람으로 따로 셉니다.<br />
@@ -100,13 +100,13 @@ export default function TrafficCard() {
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 10 }}>
           {CHANNELS.filter((c) => c.linkable).map((c) => (
-            <button key={c.id} onClick={() => setChannel(c.id)} aria-pressed={channel === c.id} style={{ padding: "6px 11px", borderRadius: 999, border: `1px solid ${channel === c.id ? "#5C7A4A" : "#e2dcc8"}`, background: channel === c.id ? "#E4EBDC" : "white", color: channel === c.id ? "#3F5230" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{c.label}</button>
+            <button key={c.id} onClick={() => setChannel(c.id)} aria-pressed={channel === c.id} style={{ padding: "6px 11px", borderRadius: 999, border: `1px solid ${channel === c.id ? "#A05A32" : "#DDDCDB"}`, background: channel === c.id ? "#F8E6D9" : "white", color: channel === c.id ? "#6F3D24" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{c.label}</button>
           ))}
         </div>
         <input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="캠페인 이름 (선택) — 예: launch_event, dog_cafe_daegu" maxLength={40} style={{ marginTop: 9, width: "100%", padding: "9px 11px", borderRadius: 9, border: "1px solid #ddd", fontSize: 13, boxSizing: "border-box", fontFamily: "inherit" }} />
         <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "stretch" }}>
-          <code style={{ flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 9, background: "white", border: "1px solid #e8e2d2", fontSize: 12, color: "#333", overflowX: "auto", whiteSpace: "nowrap", userSelect: "all" }}>{link}</code>
-          <button onClick={copy} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "0 13px", borderRadius: 9, border: "none", background: copied ? "#3F6B2B" : "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
+          <code style={{ flex: 1, minWidth: 0, padding: "9px 11px", borderRadius: 9, background: "white", border: "1px solid #E3E2E1", fontSize: 12, color: "#333", overflowX: "auto", whiteSpace: "nowrap", userSelect: "all" }}>{link}</code>
+          <button onClick={copy} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "0 13px", borderRadius: 9, border: "none", background: copied ? "#8A4A26" : "#A05A32", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
             {copied ? <Check size={13} /> : <Copy size={13} />}{copied ? "복사됨" : "복사"}
           </button>
         </div>

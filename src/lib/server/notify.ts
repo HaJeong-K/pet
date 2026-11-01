@@ -25,7 +25,7 @@ export async function notifyAdmin(alert: AdminAlert): Promise<boolean> {
   // 카카오톡 본문은 200자까지라 제목 + 항목만 담고, 자세한 내용은 버튼으로 관리자 화면에서 봅니다.
   const text = [alert.title, ...(alert.lines || []).filter(Boolean).map((l) => `• ${l}`)].join("\n");
   // 카카오톡(기록용)과 앱 알림(푸시)을 함께 보냅니다 — 한쪽이 실패해도 다른 쪽은 갑니다.
-  // 앱 알림은 안드로이드 앱(mobile/android)에서 켠 기기로 "같이가개 앱"의 알림으로 뜹니다.
+  // 앱 알림은 안드로이드 앱(mobile/android)에서 켠 기기로 "펫츠로드 앱"의 알림으로 뜹니다.
   const [sent, pushed] = await Promise.all([
     sendKakaoTalkMemo(text, alert.path ?? "/admin"),
     sendAdminPush({

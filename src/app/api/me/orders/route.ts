@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const placeIds = [...new Set(rows.map((r) => Number(r.place_id)))];
   const [{ data: places }, { data: reviews }, payments] = await Promise.all([
     placeIds.length ? db.from("places").select("id, name, address, phone").in("id", placeIds) : Promise.resolve({ data: [] as { id: number; name: string; address: string | null; phone: string | null }[] }),
-    ids.length ? db.from("store_reviews").select("reservation_id, rating, content, owner_reply").in("reservation_id", ids) : Promise.resolve({ data: [] as { reservation_id: number; rating: number; content: string; owner_reply: string | null }[] }),
+    ids.length ? db.from("store_reviews").select("reservation_id, rating, content, owner_reply, photos").in("reservation_id", ids) : Promise.resolve({ data: [] as { reservation_id: number; rating: number; content: string; owner_reply: string | null }[] }),
     paymentInfoOf("store", ids),
   ]);
   const now = Date.now();

@@ -9,6 +9,7 @@ import { ChevronLeft, PawPrint, Phone } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
 import ShelterNoticeCard, { type ShelterNoticeLite } from "@/components/ShelterNoticeCard";
 import { useAdoptPhrases } from "@/lib/adoptPhrases";
+import { PageFooter } from "@/components/SiteFooter";
 
 type Shelter = { id: string; name: string; sido: string; sigungu: string; tel: string; protecting: number; dogs: number; cats: number; others: number; urgent: number };
 
@@ -55,7 +56,7 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
   const shown = (data?.notices ?? []).filter((n) => matches(n, pick));
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ width: "100%", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
         {state !== "ready" && (
           <div style={{ display: "flex", justifyContent: "flex-end", padding: "24px clamp(20px, 4vw, 40px)", background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)" }}>
@@ -84,7 +85,7 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
               <PawPrint aria-hidden="true" size={170} color="rgba(255,255,255,0.06)" style={{ position: "absolute", left: "38%", bottom: -48, transform: "rotate(-14deg)" }} />
               {/* 첫 줄: 지역 이름표와 이동 버튼을 같은 줄에(입양 화면의 머리 띠와 같은 구조) */}
               <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ display: "inline-block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#F3E6D4", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>{[shortSido(shelter.sido), shelter.sigungu].filter(Boolean).join(" ")}</span>
+                <span style={{ display: "inline-block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#E9E8E7", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>{[shortSido(shelter.sido), shelter.sigungu].filter(Boolean).join(" ")}</span>
                 <div style={{ flexShrink: 0, display: "flex", gap: 6 }}>
                   <button onClick={() => router.push("/shelter-notices/support")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
                     <ChevronLeft size={14} /> 보호소 목록
@@ -151,6 +152,7 @@ export default function ShelterDetailClient({ id, initial, phraseSeed }: { id: s
             </div>
           </>
         )}
+        <PageFooter />
       </div>
     </div>
   );

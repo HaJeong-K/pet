@@ -12,7 +12,7 @@ create table if not exists public.store_partners (
   order_modes text[] not null default '{pickup}',  -- pickup(포장) · dine_in(매장 식사)
   message text,
   status text not null default 'pending' check (status in ('pending', 'consulting', 'approved', 'rejected')),
-  linked_place_id bigint,                     -- 승인 후 연결된 같이가개 장소 번호
+  linked_place_id bigint,                     -- 승인 후 연결된 펫츠로드 장소 번호
   partner_since date,
   admin_note text,
   created_at timestamptz not null default now(),

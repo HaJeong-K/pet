@@ -8,7 +8,7 @@ import { kstToday } from "@/lib/lodgingBooking";
 //   GET  → 신청 목록(새 신청 먼저) + 사장님 인증 상태
 //   POST { id, action: "consulting" | "approve" | "reject", note }
 //     approve: 사장님 인증이 끝난 계정만. 고른 가게를 연결하고 쇼핑 탭·장소 상세에 엽니다.
-//       공공데이터 가게(번호 10억 이상)면 같이가개 장소로 옮겨 만들고 원래 칸은 지도에서 숨깁니다.
+//       공공데이터 가게(번호 10억 이상)면 펫츠로드 장소로 옮겨 만들고 원래 칸은 지도에서 숨깁니다.
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
 const PUBLIC_ID_MIN = 1_000_000_000;
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     }]).select("id").single();
     if (error || !created) return fail(`장소를 만들지 못했어요: ${error?.message ?? ""}`, 500);
     linked = Number(created.id);
-    await db.from("hidden_public_places").upsert([{ place_id: requested, reason: `쇼핑 입점으로 같이가개 장소 #${linked}로 옮김`, hidden_by: admin.email || admin.id }], { onConflict: "place_id" });
+    await db.from("hidden_public_places").upsert([{ place_id: requested, reason: `쇼핑 입점으로 펫츠로드 장소 #${linked}로 옮김`, hidden_by: admin.email || admin.id }], { onConflict: "place_id" });
   }
 
   const { error: userError } = await db.from("users").update({ owner_place_id: linked }).eq("auth_user_id", row.owner_auth_user_id);

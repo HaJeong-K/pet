@@ -1,6 +1,6 @@
 "use client";
 
-// 사장님 센터 "후기·답글"의 숙박 후기(숙소 사장님) — 같이가개에서 예약하고 이용한 손님의 별점 후기입니다.
+// 사장님 센터 "후기·답글"의 숙박 후기(숙소 사장님) — 펫츠로드에서 예약하고 이용한 손님의 별점 후기입니다.
 //   · 답글 달기·고치기·지우기 — 숙소 화면(/stay/번호)의 후기 아래에 "사장님 답글"로 보입니다
 //   · 신고하기 — 사유를 고르면 관리자가 검토해 유지·가리기·삭제합니다(결과와 사유가 여기에 보임)
 // 서버는 /api/owner/lodging/reviews, 규칙은 src/lib/lodgingReviews.ts.
@@ -17,12 +17,12 @@ type Review = {
   report_status?: ReviewReportStatus | null; report_reason?: string | null; report_admin_note?: string | null;
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const small = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
-  border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2dcc8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
+  border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#DDDCDB"}`,
+  background: disabled ? "#D4D3D2" : kind === "primary" ? "#B45309" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
 export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { placeId: number; isPreview: boolean; canAct: boolean }) {
@@ -73,7 +73,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
         {unanswered > 0 && <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#DC2626", color: "white" }}>답글 기다림 {unanswered}</span>}
       </div>
       <div style={{ fontSize: 12.5, color: "#555", marginTop: 6, lineHeight: 1.7 }}>
-        같이가개에서 예약하고 이용한 손님의 별점 후기예요.<br />
+        펫츠로드에서 예약하고 이용한 손님의 별점 후기예요.<br />
         답글은 숙소 화면에 &ldquo;사장님 답글&rdquo;로 보이고, 문제 있는 후기는 신고하면 관리자가 검토해요.
       </div>
       {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
@@ -86,7 +86,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
           return (
             <div key={r.id} style={{ padding: "12px 13px", borderRadius: 12, border: `1px solid ${r.owner_reply ? "#eee" : "#F3D58A"}`, background: r.hidden ? "#f8f8f8" : "white" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={13} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#d6d3c9"} />)}</span>
+                <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={13} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#D4D3D2"} />)}</span>
                 <b style={{ fontSize: 13 }}>{r.guest_display_name ?? "손님"}</b>
                 <span style={{ fontSize: 11.5, color: "#666" }}>{[r.room_name, r.nights ? `${r.nights}박` : null, r.pets_summary].filter(Boolean).join(" · ")}</span>
                 <span style={{ marginLeft: "auto", fontSize: 11.5, color: "#6e6e6e" }}>{stayDayLabel(r.created_at.slice(0, 10))}</span>
@@ -100,7 +100,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
                 </div>
               )}
               {r.owner_reply && replyFor !== r.id && (
-                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#FFFBF0", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
+                <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "#FCFBFA", fontSize: 12.5, color: "#555", lineHeight: 1.65, whiteSpace: "pre-line" }}>
                   <b style={{ color: "#B45309" }}>사장님 답글</b><br />{r.owner_reply}
                 </div>
               )}
@@ -122,13 +122,13 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {REVIEW_REPORT_REASONS.map((x) => (
                       <button key={x.id} onClick={() => setReport((p) => ({ ...p, reason: x.id }))} aria-pressed={report.reason === x.id}
-                        style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${report.reason === x.id ? "#b42318" : "#e2dcc8"}`, background: report.reason === x.id ? "#FEE2E2" : "white", color: report.reason === x.id ? "#b42318" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{x.label}</button>
+                        style={{ padding: "6px 10px", borderRadius: 999, border: `1px solid ${report.reason === x.id ? "#b42318" : "#DDDCDB"}`, background: report.reason === x.id ? "#FEE2E2" : "white", color: report.reason === x.id ? "#b42318" : "#666", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{x.label}</button>
                     ))}
                   </div>
                   <textarea value={report.detail} onChange={(e) => setReport((p) => ({ ...p, detail: e.target.value.slice(0, 500) }))} rows={2} placeholder={report.reason === "etc" ? "신고 사유를 적어 주세요(필수)" : "관리자에게 전할 설명(선택) — 예: 실제 예약 내역과 다른 내용이에요"} aria-label="신고 설명" style={{ ...input, resize: "vertical" }} />
                   <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6 }}>관리자가 검토해 유지·가리기·삭제를 결정해요. 단순히 낮은 별점이라는 이유로는 가려지지 않아요.</div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => sendReport(r)} disabled={busy} style={{ ...small("primary", busy), background: busy ? "#d6d3c9" : "#b42318" }}>신고하기</button>
+                    <button onClick={() => sendReport(r)} disabled={busy} style={{ ...small("primary", busy), background: busy ? "#D4D3D2" : "#b42318" }}>신고하기</button>
                     <button onClick={() => setReportFor(null)} style={small("plain")}>취소</button>
                   </div>
                 </div>

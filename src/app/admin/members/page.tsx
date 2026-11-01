@@ -99,7 +99,7 @@ export default function AdminMembers() {
   };
 
   const chip = (key: Filter, label: string, n: number) => (
-    <button key={key} onClick={() => setFilter(key)} style={{ padding: "7px 13px", borderRadius: 999, border: `1.5px solid ${filter === key ? "#5C7A4A" : "#e2e4e8"}`, background: filter === key ? "#5C7A4A" : "white", color: filter === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+    <button key={key} onClick={() => setFilter(key)} style={{ padding: "7px 13px", borderRadius: 999, border: `1.5px solid ${filter === key ? "#A05A32" : "#e2e4e8"}`, background: filter === key ? "#A05A32" : "white", color: filter === key ? "white" : "#555", fontSize: 12.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
       {label} {n}
     </button>
   );
@@ -114,11 +114,11 @@ export default function AdminMembers() {
   const pager = usePaged(list, `${filter}|${sort}|${query}`);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="members" onRefresh={load} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <Users size={18} color="#5C7A4A" />
+          <Users size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>회원 관리</div>
         </div>
         <p style={{ fontSize: 12.5, color: "#555", lineHeight: 1.65, margin: "0 0 14px" }}>
@@ -152,15 +152,15 @@ export default function AdminMembers() {
         {pager.items.map((m) => (
           <div key={m.authUserId} style={{ background: "white", borderRadius: 16, border: `1px solid ${m.reported >= MANY_REPORTS ? "#FECACA" : "#eee"}`, padding: "14px 16px", marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#E4EBDC", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#F8E6D9", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={17} color="#48603A" />}
+                {m.avatarUrl ? <img src={m.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Users size={17} color="#85482A" />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, fontWeight: 800, color: "#222", wordBreak: "break-all" }}>{m.nickname || "(닉네임 없음)"}</span>
                   <LevelBadge level={m.level} />
-                  {m.isAdmin && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#E4EBDC", color: "#48603A" }}><ShieldCheck size={10} />관리자</span>}
+                  {m.isAdmin && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#F8E6D9", color: "#85482A" }}><ShieldCheck size={10} />관리자</span>}
                   {m.ownerStatus === "verified" && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: ownerKindInfo(m.ownerKind).background, color: ownerKindInfo(m.ownerKind).color }}>{m.ownerKind === "lodging" ? <BedDouble size={10} /> : <Store size={10} />}{ownerKindInfo(m.ownerKind).label} 사장님{m.ownerBusinessName ? ` · ${m.ownerBusinessName}` : ""}</span>}
                   {m.ownerStatus === "pending" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>{ownerKindInfo(m.ownerKind).label} 사장님 신청 중</span>}
                   {m.reported >= MANY_REPORTS && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEE2E2", color: "#b91c1c" }}><Flag size={10} />신고 다수</span>}
@@ -182,7 +182,7 @@ export default function AdminMembers() {
             {(m.reportedOpen > 0 || !m.isAdmin) && (
               <div style={{ display: "flex", gap: 8, marginTop: 11, flexWrap: "wrap" }}>
                 {m.reportedOpen > 0 && (
-                  <button onClick={() => router.push("/admin/reports")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                  <button onClick={() => router.push("/admin/reports")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
                     <Flag size={13} />미처리 신고 {m.reportedOpen}건 보러 가기
                   </button>
                 )}

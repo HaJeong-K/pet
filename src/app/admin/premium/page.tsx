@@ -114,7 +114,7 @@ export default function AdminPremiumPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F7F3E8", overflow:"hidden", alignItems:"center" }}>
+      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F4F3F2", overflow:"hidden", alignItems:"center" }}>
         <AdminNav active="premium" onRefresh={() => { fetchRequests(); setPlacesRefresh((n) => n + 1); }} />
         <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
 
@@ -210,14 +210,14 @@ export default function AdminPremiumPage() {
                       </div>
                       <div style={{ flex:1 }}>
                         <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#111", display:"flex", alignItems:"center", gap:6 }}>
-                          <MapPin size={12} color="#5C7A4A" />{placeNames[req.place_id] || `장소 #${req.place_id}`}
+                          <MapPin size={12} color="#A05A32" />{placeNames[req.place_id] || `장소 #${req.place_id}`}
                         </div>
                       </div>
                     </div>
 
                     <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:12 }}>
                       <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
-                        <CalendarClock size={11} color="#5C7A4A"/>{PLAN_NAME[normalizePlan(req.plan)]} · {req.months}개월({req.months * 30}일) 신청
+                        <CalendarClock size={11} color="#A05A32"/>{PLAN_NAME[normalizePlan(req.plan)]} · {req.months}개월({req.months * 30}일) 신청
                       </span>
                       {/* 관리자 할인·해지 방어 시크릿 프라이스가 적용된 신청(scripts/sql/premium-cancel.sql) — 입금액이 그만큼 적어요 */}
                       {Number(req.discount_percent) > 0 && (
@@ -227,7 +227,7 @@ export default function AdminPremiumPage() {
                       )}
                       {req.payer_name && (
                         <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}>
-                          <User size={11} color="#5C7A4A"/>입금자명: {req.payer_name}
+                          <User size={11} color="#A05A32"/>입금자명: {req.payer_name}
                         </span>
                       )}
                       {req.memo && (

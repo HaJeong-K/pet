@@ -5,11 +5,11 @@ import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { kstToday } from "@/lib/lodgingBooking";
 import { promoLastDay } from "@/lib/lodgingPolicy";
 
-// 관리자 전용: 숙소 입점 신청 심사(「같이가개 숙소 입점 계약서」 제5조)
+// 관리자 전용: 숙소 입점 신청 심사(「펫츠로드 숙소 입점 계약서」 제5조)
 //   GET  → 신청 목록(대기 먼저) + 영업신고증 10분짜리 열람 주소 + 사장님 정보
 //   POST { id, action: "approve" | "reject", note }
 //     approve: 고른 숙소를 사장님 숙소로 연결하고 입점일을 오늘로 정합니다(그날부터 3개월 수수료 5%).
-//       · 공공데이터 숙소(번호 10억 이상)면 같이가개 장소로 옮겨 만들고, 원래 공공데이터 칸은 지도에서 숨깁니다.
+//       · 공공데이터 숙소(번호 10억 이상)면 펫츠로드 장소로 옮겨 만들고, 원래 공공데이터 칸은 지도에서 숨깁니다.
 //       · 지도에 없는 숙소면 먼저 제보로 장소를 등록한 뒤 승인해 주세요.
 //     reject : 사유와 함께 반려(사장님이 고쳐서 다시 신청할 수 있음)
 
@@ -51,14 +51,14 @@ export async function POST(req: NextRequest) {
   }
   if (body?.action !== "approve") return fail("요청이 올바르지 않아요.", 400);
 
-  // 연결할 같이가개 장소 정하기
+  // 연결할 펫츠로드 장소 정하기
   let linked: number | null = null;
   const requested = row.requested_place_id == null ? null : Number(row.requested_place_id);
   if (requested == null) return fail("지도에 없는 숙소예요. 먼저 제보로 장소를 등록한 뒤, 사장님께 그 장소를 골라 다시 신청해 달라고 해 주세요.", 409);
   if (requested < PUBLIC_ID_MIN) {
     linked = requested;
   } else {
-    // 공공데이터 숙소 → 같이가개 장소로 옮겨 만들기
+    // 공공데이터 숙소 → 펫츠로드 장소로 옮겨 만들기
     const source = (await getMergedPublicDataPlaces()).find((p) => Number(p.id) === requested);
     if (!source) return fail("고른 공공데이터 숙소를 찾지 못했어요(목록에서 빠졌을 수 있어요).", 404);
     const lat = Number(source.lat), lng = Number(source.lng);
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     if (error || !created) return fail(`장소를 만들지 못했어요: ${error?.message ?? ""}`, 500);
     linked = Number(created.id);
     // 같은 숙소가 지도에 두 번 나오지 않게 원래 공공데이터 칸은 숨깁니다(후기 등 기록은 지우지 않음).
-    await db.from("hidden_public_places").upsert([{ place_id: requested, reason: `숙소 입점으로 같이가개 장소 #${linked}로 옮김`, hidden_by: admin.email || admin.id }], { onConflict: "place_id" });
+    await db.from("hidden_public_places").upsert([{ place_id: requested, reason: `숙소 입점으로 펫츠로드 장소 #${linked}로 옮김`, hidden_by: admin.email || admin.id }], { onConflict: "place_id" });
   }
 
   const today = kstToday();

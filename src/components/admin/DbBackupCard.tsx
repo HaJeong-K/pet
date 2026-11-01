@@ -52,8 +52,8 @@ export default function DbBackupCard() {
 
   return (
     <div className="ggk-body" style={{ background: "white", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", padding: "16px 18px", marginBottom: 24, display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div style={{ width: 40, height: 40, borderRadius: 12, background: "#E4EBDC", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <DatabaseBackup size={19} color="#48603A" />
+      <div style={{ width: 40, height: 40, borderRadius: 12, background: "#F8E6D9", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <DatabaseBackup size={19} color="#85482A" />
       </div>
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: "#111" }}>
@@ -63,10 +63,10 @@ export default function DbBackupCard() {
           매일 새벽 자동으로 백업하고 최근 14일치를 보관해요{latest ? ` (최근 파일 ${latest.sizeKb.toLocaleString()}KB)` : ""}.
           가끔 내려받아 따로 보관해 두면 더 안전해요.
         </div>
-        {message && <div role="status" style={{ fontSize: 12, color: "#48603A", fontWeight: 600, marginTop: 6 }}>{message}</div>}
+        {message && <div role="status" style={{ fontSize: 12, color: "#85482A", fontWeight: 600, marginTop: 6 }}>{message}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
           {latest && (
-            <button onClick={() => download(latest.name)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 14px", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+            <button onClick={() => download(latest.name)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 14px", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
               <Download size={13} />최근 백업 내려받기
             </button>
           )}

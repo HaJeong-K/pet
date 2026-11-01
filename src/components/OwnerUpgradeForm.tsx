@@ -217,7 +217,7 @@ export default function OwnerUpgradeForm({
       {!framed && <h1 style={{ flexShrink: 0, fontSize: 21, fontWeight: 800, margin: 0, padding: "clamp(24px, 5vw, 30px) 64px 12px clamp(20px, 5vw, 32px)", lineHeight: 1.3 }}>사장님으로 전환하기</h1>}
       {/* 아래쪽도 창 끝에서 띄워, 스크롤 막대가 위(제목 아래)와 비슷한 간격을 두고 끝나게 합니다 */}
       <div style={framed ? {} : { flex: "1 1 auto", minHeight: 0, overflowY: "auto", marginBottom: "clamp(24px, 5vw, 30px)", padding: "2px clamp(20px, 5vw, 32px) 4px", boxSizing: "border-box" }}>
-      <div style={{ fontSize: 13, color: "#6b6456", marginBottom: 22, lineHeight: 1.7, display: "grid", gap: 6, ...(framed ? { padding: "12px 14px", borderRadius: 14, background: "#F7F4EC" } : {}) }}>
+      <div style={{ fontSize: 13, color: "#6b6456", marginBottom: 22, lineHeight: 1.7, display: "grid", gap: 6, ...(framed ? { padding: "12px 14px", borderRadius: 14, background: "#F5F4F3" } : {}) }}>
         <p style={{ margin: 0 }}>현재 계정을 유지한 채로 사장님 계정으로 전환합니다.</p>
         <p style={{ margin: 0 }}>
           사업자등록증 대조가 확인되면 즉시, 확인이 안 되면 관리자 승인 후
@@ -242,7 +242,7 @@ export default function OwnerUpgradeForm({
         </button>
       </div>
       {sido && sigungu && (
-        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #48603A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
+        <div style={{ fontSize: 12, color: "var(--join-soft-ink, #85482A)", fontWeight: 700, marginBottom: 10 }}>{sido} {sigungu}</div>
       )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
@@ -262,7 +262,7 @@ export default function OwnerUpgradeForm({
 
       <input placeholder={kindInfo.phoneLabel} value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
 
-      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #E4EBDC)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #48603A)", lineHeight: 1.6 }}>
+      <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--join-soft, #F8E6D9)", marginBottom: 14, fontSize: 12.5, color: "var(--join-soft-ink, #85482A)", lineHeight: 1.6 }}>
         닉네임은 그대로예요. 인증되면 닉네임 옆에 <strong>{businessName.trim() || "가게 이름"} 사장님</strong> 표시가 붙어요.
       </div>
 
@@ -347,8 +347,8 @@ export default function OwnerUpgradeForm({
           onClick={() => setAgreedPrivacy((v) => !v)}
           style={{
             width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 2,
-            border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "#ccc"}`,
-            background: agreedPrivacy ? "var(--join-strong, #5C7A4A)" : "white",
+            border: `1.5px solid ${agreedPrivacy ? "var(--join-strong, #A05A32)" : "#ccc"}`,
+            background: agreedPrivacy ? "var(--join-strong, #A05A32)" : "white",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
           }}
         >
@@ -361,7 +361,7 @@ export default function OwnerUpgradeForm({
 
       <button onClick={handleSubmit} disabled={isSubmitDisabled} style={{
         width: "100%", padding: "16px 0", borderRadius: 14, border: "none", marginTop: 4,
-        background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn, linear-gradient(135deg,#2F3B28,#4A6339))", color: isSubmitDisabled ? "#4f4a3f" : "white",
+        background: isSubmitDisabled ? "#D4D3D2" : "var(--join-btn, linear-gradient(135deg,#3B2A20,#70482F))", color: isSubmitDisabled ? "#4f4a3f" : "white",
         fontSize: 15.5, fontWeight: 800, letterSpacing: "-0.2px", cursor: isSubmitDisabled ? "default" : "pointer", fontFamily: "inherit",
         boxShadow: isSubmitDisabled ? "none" : "0 10px 24px rgba(0,0,0,0.14)",
       }}>

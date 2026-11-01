@@ -43,7 +43,7 @@ export default function OwnerBadge({ userId }: { userId: string | null | undefin
   const owner = userId ? known.get(userId) : null;
   if (!owner) return null;
   const style: React.CSSProperties = {
-    flexShrink: 1, minWidth: 0, maxWidth: 170, display: "inline-block", padding: "2px 7px", borderRadius: 7, background: "#EAF0E3", color: "#2F3B28",
+    flexShrink: 1, minWidth: 0, maxWidth: 170, display: "inline-block", padding: "2px 7px", borderRadius: 7, background: "#FBEDE3", color: "#3B2A20",
     fontSize: 11, fontWeight: 800, lineHeight: 1.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "none", verticalAlign: "middle",
   };
   const label = `${owner.name} 사장님`;

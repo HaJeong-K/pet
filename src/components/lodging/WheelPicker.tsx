@@ -43,9 +43,9 @@ export default function WheelPicker({ options, value, onChange, label }: { optio
   };
 
   return (
-    <div style={{ position: "relative", height: ROW * VISIBLE, borderRadius: 12, background: "white", border: "1px solid #e5e2d8", overflow: "hidden" }}>
+    <div style={{ position: "relative", height: ROW * VISIBLE, borderRadius: 12, background: "white", border: "1px solid #E3E2E1", overflow: "hidden" }}>
       {/* 가운데 선택 칸 */}
-      <div aria-hidden style={{ position: "absolute", left: 6, right: 6, top: ROW * 2, height: ROW, borderRadius: 9, background: "#EEF3E8", pointerEvents: "none" }} />
+      <div aria-hidden style={{ position: "absolute", left: 6, right: 6, top: ROW * 2, height: ROW, borderRadius: 9, background: "#FCF1E9", pointerEvents: "none" }} />
       <div
         ref={box}
         role="listbox"
@@ -97,7 +97,7 @@ export default function WheelPicker({ options, value, onChange, label }: { optio
               role="option"
               aria-selected={on}
               onClick={() => { moveTo(i); if (!on) onChange(o.value); }}
-              style={{ height: ROW, display: "flex", alignItems: "center", justifyContent: "center", scrollSnapAlign: "center", fontSize: on ? 15 : 13.5, fontWeight: on ? 800 : 500, color: on ? "#2F3B28" : "#6b6b6b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }}
+              style={{ height: ROW, display: "flex", alignItems: "center", justifyContent: "center", scrollSnapAlign: "center", fontSize: on ? 15 : 13.5, fontWeight: on ? 800 : 500, color: on ? "#3B2A20" : "#6b6b6b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", padding: "0 12px" }}
             >
               {o.label}
             </div>

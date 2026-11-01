@@ -96,13 +96,13 @@ export default function KakaoTalkAlertCard() {
             </span>
           )}
         </div>
-        {message && <div style={{ fontSize: 12, color: "#48603A", marginTop: 6, fontWeight: 600 }}>{message}</div>}
+        {message && <div style={{ fontSize: 12, color: "#85482A", marginTop: 6, fontWeight: 600 }}>{message}</div>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {status?.connected ? (
           <>
             <button disabled={busy} onClick={() => run("test")} style={btn("#FEE500", "#191919")}>시험 메시지</button>
-            {expiresSoon && <button disabled={busy} onClick={() => run("connect")} style={btn("#5C7A4A", "white")}>다시 연결</button>}
+            {expiresSoon && <button disabled={busy} onClick={() => run("connect")} style={btn("#A05A32", "white")}>다시 연결</button>}
             <button disabled={busy} onClick={() => run("disconnect")} style={btn("#f1f2f4", "#555")}>해제</button>
           </>
         ) : (

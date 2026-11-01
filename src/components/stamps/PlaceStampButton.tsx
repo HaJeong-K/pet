@@ -58,13 +58,13 @@ export default function PlaceStampButton({ placeId }: { placeId: number }) {
     <div style={{ marginTop: 7 }}>
       <button type="button" onClick={claim} disabled={busy || done} className="ggk-body" style={{
         width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px 10px", borderRadius: 11, cursor: busy || done ? "default" : "pointer",
-        border: `1px solid ${done ? "#D5E0C9" : "#E8D9A8"}`, background: done ? "#EEF3E8" : "#FBF3DA", color: done ? "#48603A" : "#6B5525", fontSize: 13, fontWeight: 800,
+        border: `1px solid ${done ? "#EECFBB" : "#E8D9A8"}`, background: done ? "#FCF1E9" : "#F4F3F2", color: done ? "#85482A" : "#6B5525", fontSize: 13, fontWeight: 800,
       }}>
         {done ? <Check size={15} /> : <Stamp size={15} />}
         {done ? "추억 스탬프를 받은 곳이에요" : busy ? "위치를 확인하는 중…" : "다녀왔어요 · 추억 스탬프 받기"}
       </button>
       {!done && !message && <div style={{ fontSize: 11.5, color: "#666", textAlign: "center", marginTop: 4 }}>장소 {STAMP_RADIUS_M}m 안에서 받을 수 있어요 · 숙소 예약 때 1개당 {STAMP_VALUE_WON}원 할인</div>}
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 600, color: message.ok ? "#48603A" : "#B4412B", textAlign: "center", marginTop: 5, lineHeight: 1.5 }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 600, color: message.ok ? "#85482A" : "#B4412B", textAlign: "center", marginTop: 5, lineHeight: 1.5 }}>{message.text}</div>}
     </div>
   );
 }

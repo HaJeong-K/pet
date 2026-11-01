@@ -70,5 +70,5 @@ export function placeShareDescription(meta: PlaceMeta): string {
   const parts = [meta.address, meta.category, meta.petZone ? PET_ZONE_TEXT[meta.petZone] : null].filter(Boolean);
   return parts.length > 0
     ? `${parts.join(" · ")} — 반려동물과 함께 갈 수 있는 곳`
-    : "반려동물과 함께 갈 수 있는 곳 — 같이가개에서 상세정보를 확인하세요.";
+    : "반려동물과 함께 갈 수 있는 곳 — 펫츠로드에서 상세정보를 확인하세요.";
 }

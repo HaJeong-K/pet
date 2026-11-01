@@ -11,7 +11,7 @@ import { ORDER_TYPE_LABEL, PAYMENT_STATUS_LABEL, STATUS_LABEL, type OrderType, t
 
 type Order = { id: number; place_name: string; customer_name: string; total: number; status: ReservationStatus; order_type: OrderType | null; payment_status: string; cancel_request_status: string; created_at: string };
 type Report = { id: number; display_name: string; rating: number; content: string; report_reason: string };
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const button: React.CSSProperties = { padding: "7px 11px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", color: "#444", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" };
 
 export default function StoreOrdersView() {

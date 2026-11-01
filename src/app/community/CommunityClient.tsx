@@ -318,7 +318,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         className="ggk-body"
         style={{
           minHeight: "100dvh",
-          background: "#F7F3E8",
+          background: "#F4F3F2",
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
           // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
@@ -340,7 +340,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
 
             height: "100dvh",
 
-            background: "#F7F3E8",
+            background: "#F4F3F2",
 
             overflow: "hidden",
 
@@ -350,7 +350,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           {/* ── 웰컴 배너 — 페이지 최상단. 시안 .hero 스펙: solid primary, full-bleed, no radius ── */}
           <div style={{
             position: "relative", overflow: "hidden",
-            background: "#5C7A4A",
+            background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", borderRadius: "0 0 26px 26px",
             padding: "24px 40px", display: "flex", alignItems: "center",
             justifyContent: "space-between", gap: 10,
           }}>
@@ -406,7 +406,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       border: active ? "none" : "1px solid rgba(0,0,0,0.08)",
                       borderRadius: "10px",
                       padding: isNarrow ? "8px 12px" : "8px 11px",
-                      background: active ? (best ? "#D9534F" : "#5C7A4A") : "#fff",
+                      background: active ? (best ? "#D9534F" : "#A05A32") : "#fff",
                       color: active ? "white" : best ? "#c9302c" : "#555",
                       fontSize: "13px",
                       fontWeight: active || best ? 700 : 600,
@@ -455,7 +455,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 style={{
                   borderRadius: "10px",
                   padding: isNarrow ? "8px 12px" : "8px 16px",
-                  background: REGION_BOARDS.some((b) => b.id === activeBoard) ? "#5C7A4A" : "#fff",
+                  background: REGION_BOARDS.some((b) => b.id === activeBoard) ? "#A05A32" : "#fff",
                   color: REGION_BOARDS.some((b) => b.id === activeBoard) ? "white" : "#555",
                   border: REGION_BOARDS.some((b) => b.id === activeBoard) ? "none" : "1px solid rgba(0,0,0,0.08)",
                   fontSize: "13px",
@@ -499,8 +499,8 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                           style={{
                             width: "100%", textAlign: "left",
                             padding: "9px 10px", borderRadius: "10px", border: "none",
-                            background: isActive ? "#E4EBDC" : "transparent",
-                            color: isActive ? "#48603A" : "#333",
+                            background: isActive ? "#F8E6D9" : "transparent",
+                            color: isActive ? "#85482A" : "#333",
                             fontSize: "12px", fontWeight: isActive ? 700 : 500,
                             cursor: "pointer",
                             display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -508,7 +508,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                           }}
                         >
                           {board.label}
-                          {isActive && <Check size={12} color="#5C7A4A" />}
+                          {isActive && <Check size={12} color="#A05A32" />}
                         </button>
                       );
                     })}
@@ -522,12 +522,12 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           {/* 게시판 안내 — 무엇을 쓰는 곳인지, 지켜야 할 점을 한 줄로(게시판이 늘어도 글 성격이 섞이지 않게) */}
           {findBoard(activeBoard)?.desc && (
             <div style={{
-              background: "#F7F3E8", borderBottom: "1px solid #D9E4CE",
-              padding: isNarrow ? "8px 14px" : "8px 28px", fontSize: 11.5, fontWeight: 600, color: "#48603A", lineHeight: 1.5,
+              background: "#F4F3F2", borderBottom: "1px solid #F0D4C2",
+              padding: isNarrow ? "8px 14px" : "8px 28px", fontSize: 11.5, fontWeight: 600, color: "#85482A", lineHeight: 1.5,
             }}>
               {findBoard(activeBoard)?.desc}
               {activeBoard === "rescue" && (
-                <button onClick={() => router.push("/shelter-notices")} style={{ marginLeft: 8, padding: "2px 9px", borderRadius: 999, border: "1px solid #b9cbaa", background: "white", color: "#48603A", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                <button onClick={() => router.push("/shelter-notices")} style={{ marginLeft: 8, padding: "2px 9px", borderRadius: 999, border: "1px solid #D9B49C", background: "white", color: "#85482A", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                   보호소 공고 보기
                 </button>
               )}
@@ -537,11 +537,11 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           {/* 현재 선택된 지역 게시판 표시 (지역 선택 시에만) */}
           {REGION_BOARDS.some((b) => b.id === activeBoard) && (
             <div style={{
-              background: "#F7F3E8", borderBottom: "1px solid #D9E4CE",
-              padding: "8px 28px", fontSize: 11, fontWeight: 700, color: "#48603A",
+              background: "#F4F3F2", borderBottom: "1px solid #F0D4C2",
+              padding: "8px 28px", fontSize: 11, fontWeight: 700, color: "#85482A",
               display: "flex", alignItems: "center", gap: 5,
             }}>
-              <MapPinned size={11} color="#5C7A4A" />
+              <MapPinned size={11} color="#A05A32" />
               {getBoardLabel(activeBoard)} 게시판 보는 중
             </div>
           )}
@@ -627,13 +627,13 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       // 휴대폰: 하단 탭바 바로 위 오른쪽에 떠 있는 버튼
                       position: "fixed", right: 16, bottom: "calc(96px + env(safe-area-inset-bottom))", zIndex: 997,
                       height: 48, padding: "0 18px", fontSize: "14px",
-                      boxShadow: "0 6px 18px rgba(72,96,58,0.35)",
+                      boxShadow: "0 6px 18px rgba(133, 72, 42,0.35)",
                     }
                   : { height: 36, padding: "0 16px", fontSize: "12.5px" }),
                 flexShrink: 0,
                 borderRadius: "999px",
                 border: "none",
-                background: "linear-gradient(145deg, #5C7A4A, #48603A)",
+                background: "linear-gradient(145deg, #A05A32, #85482A)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -666,7 +666,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       whiteSpace: "nowrap",
                       transition: "all 0.15s ease",
                       background: selectedPostType === type
-                        ? "linear-gradient(145deg, #5C7A4A, #48603A)"
+                        ? "linear-gradient(145deg, #A05A32, #85482A)"
                         : "white",
                       color: selectedPostType === type ? "white" : "#555",
                       boxShadow: selectedPostType === type
@@ -734,7 +734,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                   border: "none",
 
                   background:
-                    "linear-gradient(145deg, #5C7A4A, #48603A)",
+                    "linear-gradient(145deg, #A05A32, #85482A)",
 
                   color: "white",
 
@@ -810,13 +810,13 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       )}
                       {/* 공지 — 전체 게시판 첫 쪽 맨 위에 고정(최근 3개) */}
                       {activeBoard === ALL_BOARD_ID && currentPage === 1 && !debouncedSearch.trim() && selectedPostType === "all" && notices.length > 0 && (
-                        <div style={{ marginBottom: 14, borderRadius: 16, background: "white", border: "1px solid #D9E4CE", overflow: "hidden" }}>
+                        <div style={{ marginBottom: 14, borderRadius: 16, background: "white", border: "1px solid #F0D4C2", overflow: "hidden" }}>
                           {notices.slice(0, 3).map((n, i) => (
                             <button key={n.id} onClick={() => router.push(`/community/post/${n.id}`)} style={{
                               width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", border: "none",
-                              borderTop: i === 0 ? "none" : "1px solid #EEF2E8", background: i === 0 ? "#F6F9F2" : "white", cursor: "pointer", textAlign: "left",
+                              borderTop: i === 0 ? "none" : "1px solid #F8EBE2", background: i === 0 ? "#FBF4F0" : "white", cursor: "pointer", textAlign: "left",
                             }}>
-                              <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 7, background: "#2F3B28", color: "white", fontSize: 11.5, fontWeight: 800 }}>공지</span>
+                              <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 7, background: "#3B2A20", color: "white", fontSize: 11.5, fontWeight: 800 }}>공지</span>
                               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: "#1f1a12", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
                               <span style={{ flexShrink: 0, fontSize: 12, color: "#6a6253" }}>{new Date(n.created_at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}</span>
                             </button>
@@ -834,7 +834,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                             className="post-card"
                             onClick={() => router.push(`/community/post/${post.id}`)}
                             style={{
-                              background: isBusiness ? "#fffdf7" : "white",
+                              background: isBusiness ? "#FEFDFC" : "white",
                               borderRadius: "16px",
                               padding: "20px 22px",
                               marginBottom: "14px",
@@ -849,9 +849,9 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                             <div
                               style={{
                                 width: 40, height: 40, borderRadius: "50%",
-                                background: "#E4EBDC",
+                                background: "#F8E6D9",
                                 display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 14, fontWeight: 700, color: "#5C7A4A", overflow: "hidden", flexShrink: 0,
+                                fontSize: 14, fontWeight: 700, color: "#A05A32", overflow: "hidden", flexShrink: 0,
                                 position: "relative",
                               }}
                             >
@@ -1004,7 +1004,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
                 하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
             <div style={{
-              flexShrink: 0, background: "#F7F3E8", borderTop: "1px solid #e5ded0", margin: "28px -28px 0",
+              flexShrink: 0, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", margin: "28px -28px 0",
               padding: "18px 28px calc(78px + 18px)", boxSizing: "border-box",
             }}>
               <SiteFooter />

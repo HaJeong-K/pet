@@ -165,7 +165,13 @@ export default function TabBar() {
     pathname === "/reset-password" ||
     pathname.includes("/place/") ||
     pathname === "/report" ||
-    pathname === "/jebo";  
+    pathname === "/jebo" ||
+    // 푸터에서 들어가는 안내 화면(서비스 소개·광고 제휴·입점 안내)
+    pathname === "/about" ||
+    pathname === "/partnership" ||
+    pathname.startsWith("/partner/") ||
+    pathname.startsWith("/owner") ||
+    pathname.startsWith("/admin");  
 
   if (hideTabBar) return null;
 
@@ -288,7 +294,7 @@ export default function TabBar() {
                 borderRadius: "999px",
                 background: tabs[activeIdx]?.isReport
                   ? "linear-gradient(135deg, #FEE2E2, #FECACA)"
-                  : "linear-gradient(135deg, #E4EBDC, #DCE7CD)",
+                  : "linear-gradient(135deg, #F8E6D9, #F0D6C4)",
                 transition: "left 0.38s cubic-bezier(0.34, 1.15, 0.64, 1)",
                 pointerEvents: "none",
                 zIndex: 0,
@@ -301,7 +307,7 @@ export default function TabBar() {
             const Icon = tab.icon;
             const badge = Number((tab as { badge?: number }).badge) || 0;
             const isActive = activeTab === tab.key;
-            const activeColor   = tab.isReport ? "#DC2626" : "#5C7A4A";
+            const activeColor   = tab.isReport ? "#DC2626" : "#A05A32";
             const inactiveColor = "#1a1a1a";
 
             return (

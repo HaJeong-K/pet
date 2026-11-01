@@ -99,7 +99,7 @@ export default function AdminDashboard() {
       ...(recentTips || []).map((t: any) => ({
         id: `tip-${t.id}`,
         title: t.place_name || "제보 장소",
-        status: "제보", statusColor: "#5C7A4A",
+        status: "제보", statusColor: "#A05A32",
         created_at: t.created_at,
       })),
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6);
@@ -111,7 +111,7 @@ export default function AdminDashboard() {
   return (
     <>
       <style>{STYLES}</style>
-      <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden" }}>
+      <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F4F3F2", overflow: "hidden" }}>
         <AdminNav active="dashboard" onRefresh={fetchStats} />
 
         {/* ⚠ 이 스크롤 칸을 flex로 만들면 안 됩니다 — 안쪽 상자가 칸 높이에 맞춰 늘어나기만 하고 내용은 그 밖으로 넘쳐서,
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
             {/* ── 웰컴 배너 — 시안 .hero 스펙: solid primaryDark, no radius ── */}
             <div style={{
               position: "relative", overflow: "hidden",
-              background: "#48603A",
+              background: "#85482A",
               padding: "clamp(24px, 6vw, 48px) clamp(20px, 5vw, 40px)", marginBottom: 24,
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
             }}>
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
                   안녕하세요, 관리자님
                 </div>
                 <div style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>
-                  오늘도 같이가개 커뮤니티를 안전하게 지켜주셔서 감사합니다.
+                  오늘도 펫츠로드 커뮤니티를 안전하게 지켜주셔서 감사합니다.
                 </div>
               </div>
             </div>

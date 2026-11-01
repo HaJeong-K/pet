@@ -23,8 +23,8 @@ type Info = {
 };
 
 const TONE = {
-  fresh: { bg: "#ECF5E6", border: "#CFE3C0", color: "#3F6B2B", label: "최근 확인됨" },
-  normal: { bg: "#F6F4EC", border: "#E6E1CF", color: "#6B6447", label: "확인한 지 조금 됐어요" },
+  fresh: { bg: "#F8EBE3", border: "#EDCCB6", color: "#8A4A26", label: "최근 확인됨" },
+  normal: { bg: "#F5F4F3", border: "#E2E1E0", color: "#6B6447", label: "확인한 지 조금 됐어요" },
   stale: { bg: "#FFF7ED", border: "#FED7AA", color: "#9A3412", label: "확인한 지 오래됐어요" },
 } as const;
 const BY_LABEL = { visitor: "방문자 확인", owner: "사장님 확인", data: "공공데이터 갱신" } as const;
@@ -94,7 +94,7 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
 
   const row = (Icon: typeof Users, text: React.ReactNode) => (
     <div className="ggk-body" style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11.5, color: "#555", lineHeight: 1.5 }}>
-      <Icon size={12} style={{ flexShrink: 0, marginTop: 2, color: "#5f6456" }} />
+      <Icon size={12} style={{ flexShrink: 0, marginTop: 2, color: "#6B5E55" }} />
       <span>{text}</span>
     </div>
   );
@@ -135,7 +135,7 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
         <div style={{ marginTop: 10 }}>
           {info.mine && !choosing ? (
             <div className="ggk-body" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#555", flexWrap: "wrap" }}>
-              <Check size={13} color="#3F6B2B" />
+              <Check size={13} color="#8A4A26" />
               {relativeDay(info.mine.at)}에 &ldquo;{info.mine.verdict === "ok" ? "정보가 맞아요" : changeDetailLabel(info.mine.detail)}&rdquo;를 남겼어요
               <button onClick={() => setChoosing(true)} style={{ marginLeft: "auto", padding: "4px 9px", borderRadius: 8, border: "1px solid #ddd", background: "white", fontSize: 11, fontWeight: 700, color: "#666", cursor: "pointer" }}>바꾸기</button>
             </div>
@@ -143,7 +143,7 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
             <>
               <div className="ggk-body" style={{ fontSize: 11, fontWeight: 700, color: "#666", marginBottom: 6 }}>다녀오셨나요? 지금도 정보가 맞는지 알려 주세요</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                <button onClick={() => send("ok")} disabled={busy} className="ggk-body" style={{ padding: "9px 0", borderRadius: 9, border: "none", background: "#5C7A4A", color: "white", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer" }}>정보가 맞아요</button>
+                <button onClick={() => send("ok")} disabled={busy} className="ggk-body" style={{ padding: "9px 0", borderRadius: 9, border: "none", background: "#A05A32", color: "white", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer" }}>정보가 맞아요</button>
                 <button onClick={() => setChoosing((v) => !v)} aria-expanded={choosing} disabled={busy} className="ggk-body" style={{ padding: "9px 0", borderRadius: 9, border: "1px solid #E7B9B4", background: "white", color: "#B42318", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
                   달라졌어요 {choosing ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                 </button>
@@ -167,14 +167,14 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
       {/* 사장님 본인 가게 */}
       {isOwner && (
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={ownerConfirm} disabled={busy} className="ggk-body" style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#5C7A4A", color: "white", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <button onClick={ownerConfirm} disabled={busy} className="ggk-body" style={{ padding: "8px 12px", borderRadius: 9, border: "none", background: "#A05A32", color: "white", fontSize: 12, fontWeight: 800, cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <BadgeCheck size={13} />지금 정보가 맞아요
           </button>
           <span className="ggk-body" style={{ flex: "1 1 160px", fontSize: 10.5, color: "#555", lineHeight: 1.5 }}>정보가 그대로라면 눌러 주세요. 손님에게 &ldquo;사장님 확인&rdquo; 날짜로 보여요.</span>
         </div>
       )}
 
-      {message && <div role="status" className="ggk-body" style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: message.ok ? "#3F6B2B" : "#B91C1C" }}>{message.text}</div>}
+      {message && <div role="status" className="ggk-body" style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: message.ok ? "#8A4A26" : "#B91C1C" }}>{message.text}</div>}
     </div>
   );
 }

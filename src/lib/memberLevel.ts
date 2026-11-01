@@ -69,12 +69,12 @@ export type MemberLevel = {
 };
 
 export const MEMBER_LEVELS: MemberLevel[] = [
-  { level: 1, name: "꼬물이",        minPoints: 0,    minMapContributions: 0,  monthlyVisits: 0, description: "이제 막 눈을 뜬 새 가족이에요.",           color: "#8a7a66", background: "#F3EEE4" },
-  { level: 2, name: "냄새 수집가",   minPoints: 30,   minMapContributions: 0,  monthlyVisits: 2, description: "가는 곳마다 킁킁, 냄새를 모으는 중이에요.", color: "#7A6A3A", background: "#F6EFC9" },
-  { level: 3, name: "거리 수색대",   minPoints: 100,  minMapContributions: 0,  monthlyVisits: 4, description: "거리 구석구석을 살피고 다녀요.",           color: "#48603A", background: "#E4EBDC" },
+  { level: 1, name: "꼬물이",        minPoints: 0,    minMapContributions: 0,  monthlyVisits: 0, description: "이제 막 눈을 뜬 새 가족이에요.",           color: "#8a7a66", background: "#EFEEED" },
+  { level: 2, name: "냄새 수집가",   minPoints: 30,   minMapContributions: 0,  monthlyVisits: 2, description: "가는 곳마다 킁킁, 냄새를 모으는 중이에요.", color: "#7A6A3A", background: "#EEEDEC" },
+  { level: 3, name: "거리 수색대",   minPoints: 100,  minMapContributions: 0,  monthlyVisits: 4, description: "거리 구석구석을 살피고 다녀요.",           color: "#85482A", background: "#F8E6D9" },
   { level: 4, name: "산책대장",      minPoints: 300,  minMapContributions: 0,  monthlyVisits: 8, description: "산책이라면 먼저 앞장서요.",                color: "#1F5F8B", background: "#DCEBF7" },
   { level: 5, name: "발도장 수집가", minPoints: 800,  minMapContributions: 3,  monthlyVisits: 12, description: "어디를 가든 발도장을 남겨요.",             color: "#6B3FA0", background: "#EBE1F7" },
-  { level: 6, name: "명예 순찰대",   minPoints: 2000, minMapContributions: 10, monthlyVisits: 16, description: "지도를 지켜 주는 명예로운 순찰대예요.",    color: "#A8551F", background: "#FBE6CF" },
+  { level: 6, name: "명예 순찰대",   minPoints: 2000, minMapContributions: 10, monthlyVisits: 16, description: "지도를 지켜 주는 명예로운 순찰대예요.",    color: "#A8551F", background: "#EBEAE9" },
 ];
 
 /** 장소 사진 몇 장을 지도 기여 1회로 칠지 — 장소 사진도 다른 사람의 방문 결정에 도움이 되므로 포함합니다. */

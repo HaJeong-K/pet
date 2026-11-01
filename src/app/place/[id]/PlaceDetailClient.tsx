@@ -994,7 +994,7 @@ export default function PlaceDetail({
           className="ggk-body"
           style={{
             marginTop: "16px", padding: "9px 18px", borderRadius: "10px", border: "none",
-            background: "#5C7A4A", color: "white", fontSize: "13px", fontWeight: 700, cursor: "pointer",
+            background: "#A05A32", color: "white", fontSize: "13px", fontWeight: 700, cursor: "pointer",
           }}
         >
           다시 불러오기
@@ -1472,8 +1472,8 @@ export default function PlaceDetail({
             <span style={{ fontSize:"12px", fontWeight:600, color:voteReaction==="dislike"?"#dc2626":"#555" }}>비추천 {dislikesCount}</span>
           </button>
           {/* 내 경로에 추가 — 가고 싶은 곳을 순서대로 엮어 두는 여행 경로(마이페이지 "코스·내 경로"에서 순서 변경) */}
-          <button onClick={() => { if (!isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(`/place/${placeId}`)}`); return; } setShowRouteSheet(true); }} className="ggk-body" style={{ gridColumn:"1 / -1", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:"1px solid #cfdcc3", background:"linear-gradient(145deg,#f6faf2,#edf4e6)", cursor:"pointer", color:"#48603A", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
-            <MapPinned size={14} color="#48603A" />
+          <button onClick={() => { if (!isLoggedIn) { router.push(`/login?redirect=${encodeURIComponent(`/place/${placeId}`)}`); return; } setShowRouteSheet(true); }} className="ggk-body" style={{ gridColumn:"1 / -1", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px", padding:"9px 10px", borderRadius:"10px", border:"1px solid #ECCAB3", background:"linear-gradient(145deg,#FBF5F1,#F8EBE2)", cursor:"pointer", color:"#85482A", boxShadow:"0 1px 4px rgba(0,0,0,0.06)" }}>
+            <MapPinned size={14} color="#85482A" />
             <span style={{ fontSize:"12px", fontWeight:700 }}>내 경로에 추가</span>
           </button>
         </div>

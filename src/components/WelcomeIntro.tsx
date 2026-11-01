@@ -9,8 +9,9 @@
 // 각 장은 "그림 → 제목 두 줄 → 설명 한두 줄"의 같은 틀이라, 넘겨도 글자 위치가 흔들리지 않습니다.
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { BedDouble, Check, ChevronRight, ClipboardList, Copy, MapPin, MessageSquare, Pill, Search, ShoppingBag, Store, Trees, Utensils, X } from "lucide-react";
+import { BedDouble, Check, ChevronRight, ClipboardList, Copy, CreditCard, ImageOff, MapPin, MessageSquare, Pill, Search, ShoppingBag, Store, Trees, Utensils, X } from "lucide-react";
 import LevelBadge from "@/components/LevelBadge";
+import { SchnauzerHead } from "@/components/brand/SchnauzerPeek";
 import { setGuideInterest, type GuideInterest } from "@/lib/pageGuides";
 
 const CONTACT_EMAIL = "infoker12@naver.com";
@@ -29,7 +30,7 @@ export function shouldShowWelcomeIntro(): boolean {
   }
 }
 
-const GREEN = "#5C7A4A", BROWN = "#8B5E3C", CREAM = "#F7F3E8", INK = "#2F2A24";
+const BRAND = "#A05A32", BROWN = "#8B5E3C", PAGE_BG = "#F4F3F2", INK = "#2F2A24";
 const whiteCard: React.CSSProperties = { background: "white", borderRadius: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" };
 const artBox = (background: string): React.CSSProperties => ({ width: "100%", height: "100%", borderRadius: 16, background, padding: "14px 16px", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center", gap: 9 });
 
@@ -48,7 +49,7 @@ function MapArt() {
       <img src="/images/default-place.png" alt="" aria-hidden="true" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       {pills.map(({ left, top, Icon, label }) => (
         <span key={label} style={{ position: "absolute", left, top, display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 999, background: "white", fontSize: 11, fontWeight: 700, color: INK, boxShadow: "0 2px 6px rgba(0,0,0,0.14)", whiteSpace: "nowrap" }}>
-          <Icon size={12} color={GREEN} />{label}
+          <Icon size={12} color={BRAND} />{label}
         </span>
       ))}
     </div>
@@ -57,15 +58,15 @@ function MapArt() {
 
 function SearchArt() {
   return (
-    <div style={{ ...artBox("#EEF3E8"), gap: 12 }}>
+    <div style={{ ...artBox("#FCF1E9"), gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", borderRadius: 999, background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-        <Search size={15} color="#7c867c" />
+        <Search size={15} color="#8E7E74" />
         <span style={{ fontSize: 13.5, fontWeight: 700, color: INK }}>우리동네 핫플</span>
-        <span style={{ width: 1.5, height: 15, background: GREEN, marginLeft: -4 }} />
+        <span style={{ width: 1.5, height: 15, background: BRAND, marginLeft: -4 }} />
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {["내주변 카페", "대구 삼덕동 동물병원", "우리동네 새장소", "성수 대형견 식당"].map((text) => (
-          <span key={text} style={{ padding: "6px 10px", borderRadius: 999, background: "white", border: "1px solid #DCE5D3", fontSize: 11.5, fontWeight: 600, color: "#48603A", whiteSpace: "nowrap" }}>{text}</span>
+          <span key={text} style={{ padding: "6px 10px", borderRadius: 999, background: "white", border: "1px solid #F1D8C7", fontSize: 11.5, fontWeight: 600, color: "#85482A", whiteSpace: "nowrap" }}>{text}</span>
         ))}
       </div>
     </div>
@@ -75,7 +76,7 @@ function SearchArt() {
 function CourseArt() {
   const stop = (n: number, name: string, sub: string) => (
     <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: GREEN, color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
+      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: BRAND, color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
         <div style={{ fontSize: 10.5, color: "#5f5f56" }}>{sub}</div>
@@ -83,9 +84,9 @@ function CourseArt() {
     </div>
   );
   return (
-    <div style={{ ...artBox("#FBF3E4"), flexDirection: "row", alignItems: "stretch", gap: 12 }}>
+    <div style={{ ...artBox("#F5F4F3"), flexDirection: "row", alignItems: "stretch", gap: 12 }}>
       <div style={{ ...whiteCard, flex: 1.25, minWidth: 0, padding: 12, display: "flex", flexDirection: "column", justifyContent: "center", gap: 9 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 800, color: GREEN }}>산책 코스 · 1.7km</div>
+        <div style={{ fontSize: 10.5, fontWeight: 800, color: BRAND }}>산책 코스 · 1.7km</div>
         {stop(1, "동네 공원", "산책 · 도보 6분")}
         {stop(2, "테라스 카페", "쉬어 가기")}
         {stop(3, "동반 식당", "저녁")}
@@ -139,8 +140,8 @@ function StayArt() {
 
 function NearbyArt() {
   return (
-    <div style={artBox("#EEF3E8")}>
-      {[{ Icon: BedDouble, name: "숲속 독채", sub: "오늘 머무는 숙소", tone: "#1D4F91" }, { Icon: Trees, name: "강변 공원", sub: "도보 8분", tone: GREEN }, { Icon: Utensils, name: "동반 식당", sub: "차로 5분", tone: BROWN }].map(({ Icon, name, sub, tone }) => (
+    <div style={artBox("#FCF1E9")}>
+      {[{ Icon: BedDouble, name: "숲속 독채", sub: "오늘 머무는 숙소", tone: "#1D4F91" }, { Icon: Trees, name: "강변 공원", sub: "도보 8분", tone: BRAND }, { Icon: Utensils, name: "동반 식당", sub: "차로 5분", tone: BROWN }].map(({ Icon, name, sub, tone }) => (
         <div key={name} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
           <Icon size={16} color={tone} />
           <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: INK }}>{name}</span>
@@ -155,10 +156,10 @@ function OrdersArt() {
   const rows = [
     { name: "숲속 독채 · 1박", state: "예약 확정", bg: "#DCFCE7", color: "#15803D", action: "취소 신청" },
     { name: "테라스 카페 · 포장", state: "준비 완료", bg: "#DBEAFE", color: "#1D4ED8", action: "영수증" },
-    { name: "동반 식당 · 매장 식사", state: "이용 완료", bg: "#F1ECE1", color: "#5a5141", action: "후기 쓰기" },
+    { name: "동반 식당 · 매장 식사", state: "이용 완료", bg: "#EDECEB", color: "#5a5141", action: "후기 쓰기" },
   ];
   return (
-    <div style={artBox("#FBF3E4")}>
+    <div style={artBox("#F5F4F3")}>
       {rows.map((r) => (
         <div key={r.name} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 8, padding: "8px 11px" }}>
           <span style={{ flexShrink: 0, padding: "2px 7px", borderRadius: 999, background: r.bg, color: r.color, fontSize: 10, fontWeight: 800 }}>{r.state}</span>
@@ -172,10 +173,10 @@ function OrdersArt() {
 
 function ShopArt() {
   return (
-    <div style={artBox("#FBF3E4")}>
+    <div style={artBox("#F5F4F3")}>
       <div style={{ display: "flex", gap: 6 }}>
         <span style={{ flex: 1, padding: "8px 4px", borderRadius: 10, background: BROWN, color: "white", fontSize: 12, fontWeight: 800, textAlign: "center" }}>포장 주문</span>
-        <span style={{ flex: 1, padding: "8px 4px", borderRadius: 10, background: "white", border: "1px solid #E8DFD2", color: "#5F4D3A", fontSize: 12, fontWeight: 800, textAlign: "center" }}>매장 식사 예약</span>
+        <span style={{ flex: 1, padding: "8px 4px", borderRadius: 10, background: "white", border: "1px solid #E1E0DF", color: "#5F4D3A", fontSize: 12, fontWeight: 800, textAlign: "center" }}>매장 식사 예약</span>
       </div>
       {[["수제 오리 간식", "6,500원"], ["아메리카노", "4,500원"]].map(([name, price]) => (
         <div key={name} style={{ ...whiteCard, display: "flex", justifyContent: "space-between", padding: "9px 12px", fontSize: 12.5, fontWeight: 700, color: INK }}><span>{name}</span><span>{price}</span></div>
@@ -187,9 +188,9 @@ function ShopArt() {
 function VisitArt() {
   const steps = [{ Icon: ShoppingBag, text: "메뉴를 고르고 시간을 정해요" }, { Icon: Check, text: "가게가 주문을 확정해요" }, { Icon: MapPin, text: "시간에 맞춰 편하게 가요" }];
   return (
-    <div style={artBox("#EEF3E8")}>
+    <div style={artBox("#FCF1E9")}>
       {steps.map(({ Icon, text }) => (
-        <div key={text} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, color: INK }}><Icon size={15} color={GREEN} />{text}</div>
+        <div key={text} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, color: INK }}><Icon size={15} color={BRAND} />{text}</div>
       ))}
     </div>
   );
@@ -198,7 +199,7 @@ function VisitArt() {
 function OwnerArt() {
   const steps = ["사장님으로 가입", "입점 상담 신청", "승인 후 예약·주문 받기"];
   return (
-    <div style={artBox("#F3E7D8")}>
+    <div style={artBox("#EAE9E8")}>
       {steps.map((text, i) => (
         <div key={text} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, color: INK }}>
           <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#4A3021", color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>{text}
@@ -210,22 +211,22 @@ function OwnerArt() {
 
 function OwnerManageArt() {
   return (
-    <div style={artBox("#EEF3E8")}>
+    <div style={artBox("#FCF1E9")}>
       <div style={{ ...whiteCard, padding: "11px 13px", display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: INK }}><ClipboardList size={14} color={GREEN} />새 주문 · 포장 2건</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 800, color: INK }}><ClipboardList size={14} color={BRAND} />새 주문 · 포장 2건</div>
         <div style={{ display: "flex", gap: 6 }}>
           <span style={{ flex: 1, padding: "7px 0", borderRadius: 9, background: "#B45309", color: "white", fontSize: 12, fontWeight: 800, textAlign: "center" }}>확정</span>
           <span style={{ padding: "7px 14px", borderRadius: 9, border: "1px solid #f3c7c5", color: "#b42318", fontSize: 12, fontWeight: 800 }}>거절</span>
         </div>
       </div>
-      <div style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", fontSize: 12.5, fontWeight: 700, color: INK }}><MessageSquare size={14} color={GREEN} />답글을 기다리는 후기 3개</div>
+      <div style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", fontSize: 12.5, fontWeight: 700, color: INK }}><MessageSquare size={14} color={BRAND} />답글을 기다리는 후기 3개</div>
     </div>
   );
 }
 
 function OwnerReachArt() {
   return (
-    <div style={artBox("#FBF3E4")}>
+    <div style={artBox("#F5F4F3")}>
       {[{ Icon: MapPin, text: "지도와 장소 화면에 입점 표시" }, { Icon: BedDouble, text: "숙소는 숙소 탭에서 예약" }, { Icon: ShoppingBag, text: "카페·식당·간식은 쇼핑 탭에서 주문" }].map(({ Icon, text }) => (
         <div key={text} style={{ ...whiteCard, display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", fontSize: 12, fontWeight: 700, color: INK }}><Icon size={15} color={BROWN} />{text}</div>
       ))}
@@ -265,12 +266,20 @@ const TRACKS: Record<GuideInterest, { slides: Slide[]; cta: string; href: string
   owner: {
     cta: "사장님으로 시작하기", href: "/signup-owner",
     slides: [
-      { Art: OwnerArt, title: ["입점 상담부터", "차근차근 진행합니다"], text: "같이가개에 가입한 사장님이면\n누구나 입점 상담을 받을 수 있습니다." },
+      { Art: OwnerArt, title: ["입점 상담부터", "차근차근 진행합니다"], text: "펫츠로드에 가입한 사장님이면\n누구나 입점 상담을 받을 수 있습니다." },
       { Art: OwnerReachArt, title: ["반려동물 손님에게", "우리 가게를 알립니다"], text: "동반 장소를 찾는 보호자에게\n예약과 주문을 직접 받을 수 있습니다." },
       { Art: OwnerManageArt, title: ["예약과 후기를", "사장님 센터에서 관리합니다"], text: "새 예약·주문 확인, 후기 답글, 공지 등록을\n한 화면에서 처리할 수 있습니다." },
     ],
   },
 };
+
+// 첫 장의 데모 버전 안내 — 정식 출시 때 이 목록과 안내 카드를 함께 지웁니다
+const DEMO_NOTES: { Icon: typeof MapPin; label: string; text: string }[] = [
+  { Icon: MapPin, label: "장소 정보", text: "비어 있는 곳이 많아요" },
+  { Icon: ImageOff, label: "장소 사진", text: "공공데이터에 없어 거의 없어요" },
+  { Icon: Store, label: "입점 가게", text: "아직 없어요" },
+  { Icon: CreditCard, label: "결제", text: "시스템을 구축 중이에요" },
+];
 
 const CHOICES: { id: GuideInterest; Icon: typeof MapPin; title: string; sub: string }[] = [
   { id: "places", Icon: MapPin, title: "함께 갈 장소 찾기", sub: "카페·식당·공원·병원, 산책 코스" },
@@ -336,20 +345,20 @@ export default function WelcomeIntro({ onClose }: { onClose: () => void }) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="같이가개 소개"
+        aria-label="펫츠로드 소개"
         data-welcome-intro
         className="ggk-body"
         style={{
           position: "fixed", zIndex: 2001, left: "50%", top: "50%", translate: "-50% -50%",
           width: "min(400px, calc(100vw - 32px))", maxHeight: "calc(100dvh - 40px)",
           display: "flex", flexDirection: "column", wordBreak: "keep-all",
-          background: CREAM, borderRadius: 24, overflow: "hidden", boxShadow: "0 18px 50px rgba(0,0,0,0.3)",
+          background: PAGE_BG, borderRadius: 24, overflow: "hidden", boxShadow: "0 18px 50px rgba(0,0,0,0.3)",
         }}
       >
         {/* 머리: 로고 · 닫기 */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 6px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/logo_lockup.png" alt="같이가개" style={{ height: 30, width: "auto", display: "block" }} />
+          <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ height: 30, width: "auto", display: "block" }} />
           <button onClick={() => close(false)} aria-label="닫기" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.07)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={15} color="#555" />
           </button>
@@ -370,30 +379,51 @@ export default function WelcomeIntro({ onClose }: { onClose: () => void }) {
             {/* 첫 장: 목적 고르기 */}
             <div aria-hidden={index !== 0} style={{ flex: "0 0 100%", minWidth: 0, padding: "8px 18px 0", boxSizing: "border-box" }}>
               <div className="ggk-logo" style={{ fontSize: 21, fontWeight: 800, color: INK, lineHeight: 1.32 }}>
-                반가워요!<br /><span style={{ color: GREEN }}>무엇을 하러 오셨나요?</span>
+                반가워요!<br /><span style={{ color: BRAND }}>무엇을 하러 오셨나요?</span>
               </div>
-              <div style={{ marginTop: 6, fontSize: 13.5, color: "#5d574e", lineHeight: 1.6 }}>고르신 목적에 맞춰 안내해 드릴게요.</div>
-              <div style={{ display: "grid", gap: 8, marginTop: 13 }}>
+              {/* 세로가 낮은 휴대폰에서는 데모 안내가 잘리지 않도록 목적 버튼을 줄입니다 */}
+              <style>{`@media (max-height: 880px) { .ggk-intro-lead, .ggk-intro-sub { display: none !important; } .ggk-intro-choices { gap: 6px !important; } .ggk-intro-choice { padding: 7px 13px !important; } .ggk-intro-icon { width: 28px !important; height: 28px !important; } .ggk-intro-notes { gap: 4px !important; margin-top: 8px !important; padding-top: 8px !important; } .ggk-intro-dog svg { width: 22px !important; height: auto !important; } .ggk-intro-dots { padding: 6px 0 0 !important; } .ggk-intro-foot { padding: 6px 18px 12px !important; } }`}</style>
+              <div className="ggk-intro-lead" style={{ marginTop: 6, fontSize: 13.5, color: "#5d574e", lineHeight: 1.6 }}>고르신 목적에 맞춰 안내해 드릴게요.</div>
+              <div className="ggk-intro-choices" style={{ display: "grid", gap: 8, marginTop: 13 }}>
                 {CHOICES.map(({ id, Icon, title, sub }) => {
                   const on = interest === id;
                   return (
-                    <button key={id} onClick={() => choose(id)} tabIndex={index === 0 ? 0 : -1} aria-pressed={on} style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", borderRadius: 14, border: `1.5px solid ${on ? GREEN : "#E6E0D0"}`, background: on ? "#F1F5EC" : "white", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
-                      <span style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 11, background: "#EEF3E8", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={18} color={GREEN} /></span>
+                    <button key={id} className="ggk-intro-choice" onClick={() => choose(id)} tabIndex={index === 0 ? 0 : -1} aria-pressed={on} style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 13px", borderRadius: 14, border: `1.5px solid ${on ? BRAND : "#E1E0DF"}`, background: on ? "#F9EFE8" : "white", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}>
+                      <span className="ggk-intro-icon" style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 11, background: "#FCF1E9", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={18} color={BRAND} /></span>
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: "block", fontSize: 14, fontWeight: 800, color: INK }}>{title}</span>
-                        <span style={{ display: "block", marginTop: 1, fontSize: 12, color: "#5d574e" }}>{sub}</span>
+                        <span className="ggk-intro-sub" style={{ display: "block", marginTop: 1, fontSize: 12, color: "#5d574e" }}>{sub}</span>
                       </span>
                       <ChevronRight size={16} color="#7a7263" style={{ flexShrink: 0 }} />
                     </button>
                   );
                 })}
               </div>
+              {/* 데모 버전 안내 — 처음 들어온 분이 빈 정보를 오류로 오해하지 않게 미리 알립니다 */}
+              <div style={{ marginTop: 12, padding: "12px 14px 13px", borderRadius: 16, background: "white", border: "1px solid #E1E0DF" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="ggk-intro-dog" style={{ flexShrink: 0 }}><SchnauzerHead width={30} /></div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: INK }}>아직 데모 버전이에요</div>
+                    <div className="ggk-intro-sub" style={{ marginTop: 1, fontSize: 12.5, color: "#5d574e" }}>정식 오픈 전이라 미리 알려 드려요</div>
+                  </div>
+                </div>
+                <div className="ggk-intro-notes" style={{ display: "grid", gap: 7, marginTop: 11, paddingTop: 11, borderTop: "1px solid #ECEBEA" }}>
+                  {DEMO_NOTES.map(({ Icon, label, text }) => (
+                    <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+                      <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: 7, background: "#FCF1E9", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={13} color={BRAND} /></span>
+                      <span style={{ flexShrink: 0, fontWeight: 700, color: INK }}>{label}</span>
+                      <span style={{ minWidth: 0, color: "#5d574e" }}>{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             {slides.map(({ Art, title, text }, i) => (
-              <div key={title[0]} aria-hidden={i + 1 !== index} style={{ flex: "0 0 100%", minWidth: 0, padding: "8px 18px 0", boxSizing: "border-box" }}>
+              <div key={title[0]} aria-hidden={i + 1 !== index} style={{ flex: "0 0 100%", minWidth: 0, padding: "8px 18px 0", boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                 <div style={{ height: 226 }}><Art /></div>
                 <div className="ggk-logo" style={{ marginTop: 16, fontSize: 21, fontWeight: 800, color: INK, lineHeight: 1.32 }}>
-                  {title[0]}<br /><span style={{ color: GREEN }}>{title[1]}</span>
+                  {title[0]}<br /><span style={{ color: BRAND }}>{title[1]}</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 13.5, color: "#5d574e", lineHeight: 1.65, whiteSpace: "pre-line" }}>{text}</div>
               </div>
@@ -401,36 +431,36 @@ export default function WelcomeIntro({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        {/* 시범 운영 안내 — 첫 장과 마지막 장에서만 보입니다(자리는 늘 같아서 높이가 흔들리지 않습니다) */}
+        {/* 데모 버전 표시와 연락처 — 첫 장과 마지막 장에서만 보입니다(자리는 늘 같아서 높이가 흔들리지 않습니다) */}
         <div style={{ margin: "10px 18px 0", height: 40, flexShrink: 0, visibility: showContact ? "visible" : "hidden" }}>
-          <div style={{ height: "100%", padding: "0 12px", borderRadius: 12, background: "white", border: "1px solid #ECE6D6", display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ flexShrink: 0, padding: "3px 7px", borderRadius: 999, background: "#5C7A4A", color: "white", fontSize: 10, fontWeight: 800 }}>시범 운영 중</span>
-            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("[같이가개] 의견 보내기")}`} style={{ flex: 1, minWidth: 0, fontSize: 11.5, letterSpacing: "-0.2px", color: INK, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{CONTACT_EMAIL}</a>
-            <button onClick={copyEmail} tabIndex={showContact ? 0 : -1} style={{ flexShrink: 0, padding: "5px 9px", borderRadius: 8, border: "1px solid #dcd6c6", background: "white", fontSize: 11, fontWeight: 700, color: copied ? "#2F7D46" : "#555", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <div style={{ height: "100%", padding: "0 12px", borderRadius: 12, background: "white", border: "1px solid #E7E6E5", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ flexShrink: 0, padding: "3px 7px", borderRadius: 999, background: "#A05A32", color: "white", fontSize: 10, fontWeight: 800 }}>데모 버전</span>
+            <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("[펫츠로드] 의견 보내기")}`} style={{ flex: 1, minWidth: 0, fontSize: 11.5, letterSpacing: "-0.2px", color: INK, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{CONTACT_EMAIL}</a>
+            <button onClick={copyEmail} tabIndex={showContact ? 0 : -1} style={{ flexShrink: 0, padding: "5px 9px", borderRadius: 8, border: "1px solid #D7D6D5", background: "white", fontSize: 11, fontWeight: 700, color: copied ? "#2F7D46" : "#555", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
               {copied ? <><Check size={11} />복사됨</> : <><Copy size={11} />복사</>}
             </button>
           </div>
         </div>
 
         {/* 점 · 버튼 */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 0 4px", minHeight: 7, flexShrink: 0 }}>
+        <div className="ggk-intro-dots" style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 0 4px", minHeight: 7, flexShrink: 0 }}>
           {interest && [0, ...slides.map((_, i) => i + 1)].map((i) => (
             <button key={i} onClick={() => go(i)} aria-label={`${i + 1}번째 소개`} aria-current={i === index}
-              style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, background: i === index ? GREEN : "#CFC7B3", cursor: "pointer", transition: "width 0.2s" }} />
+              style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 999, border: "none", padding: 0, background: i === index ? BRAND : "#CFC7B3", cursor: "pointer", transition: "width 0.2s" }} />
           ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px 18px", flexShrink: 0 }}>
+        <div className="ggk-intro-foot" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px 18px", flexShrink: 0 }}>
           <button onClick={() => close(true)} style={{ padding: "12px 4px", border: "none", background: "none", fontSize: 12.5, fontWeight: 600, color: "#655d4f", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
             다시 보지 않기
           </button>
           <div style={{ flex: 1 }} />
           {index > 0 && (
-            <button onClick={() => go(index - 1)} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #DDD5C2", background: "white", fontSize: 13, fontWeight: 700, color: "#6d665b", cursor: "pointer" }}>
+            <button onClick={() => go(index - 1)} style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid #D6D5D4", background: "white", fontSize: 13, fontWeight: 700, color: "#6d665b", cursor: "pointer" }}>
               이전
             </button>
           )}
           {interest && (
-            <button onClick={() => (last ? finish() : go(index + 1))} style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: GREEN, fontSize: 13.5, fontWeight: 800, color: "white", cursor: "pointer", whiteSpace: "nowrap" }}>
+            <button onClick={() => (last ? finish() : go(index + 1))} style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: BRAND, fontSize: 13.5, fontWeight: 800, color: "white", cursor: "pointer", whiteSpace: "nowrap" }}>
               {last ? track?.cta : "다음"}
             </button>
           )}

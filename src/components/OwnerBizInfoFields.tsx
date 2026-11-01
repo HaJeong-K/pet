@@ -92,7 +92,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #e2e4e8",
   fontSize: 14, boxSizing: "border-box", marginBottom: 4, fontFamily: "'Noto Sans KR', sans-serif",
 };
-const hintStyle = (ok: boolean): React.CSSProperties => ({ fontSize: 11, color: ok ? "#5C7A4A" : "#c9302c", marginBottom: 8, minHeight: 14 });
+const hintStyle = (ok: boolean): React.CSSProperties => ({ fontSize: 11, color: ok ? "#A05A32" : "#c9302c", marginBottom: 8, minHeight: 14 });
 
 export default function OwnerBizInfoFields({
   info, onChange, ocrStatus,
@@ -128,13 +128,18 @@ export default function OwnerBizInfoFields({
         style={inputStyle}
       />
       <div style={hintStyle(true)} />
-      <input
-        placeholder="개업일자 (예: 20200315)"
-        inputMode="numeric"
-        value={info.openDate}
-        onChange={(e) => onChange({ ...info, openDate: onlyDigits(e.target.value).slice(0, 8) })}
-        style={inputStyle}
-      />
+      {/* 달력에서 고릅니다. 값은 국세청 확인에 쓰는 8자리 숫자로 보관합니다 */}
+      <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#555" }}>
+        개업일자
+        <input
+          type="date"
+          aria-label="개업일자"
+          max={new Date().toISOString().slice(0, 10)}
+          value={dateDigits.length === 8 ? `${dateDigits.slice(0, 4)}-${dateDigits.slice(4, 6)}-${dateDigits.slice(6)}` : ""}
+          onChange={(e) => onChange({ ...info, openDate: onlyDigits(e.target.value).slice(0, 8) })}
+          style={{ ...inputStyle, marginTop: 4 }}
+        />
+      </label>
       <div style={hintStyle(isValidOpenDate(dateDigits))}>
         {dateDigits.length === 8 ? (isValidOpenDate(dateDigits) ? "" : "날짜를 다시 확인해 주세요") : ""}
       </div>

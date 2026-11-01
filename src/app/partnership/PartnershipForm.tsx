@@ -51,14 +51,14 @@ export default function PartnershipForm() {
   }
 
   return (
-    <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #ece6d6", padding: "clamp(18px, 4vw, 28px)", boxShadow: "0 8px 28px rgba(60,50,20,0.06)", scrollMarginTop: 70 }}>
+    <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #E7E6E5", padding: "clamp(18px, 4vw, 28px)", boxShadow: "0 8px 28px rgba(60,50,20,0.06)", scrollMarginTop: 70 }}>
       <div style={{ display: "grid", gap: 14 }}>
         <div>
           <span style={label}>문의 유형</span>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             {INQUIRY_KINDS.map((k) => {
               const active = form.kind === k.id;
-              return <button key={k.id} onClick={() => setForm({ ...form, kind: k.id })} aria-pressed={active} title={k.hint} style={{ padding: "9px 14px", borderRadius: 10, border: `1.5px solid ${active ? "#5C7A4A" : "#e2e4e8"}`, background: active ? "#E4EBDC" : "white", color: active ? "#3F5230" : "#666", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{k.label}</button>;
+              return <button key={k.id} onClick={() => setForm({ ...form, kind: k.id })} aria-pressed={active} title={k.hint} style={{ padding: "9px 14px", borderRadius: 10, border: `1.5px solid ${active ? "#A05A32" : "#e2e4e8"}`, background: active ? "#F8E6D9" : "white", color: active ? "#6F3D24" : "#666", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{k.label}</button>;
             })}
           </div>
           <div style={{ marginTop: 6, fontSize: 11.5, color: "#666" }}>{INQUIRY_KINDS.find((k) => k.id === form.kind)?.hint}</div>
@@ -87,7 +87,7 @@ export default function PartnershipForm() {
 · 보관 기간: 회신 완료 후 1년`}</span>
         </label>
         {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-        <button onClick={submit} disabled={busy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "13px 0", borderRadius: 11, border: "none", background: busy ? "#cbd5c0" : "#5C7A4A", color: "white", fontSize: 14, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>
+        <button onClick={submit} disabled={busy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "13px 0", borderRadius: 11, border: "none", background: busy ? "#E2C6B3" : "#A05A32", color: "white", fontSize: 14, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>
           <Send size={15} />{busy ? "접수 중…" : "문의 접수"}
         </button>
         <div style={{ fontSize: 11.5, color: "#666", lineHeight: 1.7 }}>양식으로 접수되지 않는 경우 아래 주소로 메일을 보내 주시기 바랍니다.<br />{CONTACT_EMAIL}</div>

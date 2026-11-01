@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { koreaDay } from "@/lib/storeRules";
 import { db, isMissingSchema, listProducts, storeEnabled, storeOrderModes, userOf, RESERVATION_COLUMNS } from "@/lib/server/ownerStore";
 
 // GET /api/store/{장소 번호}
@@ -15,15 +16,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     const { ready, products } = await listProducts(placeId, true);
     if (!ready || products.length === 0) return NextResponse.json({ enabled: false, products: [], mine: [] });
 
+    const { data: place } = await db.from("places").select("id, name, address, phone, category, lat, lng, hours, closed_days, parking, memo, order_open_time, order_close_time, orders_closed_on, store_info, order_week").eq("id", placeId).maybeSingle();
     const user = await userOf(req);
     let mine: unknown[] = [];
+    let contact: { name: string; phone: string } | null = null;
     if (user) {
+      // 주문자 이름·전화는 가입할 때 적은 정보를 그대로 씁니다
+      const { data: saved } = await db.from("user_contacts").select("name, phone").eq("auth_user_id", user.id).maybeSingle();
+      if (saved?.name && saved?.phone) contact = { name: saved.name, phone: saved.phone };
       const { data, error } = await db.from("place_reservations").select(RESERVATION_COLUMNS)
         .eq("place_id", placeId).eq("customer_auth_user_id", user.id).neq("status", "pending_payment").order("created_at", { ascending: false }).limit(5);
       if (error && !isMissingSchema(error)) throw new Error(error.message);
       mine = (data ?? []).map(({ customer_auth_user_id: _hidden, ...rest }) => rest);
     }
-    return NextResponse.json({ enabled: true, orderModes: await storeOrderModes(placeId), products: products.map(({ place_id: _place, is_active: _active, sort_order: _order, ...rest }) => rest), mine });
+    // 쓸 수 있는 쿠폰 — 이미 쓴 쿠폰은 뺍니다(취소·거절된 주문은 쓴 것으로 세지 않습니다)
+    const { data: couponRows } = await db.from("store_coupons").select("id, name, discount, min_order, expires_on").eq("place_id", placeId).eq("is_active", true);
+    const today = koreaDay(Date.now());
+    let coupons = (couponRows ?? []).filter((c) => !c.expires_on || c.expires_on >= today);
+    if (user && coupons.length) {
+      const { data: used } = await db.from("place_reservations").select("coupon_id").eq("customer_auth_user_id", user.id).in("coupon_id", coupons.map((c) => c.id)).not("status", "in", "(cancelled,rejected)");
+      const usedIds = new Set((used ?? []).map((u) => u.coupon_id));
+      coupons = coupons.filter((c) => !usedIds.has(c.id));
+    }
+    return NextResponse.json({ enabled: true, place, contact, coupons, orderModes: await storeOrderModes(placeId), products: products.map(({ place_id: _place, is_active: _active, sort_order: _order, ...rest }) => rest), mine });
   } catch (e) {
     console.error("[/api/store] failed:", e);
     return NextResponse.json({ enabled: false, products: [], mine: [] });

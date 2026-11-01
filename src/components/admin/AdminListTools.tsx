@@ -57,7 +57,7 @@ export function usePaged<T>(list: T[], resetKey: string = ""): Pager<T> {
 }
 
 const pagerButton = (disabled: boolean): React.CSSProperties => ({
-  width: 32, height: 32, borderRadius: 9, border: "1px solid #e2ddcf", background: "white", cursor: disabled ? "default" : "pointer",
+  width: 32, height: 32, borderRadius: 9, border: "1px solid #DEDDDC", background: "white", cursor: disabled ? "default" : "pointer",
   display: "inline-flex", alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1,
 });
 
@@ -72,7 +72,7 @@ export function AdminPager<T>({ pager }: { pager: Pager<T> }) {
       <span style={{ fontWeight: 700, color: "#333" }}>{pager.page} / {pager.pageCount}쪽</span>
       <button onClick={() => pager.setPage(pager.page + 1)} disabled={pager.page >= pager.pageCount} aria-label="다음 쪽" style={pagerButton(pager.page >= pager.pageCount)}><ChevronRight size={15} /></button>
       <span style={{ color: "#666" }}>{from}–{to} / 전체 {pager.total.toLocaleString()}건</span>
-      <select value={pager.size} onChange={(e) => pager.setSize(Number(e.target.value))} aria-label="한 쪽에 보여 줄 건수" style={{ padding: "6px 8px", borderRadius: 9, border: "1px solid #e2ddcf", fontSize: 12, background: "white" }}>
+      <select value={pager.size} onChange={(e) => pager.setSize(Number(e.target.value))} aria-label="한 쪽에 보여 줄 건수" style={{ padding: "6px 8px", borderRadius: 9, border: "1px solid #DEDDDC", fontSize: 12, background: "white" }}>
         {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}건씩</option>)}
       </select>
     </div>
@@ -109,7 +109,7 @@ export function SelectBox<K extends string | number>({ selection, id, label }: {
       onChange={() => selection.toggle(id)}
       onClick={(e) => e.stopPropagation()}
       aria-label={label ?? "이 항목 선택"}
-      style={{ width: 17, height: 17, flexShrink: 0, cursor: "pointer", accentColor: "#5C7A4A" }}
+      style={{ width: 17, height: 17, flexShrink: 0, cursor: "pointer", accentColor: "#A05A32" }}
     />
   );
 }
@@ -151,12 +151,12 @@ export function BulkBar<K extends string | number>({ selection, actions, onDone 
   };
 
   return (
-    <div data-admin-bulk style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "9px 12px", borderRadius: 12, background: count > 0 ? "#EEF3E8" : "white", border: "1px solid #e6e1d3", marginBottom: 10, fontSize: 12.5 }}>
+    <div data-admin-bulk style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "9px 12px", borderRadius: 12, background: count > 0 ? "#FCF1E9" : "white", border: "1px solid #E2E1E0", marginBottom: 10, fontSize: 12.5 }}>
       <label style={{ display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer", fontWeight: 700, color: "#444" }}>
-        <input type="checkbox" checked={selection.allSelected} onChange={selection.toggleAll} style={{ width: 17, height: 17, accentColor: "#5C7A4A" }} />
+        <input type="checkbox" checked={selection.allSelected} onChange={selection.toggleAll} style={{ width: 17, height: 17, accentColor: "#A05A32" }} />
         이 쪽 전체 선택
       </label>
-      <span style={{ color: count > 0 ? "#3F5230" : "#666", fontWeight: 700 }}>{count > 0 ? `${count}건 고름` : "고른 항목 없음"}</span>
+      <span style={{ color: count > 0 ? "#6F3D24" : "#666", fontWeight: 700 }}>{count > 0 ? `${count}건 고름` : "고른 항목 없음"}</span>
       <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
         {actions.map((action) => (
           <button
@@ -166,7 +166,7 @@ export function BulkBar<K extends string | number>({ selection, actions, onDone 
             style={{
               padding: "7px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: count === 0 || busy ? "default" : "pointer",
               border: action.danger ? "1px solid #f3c7c5" : "none",
-              background: count === 0 || busy ? "#e3e0d6" : action.danger ? "white" : "#5C7A4A",
+              background: count === 0 || busy ? "#E1E0DF" : action.danger ? "white" : "#A05A32",
               color: count === 0 || busy ? "#666" : action.danger ? "#b42318" : "white",
             }}
           >
@@ -174,7 +174,7 @@ export function BulkBar<K extends string | number>({ selection, actions, onDone 
           </button>
         ))}
       </div>
-      {result && <div role="status" style={{ flexBasis: "100%", fontSize: 12, fontWeight: 700, color: "#3F5230" }}>{result}</div>}
+      {result && <div role="status" style={{ flexBasis: "100%", fontSize: 12, fontWeight: 700, color: "#6F3D24" }}>{result}</div>}
     </div>
   );
 }

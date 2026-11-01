@@ -29,7 +29,7 @@ async function call(method: "GET" | "POST", body?: unknown) {
   return json;
 }
 
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px", marginBottom: 12 };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px", marginBottom: 12 };
 const btn = (bg: string, color: string, border = "none"): React.CSSProperties => ({ padding: "8px 13px", borderRadius: 9, border, background: bg, color, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" });
 const chip = (bg: string, color: string): React.CSSProperties => ({ fontSize: 11, fontWeight: 800, color, background: bg, padding: "2px 9px", borderRadius: 999 });
 const fmt = (s: string) => new Date(s).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -73,7 +73,7 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
       <div style={title}>한도 변경 요청 {pending.length > 0 && <span style={chip("#FEF3C7", "#92400E")}>{pending.length}건 대기</span>}</div>
       {pending.length === 0 && <div style={{ ...card, fontSize: 12.5, color: "#666" }}>기다리는 요청이 없어요. 사장님은 배너를 2주에 한 번 바꿀 수 있고, 그 전에 바꿔야 하면 여기로 요청이 와요.</div>}
       {pending.map((r) => (
-        <div key={r.id} style={{ ...card, borderColor: "#FDE68A", background: "#FFFDF5" }}>
+        <div key={r.id} style={{ ...card, borderColor: "#FDE68A", background: "#FEFDFC" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <b className="ggk-logo" style={{ fontSize: 14.5, color: "#111" }}>{r.placeName}</b>
             <span style={{ fontSize: 11, color: "#6e6e6e", marginLeft: "auto" }}>{fmt(r.created_at)} 요청</span>
@@ -109,12 +109,12 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
               <span style={chip("#f5f6f8", "#555")}>{b.region}</span>
               {b.hidden ? <span style={chip("#FEE2E2", "#B91C1C")}>내림</span> : b.live ? <span style={chip("#f3f0ff", "#7c3aed")}>노출 중</span> : <span style={chip("#f1f2f4", "#777")}>노출 전(요금제·혜택 없음)</span>}
               <span style={chip("#f5f6f8", "#555")}>지금까지 {b.serves.toLocaleString("ko-KR")}번 노출</span>
-              <a href={`/place/${b.placeId}`} target="_blank" rel="noreferrer" style={{ marginLeft: "auto", fontSize: 11.5, color: "#5C7A4A", fontWeight: 700 }}>장소 화면</a>
+              <a href={`/place/${b.placeId}`} target="_blank" rel="noreferrer" style={{ marginLeft: "auto", fontSize: 11.5, color: "#A05A32", fontWeight: 700 }}>장소 화면</a>
             </div>
             <div style={{ display: "flex", gap: 14, marginTop: 11, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div style={{ width: 150, height: 210, display: "flex", flexShrink: 0 }}><BannerCreativeView banner={view} shape="rail" /></div>
               <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #eadfbf", maxWidth: 380 }}><BannerCreativeView banner={view} shape="strip" style={{ borderBottom: "none" }} /></div>
+                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #E0DFDE", maxWidth: 380 }}><BannerCreativeView banner={view} shape="strip" style={{ borderBottom: "none" }} /></div>
                 <div style={{ marginTop: 9, fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.7 }}>
                   글꼴 {bannerFont(b.font).label} · 마지막 변경 {fmt(b.changedAt)}<br />
                   {b.allowance.allowed ? (b.allowance.usesExtra ? `한도가 풀려 있음(추가 변경 ${b.extraChanges}회 남음)` : "지금 바꿀 수 있음") : `${b.allowance.daysLeft}일 뒤에 바꿀 수 있음`}
@@ -123,7 +123,7 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
                 <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                   {!b.allowance.allowed && <button disabled={busy} onClick={() => run({ action: "grant", placeId: b.placeId }, `"${b.placeName}"이(가) 배너를 한 번 더 바꿀 수 있게 열어 줄까요?`)} style={btn("#f7f3ff", "#7c3aed", "1px solid #ddd0ff")}>한도 한 번 풀어 주기</button>}
                   {b.hidden
-                    ? <button disabled={busy} onClick={() => run({ action: "show", placeId: b.placeId })} style={btn("#E4EBDC", "#48603A")}>다시 올리기</button>
+                    ? <button disabled={busy} onClick={() => run({ action: "show", placeId: b.placeId })} style={btn("#F8E6D9", "#85482A")}>다시 올리기</button>
                     : <button disabled={busy} onClick={() => { const reason = window.prompt("배너를 내리는 이유를 사장님에게 알려 주세요", ""); if (reason !== null) run({ action: "hide", placeId: b.placeId, reason }); }} style={btn("#fff5f5", "#dc2626", "1px solid #fecaca")}>배너 내리기</button>}
                 </div>
               </div>

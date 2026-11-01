@@ -58,7 +58,7 @@ export default function AdminReview() {
     <div key={post.id} style={{ background: "white", borderRadius: 16, border: `1px solid ${pending ? "#FDE68A" : "#eee"}`, padding: "15px 16px", marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11.5, color: "#5c5c5c" }}>
         {pending && <SelectBox selection={selection} id={post.id} label={`"${post.title}" 선택`} />}
-        <span style={{ padding: "2px 8px", borderRadius: 999, background: "#E4EBDC", color: "#48603A", fontWeight: 700 }}>{boardLabel(post.board_id)}</span>
+        <span style={{ padding: "2px 8px", borderRadius: 999, background: "#F8E6D9", color: "#85482A", fontWeight: 700 }}>{boardLabel(post.board_id)}</span>
         {post.post_type && <span style={{ fontWeight: 700 }}>[{post.post_type}]</span>}
         <span>{post.nickname}</span>
         <span>· {fmt(post.created_at)}</span>
@@ -75,7 +75,7 @@ export default function AdminReview() {
         </div>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <button onClick={() => act(post.id, "approve")} disabled={busyId === post.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 0", borderRadius: 10, border: "none", background: "#5C7A4A", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        <button onClick={() => act(post.id, "approve")} disabled={busyId === post.id} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 0", borderRadius: 10, border: "none", background: "#A05A32", color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
           <Check size={14} />{pending ? "문제없음 · 게시" : "다시 게시"}
         </button>
         {pending && (
@@ -88,13 +88,13 @@ export default function AdminReview() {
   );
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="review" onRefresh={load} />
       <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <ScanSearch size={18} color="#5C7A4A" />
+          <ScanSearch size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>글 검토</div>
-          {data?.ready && <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.pending.length ? "#FEF3C7" : "#E4EBDC", color: data.pending.length ? "#92400E" : "#48603A" }}>대기 {data.pending.length}건</span>}
+          {data?.ready && <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.pending.length ? "#FEF3C7" : "#F8E6D9", color: data.pending.length ? "#92400E" : "#85482A" }}>대기 {data.pending.length}건</span>}
         </div>
         <p style={{ fontSize: 12.5, color: "#555", lineHeight: 1.65, margin: "0 0 16px" }}>
           게시판 규칙 위반이 의심돼 자동으로 보류된 글이에요. 승인하기 전까지 다른 사람에게 보이지 않아요.
@@ -108,7 +108,7 @@ export default function AdminReview() {
           </div>
         )}
         {data?.ready && data.pending.length === 0 && (
-          <div style={{ textAlign: "center", padding: "50px 0", color: "#5C7A4A", fontSize: 14, fontWeight: 700 }}>검토할 글이 없어요 👍</div>
+          <div style={{ textAlign: "center", padding: "50px 0", color: "#A05A32", fontSize: 14, fontWeight: 700 }}>검토할 글이 없어요 👍</div>
         )}
         {data?.ready && (
           <BulkBar

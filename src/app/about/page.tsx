@@ -6,27 +6,28 @@ import {
   Home, Trees, Stethoscope, Bell, Bookmark, BadgeCheck, BarChart3, Search,
 } from "lucide-react";
 import { siteUrl } from "@/lib/siteUrl";
+import { PageFooter } from "@/components/SiteFooter";
 
 // ── 서비스 소개(/about) ──
 // 처음 온 사람이 "여기가 뭐 하는 곳인지"를 한 화면씩 넘기며 알 수 있게 한 소개 페이지.
 // 구성: 첫 화면(한 줄 소개) → 핵심 기능 5가지 → 쓰는 방법 3단계 → 사장님 안내 → 자주 묻는 질문 → 시작하기
 // 숫자(등록 장소 수 등)는 과장 없이 실제 데이터 기준으로 적고, 공공데이터 출처를 함께 밝힙니다.
 
-const title = "같이가개 소개 | 반려동물과 갈 수 있는 곳, 지도에서 바로";
+const title = "펫츠로드 소개 | 반려동물과 갈 수 있는 곳, 지도에서 바로";
 const description = "카페·식당·여행지·병원까지, 반려동물 동반 가능 여부를 가기 전에 지도에서 확인하세요. AI 산책 코스, 후기, 유기동물 입양 공고도 함께 볼 수 있어요.";
 
 export const metadata: Metadata = {
   title,
   description,
   alternates: { canonical: `${siteUrl}/about` },
-  openGraph: { title, description, url: `${siteUrl}/about`, siteName: "같이가개", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
+  openGraph: { title, description, url: `${siteUrl}/about`, siteName: "펫츠로드", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
-const GREEN = "#5C7A4A", DARK = "#2f3a26", BEIGE = "#F7F3E8";
+const BRAND = "#A05A32", DARK = "#3B2A20", PAGE_BG = "#F4F3F2";
 
 const FEATURES = [
   {
-    no: "01", Icon: Dog, tone: "#E4EBDC", color: "#48603A",
+    no: "01", Icon: Dog, tone: "#F8E6D9", color: "#85482A",
     title: ["가기 전에,", "동반 가능 여부가 먼저 보여요."],
     text: "실내 동반인지, 야외만 되는지, 대형견도 괜찮은지. 헛걸음하기 전에 지도에서 바로 확인해요.",
     chips: [{ Icon: Home, label: "실내 가능" }, { Icon: Trees, label: "야외 가능" }, { Icon: Stethoscope, label: "동물병원·약국" }, { Icon: Trees, label: "공원" }],
@@ -77,12 +78,12 @@ const wrap: React.CSSProperties = { width: "100%", maxWidth: 1040, margin: "0 au
 export default function AboutPage() {
   return (
     // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: BEIGE, color: DARK, wordBreak: "keep-all" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: DARK, wordBreak: "keep-all" }}>
       {/* ── 상단 ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(247,243,232,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #e8e2d2" }}>
+      <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
-          <Link href="/" aria-label="같이가개 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
+          <Link href="/" aria-label="펫츠로드 지도" style={{ display: "flex", alignItems: "center" }}>
+            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
           </Link>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* 좁은 화면에서는 로고와 "지도 열기"만 남깁니다 */}
@@ -90,13 +91,13 @@ export default function AboutPage() {
             <a href="#features" className="about-nav-link" style={navLink}>기능</a>
             <a href="#owners" className="about-nav-link" style={navLink}>사장님</a>
             <a href="#faq" className="about-nav-link" style={navLink}>자주 묻는 질문</a>
-            <Link href="/" style={{ marginLeft: 6, padding: "9px 16px", borderRadius: 999, background: GREEN, color: "white", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>지도 열기</Link>
+            <Link href="/" style={{ marginLeft: 6, padding: "9px 16px", borderRadius: 999, background: BRAND, color: "white", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>지도 열기</Link>
           </nav>
         </div>
       </header>
 
       {/* ── 첫 화면 ── */}
-      <section style={{ background: "linear-gradient(160deg,#48603A,#5C7A4A 55%,#7b9a66)", color: "white" }}>
+      <section style={{ background: "linear-gradient(160deg,#85482A,#A05A32 55%,#C08457)", color: "white" }}>
         <div style={{ ...wrap, padding: "clamp(48px, 9vw, 96px) 22px clamp(44px, 8vw, 84px)" }}>
           <div style={{ display: "inline-block", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.16)", fontSize: 12.5, fontWeight: 700, letterSpacing: "0.2px" }}>
             반려동물 동반 장소 지도
@@ -138,7 +139,7 @@ export default function AboutPage() {
               <h2 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800, lineHeight: 1.32 }}>
                 {f.title[0]}<br />{f.title[1]}
               </h2>
-              <p style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.75, color: "#59624f" }}>{f.text}</p>
+              <p style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.75, color: "#6B5E55" }}>{f.text}</p>
             </div>
             <div style={{ flex: "1 1 300px", minWidth: 0, borderRadius: 26, background: f.tone, padding: "clamp(22px, 4vw, 36px)" }}>
               <div style={{ width: 54, height: 54, borderRadius: 18, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,0.07)" }}>
@@ -157,19 +158,19 @@ export default function AboutPage() {
       </section>
 
       {/* ── 쓰는 방법 ── */}
-      <section style={{ background: "white", borderTop: "1px solid #ece6d6", borderBottom: "1px solid #ece6d6" }}>
+      <section style={{ background: "white", borderTop: "1px solid #E7E6E5", borderBottom: "1px solid #E7E6E5" }}>
         <div style={{ ...wrap, padding: "clamp(40px, 7vw, 68px) 22px" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>같이가개를 쓰는 가장 짧은 방법</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>펫츠로드를 쓰는 가장 짧은 방법</div>
           <h2 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800 }}>열고, 고르고, 함께 가요.</h2>
           <div style={{ marginTop: 26, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
             {STEPS.map((s) => (
-              <div key={s.no} style={{ padding: "22px 20px", borderRadius: 20, background: BEIGE, border: "1px solid #ece6d6" }}>
+              <div key={s.no} style={{ padding: "22px 20px", borderRadius: 20, background: PAGE_BG, border: "1px solid #E7E6E5" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>{s.no}</span>
-                  <s.Icon size={18} color={GREEN} />
+                  <span className="ggk-logo" style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>{s.no}</span>
+                  <s.Icon size={18} color={BRAND} />
                 </div>
                 <div className="ggk-logo" style={{ marginTop: 10, fontSize: 18, fontWeight: 800 }}>{s.title}</div>
-                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.65, color: "#59624f" }}>{s.text}</div>
+                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.65, color: "#6B5E55" }}>{s.text}</div>
               </div>
             ))}
           </div>
@@ -212,13 +213,13 @@ export default function AboutPage() {
 
       {/* ── 자주 묻는 질문 ── */}
       <section id="faq" style={{ ...wrap, padding: "0 22px clamp(40px, 7vw, 68px)", scrollMarginTop: 60 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: GREEN }}>FAQ</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>FAQ</div>
         <h2 className="ggk-logo" style={{ margin: "8px 0 18px", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800 }}>먼저 궁금한 것들.</h2>
         <div style={{ display: "grid", gap: 10 }}>
           {FAQ.map((item) => (
-            <details key={item.q} style={{ borderRadius: 16, background: "white", border: "1px solid #ece6d6", padding: "0 18px" }}>
+            <details key={item.q} style={{ borderRadius: 16, background: "white", border: "1px solid #E7E6E5", padding: "0 18px" }}>
               <summary style={{ cursor: "pointer", padding: "16px 0", fontSize: 15, fontWeight: 700, listStyle: "none" }}>{item.q}</summary>
-              <div style={{ padding: "0 0 16px", fontSize: 14, lineHeight: 1.75, color: "#59624f" }}>{item.a}</div>
+              <div style={{ padding: "0 0 16px", fontSize: 14, lineHeight: 1.75, color: "#6B5E55" }}>{item.a}</div>
             </details>
           ))}
         </div>
@@ -231,7 +232,7 @@ export default function AboutPage() {
             오늘 산책,<br />어디로 갈지부터 보고 가요.
           </h2>
           <Link href="/" style={{ marginTop: 24, display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 26px", borderRadius: 999, background: "#FFE9A8", color: "#3b3215", fontSize: 16, fontWeight: 800, textDecoration: "none" }}>
-            같이가개 시작하기 <ArrowRight size={18} />
+            펫츠로드 시작하기 <ArrowRight size={18} />
           </Link>
           <div style={{ marginTop: 26, fontSize: 11.5, lineHeight: 1.8, color: "rgba(255,255,255,0.88)" }}>
             장소 정보 출처: 한국관광공사 · 한국문화정보원 · 식품의약품안전처 · 행정안전부 공공데이터 / 유기동물 공고: 국가동물보호정보시스템<br />
@@ -239,8 +240,9 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      <PageFooter />
     </div>
   );
 }
 
-const navLink: React.CSSProperties = { padding: "8px 10px", fontSize: 13, fontWeight: 700, color: "#48603A", textDecoration: "none", whiteSpace: "nowrap" };
+const navLink: React.CSSProperties = { padding: "8px 10px", fontSize: 13, fontWeight: 700, color: "#85482A", textDecoration: "none", whiteSpace: "nowrap" };

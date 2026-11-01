@@ -4,7 +4,7 @@
 //   · 접힌 상태: [공지] 대표 공지(없으면 최신 공지) 제목 · 날짜 · 공지 수 ›
 //   · 누르면 펼쳐져 지난 공지까지 모두 보입니다. 공지마다 눌러서 내용을 펼칩니다(첫 공지는 펼친 채로).
 // 공지가 없으면 아무것도 그리지 않습니다. 서버는 /api/place-notices, 규칙은 src/lib/placeNotices.ts.
-// 같이가개에서 바로 예약되는 숙소(lodging)면 펼치지 않고 숙소 화면(/stay/번호)의 "숙소 소식"으로 보냅니다 —
+// 펫츠로드에서 바로 예약되는 숙소(lodging)면 펼치지 않고 숙소 화면(/stay/번호)의 "숙소 소식"으로 보냅니다 —
 //   공지를 누르면 그 공지가, 머리 줄을 누르면 공지 목록이 열립니다(지도 위 창을 벗어나도록 새로 엽니다).
 
 import { useEffect, useState } from "react";
@@ -41,7 +41,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
   const top = notices[0];
   if (stayHref) {
     return (
-      <a href={`${stayHref}?notice=${top.id}`} style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", textDecoration: "none" }}>
+      <a href={`${stayHref}?notice=${top.id}`} style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 12, border: "1px solid #F3E2B8", background: "#FCFBFA", textDecoration: "none" }}>
         <NoticeTag />
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
         <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: "#3d3122", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{top.title}</span>
@@ -52,7 +52,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
   }
 
   return (
-    <div style={{ marginBottom: 10, borderRadius: 12, border: "1px solid #F3E2B8", background: "#FFFBF0", overflow: "hidden" }}>
+    <div style={{ marginBottom: 10, borderRadius: 12, border: "1px solid #F3E2B8", background: "#FCFBFA", overflow: "hidden" }}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
         <NoticeTag />
         {isNewNotice(top.created_at) && <span style={NEW_BADGE}>N</span>}
@@ -67,7 +67,7 @@ export default function PlaceNoticeBar({ placeId, lodging = false }: { placeId: 
           {notices.map((n) => {
             const expanded = openId === n.id;
             return (
-              <div key={n.id} style={{ borderBottom: "1px solid #f4efe3" }}>
+              <div key={n.id} style={{ borderBottom: "1px solid #F0EFEE" }}>
                 <button onClick={() => setOpenId(expanded ? null : n.id)} aria-expanded={expanded} style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "10px 12px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
                   {n.pinned && <Pin size={12} color="#B45309" style={{ flexShrink: 0 }} aria-label="대표 공지" />}
                   {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}

@@ -89,7 +89,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
         padding: "14px 16px", marginBottom: 12,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <Mail size={16} color="#5C7A4A" />
+          <Mail size={16} color="#A05A32" />
           <span style={{ fontSize: 14, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {ADMIN_EMAIL}
           </span>
@@ -98,7 +98,7 @@ function ContactModal({ onClose }: { onClose: () => void }) {
           onClick={handleCopy}
           style={{
             flexShrink: 0, border: "none", borderRadius: 999, padding: "7px 12px",
-            background: copied ? "#5C7A4A" : "#E4EBDC", color: copied ? "white" : "#48603A",
+            background: copied ? "#A05A32" : "#F8E6D9", color: copied ? "white" : "#85482A",
             fontSize: 11, fontWeight: 700, cursor: "pointer",
             display: "flex", alignItems: "center", gap: 4,
           }}
@@ -109,8 +109,8 @@ function ContactModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <a
-        href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent("[같이가개] 문의하기")}&body=${encodeURIComponent("안녕하세요, 문의 내용을 입력해주세요.")}`}
-        style={{ fontSize: 11.5, color: "#5C7A4A", textDecoration: "underline", textUnderlineOffset: "2px" }}
+        href={`mailto:${ADMIN_EMAIL}?subject=${encodeURIComponent("[펫츠로드] 문의하기")}&body=${encodeURIComponent("안녕하세요, 문의 내용을 입력해주세요.")}`}
+        style={{ fontSize: 11.5, color: "#A05A32", textDecoration: "underline", textUnderlineOffset: "2px" }}
       >
         메일 앱이 설치되어 있다면 여기를 눌러 바로 열기 →
       </a>
@@ -129,7 +129,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>최종 수정일: 2026년 10월 30일</p>
 
       <FooterSection title="1. 개인정보의 수집 및 이용 목적">
-        같이가개(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
+        펫츠로드(이하 "서비스")는 다음의 목적으로 개인정보를 수집·이용합니다.<br />
         • 회원 가입 및 관리: 회원 식별, 사장님(업주) 인증, 서비스 부정이용 방지<br />
         • 아이디(이메일) 찾기: 가입한 이메일을 잊은 경우 이름·휴대폰 번호로 본인 계정 확인(이 목적 외에는 쓰지 않음)<br />
         • 서비스 제공: 반려동물 동반 장소 정보 제공, 리뷰·찜·신고·제보 기능 운영, 현재 위치 기반 주변 장소·보호소 공고 안내<br />
@@ -195,7 +195,7 @@ export function PrivacyModal({ onClose }: { onClose: () => void }) {
       </FooterSection>
 
       <FooterSection title="8. 개인정보 보호 책임자">
-        • <strong>책임자:</strong> 같이가개 관리자<br />
+        • <strong>책임자:</strong> 펫츠로드 관리자<br />
         • <strong>이메일:</strong> {ADMIN_EMAIL}<br />
         개인정보 처리에 관한 문의, 불만 처리, 피해 구제 등에 관한 사항은 위 연락처로 문의해 주시기 바랍니다.
       </FooterSection>
@@ -220,7 +220,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
           <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="제1조 (목적)">
-            본 약관은 같이가개(이하 "회사")가 제공하는 반려동물 동반 장소 정보 및 커뮤니티 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+            본 약관은 펫츠로드(이하 "회사")가 제공하는 반려동물 동반 장소 정보 및 커뮤니티 서비스(이하 "서비스")의 이용과 관련하여 회사와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
           </FooterSection>
 
           <FooterSection title="제2조 (정의)">
@@ -285,7 +285,7 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
           <p style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>시행일: 2026년 10월 5일</p>
 
           <FooterSection title="1. 목적">
-            같이가개 커뮤니티는 반려인과 반려동물 관련 사업자가 함께 정보를 나누고 소통하는 공간입니다. 모두가 안전하고 즐겁게 이용할 수 있도록 아래 운영정책을 준수해 주세요.
+            펫츠로드 커뮤니티는 반려인과 반려동물 관련 사업자가 함께 정보를 나누고 소통하는 공간입니다. 모두가 안전하고 즐겁게 이용할 수 있도록 아래 운영정책을 준수해 주세요.
           </FooterSection>
 
           <FooterSection title="2. 금지되는 게시물">
@@ -333,6 +333,15 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** 지도 화면 말고 모든 화면의 맨 아래에 두는 푸터. overTabBar면 하단 탭바에 가리지 않게 여백을 둡니다 */
+export function PageFooter({ overTabBar = true }: { overTabBar?: boolean }) {
+  return (
+    <div className="owner-no-print" style={{ padding: `28px 16px ${overTabBar ? "calc(var(--ggk-tabbar-space, 24px) + 8px)" : "24px"}`, borderTop: "1px solid #E7E6E5", background: "white" }}>
+      <SiteFooter />
+    </div>
+  );
+}
+
 export default function SiteFooter() {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -343,7 +352,7 @@ export default function SiteFooter() {
     <>
       <div style={{ textAlign: "center" }}>
         <div className="ggk-logo" style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", marginBottom: 10 }}>
-          같이가개
+          펫츠로드
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
@@ -374,7 +383,7 @@ export default function SiteFooter() {
         </div>
 
         <div style={{ fontSize: 10, color: "#5f6672", lineHeight: 1.9, marginBottom: 10, paddingTop: 10, borderTop: "1px solid #e2e5ea", maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
-          상호명: 같이가개&nbsp;|&nbsp;대표자: 김하정&nbsp;|&nbsp;사업자등록번호: [등록 예정]
+          상호명: 펫츠로드&nbsp;|&nbsp;대표자: 김하정&nbsp;|&nbsp;사업자등록번호: [등록 예정]
           <br />
           사업장 주소: [주소 등록 예정]&nbsp;|&nbsp;고객센터: {ADMIN_EMAIL}
           <br />
@@ -382,7 +391,7 @@ export default function SiteFooter() {
         </div>
 
         <div style={{ fontSize: 10, color: "#5f6672", lineHeight: 1.7 }}>
-          © 2026 같이가개. All rights reserved.
+          © 2026 펫츠로드. All rights reserved.
         </div>
       </div>
 

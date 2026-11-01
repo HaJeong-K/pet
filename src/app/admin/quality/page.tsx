@@ -54,18 +54,18 @@ export default function AdminQuality() {
   for (const i of report?.issues || []) issueCountByPlace.set(i.placeId, (issueCountByPlace.get(i.placeId) || 0) + 1);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="quality" onRefresh={load} />
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <ShieldCheck size={18} color="#5C7A4A" />
+          <ShieldCheck size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>데이터 품질</div>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>
             {report ? `마지막 점검 ${new Date(report.checkedAt).toLocaleString("ko-KR")} · 장소 ${report.placesChecked}곳 · 사진 ${report.imagesChecked}장` : "직접 등록·제보된 장소를 매주 자동 점검해요"}
           </span>
           <button onClick={runNow} disabled={running} style={{
             marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", borderRadius: 999,
-            border: "none", background: running ? "#cbd5c0" : "#5C7A4A", color: "white", fontSize: 12, fontWeight: 700,
+            border: "none", background: running ? "#E2C6B3" : "#A05A32", color: "white", fontSize: 12, fontWeight: 700,
             cursor: running ? "default" : "pointer",
           }}>
             <Play size={12} /> {running ? "점검 중… (사진 확인에 시간이 걸려요)" : "지금 점검"}
@@ -91,7 +91,7 @@ export default function AdminQuality() {
         ) : !report ? (
           <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}>아직 점검 기록이 없어요. &quot;지금 점검&quot;을 눌러 보세요.</div>
         ) : issues.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#5C7A4A", fontSize: 13, fontWeight: 700 }}>문제가 발견되지 않았어요 👍</div>
+          <div style={{ padding: 40, textAlign: "center", color: "#A05A32", fontSize: 13, fontWeight: 700 }}>문제가 발견되지 않았어요 👍</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {issues.map((i, idx) => (
@@ -132,7 +132,7 @@ export default function AdminQuality() {
                       display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "white",
                       border: "1px solid #eee", textDecoration: "none", color: "inherit",
                     }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, flexShrink: 0, background: bad ? "#fee2e2" : "#EEF3E8", color: bad ? "#b91c1c" : "#48603A" }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, flexShrink: 0, background: bad ? "#fee2e2" : "#FCF1E9", color: bad ? "#b91c1c" : "#85482A" }}>
                         {bad ? `문제 ${bad}건` : "정상"}
                       </span>
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -158,5 +158,5 @@ export default function AdminQuality() {
 
 const chip = (active: boolean): React.CSSProperties => ({
   padding: "6px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700,
-  background: active ? "#5C7A4A" : "white", color: active ? "white" : "#555",
+  background: active ? "#A05A32" : "white", color: active ? "white" : "#555",
 });

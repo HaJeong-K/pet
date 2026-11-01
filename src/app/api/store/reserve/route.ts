@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, listProducts, storeEnabled, storeOrderModes, userOf, RESERVATION_COLUMNS } from "@/lib/server/ownerStore";
-import { buildReservationLines, canChangeStatus, cleanOrderOptions, cleanReservationContact, type ReservationStatus } from "@/lib/storeRules";
+import { buildReservationLines, canChangeStatus, cleanOrderOptions, cleanReservationContact, type ReservationStatus, cleanStoreInfo, couponProblem, isWithinOrderHours, koreaDay, orderHoursToday } from "@/lib/storeRules";
 import { createRateLimiter } from "@/lib/server/rateLimit";
 import { notifyOwnerNewReservation } from "@/lib/server/ownerPush";
 import { paymentsEnabled } from "@/lib/server/payments";
@@ -30,19 +30,48 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(placeId) || placeId <= 0) return fail("가게를 찾을 수 없어요.", 400);
   if (!(await storeEnabled(placeId))) return fail("지금은 이 가게에서 예약을 받지 않아요.", 403);
 
-  const contact = cleanReservationContact(body);
+  // 가입 정보가 있으면 그 이름·전화로 받습니다(주문 화면에서 고칠 수 없습니다)
+  const { data: saved } = await db.from("user_contacts").select("name, phone").eq("auth_user_id", user.id).maybeSingle();
+  const contact = cleanReservationContact(saved?.name && saved?.phone ? { ...body, name: saved.name, phone: saved.phone } : body);
   if ("error" in contact) return fail(contact.error, 400);
   const options = cleanOrderOptions(body, await storeOrderModes(placeId), contact.pickupAt);
   if ("error" in options) return fail(options.error, 400);
+  const { data: hours } = await db.from("places").select("order_open_time, order_close_time, orders_closed_on, store_info, order_week").eq("id", placeId).maybeSingle();
+  // 사장님이 오늘 주문을 마감했으면 오늘 받는 주문은 막습니다(매장 식사의 다른 날 예약은 받습니다)
+  if (hours?.orders_closed_on === koreaDay(Date.now()) && (options.orderType === "pickup" || (contact.pickupAt && koreaDay(contact.pickupAt) === koreaDay(Date.now())))) {
+    return fail("이 가게는 오늘 주문을 마감했어요.", 400);
+  }
+  if (options.orderType === "pickup") {
+    const today = orderHoursToday(hours ?? {});
+    if (today.closedDay) return fail("오늘은 포장 주문을 받지 않는 날이에요.", 400);
+    if (!isWithinOrderHours(today.open, today.close)) return fail(`지금은 포장 주문 시간이 아니에요. 오늘 주문 가능 시간은 ${today.open}~${today.close}이에요.`, 400);
+  }
   const { products } = await listProducts(placeId, true);
   const built = buildReservationLines(body?.items, products);
   if ("error" in built) return fail(built.error, 400);
+
+  const minOrder = cleanStoreInfo(hours?.store_info).minOrder;
+  if (built.total < minOrder) return fail(`이 가게의 최소 주문 금액은 ${minOrder.toLocaleString("ko-KR")}원이에요.`, 400);
 
   const { count } = await db.from("place_reservations").select("*", { count: "exact", head: true })
     .eq("place_id", placeId).eq("customer_auth_user_id", user.id).in("status", ["requested", "accepted", "ready"]);
   if ((count ?? 0) >= OPEN_PER_PLACE_MAX) return fail("이 가게에 진행 중인 예약이 이미 있어요. 먼저 그 예약을 확인해 주세요.", 409);
 
-  const needsPayment = paymentsEnabled() && built.total >= PAYMENT_MIN_AMOUNT;
+  // 쿠폰 — 금액은 서버의 값으로, 손님 한 명당 한 번(취소·거절된 주문은 쓴 것으로 세지 않습니다)
+  let discount = 0;
+  const couponId = Number(body?.couponId);
+  if (Number.isInteger(couponId) && couponId > 0) {
+    const { data: coupon } = await db.from("store_coupons").select("id, discount, min_order, expires_on, is_active").eq("id", couponId).eq("place_id", placeId).maybeSingle();
+    if (!coupon) return fail("쓸 수 없는 쿠폰이에요.", 400);
+    const problem = couponProblem(coupon, built.total);
+    if (problem) return fail(problem, 400);
+    const { count: used } = await db.from("place_reservations").select("*", { count: "exact", head: true }).eq("coupon_id", couponId).eq("customer_auth_user_id", user.id).not("status", "in", "(cancelled,rejected)");
+    if ((used ?? 0) > 0) return fail("이미 쓴 쿠폰이에요.", 400);
+    discount = coupon.discount;
+  }
+  const payTotal = built.total - discount;
+
+  const needsPayment = paymentsEnabled() && payTotal >= PAYMENT_MIN_AMOUNT;
   const { data, error } = await db.from("place_reservations").insert([{
     ...(needsPayment ? { status: "pending_payment" } : {}),
     place_id: placeId,
@@ -50,7 +79,8 @@ export async function POST(req: NextRequest) {
     customer_name: contact.name,
     customer_phone: contact.phone,
     items: built.lines,
-    total: built.total,
+    total: payTotal,
+    ...(discount > 0 ? { coupon_id: couponId, discount } : {}),
     pickup_at: contact.pickupAt,
     memo: contact.memo,
     order_type: options.orderType,

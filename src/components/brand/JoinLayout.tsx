@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { Check, X, type LucideIcon } from "lucide-react";
 import { closeModal } from "@/lib/closeModal";
 import { PEEK_SPACE, PeekingDogs } from "@/components/brand/SchnauzerPeek";
+import { PageFooter } from "@/components/SiteFooter";
 
 export type JoinPoint = { Icon: LucideIcon; title: string; text: string };
 
@@ -26,21 +27,21 @@ type JoinTheme = {
 };
 
 export const JOIN_THEMES: Record<"oat" | "cream", JoinTheme> = {
-  // 일반 회원 — 오트밀 + 머스터드
+  // 일반 회원 — 사장님 가입창과 같은 색
   oat: {
-    page: "#FAF8F3", band: "#F1EADB", ink: "#3D3426", muted: "#5C5243", accent: "#B98A1F",
-    free: "#E8B64A", freeInk: "#3D2E0A", chip: "rgba(61,52,38,0.05)", chipLine: "rgba(61,52,38,0.12)", chipInk: "#4E4332",
-    iconBox: "#FFFFFF", iconLine: "#E5DCC8", label: "#F3EDE0", labelLine: "#E6DCC6", labelInk: "#5C4A22",
-    btn: "#3D3426", strong: "#3D3426", focus: "#B98A1F", focusRing: "rgba(185,138,31,0.18)", soft: "#FBF6EA", softLine: "#EADFC6", softInk: "#6B5525",
-    field: "#E7E1D4", cardLine: "#ECE6D8", shadow: "rgba(61,52,38,0.10)",
+    page: "#F9F8F7", band: "#E5E4E3", ink: "#4A3021", muted: "#5F4D3A", accent: "#A0663A",
+    free: "#8C5E3A", freeInk: "#FFF8EE", chip: "rgba(74,48,33,0.05)", chipLine: "rgba(74,48,33,0.14)", chipInk: "#6B4426",
+    iconBox: "#FFFFFF", iconLine: "#D9D8D7", label: "#EAE9E8", labelLine: "#D9D8D7", labelInk: "#6B4426",
+    btn: "#111111", strong: "#8C5E3A", focus: "#A0663A", focusRing: "rgba(160,102,58,0.18)", soft: "#F5F4F3", softLine: "#E0DFDE", softInk: "#6B4426",
+    field: "#E1E0DF", cardLine: "#E8E7E6", shadow: "rgba(74,48,33,0.10)",
   },
   // 사장님 — 크림 + 로고 브라운(주변 평가로 고른 A안). 가입하기 버튼만 검정
   cream: {
-    page: "#FBF7F1", band: "#EFE2D0", ink: "#4A3021", muted: "#5F4D3A", accent: "#A0663A",
+    page: "#F9F8F7", band: "#E5E4E3", ink: "#4A3021", muted: "#5F4D3A", accent: "#A0663A",
     free: "#8C5E3A", freeInk: "#FFF8EE", chip: "rgba(74,48,33,0.05)", chipLine: "rgba(74,48,33,0.14)", chipInk: "#6B4426",
-    iconBox: "#FFFFFF", iconLine: "#E6D6C0", label: "#F3E7D8", labelLine: "#E6D6C0", labelInk: "#6B4426",
-    btn: "#111111", strong: "#8C5E3A", focus: "#A0663A", focusRing: "rgba(160,102,58,0.18)", soft: "#FBF3E7", softLine: "#EBDDC9", softInk: "#6B4426",
-    field: "#E8DFD2", cardLine: "#EFE6DA", shadow: "rgba(74,48,33,0.10)",
+    iconBox: "#FFFFFF", iconLine: "#D9D8D7", label: "#EAE9E8", labelLine: "#D9D8D7", labelInk: "#6B4426",
+    btn: "#111111", strong: "#8C5E3A", focus: "#A0663A", focusRing: "rgba(160,102,58,0.18)", soft: "#F5F4F3", softLine: "#E0DFDE", softInk: "#6B4426",
+    field: "#E1E0DF", cardLine: "#E8E7E6", shadow: "rgba(74,48,33,0.10)",
   },
 };
 
@@ -93,8 +94,8 @@ export default function JoinLayout({ theme = "oat", eyebrow, EyebrowIcon, headin
       <div className="ggk-join-grid">
         {/* 왼쪽(휴대폰은 위) 브랜드 칸 */}
         <aside className="ggk-join-brand" style={{ background: t.band, color: t.ink }}>
-          <Link href="/" aria-label="같이가개 지도" style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", padding: "6px 10px", borderRadius: 12, background: "#FFFFFF", border: `1px solid ${t.chipLine}` }}>
-            <Image src="/icons/logo_lockup.png" alt="같이가개" width={721} height={231} style={{ height: 28, width: "auto" }} priority />
+          <Link href="/" aria-label="펫츠로드 지도" style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", padding: "6px 10px", borderRadius: 12, background: "#FFFFFF", border: `1px solid ${t.chipLine}` }}>
+            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 28, width: "auto" }} priority />
           </Link>
           <div style={{ marginTop: "clamp(18px, 6vh, 64px)" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: "#FFFFFF", border: `1px solid ${t.chipLine}`, color: t.chipInk, fontSize: 12.5, fontWeight: 700 }}>
@@ -153,6 +154,7 @@ export default function JoinLayout({ theme = "oat", eyebrow, EyebrowIcon, headin
           </div>
         </main>
       </div>
+      <PageFooter overTabBar={false} />
     </div>
   );
 }

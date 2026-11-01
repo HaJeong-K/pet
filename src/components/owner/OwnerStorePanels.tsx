@@ -16,10 +16,11 @@ import { won } from "@/lib/ownerPlans";
 import OwnerStoreReviews from "@/components/owner/OwnerStoreReviews";
 import { isOpenStatus, ORDER_TYPE_LABEL, PAYMENT_STATUS_LABEL, ownerNextStatuses, STATUS_LABEL, type OrderType, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
-const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#d6d3c9" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const primaryButton = (disabled: boolean): React.CSSProperties => ({ padding: "10px 16px", borderRadius: 10, border: "none", background: disabled ? "#D4D3D2" : "#B45309", color: disabled ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer" });
 
 type Reservation = {
+  discount?: number | null;
   id: number; customer_name: string; customer_phone: string; items: ReservationLine[]; total: number;
   pickup_at: string | null; memo: string | null; status: ReservationStatus; owner_note: string | null; created_at: string; order_type?: OrderType | null; party_size?: number | null;
   payment_status?: string; cancel_request_status?: string; cancel_request_reason?: string | null;
@@ -148,17 +149,17 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
   };
 
   const renderOne = (r: Reservation) => (
-    <div key={r.id} style={{ padding: "13px 14px", borderRadius: 14, border: `1px solid ${r.status === "requested" ? "#FDE68A" : "#f0ece0"}`, background: r.status === "requested" ? "#FFFDF5" : "white" }}>
+    <div key={r.id} style={{ padding: "13px 14px", borderRadius: 14, border: `1px solid ${r.status === "requested" ? "#FDE68A" : "#EDECEB"}`, background: r.status === "requested" ? "#FEFDFC" : "white" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: STATUS_STYLE[r.status].bg, color: STATUS_STYLE[r.status].color }}>{STATUS_LABEL[r.status]}</span>
-        <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: "#F3E7D8", color: "#6B4426" }}>{ORDER_TYPE_LABEL[r.order_type ?? "pickup"]}{r.party_size ? ` ${r.party_size}명` : ""}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: "#EAE9E8", color: "#6B4426" }}>{ORDER_TYPE_LABEL[r.order_type ?? "pickup"]}{r.party_size ? ` ${r.party_size}명` : ""}</span>
         <b style={{ fontSize: 13.5, color: "#222" }}>{r.customer_name}</b>
-        <a href={`tel:${r.customer_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 700, color: "#3F5230", textDecoration: "none" }}><Phone size={12} />{fmtPhone(r.customer_phone)}</a>
+        <a href={`tel:${r.customer_phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 700, color: "#6F3D24", textDecoration: "none" }}><Phone size={12} />{fmtPhone(r.customer_phone)}</a>
         <span style={{ marginLeft: "auto", fontSize: 11, color: "#6e6e6e" }}>{fmtDateTime(r.created_at)} 접수</span>
       </div>
       <div style={{ marginTop: 9, display: "grid", gap: 3 }}>
         {r.items.map((line) => (
-          <div key={line.productId} style={{ display: "flex", gap: 8, fontSize: 13, color: "#333" }}>
+          <div key={line.name} style={{ display: "flex", gap: 8, fontSize: 13, color: "#333" }}>
             <span style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{line.name} × {line.qty}</span>
             <span style={{ flexShrink: 0, color: "#666" }}>{won(line.price * line.qty)}</span>
           </div>
@@ -167,7 +168,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px dashed #eee", fontSize: 12.5, color: "#555", flexWrap: "wrap" }}>
         {r.pickup_at && <span>{r.order_type === "dine_in" ? "방문 시간" : "가지러 올 시간"} <b style={{ color: "#B45309" }}>{fmtDateTime(r.pickup_at)}</b></span>}
         {PAYMENT_STATUS_LABEL[r.payment_status ?? ""] && <span style={{ fontWeight: 700, color: "#15803D" }}>{PAYMENT_STATUS_LABEL[r.payment_status ?? ""]}</span>}
-        <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color: "#222" }}>합계 {won(r.total)}</span>
+        <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color: "#222" }}>{(r.discount ?? 0) > 0 ? `쿠폰 ${won(r.discount ?? 0)} 할인 · ` : ""}합계 {won(r.total)}</span>
       </div>
       {r.memo && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>요청: {r.memo}</div>}
       {r.owner_note && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>가게 안내: {r.owner_note}</div>}

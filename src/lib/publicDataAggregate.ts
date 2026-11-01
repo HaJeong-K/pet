@@ -18,6 +18,7 @@ import { getTourPlaces } from "@/app/api/public-data/tour/route";
 import { getAllParks } from "@/lib/server/allParks";
 import { findParkDuplicateIds } from "@/lib/parkDuplicates";
 import { countBySource, type MapCounts } from "@/lib/cronDigest";
+import { dedupeAcrossSources } from "@/lib/publicDataDedupe";
 
 const SOURCE_ID_BASE: Record<string, number> = {
   tour: 1_000_000_000,
@@ -40,28 +41,6 @@ function toNumericId(sourceId: string): number {
   const [, source, rest] = match;
   const base = SOURCE_ID_BASE[source] ?? UNKNOWN_SOURCE_ID_BASE;
   return base + hashString(rest);
-}
-
-const normalizeAddress = (addr: string | null | undefined) =>
-  (addr || "")
-    .replace(/\(.*?\)/g, "")
-    .replace(/[^가-힣0-9a-zA-Z]/g, "")
-    .toLowerCase();
-
-const dedupeKey = (item: any) => `${normalizeAddress(item.name)}|${normalizeAddress(item.address)}`;
-
-function dedupeAcrossSources(...sources: any[][]): any[] {
-  const seen = new Set<string>();
-  const out: any[] = [];
-  for (const list of sources) {
-    for (const item of list) {
-      const key = dedupeKey(item);
-      if (!key.trim() || seen.has(key)) continue;
-      seen.add(key);
-      out.push(item);
-    }
-  }
-  return out;
 }
 
 // ── 캐시 구조 ──

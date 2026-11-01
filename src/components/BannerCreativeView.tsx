@@ -53,7 +53,7 @@ export default function BannerCreativeView({ banner, shape, onClick, style }: { 
           <img src={photo} alt="" style={{ width: 46, height: 46, borderRadius: 11, objectFit: "cover", flexShrink: 0 }} />
         )}
         <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ ...headlineFont, display: "block", fontSize: 14 * scale, lineHeight: 1.25, color: "#3D2C05", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{banner.headline}</span>
+          <span style={{ ...headlineFont, display: "block", fontSize: 14 * scale, lineHeight: 1.25, color: "#3D2C05", overflow: "hidden", whiteSpace: "pre-line" }}>{banner.headline}</span>
           <span style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3, minWidth: 0 }}>
             <span style={adBadge}><Crown size={8} />AD</span>
             <span style={{ fontSize: 11, color: "#8A6D1F", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[banner.body, banner.name, banner.address].filter(Boolean).join(" · ")}</span>
@@ -80,7 +80,7 @@ export default function BannerCreativeView({ banner, shape, onClick, style }: { 
         marginTop: "auto", padding: photo ? "34px 11px 11px" : "11px",
         background: photo ? "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 55%, rgba(0,0,0,0) 100%)" : "transparent",
       }}>
-        <div style={{ ...headlineFont, ...clamp(3), fontSize: 16 * scale, lineHeight: 1.28, color: photo ? "white" : "#4A3306", wordBreak: "keep-all", textShadow: photo ? "0 1px 6px rgba(0,0,0,0.45)" : "none" }}>
+        <div style={{ ...headlineFont, ...clamp(3), fontSize: 16 * scale, lineHeight: 1.28, color: photo ? "white" : "#4A3306", wordBreak: "keep-all", whiteSpace: "pre-line", textShadow: photo ? "0 1px 6px rgba(0,0,0,0.45)" : "none" }}>
           {banner.headline}
         </div>
         {banner.body && (

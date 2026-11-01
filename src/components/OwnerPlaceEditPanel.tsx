@@ -54,8 +54,8 @@ export default function OwnerPlaceEditPanel({
     <div style={{ marginBottom: 10 }}>
       <div style={{
         display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999,
-        background: "linear-gradient(135deg,#E4EBDC,#DCE7CD)", border: "1px solid #cfe0bb",
-        fontSize: 11, fontWeight: 700, color: "#48603A", marginRight: 8,
+        background: "linear-gradient(135deg,#F8E6D9,#F0D6C4)", border: "1px solid #EBC8B0",
+        fontSize: 11, fontWeight: 700, color: "#85482A", marginRight: 8,
       }}>
         <BadgeCheck size={12} />내 업장 (인증된 사장님)
       </div>
@@ -93,7 +93,7 @@ export default function OwnerPlaceEditPanel({
             disabled={saving}
             style={{
               marginTop: 4, padding: "10px", borderRadius: 10, border: "none",
-              background: saving ? "#ccc" : "#5C7A4A", color: saving ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 12.5,
+              background: saving ? "#ccc" : "#A05A32", color: saving ? "#4f4a3f" : "white", fontWeight: 700, fontSize: 12.5,
               cursor: saving ? "default" : "pointer",
             }}
           >

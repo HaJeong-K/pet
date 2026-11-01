@@ -51,7 +51,7 @@ export default function MyNotificationsCard() {
   return (
     <div style={{ margin: "12px 0 0", padding: "14px 16px", borderRadius: 16, background: "white", border: "1px solid rgba(0,0,0,0.06)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-        <Bell size={15} color="#5C7A4A" />
+        <Bell size={15} color="#A05A32" />
         <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>알림</div>
         {unread > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "#EF4444", color: "white", fontSize: 10.5, fontWeight: 800, lineHeight: "18px", textAlign: "center" }}>{unread}</span>}
         {unread > 0 && <button onClick={markAll} style={{ marginLeft: "auto", border: "none", background: "transparent", color: "#5c5c5c", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>모두 읽음</button>}
@@ -70,7 +70,7 @@ export default function MyNotificationsCard() {
           </button>
         ))}
       </div>
-      {notes.length > 3 && <button onClick={() => setShowAll((v) => !v)} style={{ width: "100%", marginTop: 4, padding: "8px 0", border: "none", background: "#F6F7F3", borderRadius: 10, color: "#5C7A4A", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{showAll ? "접기" : `알림 ${notes.length}개 모두 보기`}</button>}
+      {notes.length > 3 && <button onClick={() => setShowAll((v) => !v)} style={{ width: "100%", marginTop: 4, padding: "8px 0", border: "none", background: "#F6F7F3", borderRadius: 10, color: "#A05A32", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{showAll ? "접기" : `알림 ${notes.length}개 모두 보기`}</button>}
     </div>
   );
 }

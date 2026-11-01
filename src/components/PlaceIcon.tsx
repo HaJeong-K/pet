@@ -25,7 +25,7 @@ export const PLACE_ICON_COMPONENTS: Record<PlaceIconKey, LucideIcon> = {
   indoor: Home, terrace: Trees, both: HousePlus, lodging: BedDouble, vet: Stethoscope, pharmacy: Pill, default: PawPrint,
 };
 const PLACE_ICON_COLORS: Record<PlaceIconKey, string> = {
-  indoor: "#3F5230", terrace: "#3F5230", both: "#3F5230", lodging: "#1D4F91", vet: "#B42318", pharmacy: "#B4532A", default: "#7A6F5C",
+  indoor: "#6F3D24", terrace: "#6F3D24", both: "#6F3D24", lodging: "#1D4F91", vet: "#B42318", pharmacy: "#B4532A", default: "#7A6F5C",
 };
 export const PARK_ICON_COLOR = "#2B5E29";
 

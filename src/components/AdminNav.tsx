@@ -3,11 +3,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake, Calculator, BedDouble, Route } from "lucide-react";
+import { ArrowLeft, LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake, Calculator, BedDouble, Route } from "lucide-react";
 
-// ── 관리자 페이지 공통 상단 탭 — 대시보드 / 신고 관리 / 제보 관리 / 통계 분석 / 사장님 인증을
-// 어느 관리자 화면에서든 한 번에 오가며 확인할 수 있도록 하는 공용 네비게이션입니다.
-// 새로고침 버튼(onRefresh)을 넘기면 이 탭 행의 가장 우측에 아이콘만 있는 버튼으로 출력됩니다.
+// ── 관리자 페이지 공통 메뉴 — 사장님 센터처럼 넓은 화면은 왼쪽 메뉴, 좁은 화면은 옆으로 미는 메뉴입니다.
+// 새로고침 버튼(onRefresh)을 넘기면 메뉴 아래쪽에 함께 나옵니다.
 
 const TABS = [
   { key: "dashboard", href: "/admin", label: "대시보드", icon: LayoutDashboard },
@@ -29,6 +28,11 @@ const TABS = [
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+
+const GROUPS = [
+  { title: "운영", keys: ["dashboard", "reports", "tips", "review", "members", "owners", "premium", "stays", "inquiries", "support"] },
+  { title: "분석", keys: ["analytics", "traffic", "kpi", "business", "quality", "errors"] },
+] as const;
 
 /** 탭 줄을 옆으로 넘겨 둔 위치 — 관리자 화면 사이를 옮겨 다녀도 유지합니다(새로고침하면 처음으로). */
 let lastScrollLeft: number | null = null;
@@ -80,84 +84,76 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
     lastScrollLeft = row.scrollLeft;
   }, [active]);
 
-  return (
-    // 최상단 탭 영역 — 뷰포트 가로 전체(full-bleed)로 펼치고, 내부 탭 행만
-    // 페이지 본문과 동일한 maxWidth 1200으로 가운데 정렬해 시각적으로 정렬을 맞춥니다.
-    <div
-      className="ggk-body"
-      style={{
-        width: "100%", flexShrink: 0,
-        background: "#F7F3E8", borderBottom: "1px solid #D9E4CE",
-        display: "flex", justifyContent: "center",
-      }}
-    >
-      {/* 탭이 13개라 한 줄에 다 안 들어가면 뒤쪽 탭이 가려져 보이지 않았습니다.
-          넓은 화면(PC·태블릿)에서는 탭 줄을 화면 폭 가까이 넓히고 모자라면 다음 줄로 넘겨 전부 보이게 하고,
-          휴대폰에서는 예전처럼 옆으로 밀어 봅니다(여러 줄이 되면 화면을 너무 많이 차지해서). */}
-      <style>{`
-        .ggk-admin-tabs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-        .ggk-admin-tabs::-webkit-scrollbar { display: none; }
-        @media (min-width: 768px) { .ggk-admin-tabs { flex-wrap: wrap; overflow-x: visible; } }
-      `}</style>
-      <div
-        style={{
-          width: "100%", maxWidth: "1640px", boxSizing: "border-box",
-          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6, padding: "10px clamp(14px, 2.4vw, 28px)",
-        }}
-      >
-        <div ref={rowRef} className="ggk-admin-tabs" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
-          {TABS.map((tab) => {
-            const isActive = tab.key === active;
-            const badge = tab.key === "reports" ? counts.reports : tab.key === "tips" ? counts.tips : tab.key === "owners" ? counts.owners : tab.key === "premium" ? counts.premium : tab.key === "review" ? counts.review : tab.key === "inquiries" ? counts.inquiries : 0;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                ref={isActive ? activeRef : undefined}
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => router.push(tab.href)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-                  padding: "8px 14px", borderRadius: 10, border: "none",
-                  background: isActive ? "#5C7A4A" : "white",
-                  color: isActive ? "white" : "#555",
-                  fontWeight: 700, fontSize: 12, cursor: "pointer",
-                  fontFamily: "'Noto Sans KR', sans-serif",
-                  transition: "background 0.15s ease",
-                  boxShadow: isActive ? "none" : "0 1px 2px rgba(0,0,0,0.04)",
-                }}
-              >
-                <Icon size={13} />
-                {tab.label}
-                {badge > 0 && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 800, padding: "1px 6px", borderRadius: 999,
-                    background: isActive ? "rgba(255,255,255,0.25)" : "#ef4444",
-                    color: "white", minWidth: 15, textAlign: "center",
-                  }}>
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+  const badgeOf = (key: TabKey) => key === "reports" ? counts.reports : key === "tips" ? counts.tips : key === "owners" ? counts.owners : key === "premium" ? counts.premium : key === "review" ? counts.review : key === "inquiries" ? counts.inquiries : 0;
+  const Badge = ({ n, on }: { n: number; on: boolean }) => n > 0 ? <span style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center", lineHeight: "19px" }}>{n}</span> : null;
 
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            title="새로고침"
-            style={{
-              border: "none", background: "white", borderRadius: 10,
-              width: 32, height: 32, cursor: "pointer", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-            }}
-          >
-            <RefreshCw size={14} color="#888" />
-          </button>
-        )}
+  return (
+    <>
+      {/* 사장님 센터와 같은 구성 — 넓은 화면은 왼쪽 메뉴, 좁은 화면은 위쪽 막대와 옆으로 미는 메뉴 */}
+      <style>{`
+        .ad-side { display: none; }
+        .ad-top { position: sticky; top: 0; z-index: 30; height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: white; border-bottom: 1px solid #E7E6E5; }
+        .ad-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 10px 14px; background: white; border-bottom: 1px solid #E7E6E5; }
+        .ad-chips::-webkit-scrollbar { display: none; }
+        .ad-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 11px; border: none; background: transparent; color: #4a4437; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; }
+        .ad-item:hover { background: #F4F3F2; }
+        .ad-item[aria-current="page"] { background: #3B2A20; color: white; }
+        @media (min-width: 980px) {
+          .ad-page { padding-left: 252px; }
+          .ad-top, .ad-chips { display: none; }
+          .ad-side { position: fixed; top: 0; left: 0; bottom: 0; width: 252px; z-index: 40; display: flex; flex-direction: column; box-sizing: border-box; padding: 16px 14px 14px; overflow-y: auto; background: white; border-right: 1px solid #E7E6E5; }
+        }
+      `}</style>
+
+      <aside className="ad-side ggk-body">
+        <a href="/" aria-label="펫츠로드 메인" style={{ display: "block", padding: "0 6px" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ height: 30, width: "auto", display: "block" }} />
+        </a>
+        <div style={{ margin: "14px 0 16px", padding: "14px", borderRadius: 16, background: "linear-gradient(160deg,#2A1C14,#3B2A20 55%,#70482F)", color: "white" }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: "#F3DA9B" }}>펫츠로드 운영</div>
+          <div className="ggk-logo" style={{ fontSize: 16.5, fontWeight: 800, marginTop: 4 }}>관리자 센터</div>
+        </div>
+        {GROUPS.map((g) => (
+          <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "#6a6253", padding: "0 12px 6px" }}>{g.title}</div>
+            <div style={{ display: "grid", gap: 2 }}>
+              {TABS.filter((t) => (g.keys as readonly string[]).includes(t.key)).map((tab) => {
+                const Icon = tab.icon;
+                const on = tab.key === active;
+                return (
+                  <button key={tab.key} className="ad-item" aria-current={on ? "page" : undefined} onClick={() => router.push(tab.href)}>
+                    <Icon size={16} />{tab.label}<Badge n={badgeOf(tab.key)} on={on} />
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        ))}
+        <div style={{ marginTop: "auto", paddingTop: 10, borderTop: "1px solid #E7E6E5", display: "grid", gap: 2 }}>
+          {onRefresh && <button className="ad-item" onClick={onRefresh}><RefreshCw size={16} />새로고침</button>}
+          <a className="ad-item" href="/"><ArrowLeft size={16} />메인 페이지로 돌아가기</a>
+        </div>
+      </aside>
+
+      <div className="ad-top ggk-body">
+        <a href="/" aria-label="메인 페이지로 돌아가기" style={{ display: "flex", alignItems: "center", gap: 6, color: "#3B2A20", textDecoration: "none", fontSize: 13, fontWeight: 700 }}><ArrowLeft size={16} />메인</a>
+        <span className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#3B2A20" }}>관리자 센터</span>
+        {onRefresh && <button onClick={onRefresh} title="새로고침" aria-label="새로고침" style={{ marginLeft: "auto", width: 34, height: 34, border: "1px solid #E7E6E5", borderRadius: 10, background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><RefreshCw size={14} color="#6B5E55" /></button>}
       </div>
-    </div>
+      <div ref={rowRef} className="ad-chips ggk-body" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const on = tab.key === active;
+          const n = badgeOf(tab.key);
+          return (
+            <button key={tab.key} ref={on ? activeRef : undefined} aria-current={on ? "page" : undefined} onClick={() => router.push(tab.href)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: on ? "1px solid #3B2A20" : "1px solid #E0DFDE", background: on ? "#3B2A20" : "white", color: on ? "white" : "#4a4437", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}>
+              <Icon size={14} />{tab.label}
+              {n > 0 && <span style={{ minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center" }}>{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }

@@ -228,10 +228,10 @@ function SignupPageContent() {
       theme="oat"
       eyebrow="반려동물 보호자"
       EyebrowIcon={Heart}
-      heading={["반려동물과 함께 갈 곳,", "같이가개에서 찾아요"]}
+      heading={["반려동물과 함께 갈 곳,", "펫츠로드에서 찾아요"]}
       points={MEMBER_POINTS}
       footnote={<>가입은 무료예요.<br />이메일은 로그인과 중요한 안내에만 써요.</>}
-      label="같이가개 회원가입"
+      label="펫츠로드 회원가입"
       title="이메일로 회원가입"
       sub="가입하면 찜·후기·숙소 예약·산책 코스 저장을 모두 쓸 수 있어요."
     >
@@ -253,7 +253,7 @@ function SignupPageContent() {
               border: "none",
               background:
                 !email || !isValidEmail(email) || isCheckingEmail
-                  ? "#D6D3C9"
+                  ? "#D4D3D2"
                   : "var(--join-strong)",
               color: !email || !isValidEmail(email) || isCheckingEmail ? "#4f4a3f" : "white",
               fontWeight: 700,
@@ -433,7 +433,7 @@ function SignupPageContent() {
             padding: "14px",
             borderRadius: "14px",
             border: "none",
-            background: isSubmitDisabled ? "#D6D3C9" : "var(--join-btn)",
+            background: isSubmitDisabled ? "#D4D3D2" : "var(--join-btn)",
             boxShadow: isSubmitDisabled ? "none" : "0 10px 22px rgba(0,0,0,0.14)",
             fontSize: "15.5px",
             color: isSubmitDisabled ? "#4f4a3f" : "white",

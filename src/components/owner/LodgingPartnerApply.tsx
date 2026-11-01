@@ -1,6 +1,6 @@
 "use client";
 
-// 숙소 입점 신청(사장님용) — 「같이가개 숙소 입점 계약서」 제5조
+// 숙소 입점 신청(사장님용) — 「펫츠로드 숙소 입점 계약서」 제5조
 //   ① 내 숙소 고르기: 지도에 있는 숙소(공공데이터 숙소 포함)를 이름으로 찾아 고르거나, 없으면 직접 적기
 //   ② 숙박업 영업신고증(사진·PDF) ③ 정산 계좌 ④ 입점 조건 확인·동의 → 신청
 //   상태: 신청 전 → 심사 중 → 승인(입점일·프로모션 마지막 날 표시) / 반려(사유 보고 다시 신청)
@@ -96,10 +96,10 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
   // 승인됨 — 짧은 안내만
   if (p?.status === "approved") {
     return (
-      <div style={{ ...card, background: "#F0F7EC", borderColor: "#cfe3c3", display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <BadgeCheck size={20} color="#3F6B2B" style={{ flexShrink: 0, marginTop: 1 }} />
-        <div style={{ fontSize: 13, color: "#3F5230", lineHeight: 1.7 }}>
-          <b>같이가개 입점 숙소예요.</b> 손님이 바로 예약할 수 있어요.<br />
+      <div style={{ ...card, background: "#FAF0E9", borderColor: "#EDCEB9", display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <BadgeCheck size={20} color="#8A4A26" style={{ flexShrink: 0, marginTop: 1 }} />
+        <div style={{ fontSize: 13, color: "#6F3D24", lineHeight: 1.7 }}>
+          <b>펫츠로드 입점 숙소예요.</b> 손님이 바로 예약할 수 있어요.<br />
           {p.partner_since && p.promoLastDay && <>입점일 {stayDayLabel(p.partner_since)} · {stayDayLabel(p.promoLastDay)} 체크인까지 수수료 {PROMO_FEE_RATE}%(이후 {BASIC_FEE_RATE}%, 프리미엄 {PREMIUM_FEE_RATE}%)</>}
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
   const canSubmit = !!form.placeName.trim() && !!form.bankName.trim() && form.accountNumber.replace(/\D/g, "").length >= 8 && !!form.accountHolder.trim() && agreed && (!!file || !!p) && !busy;
   return (
     <div style={card}>
-      <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>같이가개 숙소 입점 신청</div>
+      <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>펫츠로드 숙소 입점 신청</div>
       <div style={{ fontSize: 12.5, color: "#555", marginTop: 5, lineHeight: 1.7 }}>
         반려동물과 여행하는 손님만 모이는 숙소 예약 서비스예요.<br />
         숙소 근처의 동반 카페·식당·공원까지 함께 보여 줘서, 손님이 머무는 동안 즐길 거리를 바로 찾을 수 있어요.
@@ -156,7 +156,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
             <button onClick={() => setManual(true)} style={{ marginTop: 6, border: "none", background: "transparent", padding: 0, color: BLUE, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>지도에 내 숙소가 없어요</button>
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: "#5c5c5c" }}>지도에 없는 숙소는 같이가개가 확인한 뒤 지도에 등록해 드려요.</div>
+          <div style={{ fontSize: 12, color: "#5c5c5c" }}>지도에 없는 숙소는 펫츠로드가 확인한 뒤 지도에 등록해 드려요.</div>
         )}
         {(picked || manual) && (
           <div style={{ display: "grid", gap: 8 }}>
@@ -182,7 +182,7 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
         <div style={{ fontSize: 11.5, color: "#666", marginTop: -6 }}>사업자 명의 계좌로 적어 주세요. 이용 확정 다음 영업일에 이 계좌로 정산해 드려요.</div>
 
         <div style={step}>4. 입점 조건</div>
-        <div style={{ padding: "12px 14px", borderRadius: 12, background: "#F7F3E8", fontSize: 12.5, color: "#444", lineHeight: 1.8 }}>
+        <div style={{ padding: "12px 14px", borderRadius: 12, background: "#F4F3F2", fontSize: 12.5, color: "#444", lineHeight: 1.8 }}>
           · 수수료: 입점일부터 {PROMO_MONTHS}개월 <b>{PROMO_FEE_RATE}%</b>, 이후 {BASIC_FEE_RATE}% (숙소 프리미엄 이용 중에는 {PREMIUM_FEE_RATE}%)<br />
           · 광고비·가입비·쿠폰 비용 없음<br />
           · 손님은 예약할 때 전액 결제, 이용 확정 다음 영업일에 수수료를 뺀 금액 정산<br />
@@ -192,11 +192,11 @@ export default function LodgingPartnerApply({ onApproved }: { onApproved?: () =>
         </div>
         <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#444", lineHeight: 1.6, cursor: "pointer" }}>
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ width: 16, height: 16, marginTop: 3 }} />
-          <span>위 조건을 포함한 <a href="/partner/lodging#terms" target="_blank" rel="noreferrer" style={{ color: BLUE, fontWeight: 700 }}>같이가개 숙소 입점 계약서</a>에 동의해요.</span>
+          <span>위 조건을 포함한 <a href="/partner/lodging#terms" target="_blank" rel="noreferrer" style={{ color: BLUE, fontWeight: 700 }}>펫츠로드 숙소 입점 계약서</a>에 동의해요.</span>
         </label>
 
         {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
-        <button onClick={submit} disabled={!canSubmit} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: canSubmit ? BLUE : "#d6d3c9", color: "white", fontSize: 15, fontWeight: 800, cursor: canSubmit ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "신청하는 중…" : "입점 신청하기"}</button>
+        <button onClick={submit} disabled={!canSubmit} style={{ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: canSubmit ? BLUE : "#D4D3D2", color: "white", fontSize: 15, fontWeight: 800, cursor: canSubmit ? "pointer" : "default", fontFamily: "inherit" }}>{busy ? "신청하는 중…" : "입점 신청하기"}</button>
       </div>
     </div>
   );

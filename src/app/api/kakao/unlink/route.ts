@@ -4,7 +4,7 @@ import { deleteAccount, findUserByKakaoId } from "@/lib/server/deleteAccount";
 import { notifyAdmin } from "@/lib/server/notify";
 
 // 카카오 "연결 해제 웹훅" 받는 주소: /api/kakao/unlink
-// 사용자가 카카오 쪽(카카오톡 설정 > 연결된 서비스 관리)에서 같이가개 연결을 끊으면, 카카오가 이 주소로
+// 사용자가 카카오 쪽(카카오톡 설정 > 연결된 서비스 관리)에서 펫츠로드 연결을 끊으면, 카카오가 이 주소로
 // 알려줍니다. 그 사용자의 계정을 탈퇴 처리해서 개인정보가 남지 않게 합니다(카카오 개발자 콘솔 경고 대응).
 //
 // 카카오 콘솔 설정: 앱 > 웹훅 > 연결 해제 웹훅 URL = https://<도메인>/api/kakao/unlink (GET 또는 POST 모두 지원)

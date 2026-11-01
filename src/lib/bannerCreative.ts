@@ -20,7 +20,7 @@ export type BannerFontId = "logo" | "gothic" | "gothic-soft" | "gothic-bold" | "
  * "진지한 궁서체"는 기기에 궁서체가 있으면(윈도우·맥) 궁서체로, 없으면(대부분의 휴대폰) 같은 느낌의 명조체로 보입니다.
  */
 export const BANNER_FONTS: { id: BannerFontId; label: string; family: string; google?: string; weight: number }[] = [
-  { id: "logo", label: "같이가개 로고체", family: "'Noto Sans KR', sans-serif", weight: 800 },
+  { id: "logo", label: "펫츠로드 로고체", family: "'Noto Sans KR', sans-serif", weight: 800 },
   { id: "gothic", label: "깔끔한 고딕", family: "'Noto Sans KR', sans-serif", weight: 600 },
   { id: "gothic-soft", label: "부드러운 고딕", family: "'Gowun Dodum', 'Noto Sans KR', sans-serif", google: "Gowun+Dodum", weight: 400 },
   { id: "gothic-bold", label: "굵은 제목 고딕", family: "'Black Han Sans', 'Noto Sans KR', sans-serif", google: "Black+Han+Sans", weight: 400 },
@@ -52,12 +52,15 @@ export function bannerAddress(address: string | null | undefined): string | null
 export type BannerCreative = { headline: string; body: string | null; imageUrl: string | null; font: BannerFontId };
 
 /** 입력값을 다듬습니다. 문제가 있으면 이유를 돌려줍니다. */
+/** 사장님이 넣은 줄바꿈은 살리고(두 줄까지) 나머지 공백은 하나로 줄입니다 */
+const keepLines = (text: string) => text.split(/\r?\n/).map((line) => line.trim().replace(/\s+/g, " ")).filter(Boolean).slice(0, 2).join("\n");
+
 export function cleanBannerCreative(raw: unknown): { creative: BannerCreative } | { error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const headline = typeof r.headline === "string" ? r.headline.trim().replace(/\s+/g, " ") : "";
+  const headline = typeof r.headline === "string" ? keepLines(r.headline) : "";
   if (!headline) return { error: "큰 문구를 적어 주세요." };
   if (headline.length > BANNER_HEADLINE_MAX) return { error: `큰 문구는 ${BANNER_HEADLINE_MAX}자까지예요.` };
-  const body = typeof r.body === "string" && r.body.trim() ? r.body.trim().replace(/\s+/g, " ") : null;
+  const body = typeof r.body === "string" && r.body.trim() ? keepLines(r.body) : null;
   if (body && body.length > BANNER_BODY_MAX) return { error: `작은 문구는 ${BANNER_BODY_MAX}자까지예요.` };
   const imageUrl = typeof r.imageUrl === "string" && r.imageUrl.trim() ? r.imageUrl.trim() : null;
   if (imageUrl && !/^https:\/\/[^\s"'<>]+$/.test(imageUrl)) return { error: "사진 주소가 올바르지 않아요. 사진을 다시 올려 주세요." };

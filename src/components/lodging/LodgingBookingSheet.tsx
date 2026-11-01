@@ -34,13 +34,13 @@ type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; kind: 
 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const shortWon = (n: number) => (n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
-const box: React.CSSProperties = { padding: "14px 14px", borderRadius: 14, background: "#F7F3E8" };
+const box: React.CSSProperties = { padding: "14px 14px", borderRadius: 14, background: "#F4F3F2" };
 const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const label: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: "#1f1a12", marginBottom: 8 };
-const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 11px", borderRadius: 999, border: `1px solid ${on ? "#2F3B28" : "#e2dcc8"}`, background: on ? "#EEF3E8" : "white", color: on ? "#2F3B28" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
+const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 11px", borderRadius: 999, border: `1px solid ${on ? "#3B2A20" : "#DDDCDB"}`, background: on ? "#FCF1E9" : "white", color: on ? "#3B2A20" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const stepper: React.CSSProperties = { width: 32, height: 32, padding: 0, borderRadius: 999, border: "1px solid #ddd", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#333" };
 const monthBtn: React.CSSProperties = { border: "1px solid #e2e4e8", background: "white", borderRadius: 8, width: 28, height: 28, padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
-const primary = (disabled: boolean): React.CSSProperties => ({ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: disabled ? "#d6d3c9" : "#2F3B28", color: disabled ? "#4f4a3f" : "white", fontSize: 15, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
+const primary = (disabled: boolean): React.CSSProperties => ({ width: "100%", padding: "14px 0", borderRadius: 12, border: "none", background: disabled ? "#D4D3D2" : "#3B2A20", color: disabled ? "#4f4a3f" : "white", fontSize: 15, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 
 /**
  * 견종·묘종 고르기 — 끌어서 고르는 선택창과 검색("슈나우저"처럼 일부만 쳐도 찾음). 목록에 없으면 직접 입력합니다.
@@ -65,8 +65,9 @@ function BreedPicker({ kindLabel, breeds, value, text, onPick, onText }: {
   );
 }
 
-export default function LodgingBookingSheet({ placeName, profile, rooms, initialRoomId, onClose, variant = "sheet" }: {
+export default function LodgingBookingSheet({ placeName, placePhone, profile, rooms, initialRoomId, onClose, variant = "sheet" }: {
   placeName: string;
+  placePhone?: string | null;
   profile: LodgingProfile | null;
   rooms: GuestRoom[];
   initialRoomId: number;
@@ -223,16 +224,16 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
           <>
             <style>{`
               .ggk-book-page { color: #1f1a12; }
-              .ggk-book-cols { display: grid; gap: 14px; padding: 16px 16px 8px; }
-              .ggk-book-main { display: grid; gap: 12px; min-width: 0; }
-              .ggk-book-aside { display: grid; gap: 10px; min-width: 0; }
-              .ggk-book-main > :not(button):not([role="status"]), .ggk-book-aside > div:first-child:not([role="status"]) { background: white !important; border: 1px solid #EAE5D8 !important; border-radius: 18px !important; padding: 18px !important; box-sizing: border-box; }
+              .ggk-book-cols { display: grid; gap: 18px; padding: 24px 18px 24px; }
+              .ggk-book-main { display: grid; gap: 18px; min-width: 0; }
+              .ggk-book-aside { display: grid; gap: 12px; min-width: 0; }
+              .ggk-book-main > :not(button):not([role="status"]), .ggk-book-aside > div:first-child:not([role="status"]) { background: white !important; border: 1px solid #E6E5E4 !important; border-radius: 18px !important; padding: 18px !important; box-sizing: border-box; }
               @media (min-width: 900px) {
-                .ggk-book-cols { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; padding: 24px 24px 8px; }
+                .ggk-book-cols { grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; padding: 32px 32px 32px; }
                 .ggk-book-aside { position: sticky; top: 16px; }
               }
             `}</style>
-            <section style={{ background: "linear-gradient(160deg,#1F2A1A 0%,#2F3B28 50%,#4A6339 100%)", color: "white", padding: "22px 24px 26px" }}>
+            <section style={{ background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white", borderRadius: "0 0 26px 26px", padding: "22px 24px 26px" }}>
               <button onClick={step === 2 ? () => setStep(1) : onClose} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 0, border: "none", background: "transparent", color: "rgba(255,255,255,0.88)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                 <ChevronLeft size={16} />{step === 2 ? "날짜·인원 다시 고르기" : placeName}
               </button>
@@ -241,8 +242,8 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               </h1>
               <ol aria-label="예약 단계" style={{ display: "flex", gap: 6, margin: "18px 0 0", padding: 0, listStyle: "none", flexWrap: "wrap" }}>
                 {["날짜·인원", "확인·결제", "완료"].map((text, i) => (
-                  <li key={text} aria-current={step === i + 1 ? "step" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: step === i + 1 ? "#F3DA9B" : "rgba(255,255,255,0.12)", color: step === i + 1 ? "#2F3B28" : "rgba(255,255,255,0.88)" }}>
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: step === i + 1 ? "#2F3B28" : "rgba(255,255,255,0.2)", color: step === i + 1 ? "#F3DA9B" : "white" }}>{i + 1}</span>{text}
+                  <li key={text} aria-current={step === i + 1 ? "step" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: step === i + 1 ? "#F3DA9B" : "rgba(255,255,255,0.12)", color: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.88)" }}>
+                    <span style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.2)", color: step === i + 1 ? "#F3DA9B" : "white" }}>{i + 1}</span>{text}
                   </li>
                 ))}
               </ol>
@@ -281,7 +282,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               </div>
               <div style={{ textAlign: "center", fontSize: 13.5, fontWeight: 800, color: "#333", margin: "4px 0 6px" }}>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 3 }}>
-                {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#2F3B28" : "#666" }}>{w}</div>)}
+                {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#3B2A20" : "#666" }}>{w}</div>)}
                 {cells.map((day, i) => {
                   if (!day) return <div key={`b${i}`} />;
                   const d = byDay.get(day);
@@ -292,7 +293,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                   const selectable = ok || (!!checkIn && !checkOut && day > checkIn);
                   return (
                     <button key={day} onClick={() => selectable && pick(day)} disabled={!selectable} aria-pressed={edge}
-                      style={{ minHeight: 48, padding: "4px 2px", borderRadius: 9, border: edge ? "2px solid #2F3B28" : "1px solid #eee", background: edge ? "#2F3B28" : inRange ? "#EEF3E8" : "white", color: edge ? "white" : ok ? "#333" : "#707070", cursor: selectable ? "pointer" : "default", fontFamily: "inherit", textDecoration: !ok && day >= today && !edge ? "line-through" : "none" }}>
+                      style={{ minHeight: 48, padding: "4px 2px", borderRadius: 9, border: edge ? "2px solid #3B2A20" : "1px solid #eee", background: edge ? "#3B2A20" : inRange ? "#FCF1E9" : "white", color: edge ? "white" : ok ? "#333" : "#707070", cursor: selectable ? "pointer" : "default", fontFamily: "inherit", textDecoration: !ok && day >= today && !edge ? "line-through" : "none" }}>
                       <div style={{ fontSize: 12.5, fontWeight: 800 }}>{Number(day.slice(8))}</div>
                       {ok && d && <div style={{ fontSize: 9.5, fontWeight: 600, opacity: 0.8, marginTop: 1 }}>{shortWon(d.price)}</div>}
                     </button>
@@ -312,9 +313,15 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
 
             <div>
               <div style={label}>함께 가는 반려동물 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>정확히 적어야 입실 거부를 막을 수 있어요</span></div>
-              {profile && <div style={{ fontSize: 12, color: "#2F3B28", marginBottom: 7 }}>이 숙소는 {petPolicySummary(profile)}</div>}
-              <div role="note" style={{ display: "flex", gap: 6, marginBottom: 8, padding: "9px 11px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>
-                <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /><span>{DANGEROUS_DOG_NOTICE}</span>
+              {profile && <div style={{ fontSize: 12, color: "#3B2A20", marginBottom: 7 }}>이 숙소는 {petPolicySummary(profile)}</div>}
+              <div role="note" style={{ marginBottom: 8, padding: "9px 11px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>
+                <div style={{ display: "flex", gap: 6 }}><AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ whiteSpace: "pre-line" }}>{DANGEROUS_DOG_NOTICE}</span></div>
+                {placePhone && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px solid #FBD5D5" }}>
+                    <span style={{ flex: 1, minWidth: 0, color: "#333", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{placeName} · {placePhone}</span>
+                    <a href={`tel:${placePhone}`} style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 999, background: "#991B1B", color: "white", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}>전화하기</a>
+                  </div>
+                )}
               </div>
               <div style={{ display: "grid", gap: 8 }}>
                 {pets.map((p, i) => {
@@ -359,7 +366,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                   );
                 })}
               </div>
-              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 8, border: "1px dashed #A9C48A", background: "#F5F7F1", color: "#2F3B28", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
+              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 8, border: "1px dashed #DDB08C", background: "#FBF3ED", color: "#3B2A20", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
               {petProblem && <div role="status" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{petProblem}</div>}
             </div>
 
@@ -373,14 +380,14 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                     const unit = EXTRA_UNITS.find((u) => u.id === x.unit);
                     const chosen = daysFor(x.id);
                     return (
-                      <div key={x.id} style={{ padding: "10px 12px", borderRadius: 12, border: `1px solid ${used ? "#A9C48A" : "#eee"}`, background: used ? "#F5F7F1" : "white", display: "grid", gap: 8 }}>
+                      <div key={x.id} style={{ padding: "10px 12px", borderRadius: 12, border: `1px solid ${used ? "#DDB08C" : "#eee"}`, background: used ? "#FBF3ED" : "white", display: "grid", gap: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222" }}>{x.name}</div>
                             <div style={{ fontSize: 12, color: "#555" }}>{won(x.price)} · {unit?.label}{x.note ? ` · ${x.note}` : ""}</div>
                           </div>
                           <div role="group" aria-label={`${x.name} 이용 여부`} style={{ display: "flex", flexShrink: 0, padding: 2, borderRadius: 9, background: "#EFEFEA" }}>
-                            {[false, true].map((on) => <button key={String(on)} type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: on ? Math.max(1, qty) : 0 }))} aria-pressed={used === on} style={{ padding: "6px 9px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", background: used === on ? "white" : "transparent", color: used === on ? "#2F3B28" : "#666" }}>{on ? "이용" : "해당 없음"}</button>)}
+                            {[false, true].map((on) => <button key={String(on)} type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: on ? Math.max(1, qty) : 0 }))} aria-pressed={used === on} style={{ padding: "6px 9px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", background: used === on ? "white" : "transparent", color: used === on ? "#3B2A20" : "#666" }}>{on ? "이용" : "해당 없음"}</button>)}
                           </div>
                         </div>
                         {used && x.max > 1 && (
@@ -413,12 +420,12 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
           <div className={isPage ? "ggk-book-aside" : undefined} style={isPage ? undefined : { display: "contents" }}>
             {/* 지금 금액 — 추가 요금까지 모두 여기서 결제하고, 현장에서는 내지 않습니다 */}
             {priced && (
-              <div style={{ padding: "12px 13px", borderRadius: 12, background: "#F5F7F1", display: "grid", gap: 4, fontSize: 13, color: "#445" }}>
+              <div style={{ padding: "12px 13px", borderRadius: 12, background: "#FBF3ED", display: "grid", gap: 4, fontSize: 13, color: "#445" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>객실 {priced.nights.length}박</span><span>{won(priced.roomTotal)}</span></div>
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가</span><span>{won(priced.petTotal)}</span></div>}
                 {priced.extrasTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>추가 옵션</span><span>{won(priced.extrasTotal)}</span></div>}
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #E6E2D6", paddingTop: 6, marginTop: 2, fontSize: 15, fontWeight: 800, color: "#2F3B28" }}><span>총 금액</span><span>{won(priced.total)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #E3E2E1", paddingTop: 6, marginTop: 2, fontSize: 15, fontWeight: 800, color: "#3B2A20" }}><span>총 금액</span><span>{won(priced.total)}</span></div>
                 <div style={{ fontSize: 11.5, color: "#667" }}>추가 요금까지 모두 포함된 금액이에요. 현장에서 따로 내는 돈은 없어요.</div>
               </div>
             )}
@@ -430,7 +437,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
         )}
 
         {step === 2 && room && priced && checkIn && checkOut && (
-          <div className={isPage ? "ggk-book-main" : undefined} style={isPage ? { maxWidth: 680, margin: "0 auto", padding: "20px 16px 8px" } : { display: "grid", gap: 14 }}>
+          <div className={isPage ? "ggk-book-main" : undefined} style={isPage ? { maxWidth: 760, margin: "0 auto", padding: "32px 18px 32px" } : { display: "grid", gap: 14 }}>
             <div style={box}>
               <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{room.name}</div>
               <div style={{ fontSize: 12.5, color: "#555", marginTop: 4, lineHeight: 1.7 }}>
@@ -447,7 +454,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가({pets.length}마리 × {priced.nights.length}박)</span><span>{won(priced.petTotal)}</span></div>}
                 {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{x.name} × {x.qty}{x.days ? ` · ${x.days.length}일` : ""}{x.unit === "night" ? ` × ${priced.nights.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
                 {stampUse.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between", color: "#6B5525", fontWeight: 700 }}><span>추억 스탬프 {stampUse.used}개</span><span>-{won(stampUse.discount)}</span></div>}
-                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#2F3B28" }}><span>총 결제 금액</span><span>{won(payTotal)}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#3B2A20" }}><span>총 결제 금액</span><span>{won(payTotal)}</span></div>
                 <div style={{ fontSize: 11.5, color: "#666" }}>추가 요금까지 모두 포함했어요. 현장에서 따로 내는 금액은 없어요. 현장에서 더 요구받으면 &lsquo;문제 있어요&rsquo;로 알려 주세요.</div>
               </div>
             </div>
@@ -536,8 +543,8 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
               )}
             </div>
 
-            <div data-guide="stay-rule-agreement" style={{ borderRadius: 12, border: "1px solid #DCE5D3", overflow: "hidden" }}>
-              <div style={{ padding: "11px 12px", background: "#F5F7F1", fontSize: 14, fontWeight: 800, color: "#2F3B28" }}>
+            <div data-guide="stay-rule-agreement" style={{ borderRadius: 12, border: "1px solid #F1D8C7", overflow: "hidden" }}>
+              <div style={{ padding: "11px 12px", background: "#FBF3ED", fontSize: 14, fontWeight: 800, color: "#3B2A20" }}>
                 숙소 규정을 확실히 읽어 보셨나요?
                 <div style={{ fontSize: 11.5, fontWeight: 500, color: "#555", marginTop: 2 }}>예약 전에 꼭 확인해 주세요.</div>
               </div>
@@ -557,7 +564,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
                 <div style={{ fontSize: 12.5, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면</div>
                 {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}><b>{x.title}</b> · {x.text}</div>)}
               </div>
-              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "11px 12px", borderTop: "1px solid #DCE5D3", fontSize: 13, fontWeight: 700, color: allPetAcked ? "#222" : "#6e6e6e", lineHeight: 1.55, cursor: allPetAcked ? "pointer" : "default" }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "11px 12px", borderTop: "1px solid #F1D8C7", fontSize: 13, fontWeight: 700, color: allPetAcked ? "#222" : "#6e6e6e", lineHeight: 1.55, cursor: allPetAcked ? "pointer" : "default" }}>
                 <input type="checkbox" checked={ruleAgreed} disabled={!allPetAcked} onChange={(e) => setRuleAgreed(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
                 {RULE_AGREEMENT_LABEL}
               </label>
@@ -587,7 +594,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
             <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
               {paymentsReady() ? "결제를 마쳐야 예약이 접수돼요. 20분 안에 결제하지 않으면 날짜가 풀려요." : "카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요."}<br />
               {FREE_CANCEL_NOTICE}<br />
-              같이가개는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
+              펫츠로드는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
             </div>
             {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
             <button onClick={submit} disabled={!step2Ready} style={primary(!step2Ready)}>{busy ? "예약하는 중…" : `${won(payTotal)} ${paymentsReady() ? "결제하기" : "예약하기"}`}</button>
@@ -596,7 +603,7 @@ export default function LodgingBookingSheet({ placeName, profile, rooms, initial
 
         {step === 3 && (
           <div style={{ display: "grid", gap: 12, textAlign: "center", padding: isPage ? "28px 16px" : "10px 0", maxWidth: isPage ? 520 : undefined, margin: "0 auto" }}>
-            <CheckCircle2 size={38} color="#2F3B28" style={{ margin: "0 auto" }} />
+            <CheckCircle2 size={38} color="#3B2A20" style={{ margin: "0 auto" }} />
             <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{result?.status === "confirmed" ? "예약이 확정됐어요" : "예약을 보냈어요"}</div>
             <div style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>
               {result?.status === "confirmed" ? "즐거운 여행 되세요!" : "숙소가 24시간 안에 확정해요.\n확정되지 않으면 자동으로 취소되고 전액 돌려드려요.".split("\n").map((l) => <span key={l}>{l}<br /></span>)}

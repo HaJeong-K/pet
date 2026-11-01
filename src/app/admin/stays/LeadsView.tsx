@@ -23,7 +23,7 @@ const STATUS: Record<LeadStatus, { label: string; bg: string; color: string }> =
   declined: { label: "거절", bg: "#FEE2E2", color: "#991B1B" },
   joined: { label: "입점함", bg: "#DCFCE7", color: "#166534" },
 };
-const card: React.CSSProperties = { background: "white", borderRadius: 14, border: "1px solid #ece6d6", padding: "12px 14px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 14, border: "1px solid #E7E6E5", padding: "12px 14px" };
 const PAGE = 40;
 
 export default function LeadsView() {
@@ -79,14 +79,14 @@ export default function LeadsView() {
     <>
       {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-operations.sql</b>을 실행하면 연락 상태·메모를 저장할 수 있어요.</div>}
       <div style={{ ...card, display: "grid", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", borderRadius: 10, border: "1px solid #e5e0d0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", borderRadius: 10, border: "1px solid #E1E0DF" }}>
           <Search size={15} color="#999" />
           <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="숙소 이름이나 지역 — 예: 강릉, 가평" aria-label="영업 리스트 검색" style={{ flex: 1, border: "none", outline: "none", fontSize: 13.5, fontFamily: "inherit" }} />
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {(["all", "todo", "contacted", "interested", "declined", "joined"] as const).map((k) => (
             <button key={k} onClick={() => { setFilter(k); setLimit(PAGE); }} aria-pressed={filter === k}
-              style={{ padding: "6px 11px", borderRadius: 999, border: "none", background: filter === k ? "#5C7A4A" : "#F4F1E8", color: filter === k ? "white" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "6px 11px", borderRadius: 999, border: "none", background: filter === k ? "#A05A32" : "#F2F1F0", color: filter === k ? "white" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
               {k === "all" ? "전체" : STATUS[k].label} {counts[k] ?? 0}
             </button>
           ))}
@@ -108,11 +108,11 @@ export default function LeadsView() {
             </div>
             <div style={{ fontSize: 12.5, color: "#666", marginTop: 4 }}>{r.address ?? "주소 없음"}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-              <a href={`tel:${r.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", borderRadius: 9, background: "#5C7A4A", color: "white", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}><Phone size={12} />{r.phone}</a>
+              <a href={`tel:${r.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 11px", borderRadius: 9, background: "#A05A32", color: "white", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}><Phone size={12} />{r.phone}</a>
               <button onClick={() => { setEditing(editing === r.id ? null : r.id); setDraft({ status: r.lead?.status && r.lead.status !== "todo" ? r.lead.status : "contacted", memo: r.lead?.memo ?? "" }); }} style={{ padding: "7px 11px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 12.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>연락 기록</button>
               {r.lead?.contacted_at && <span style={{ fontSize: 11.5, color: "#666" }}>마지막 연락 {r.lead.contacted_at.slice(0, 10)}</span>}
             </div>
-            {r.lead?.memo && editing !== r.id && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F7F3E8", fontSize: 12.5, color: "#555", whiteSpace: "pre-line" }}>{r.lead.memo}</div>}
+            {r.lead?.memo && editing !== r.id && <div style={{ marginTop: 6, padding: "8px 10px", borderRadius: 9, background: "#F4F3F2", fontSize: 12.5, color: "#555", whiteSpace: "pre-line" }}>{r.lead.memo}</div>}
             {editing === r.id && (
               <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
                 <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
@@ -122,13 +122,13 @@ export default function LeadsView() {
                   ))}
                 </div>
                 <textarea value={draft.memo} onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value.slice(0, 1000) }))} rows={2} placeholder="메모 — 예: 사장님 부재, 다음 주 화요일 다시 연락 / 수수료 문의함" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />
-                <button onClick={() => save(r)} disabled={busy} style={{ justifySelf: "start", padding: "8px 14px", borderRadius: 9, border: "none", background: busy ? "#d6d3c9" : "#5C7A4A", color: busy ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>저장</button>
+                <button onClick={() => save(r)} disabled={busy} style={{ justifySelf: "start", padding: "8px 14px", borderRadius: 9, border: "none", background: busy ? "#D4D3D2" : "#A05A32", color: busy ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>저장</button>
               </div>
             )}
           </div>
         );
       })}
-      {list.length > limit && <button onClick={() => setLimit((n) => n + PAGE)} style={{ padding: "11px 0", borderRadius: 12, border: "1px solid #5C7A4A", background: "white", color: "#5C7A4A", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>더 보기 ({list.length - limit}곳 남음)</button>}
+      {list.length > limit && <button onClick={() => setLimit((n) => n + PAGE)} style={{ padding: "11px 0", borderRadius: 12, border: "1px solid #A05A32", background: "white", color: "#A05A32", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>더 보기 ({list.length - limit}곳 남음)</button>}
     </>
   );
 }

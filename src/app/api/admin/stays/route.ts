@@ -6,7 +6,7 @@ import { applyCancel, confirmStay, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type Mone
 import { sendOwnerPush } from "@/lib/server/ownerPush";
 import { notifyGuest } from "@/lib/server/guestNotify";
 
-// 관리자 전용: 숙박 예약 관리(「같이가개 숙소 입점 계약서」 제11·14·20조)
+// 관리자 전용: 숙박 예약 관리(「펫츠로드 숙소 입점 계약서」 제11·14·20조)
 //   GET ?view=issues | payouts | refunds | all  → 문제 접수 / 정산 예정 / 환불 처리 대기 / 최근 예약 + 숙소 이름
 //   POST { id, action, ... }
 //     "resolve"        { decision, note } : 문제 접수 판단
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
         const { data } = await db.from("lodging_bookings").update({ ...resolved, payout_status: b.status === "completed" && b.payment_status === "paid" ? "scheduled" : "none", updated_at: now }).eq("id", id).eq("issue_status", "open").select("id").maybeSingle();
         result = data;
         const { data: guest } = await db.from("lodging_bookings").select("guest_auth_user_id").eq("id", id).maybeSingle();
-        if (guest?.guest_auth_user_id) after(() => notifyGuest(guest.guest_auth_user_id, { kind: "stay_violation", title: body.decision === "violation_upheld" ? "규정 위반으로 판단했어요" : "규정 위반이 아니라고 판단했어요", body: note || "같이가개가 양쪽 의견을 확인했어요.", url: "/orders?tab=stay" }));
+        if (guest?.guest_auth_user_id) after(() => notifyGuest(guest.guest_auth_user_id, { kind: "stay_violation", title: body.decision === "violation_upheld" ? "규정 위반으로 판단했어요" : "규정 위반이 아니라고 판단했어요", body: note || "펫츠로드가 양쪽 의견을 확인했어요.", url: "/orders?tab=stay" }));
       } else return fail("판단을 골라 주세요.", 400);
       if (!result) return fail("그 사이 예약 상태가 바뀌었어요. 새로 고쳐 주세요.", 409);
       after(() => sendOwnerPush(b.place_id, { title: "문제 접수 처리 결과", body: `${b.guest_name}님 · ${b.room_name}\n${note || "관리자가 처리했어요."}`, tag: `ggk-stay-${id}`, url: "/owner#stays" }));

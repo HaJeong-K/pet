@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   };
 
   if (body.test && body.endpoint) {
-    const sent = await sendAdminPush({ title: "🔔 같이가개 관리자 알림 시험", body: "이 기기로 알림이 잘 와요.", path: "/admin" }, body.endpoint);
+    const sent = await sendAdminPush({ title: "🔔 펫츠로드 관리자 알림 시험", body: "이 기기로 알림이 잘 와요.", path: "/admin" }, body.endpoint);
     return NextResponse.json({ ok: sent > 0, sent });
   }
 

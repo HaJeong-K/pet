@@ -27,7 +27,7 @@ type Loaded = {
   requests?: ChangeRequest[];
 };
 
-const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #ece6d6", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
+const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit" };
 const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 800, color: "#444", display: "flex", alignItems: "center", gap: 6, marginBottom: 6 };
 const fmtDate = (s: string) => new Date(s).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
@@ -153,11 +153,11 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
       <div style={{ marginTop: 16, display: "grid", gap: 14 }}>
         <div>
           <div style={label}>큰 문구 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>{form.headline.length}/{BANNER_HEADLINE_MAX}</span></div>
-          <input value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} maxLength={BANNER_HEADLINE_MAX} placeholder="예: 댕댕이랑 브런치, 테라스에서" disabled={!canAct} style={input} />
+          <textarea rows={2} value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} maxLength={BANNER_HEADLINE_MAX} placeholder="예: 댕댕이랑 브런치, 테라스에서" disabled={!canAct} style={input} />
         </div>
         <div>
           <div style={label}>작은 문구 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택) {form.body.length}/{BANNER_BODY_MAX}</span></div>
-          <input value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} maxLength={BANNER_BODY_MAX} placeholder="예: 대형견 환영 · 반려견 전용 메뉴 · 주차 가능" disabled={!canAct} style={input} />
+          <textarea rows={2} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} maxLength={BANNER_BODY_MAX} placeholder="예: 대형견 환영 · 반려견 전용 메뉴 · 주차 가능" disabled={!canAct} style={input} />
         </div>
         <div>
           <div style={label}>사진 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택) 가고 싶어지는 가게 사진 한 장 · 5MB까지</span></div>
@@ -180,8 +180,8 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
             {BANNER_FONTS.map((f) => {
               const active = form.font === f.id;
               return (
-                <button key={f.id} onClick={() => setForm({ ...form, font: f.id })} disabled={!canAct} aria-pressed={active} style={{ padding: "9px 10px", borderRadius: 11, border: `1.5px solid ${active ? "#7c3aed" : "#e6e2d6"}`, background: active ? "#f7f3ff" : "white", cursor: canAct ? "pointer" : "default", textAlign: "left" }}>
-                  <span style={{ display: "block", fontFamily: f.family, fontWeight: f.weight, fontSize: 16 * bannerFontScale(f.id), lineHeight: 1.25, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>같이가개 멍멍</span>
+                <button key={f.id} onClick={() => setForm({ ...form, font: f.id })} disabled={!canAct} aria-pressed={active} style={{ padding: "9px 10px", borderRadius: 11, border: `1.5px solid ${active ? "#7c3aed" : "#E3E2E1"}`, background: active ? "#f7f3ff" : "white", cursor: canAct ? "pointer" : "default", textAlign: "left" }}>
+                  <span style={{ display: "block", fontFamily: f.family, fontWeight: f.weight, fontSize: 16 * bannerFontScale(f.id), lineHeight: 1.25, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>펫츠로드 멍멍</span>
                   <span style={{ display: "block", fontSize: 10.5, color: active ? "#7c3aed" : "#666", fontWeight: 700, marginTop: 3, fontFamily: "'Noto Sans KR', sans-serif" }}>{f.label}</span>
                 </button>
               );
@@ -191,7 +191,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
       </div>
 
       {/* 미리보기 — 실제 광고 칸과 같은 그림 */}
-      <div style={{ marginTop: 18, padding: 14, borderRadius: 14, background: "#F7F3E8" }}>
+      <div style={{ marginTop: 18, padding: 14, borderRadius: 14, background: "#F4F3F2" }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 10 }}>미리보기 <span style={{ fontWeight: 600, color: "#666" }}>— 저장하기 전에는 나만 보여요</span></div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ flex: "0 0 200px" }}>
@@ -200,14 +200,14 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
           </div>
           <div style={{ flex: "1 1 260px", minWidth: 0 }}>
             <div style={{ fontSize: 11, color: "#666", marginBottom: 5 }}>휴대폰 화면 위쪽</div>
-            <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #eadfbf", maxWidth: 400 }}><BannerCreativeView banner={preview} shape="strip" style={{ borderBottom: "none" }} /></div>
+            <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #E0DFDE", maxWidth: 400 }}><BannerCreativeView banner={preview} shape="strip" style={{ borderBottom: "none" }} /></div>
           </div>
         </div>
       </div>
 
       {/* 저장 · 한도 */}
       <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button onClick={save} disabled={!canSave} style={{ padding: "11px 20px", borderRadius: 11, border: "none", background: canSave ? "#7c3aed" : "#d6d3c9", color: "white", fontSize: 13.5, fontWeight: 800, cursor: canSave ? "pointer" : "default", fontFamily: "inherit" }}>
+        <button onClick={save} disabled={!canSave} style={{ padding: "11px 20px", borderRadius: 11, border: "none", background: canSave ? "#7c3aed" : "#D4D3D2", color: "white", fontSize: 13.5, fontWeight: 800, cursor: canSave ? "pointer" : "default", fontFamily: "inherit" }}>
           {busy === "save" ? "저장 중…" : "배너 저장"}
         </button>
         <span style={{ flex: "1 1 220px", fontSize: 12, color: "#5c5c5c", lineHeight: 1.6 }}>
@@ -237,7 +237,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
               <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} rows={3} placeholder="왜 다시 바꿔야 하는지 적어 주세요. 예: 문구에 오타가 있어요 / 사진을 잘못 올렸어요" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => setShowRequest(false)} style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid #ddd", background: "white", color: "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>취소</button>
-                <button onClick={sendRequest} disabled={busy !== "" || reason.trim().length < 5} style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: reason.trim().length < 5 ? "#d6d3c9" : "#7c3aed", color: reason.trim().length < 5 ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{busy === "request" ? "보내는 중…" : "요청 보내기"}</button>
+                <button onClick={sendRequest} disabled={busy !== "" || reason.trim().length < 5} style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: reason.trim().length < 5 ? "#D4D3D2" : "#7c3aed", color: reason.trim().length < 5 ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{busy === "request" ? "보내는 중…" : "요청 보내기"}</button>
               </div>
             </div>
           )}

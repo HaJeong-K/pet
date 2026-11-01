@@ -222,7 +222,7 @@ export function AdRailRight({
       <div className="ggk-side-ad-rail" style={railBase}>
         {/* 머리 띠 — 입양 화면과 같은 갈색 바탕·흰 글씨(예전의 빨간 글씨 한 줄을 대신함) */}
         <div style={{ position: "relative", overflow: "hidden", flexShrink: 0, borderRadius: 14, background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "11px 12px 12px", textAlign: "center", wordBreak: "keep-all" }}>
-          <div style={{ fontSize: 9.5, fontWeight: 700, color: "#F3E6D4", letterSpacing: "0.4px" }}>가족을 기다리는 아이들</div>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: "#E9E8E7", letterSpacing: "0.4px" }}>가족을 기다리는 아이들</div>
           <div className="ggk-logo" style={{ marginTop: 3, fontSize: 14.5, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.2px" }}>
             사지 말고, <span style={{ color: "#F6C89A" }}>입양하세요</span>
           </div>
@@ -251,7 +251,7 @@ export function AdRailRight({
           href={SHELTER_FULL_LIST_URL}
           style={{
             fontSize: 10.5,
-            color: "#8FA876",
+            color: "#C9966E",
             textAlign: "center",
             fontWeight: 600,
             textDecoration: "none",

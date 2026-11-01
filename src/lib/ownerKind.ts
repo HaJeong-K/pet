@@ -36,7 +36,7 @@ export const OWNER_KINDS: OwnerKindInfo[] = [
     placeWord: "가게",
     emoji: "🏪",
     color: "#A8551F",
-    background: "#FBEEDD",
+    background: "#F1F0EF",
   },
   {
     id: "lodging",

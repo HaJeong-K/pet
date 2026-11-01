@@ -19,11 +19,11 @@ const STATUS = {
   approved: { label: "입점", bg: "#DCFCE7", color: "#15803D" },
   rejected: { label: "반려", bg: "#FEE2E2", color: "#B91C1C" },
 };
-const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #ece6d6", padding: "14px 16px" };
+const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const btn = (kind: "primary" | "plain" | "danger", disabled: boolean): React.CSSProperties => ({
   padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
   border: kind === "primary" ? "none" : `1px solid ${kind === "danger" ? "#f3c7c5" : "#e2e4e8"}`,
-  background: disabled ? "#d6d3c9" : kind === "primary" ? "#5C7A4A" : "white", color: disabled ? "#4f4a3f" : kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#444",
+  background: disabled ? "#D4D3D2" : kind === "primary" ? "#A05A32" : "white", color: disabled ? "#4f4a3f" : kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#444",
 });
 
 export default function StorePartnersView() {

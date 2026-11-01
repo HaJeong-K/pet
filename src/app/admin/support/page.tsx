@@ -2,7 +2,7 @@
 
 // ── 후원 단체 관리 ──
 // "보호소·후원" 화면(/shelter-notices/support)의 "후원할 수 있는 단체"에 올릴 곳을 고릅니다.
-// 같이가개는 후원금을 받지 않고 단체의 공식 후원 페이지로 연결만 하므로, 계좌번호가 아니라 공식 페이지 주소를 적습니다.
+// 펫츠로드는 후원금을 받지 않고 단체의 공식 후원 페이지로 연결만 하므로, 계좌번호가 아니라 공식 페이지 주소를 적습니다.
 // 등록 여부(기부금품 모집 등록·공익법인 지정 등)를 공개 자료로 확인한 곳만 올려 주세요.
 
 import { useEffect, useState } from "react";
@@ -51,16 +51,16 @@ export default function AdminSupportOrgs() {
   };
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="support" onRefresh={load} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <HeartHandshake size={18} color="#5C7A4A" />
+          <HeartHandshake size={18} color="#A05A32" />
           <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>후원 단체</div>
-          <a href="/shelter-notices/support" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#5C7A4A" }}>방문자 화면 보기 →</a>
+          <a href="/shelter-notices/support" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#A05A32" }}>방문자 화면 보기 →</a>
         </div>
         <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7, marginBottom: 14 }}>
-          여기에 올린 단체만 &quot;후원하러 가기&quot; 버튼이 붙어요. 같이가개는 후원금을 받지 않고 단체의 공식 후원 페이지로 연결만 하므로,
+          여기에 올린 단체만 &quot;후원하러 가기&quot; 버튼이 붙어요. 펫츠로드는 후원금을 받지 않고 단체의 공식 후원 페이지로 연결만 하므로,
           계좌번호가 아니라 <b>공식 후원 페이지 주소</b>를 적어 주세요. 등록 여부를 공개 자료로 확인한 곳만 올려 주세요.
         </div>
 
@@ -88,10 +88,10 @@ export default function AdminSupportOrgs() {
             </div>
             {message && <div role="status" style={{ marginTop: 12, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button onClick={add} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "11px 16px", borderRadius: 11, border: "1px solid #d8d2c0", background: "white", fontSize: 13, fontWeight: 700, color: "#555", cursor: "pointer" }}>
+              <button onClick={add} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "11px 16px", borderRadius: 11, border: "1px solid #D3D2D1", background: "white", fontSize: 13, fontWeight: 700, color: "#555", cursor: "pointer" }}>
                 <Plus size={14} /> 단체 추가
               </button>
-              <button onClick={save} disabled={saving} style={{ flex: 1, padding: "11px 0", borderRadius: 11, border: "none", background: saving ? "#cbd5c0" : "#5C7A4A", color: "white", fontSize: 13.5, fontWeight: 800, cursor: saving ? "default" : "pointer" }}>
+              <button onClick={save} disabled={saving} style={{ flex: 1, padding: "11px 0", borderRadius: 11, border: "none", background: saving ? "#E2C6B3" : "#A05A32", color: "white", fontSize: 13.5, fontWeight: 800, cursor: saving ? "default" : "pointer" }}>
                 {saving ? "저장 중…" : "저장"}
               </button>
             </div>

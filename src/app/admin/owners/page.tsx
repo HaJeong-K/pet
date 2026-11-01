@@ -89,7 +89,7 @@ export default function AdminOwners() {
   const pager = usePaged(shown);
 
   return (
-    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F7F3E8", overflow: "hidden", alignItems: "center" }}>
+    <div className="ggk-body" style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#F4F3F2", overflow: "hidden", alignItems: "center" }}>
       <AdminNav active="owners" onRefresh={fetchOwners} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth: "thin" as any }}>
@@ -101,8 +101,8 @@ export default function AdminOwners() {
           {([{ id: "all" as const, label: "전체", count: rows.length }, ...OWNER_KINDS.map((k) => ({ id: k.id, label: k.label, count: countOf(k.id) }))]).map((t) => (
             <button key={t.id} onClick={() => setKindFilter(t.id)} aria-pressed={kindFilter === t.id} style={{
               display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 999, border: "none", cursor: "pointer",
-              background: kindFilter === t.id ? "#5C7A4A" : "white", color: kindFilter === t.id ? "white" : "#555", fontSize: 12.5, fontWeight: 700,
-              boxShadow: kindFilter === t.id ? "none" : "inset 0 0 0 1px #e5e0d0",
+              background: kindFilter === t.id ? "#A05A32" : "white", color: kindFilter === t.id ? "white" : "#555", fontSize: 12.5, fontWeight: 700,
+              boxShadow: kindFilter === t.id ? "none" : "inset 0 0 0 1px #E1E0DF",
             }}>
               {t.id === "store" && <Store size={13} />}{t.id === "lodging" && <BedDouble size={13} />}
               {t.label} {t.count}
@@ -163,7 +163,7 @@ export default function AdminOwners() {
                   </span>
                   {r.owner_phone && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Phone size={11} />{r.owner_phone}</span>}
                   <span>{r.email}</span>
-                  {r.owner_place_id && <span style={{ color: "#5C7A4A", fontWeight: 700 }}>지도 연결됨 (place #{r.owner_place_id})</span>}
+                  {r.owner_place_id && <span style={{ color: "#A05A32", fontWeight: 700 }}>지도 연결됨 (place #{r.owner_place_id})</span>}
                 </div>
                 {r.owner_address_detail && (
                   <div style={{ fontSize: 11.5, color: "#5c5c5c", marginBottom: 4 }}>{r.owner_address_detail}</div>
@@ -186,7 +186,7 @@ export default function AdminOwners() {
                 </button>
                 <button onClick={() => decide(r.auth_user_id, "approve")} style={{
                   display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 10,
-                  border: "none", background: "linear-gradient(135deg,#5C7A4A,#48603A)", color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer",
+                  border: "none", background: "linear-gradient(135deg,#A05A32,#85482A)", color: "white", fontWeight: 700, fontSize: 12, cursor: "pointer",
                 }}>
                   <BadgeCheck size={13} />승인
                 </button>

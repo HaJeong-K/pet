@@ -5,14 +5,14 @@ import type { MetadataRoute } from "next";
 // 앱 이름·아이콘, 주소창 없이 전체 화면으로 열기(standalone), 처음 열 화면.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "같이가개 — 반려동물 동반 장소 지도",
-    short_name: "같이가개",
+    name: "펫츠로드 — 반려동물 동반 장소 지도",
+    short_name: "펫츠로드",
     description: "반려동물과 함께 갈 수 있는 장소를 지도에서 찾아보세요.",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#F7F3E8",
+    background_color: "#F4F3F2",
     // 휴대폰 상단바(시계·배터리 줄) 색 — 초록으로 물들이지 않고 흰색으로 둡니다.
     theme_color: "#FFFFFF",
     lang: "ko",

@@ -362,7 +362,7 @@ function LoginPageContent() {
                     </label>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <button type="button" className="ggk-login-link" onClick={() => goView("findId")} style={linkBtn}>아이디 찾기</button>
-                      <span aria-hidden style={{ width: 1, height: 11, background: "#D8D1C2" }} />
+                      <span aria-hidden style={{ width: 1, height: 11, background: "#D2D1D0" }} />
                       <button type="button" className="ggk-login-link" onClick={() => goView("findPw")} style={linkBtn}>비밀번호 찾기</button>
                     </div>
                   </div>
@@ -593,7 +593,7 @@ function LoginPageContent() {
                     {sending ? "보내는 중…" : "재설정 메일 보내기"}
                   </button>
                   {resetMsg && (
-                    <div role={resetMsg.ok ? "status" : "alert"} style={{ padding: "11px 13px", borderRadius: 12, fontSize: 13.5, lineHeight: 1.65, fontWeight: 600, ...(resetMsg.ok ? { background: "#F1F6EB", border: "1px solid #CFDDBF", color: "#3F5636" } : { background: "#FDF3F1", border: "1px solid #F4D6CF", color: "#9A3B27" }) }}>
+                    <div role={resetMsg.ok ? "status" : "alert"} style={{ padding: "11px 13px", borderRadius: 12, fontSize: 13.5, lineHeight: 1.65, fontWeight: 600, ...(resetMsg.ok ? { background: "#F9EFE8", border: "1px solid #EBC8B1", color: "#664027" } : { background: "#FDF3F1", border: "1px solid #F4D6CF", color: "#9A3B27" }) }}>
                       {resetMsg.text}
                     </div>
                   )}

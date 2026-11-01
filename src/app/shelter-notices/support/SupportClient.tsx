@@ -2,7 +2,7 @@
 
 // 보호소·후원 — 전국 동물보호센터에 문의할 수 있는 연락처와, 후원할 수 있는 단체의 공식 창구를 모아 둔 화면.
 //
-// 같이가개는 후원금을 받거나 전달하지 않습니다(돈이 우리를 거치면 기부금품 모집 등록 대상이 될 수 있음).
+// 펫츠로드는 후원금을 받거나 전달하지 않습니다(돈이 우리를 거치면 기부금품 모집 등록 대상이 될 수 있음).
 // 그래서 "후원하러 가기"는 관리자가 직접 고른 단체의 공식 후원 페이지로만 연결하고, 계좌번호는 싣지 않습니다.
 // 보호소는 이름·지역·전화만 보여 줍니다 — 주소와 지도는 일부러 뺐습니다(동물을 버리러 찾아가는 데 쓰이지 않게).
 
@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronRight, ExternalLink, HeartHandshake, PawPrint, Phone, Search } from "lucide-react";
 import LogoLoader from "@/components/LogoLoader";
 import { SIDO_LIST } from "@/lib/shelterNotices";
+import { PageFooter } from "@/components/SiteFooter";
 
 type Shelter = { id: string; name: string; sido: string; sigungu: string; tel: string; protecting: number; dogs: number; cats: number; others: number; urgent: number };
 type Org = { id: string; name: string; description: string; url: string };
@@ -69,14 +70,14 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
   const totalProtecting = useMemo(() => (shelters || []).reduce((sum, s) => sum + s.protecting, 0), [shelters]);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F7F3E8", display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2", display: "flex", flexDirection: "column", alignItems: "center" }}>
       <div style={{ width: "100%", maxWidth: 1200, display: "flex", flexDirection: "column" }}>
         {/* 머리 띠 — 입양 화면과 같은 틀(갈색 바탕·흰 글씨). 오른쪽에는 지금 수치를 작게 보여 줍니다. */}
         <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #7A5236 0%, #5E3F29 100%)", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
           <HeartHandshake aria-hidden="true" size={160} color="rgba(255,255,255,0.06)" style={{ position: "absolute", right: -20, bottom: -44, transform: "rotate(-10deg)" }} />
           {/* 첫 줄: 작은 이름표와 이동 버튼을 같은 줄에(입양 화면의 머리 띠와 같은 구조) */}
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <span style={{ display: "inline-block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#F3E6D4", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>보호센터 문의 · 후원 창구</span>
+            <span style={{ display: "inline-block", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#E9E8E7", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>보호센터 문의 · 후원 창구</span>
             <button onClick={() => router.push("/shelter-notices")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>
               <PawPrint size={14} /> 입양 공고
             </button>
@@ -90,7 +91,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
               <div style={{ marginTop: 7, fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.65 }}>
                 보호센터를 누르면 그곳에서 가족을 기다리는 아이들만 모아 볼 수 있어요.<br />
                 물품 후원이나 봉사는 보호센터에 직접 문의해 주세요(후원을 받지 않는 곳도 있어요).<br />
-                <b style={{ color: "white" }}>같이가개는 후원금을 받거나 전달하지 않아요.</b>
+                <b style={{ color: "white" }}>펫츠로드는 후원금을 받거나 전달하지 않아요.</b>
               </div>
             </div>
             {shelters && shelters.length > 0 && (
@@ -115,7 +116,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                 <h2 className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, color: "#222", margin: 0 }}>후원할 수 있는 단체</h2>
               </div>
               <p style={{ fontSize: 12, color: "#555", lineHeight: 1.65, margin: "0 0 12px" }}>
-                같이가개는 후원금을 받거나 전달하지 않아요. 후원은 각 단체의 공식 창구에서 직접 이루어져요.
+                펫츠로드는 후원금을 받거나 전달하지 않아요. 후원은 각 단체의 공식 창구에서 직접 이루어져요.
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: 10 }}>
                 {orgs.map((org) => (
@@ -153,7 +154,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
               </div>
             ) : (
               <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 13px", borderRadius: 12, background: "white", border: "1px solid #e8e2d2", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 13px", borderRadius: 12, background: "white", border: "1px solid #E3E2E1", marginBottom: 10 }}>
                   <Search size={15} color="#a59f90" />
                   <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="보호센터 이름이나 지역으로 찾기" aria-label="보호센터 찾기" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 13.5, background: "transparent", fontFamily: "inherit" }} />
                 </div>
@@ -182,12 +183,12 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
                         </div>
                         <ChevronRight size={17} color="#bbb" style={{ flexShrink: 0 }} />
                       </button>
-                      <div style={{ display: "flex", borderTop: "1px solid #f1ede2" }}>
+                      <div style={{ display: "flex", borderTop: "1px solid #EEEDEC" }}>
                         <button onPointerDown={() => router.prefetch(`/shelter-notices/support/${encodeURIComponent(s.id)}`)} onClick={() => router.push(`/shelter-notices/support/${encodeURIComponent(s.id)}`)} style={{ flex: 1, padding: "10px 0", border: "none", background: "transparent", fontSize: 12.5, fontWeight: 800, color: "#7A5236", cursor: "pointer", fontFamily: "inherit" }}>
                           아이들 보기
                         </button>
                         {s.tel && (
-                          <a href={`tel:${s.tel.replace(/[^\d+]/g, "")}`} aria-label={`${s.name}에 전화로 문의하기`} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 0", borderLeft: "1px solid #f1ede2", color: "#3F5230", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}>
+                          <a href={`tel:${s.tel.replace(/[^\d+]/g, "")}`} aria-label={`${s.name}에 전화로 문의하기`} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 0", borderLeft: "1px solid #EEEDEC", color: "#6F3D24", fontSize: 12.5, fontWeight: 800, textDecoration: "none" }}>
                             <Phone size={13} /> 전화 문의
                           </a>
                         )}
@@ -200,6 +201,7 @@ export default function SupportClient({ initialShelters, initialOrgs }: { initia
             )}
           </section>
         </div>
+        <PageFooter />
       </div>
     </div>
   );

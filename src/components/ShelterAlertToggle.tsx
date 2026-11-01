@@ -105,8 +105,8 @@ export default function ShelterAlertToggle({ region }: { region: string }) {
       display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "12px 14px", marginBottom: 14,
       background: "white", borderRadius: 14, border: "1px solid rgba(0,0,0,0.06)",
     }}>
-      <div style={{ width: 36, height: 36, borderRadius: 11, background: on ? "#E4EBDC" : "#f1f2f4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        {on ? <Bell size={17} color="#48603A" /> : <BellOff size={17} color="#888" />}
+      <div style={{ width: 36, height: 36, borderRadius: 11, background: on ? "#F8E6D9" : "#f1f2f4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        {on ? <Bell size={17} color="#85482A" /> : <BellOff size={17} color="#888" />}
       </div>
       <div style={{ flex: 1, minWidth: 180 }}>
         <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222" }}>
@@ -121,9 +121,9 @@ export default function ShelterAlertToggle({ region }: { region: string }) {
       {supported && (
         <div style={{ display: "flex", gap: 6 }}>
           {differentRegion && (
-            <button disabled={busy} onClick={enable} style={btn("#E4EBDC", "#48603A", busy)}>{region}(으)로 바꾸기</button>
+            <button disabled={busy} onClick={enable} style={btn("#F8E6D9", "#85482A", busy)}>{region}(으)로 바꾸기</button>
           )}
-          <button disabled={busy} onClick={on ? disable : enable} style={btn(on ? "#f1f2f4" : "#5C7A4A", on ? "#555" : "white", busy)}>
+          <button disabled={busy} onClick={on ? disable : enable} style={btn(on ? "#f1f2f4" : "#A05A32", on ? "#555" : "white", busy)}>
             {busy ? "처리 중…" : on ? "알림 끄기" : region ? `${region} 알림 받기` : "알림 받기"}
           </button>
         </div>

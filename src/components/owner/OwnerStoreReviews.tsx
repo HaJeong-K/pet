@@ -30,7 +30,7 @@ export default function OwnerStoreReviews({ placeId }: { placeId: number }) {
     catch (e) { setMessage(e instanceof Error ? e.message : "처리하지 못했어요."); }
   };
   const report = (id: number) => {
-    const reason = window.prompt("신고 사유를 적어 주세요. 같이가개가 확인한 뒤 가림 여부를 정해요.");
+    const reason = window.prompt("신고 사유를 적어 주세요. 펫츠로드가 확인한 뒤 가림 여부를 정해요.");
     if (reason?.trim()) send({ id, report: reason }, "신고를 보냈어요.");
   };
 
@@ -40,7 +40,7 @@ export default function OwnerStoreReviews({ placeId }: { placeId: number }) {
       <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>쇼핑 후기 {reviews.length}개</div>
       {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#555" }}>{message}</div>}
       {reviews.map((r) => (
-        <div key={r.id} style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid #f0ece0", background: "white", fontSize: 13, color: "#333", lineHeight: 1.6 }}>
+        <div key={r.id} style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid #EDECEB", background: "white", fontSize: 13, color: "#333", lineHeight: 1.6 }}>
           <div style={{ fontSize: 12, color: "#666" }}>{r.display_name ?? "손님"} · 별점 {r.rating} · {r.created_at.slice(0, 10)}{r.hidden ? " · 가려짐" : r.reported_at ? " · 신고 검토 중" : ""}</div>
           {r.content}
           {r.owner_reply
