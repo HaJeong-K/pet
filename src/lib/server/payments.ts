@@ -15,7 +15,36 @@ const API = "https://api.tosspayments.com/v1/payments";
 
 export const paymentsEnabled = () => !!(process.env.TOSS_SECRET_KEY && process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY);
 
-type TossPayment = { paymentKey: string; orderId: string; status: string; method: string | null; totalAmount: number; balanceAmount: number; receipt?: { url?: string } | null };
+type TossPayment = {
+  paymentKey: string; orderId: string; status: string; method: string | null; totalAmount: number; balanceAmount: number; receipt?: { url?: string } | null;
+  approvedAt?: string | null;
+  card?: { issuerCode?: string; number?: string; installmentPlanMonths?: number; approveNo?: string; cardType?: string; ownerType?: string } | null;
+  easyPay?: { provider?: string } | null;
+  transfer?: { bankCode?: string } | null;
+};
+
+// 토스 카드사 코드 → 이름(손님 상세 화면용). 모르는 코드는 코드 그대로 보여 줍니다.
+const CARD_COMPANY: Record<string, string> = {
+  "3K": "기업BC", "46": "광주", "71": "롯데", "30": "KDB산업", "31": "BC", "51": "삼성", "38": "새마을금고", "41": "신한", "62": "신협", "36": "씨티",
+  "33": "우리", "W1": "우리", "37": "우체국", "39": "저축은행", "35": "전북", "42": "제주", "15": "카카오뱅크", "3A": "케이뱅크", "24": "토스뱅크",
+  "21": "하나", "61": "현대", "11": "KB국민", "91": "NH농협", "34": "Sh수협",
+};
+
+/** 결제 상세(카드사·가린 카드 번호·승인 번호·할부·간편결제) — 손님 화면에 그대로 보여 줘도 되는 것만 */
+export type PaymentDetail = { cardCompany?: string; cardNumber?: string; approveNo?: string; installment?: number; cardType?: string; easyPay?: string; approvedAt?: string };
+export function paymentDetailOf(p: TossPayment): PaymentDetail {
+  const d: PaymentDetail = {};
+  if (p.card) {
+    if (p.card.issuerCode) d.cardCompany = CARD_COMPANY[p.card.issuerCode] ?? p.card.issuerCode;
+    if (p.card.number) d.cardNumber = p.card.number;
+    if (p.card.approveNo) d.approveNo = p.card.approveNo;
+    if (typeof p.card.installmentPlanMonths === "number") d.installment = p.card.installmentPlanMonths;
+    if (p.card.cardType) d.cardType = p.card.cardType;
+  }
+  if (p.easyPay?.provider) d.easyPay = p.easyPay.provider;
+  if (p.approvedAt) d.approvedAt = p.approvedAt;
+  return d;
+}
 
 async function toss(path: string, init: { method?: string; body?: unknown; idempotencyKey?: string }): Promise<{ ok: true; data: TossPayment } | { ok: false; code: string; message: string }> {
   const res = await fetch(`${API}${path}`, {
@@ -80,7 +109,7 @@ export async function confirmPayment(
     return { error: result.message, status: 402 };
   }
   const paidAt = new Date().toISOString();
-  await db.from("payments").update({ status: "paid", payment_key: result.data.paymentKey, method: result.data.method, receipt_url: result.data.receipt?.url ?? null, paid_at: paidAt, updated_at: paidAt }).eq("id", row.id);
+  await db.from("payments").update({ status: "paid", payment_key: result.data.paymentKey, method: result.data.method, receipt_url: result.data.receipt?.url ?? null, paid_at: paidAt, updated_at: paidAt, detail: paymentDetailOf(result.data) }).eq("id", row.id);
 
   // 승인과 만료가 겹쳐 예약이 이미 사라졌으면 곧바로 전액 돌려줍니다
   if (!(await onPaid(kind, refId, paidAt))) {
@@ -111,7 +140,8 @@ export async function refundPayment(kind: PaymentKind, refId: number, amount: nu
     return "failed";
   }
   const refunded = row.refunded_amount + cancelAmount;
-  await db.from("payments").update({ refunded_amount: refunded, status: refunded >= row.amount ? "refunded" : "partial_refunded", updated_at: new Date().toISOString() }).eq("id", row.id);
+  const at = new Date().toISOString();
+  await db.from("payments").update({ refunded_amount: refunded, status: refunded >= row.amount ? "refunded" : "partial_refunded", refunded_at: at, updated_at: at }).eq("id", row.id);
   return "done";
 }
 
@@ -136,13 +166,13 @@ export async function expireUnpaid(roomId?: number): Promise<number> {
   return (a ?? 0) + (b ?? 0);
 }
 
-export type PaymentInfo = { method: string | null; receiptUrl: string | null; paidAt: string | null; refunded: number };
+export type PaymentInfo = { method: string | null; receiptUrl: string | null; paidAt: string | null; refunded: number; amount: number; orderId: string; refundedAt: string | null; detail: PaymentDetail | null };
 
 /** 내역 화면용: 예약·주문별 결제 수단·영수증 */
 export async function paymentInfoOf(kind: PaymentKind, ids: number[]): Promise<Map<number, PaymentInfo>> {
   const map = new Map<number, PaymentInfo>();
   if (ids.length === 0) return map;
-  const { data } = await db.from("payments").select("ref_id, method, receipt_url, paid_at, refunded_amount").eq("kind", kind).in("ref_id", ids).in("status", ["paid", "partial_refunded", "refunded"]);
-  for (const p of data ?? []) map.set(Number(p.ref_id), { method: p.method, receiptUrl: p.receipt_url, paidAt: p.paid_at, refunded: p.refunded_amount });
+  const { data } = await db.from("payments").select("ref_id, method, receipt_url, paid_at, refunded_amount, amount, order_id, refunded_at, detail").eq("kind", kind).in("ref_id", ids).in("status", ["paid", "partial_refunded", "refunded"]);
+  for (const p of data ?? []) map.set(Number(p.ref_id), { method: p.method, receiptUrl: p.receipt_url, paidAt: p.paid_at, refunded: p.refunded_amount, amount: p.amount, orderId: p.order_id, refundedAt: p.refunded_at ?? null, detail: (p.detail as PaymentDetail | null) ?? null });
   return map;
 }

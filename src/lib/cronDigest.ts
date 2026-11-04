@@ -74,6 +74,8 @@ export type DigestInput = {
   food?: { total: number; added: number; removed: number; pending: number };
   culture?: { changed: boolean; added?: number; removed?: number };
   shelter?: { newNotices: number; sent: number };
+  /** 오래된 정보 확인 요청(매주 목요일) — 회원에게 물음 · 사장님께 물음 · 물어볼 사람이 없는 장소 */
+  checks?: { asked: number; owners: number; noCandidates: number };
   cleanup?: { deleted: number };
   /** 처리 대기 항목(예: "제보 2") */
   pending: string[];
@@ -122,6 +124,7 @@ function buildLines(d: DigestInput, names: number, minor = true): string[] {
     lines.push(`품질 점검: 좌표 ${q.coords}·중복 ${q.duplicate}·사진 ${q.broken_image}·정보 ${q.missing_info}`);
   }
   if (d.food) lines.push(`음식점 파일 ${n(d.food.total)}곳 +${d.food.added}/-${d.food.removed}${d.food.pending ? ` 좌표대기 ${d.food.pending}` : ""}`);
+  if (d.checks) lines.push(`정보 확인 요청 ${d.checks.asked}명 · 사장님 ${d.checks.owners}${d.checks.noCandidates ? ` · 물어볼 사람 없음 ${d.checks.noCandidates}곳` : ""}`);
   if (d.culture) lines.push(d.culture.changed ? `문화시설 새 파일 +${d.culture.added ?? 0}/-${d.culture.removed ?? 0}` : "문화시설 파일 변동 없음");
 
   lines.push(d.pending.length ? `대기 ${d.pending.join("·")}` : "처리 대기 없음");

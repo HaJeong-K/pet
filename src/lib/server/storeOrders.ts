@@ -38,7 +38,7 @@ export async function runStoreOrderChores(placeId?: number): Promise<{ unpaid: n
   for (const r of waiting ?? []) {
     const late = now - new Date(r.created_at).getTime() > STORE_CONFIRM_LIMIT_MS || (r.pickup_at && new Date(r.pickup_at).getTime() < now);
     if (!late) continue;
-    const { data: changed } = await db.from("place_reservations").update({ status: "rejected", owner_note: "가게가 시간 안에 확인하지 않아 자동 취소", updated_at: new Date().toISOString() }).eq("id", r.id).eq("status", "requested").select("id").maybeSingle();
+    const { data: changed } = await db.from("place_reservations").update({ status: "rejected", owner_note: "가게가 시간 안에 확인하지 않아 자동 취소", cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", r.id).eq("status", "requested").select("id").maybeSingle();
     if (!changed) continue;
     autoRejected++;
     await refundStoreOrder(r, "가게 미확인 자동 취소");
@@ -53,7 +53,7 @@ export async function runStoreOrderChores(placeId?: number): Promise<{ unpaid: n
   for (const r of open ?? []) {
     const base = new Date(r.pickup_at ?? r.updated_at).getTime();
     if (now - base < STORE_AUTO_COMPLETE_MS) continue;
-    const { data: changed } = await db.from("place_reservations").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", r.id).eq("status", r.status).select("id").maybeSingle();
+    const { data: changed } = await db.from("place_reservations").update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", r.id).eq("status", r.status).select("id").maybeSingle();
     if (changed) autoCompleted++;
   }
   return { unpaid, autoRejected, autoCompleted };

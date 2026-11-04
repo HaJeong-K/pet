@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { runPermitEnrich } from "@/lib/server/permitEnrich";
 import { NextRequest, NextResponse } from "next/server";
 import { rebuildPublicDataSnapshot } from "@/lib/publicDataAggregate";
 import { enrichTourDetails } from "@/lib/server/tourDetails";
@@ -17,6 +18,7 @@ import { buildCronDigest, kstDateLabel, type MapCounts } from "@/lib/cronDigest"
 import { runLodgingDaily } from "@/lib/server/lodgingMoney";
 import { runStoreOrderChores } from "@/lib/server/storeOrders";
 import { runPremiumAutoRenew } from "@/lib/server/premiumRenew";
+import { runCheckRequests } from "@/lib/server/checkRequests";
 
 // GET /api/cron/daily — 매일 자동으로 도는 운영 작업 묶음
 // vercel.json의 crons가 매일 UTC 18:00(한국 시간 새벽 3시)에 부릅니다.
@@ -25,6 +27,7 @@ import { runPremiumAutoRenew } from "@/lib/server/premiumRenew";
 //   2-1) 폐업 자동 점검(국세청 영업 상태 조회, 인증된 사장님 업장) — 매주 월요일
 //   2-2) 장소 데이터 품질 점검(좌표·중복·깨진 사진·정보 부족) — 매주 화요일
 //   2-2-1) 숙박 예약 — 체크아웃 3일 지난 예약 자동 이용 확정, 24시간 안에 확정되지 않은 예약 요청 자동 취소(src/lib/server/lodgingMoney.ts) — 매일
+//   2-2-2) 오래된 정보 확인 요청(찜한 회원에게, src/lib/server/checkRequests.ts) — 매주 목요일
 //   2-3) 유기동물 공고 지역 알림 — 매일(구독자가 있는 지역의 새 공고를 브라우저 알림으로 발송)
 //   3) 오래된 오류 기록 정리 — 매일(90일 지난 것 삭제, DB 용량 관리)
 //   4) 아침 요약 — 처리 대기 중인 사장님 신청·제보·신고·프리미엄 신청, 최근 24시간 오류 수
@@ -34,7 +37,7 @@ import { runPremiumAutoRenew } from "@/lib/server/premiumRenew";
 // 각 작업은 따로 실패해도 나머지는 계속 돌고, 결과를 응답·로그로 남깁니다(Vercel 크론 로그에서 확인).
 //
 // 보호: src/lib/server/cronAuth.ts(CRON_SECRET). 개발 중에는 주소창에서 직접 열어 테스트할 수 있고,
-// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | food-file | culture-file | lodging | shelter-push | cleanup | digest | tour-details | public-data — 실행 순서대로).
+// ?only=parks 처럼 한 작업만 골라 돌릴 수도 있습니다(backup | parks | closure | quality | food-file | culture-file | lodging | shelter-push | check-requests | cleanup | digest | permits | tour-details | public-data — 실행 순서대로).
 // tour-details는 ?ms=240000 처럼 받을 시간을 늘려 수동으로 여러 번 돌려 빨리 채울 수도 있습니다.
 
 export const maxDuration = 300;
@@ -49,6 +52,8 @@ const TAIL_RESERVE_MS = 35_000;
 const TOUR_DETAILS_MS = 210_000;
 const TOUR_DETAILS_MIN_MS = 20_000;
 const TOUR_DETAILS_MAX_MS_LIMIT = 270_000;
+/** 매일 새벽 인허가 데이터로 전화번호·폐업 여부를 확인하는 시간 */
+const PERMIT_ENRICH_MS = 60_000;
 
 type JobResult = { ok: boolean; ms: number; detail?: unknown; error?: string; skipped?: string };
 
@@ -144,9 +149,24 @@ export async function GET(req: NextRequest) {
   // 요금제 자동 연장(만료 3일 전 연장 신청) · 아직 안 정한 사장님에게 만료 7일 전 알림
   if (want("premium-renew")) results.premiumRenew = await runJob(() => runPremiumAutoRenew());
   if (want("shelter-push")) results.shelterPush = await runJob(() => runShelterPush());
+  // 오래된 정보 확인 요청 — 찜한 장소를 사람이 90일 넘게 확인하지 않았으면 찜한 회원에게 묻습니다(src/lib/server/checkRequests.ts)
+  if (want("check-requests")) {
+    results.checkRequests = only === "check-requests" || kstDay === 4
+      ? await runJob(() => runCheckRequests())
+      : { ok: true, ms: 0, skipped: "목요일에만 실행" };
+  }
   // 오래된 오류 기록과, 줄여 둔 공고 사진 가운데 30일 지난 것을 지웁니다.
   if (want("cleanup")) results.cleanup = await runJob(async () => ({ ...(await cleanupOldErrors()), thumbs: await cleanupShelterThumbs() }));
   if (want("digest")) results.digest = await runJob(() => sendMorningDigest());
+
+  // 공공데이터 장소의 빈 전화번호·폐업 여부를 행정안전부 인허가 데이터로 확인합니다(src/lib/server/permitEnrich.ts).
+  // 새벽 작업에서 60초, 그리고 vercel.json에 따로 하루 6번(한국 시각 05:30~15:30, 2시간마다) ?only=permits로 4분씩 돕니다.
+  // 종류별 하루 한도(약 1만 건)에 닿으면 그날은 멈추고 다음 날 이어 갑니다.
+  if (want("permits")) {
+    const requested = Number(req.nextUrl.searchParams.get("ms"));
+    const ms = only === "permits" && requested > 0 ? Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested) : PERMIT_ENRICH_MS;
+    results.permits = await runJob(() => runPermitEnrich(ms));
+  }
 
   // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.
   // 하루 한도(약 1,000곳)를 다 쓰려면 3분쯤 걸려서, 다른 작업을 모두 끝낸 뒤 "남은 시간"을 여기에 씁니다
@@ -199,6 +219,7 @@ export async function GET(req: NextRequest) {
       food: ok(results.foodFile),
       culture: ok(results.cultureFile),
       shelter: ok(results.shelterPush),
+      checks: ok(results.checkRequests),
       cleanup,
       pending: only ? [] : [
         c.owners > 0 && `사장님 ${c.owners}`, c.tips > 0 && `제보 ${c.tips}`, c.reports > 0 && `신고 ${c.reports}`,

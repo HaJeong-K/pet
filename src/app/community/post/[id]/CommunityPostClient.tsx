@@ -1300,8 +1300,10 @@ export default function CommunityDetailPage() {
                   {/* 기존 본문 텍스트 */}
                   <div
                     style={{
-                      fontSize: "14px",
-                      color: "#222",
+                      // 공지는 신뢰를 주도록 더 크고 진한 검정 글자로
+                      fontSize: post.is_notice ? "15.5px" : "14px",
+                      color: post.is_notice ? "#111" : "#222",
+                      fontWeight: post.is_notice ? 500 : 400,
                       lineHeight: 1.8,
                       whiteSpace: "pre-wrap"
                     }}

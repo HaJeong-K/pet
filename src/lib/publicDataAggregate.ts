@@ -19,6 +19,7 @@ import { getAllParks } from "@/lib/server/allParks";
 import { findParkDuplicateIds } from "@/lib/parkDuplicates";
 import { countBySource, type MapCounts } from "@/lib/cronDigest";
 import { dedupeAcrossSources } from "@/lib/publicDataDedupe";
+import { loadPermitPhones } from "@/lib/server/permitPhones";
 
 const SOURCE_ID_BASE: Record<string, number> = {
   tour: 1_000_000_000,
@@ -142,6 +143,14 @@ async function dropParkDuplicates(list: any[]): Promise<any[]> {
   return duplicates.size === 0 ? list : list.filter((p) => !duplicates.has(p.id));
 }
 
+// 비어 있는 전화번호만 행정안전부 인허가 데이터로 맞춘 번호로 채웁니다(src/lib/server/permitEnrich.ts가 매일 새벽 맞춰 둠).
+// 원래 있던 번호는 바꾸지 않습니다. 표를 못 읽으면 그대로 둡니다.
+async function fillPermitPhones(list: any[]): Promise<any[]> {
+  const phones = await loadPermitPhones().catch(() => new Map<number, string>());
+  if (phones.size === 0) return list;
+  return list.map((p) => (!p.phone && phones.has(p.id) ? { ...p, phone: phones.get(p.id) } : p));
+}
+
 async function refresh(): Promise<any[]> {
   if (!base || Date.now() - baseAt >= BASE_TTL_MS) {
     const snap = await loadSnapshot();
@@ -164,7 +173,7 @@ async function refresh(): Promise<any[]> {
       }
     }
   }
-  const visible = await dropParkDuplicates(await applyHidden(base ?? []));
+  const visible = await fillPermitPhones(await dropParkDuplicates(await applyHidden(base ?? [])));
   cachedRaw = visible;
   cachedAt = Date.now();
   return visible;

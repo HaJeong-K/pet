@@ -7,6 +7,7 @@
 // 지도 보기는 숙소의 "근처 장소 보기"와 같은 방식이고, 지도에서 이 화면으로 돌아오는 버튼이 함께 뜹니다.
 
 import { useCallback, useEffect, useState } from "react";
+import { infoText } from "@/lib/infoLines";
 import { useRouter } from "next/navigation";
 import { REORDER_KEY } from "@/components/MyStoreOrders";
 import { ChevronLeft, ChevronRight, Heart, MapPin, Minus, Navigation, Phone, Plus, Share2, ShoppingBag, Star, Store, X } from "lucide-react";
@@ -18,6 +19,7 @@ import { won } from "@/lib/ownerPlans";
 import { paymentsReady } from "@/lib/payments";
 import { startPayment } from "@/lib/startPayment";
 import { cleanStoreInfo, couponProblem, groupProducts, isWithinOrderHours, koreaDay, ORDER_TYPE_LABEL, orderHoursToday, type ReservationLine, PET_ALLERGENS, type PickedOption, type ProductOptionGroup, PARTY_SIZE_MAX, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX, type OrderType } from "@/lib/storeRules";
+import TimePicker from "@/components/TimePicker";
 
 type Product = {
   id: number; name: string; description: string | null; price: number; category?: string | null; image_url?: string | null; unit?: string | null;
@@ -168,8 +170,8 @@ export default function ShopStoreClient({ placeId }: { placeId: number }) {
     [dineIn ? "방문" : "포장", dineIn ? `${PICKUP_MAX_DAYS}일 안의 방문 시간을 골라요` : "오늘 받아 가는 주문만 받아요"],
     ...(!dineIn && info.prepMinutes ? [["준비 시간", `주문 후 약 ${info.prepMinutes}분`] as [string, string]] : []),
     ...(info.minOrder ? [["최소 주문", won(info.minOrder)] as [string, string]] : []),
-    ["영업시간", place.hours?.trim() || "가게에 문의해 주세요"],
-    ...(place.closed_days?.trim() ? [["휴무일", place.closed_days.trim()] as [string, string]] : []),
+    ["영업시간", infoText(place.hours) || "가게에 문의해 주세요"],
+    ...(place.closed_days?.trim() ? [["휴무일", infoText(place.closed_days)] as [string, string]] : []),
     ["주차", parkingText(place.parking)],
     ["위치", place.address ?? "주소 정보가 없어요"],
     ["취소", "가게가 확정하기 전에는 전액 환불돼요"],
@@ -533,7 +535,7 @@ export default function ShopStoreClient({ placeId }: { placeId: number }) {
               {dineIn ? "방문 시간 (필수)" : "오늘 받을 시간 (선택)"}
               {dineIn
                 ? <input type="datetime-local" value={form.pickupAt} min={closedToday ? `${toLocalInput(new Date(openedAt + 86_400_000)).slice(0, 10)}T00:00` : toLocalInput(now)} max={toLocalInput(new Date(now.getTime() + PICKUP_MAX_DAYS * 86_400_000))} onChange={(e) => setForm({ ...form, pickupAt: e.target.value })} style={{ ...field, marginTop: 6 }} />
-                : <input type="time" value={form.pickupAt.slice(11, 16)} min={toLocalInput(now).slice(11, 16)} max={todayHours.open && todayHours.close && todayHours.open < todayHours.close ? todayHours.close : "23:59"} onChange={(e) => setForm({ ...form, pickupAt: e.target.value ? `${toLocalInput(now).slice(0, 10)}T${e.target.value}` : "" })} style={{ ...field, marginTop: 6 }} />}
+                : <TimePicker ariaLabel="찾아갈 시간" value={form.pickupAt.slice(11, 16)} min={toLocalInput(now).slice(11, 16)} max={todayHours.open && todayHours.close && todayHours.open < todayHours.close ? todayHours.close : "23:59"} onChange={(t) => setForm({ ...form, pickupAt: t ? `${toLocalInput(now).slice(0, 10)}T${t}` : "" })} style={{ marginTop: 6 }} />}
             </label>
             {dineIn && (
               <label style={{ fontSize: 14, fontWeight: 600, color: SUB }}>

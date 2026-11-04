@@ -12,7 +12,8 @@ import { koreaDay } from "@/lib/storeRules";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const headers = { "Cache-Control": "no-store" };
+  // 누구에게나 같은 응답이라 CDN이 1분 동안 대신 응답합니다(상품을 고친 뒤 최대 1분 늦게 보일 수 있음).
+  const headers = { "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300" };
   try {
     const { data: places, error } = await db.from("places")
       .select("id, name, address, category, image_url, lat, lng, premium_plan, search_tags, store_order_modes, orders_closed_on")

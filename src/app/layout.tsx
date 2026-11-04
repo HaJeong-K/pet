@@ -91,18 +91,20 @@ export default function RootLayout({
             준비되는 즉시 지도부터 그립니다 — 화면의 나머지 코드(검색·목록·버튼 등)가 준비되기를 기다리지 않습니다.
             지난번 위치가 저장돼 있으면 그곳, 없으면 서울시청이 가운데입니다. 이렇게 먼저 만든 지도는 KakaoMap.tsx의
             initializeMap이 그대로 넘겨받아 씁니다(window.__ggkEarlyMap). 다른 화면에서는 엔진 준비까지만 합니다.
-            libraries=clusterer 필수: 없으면 넓은 줌(레벨 7 이상)에서 묶음 마커가 통째로 안 보입니다. */}
+            libraries=clusterer 필수: 없으면 넓은 줌(레벨 7 이상)에서 묶음 마커가 통째로 안 보입니다.
+            지도 화면이면 같은 때에 내 주변 칸(src/lib/placeTiles.ts의 0.05도 칸)의 장소·공원도 미리 받기 시작합니다(window.__ggkPrefetch —
+            src/lib/mapData.ts가 같은 주소를 부를 때 다시 받지 않고 넘겨받음). 지도 엔진·화면 코드가 준비되기를 기다리던 2~3초를 줄입니다. */}
         {/* 지도 엔진은 "안내 파일(sdk.js) → 본체(kakao.js) → 묶음 마커(clusterer.js)"를 차례로 받는데, 본체와 묶음 마커를
-            미리 받아 두면 차례를 기다리는 시간이 없어집니다. ⚠ 아래 두 주소의 버전(4.5.28 / 1.1.4)은 카카오가 안내 파일에
+            미리 받아 두면 차례를 기다리는 시간이 없어집니다. ⚠ 아래 두 주소의 버전(4.5.31 / 1.1.5, 2026-11-04 확인)은 카카오가 안내 파일에
             적어 둔 값과 같아야 효과가 있습니다. 카카오가 버전을 올리면 지도는 그대로 정상 동작하고 미리 받기만 헛일이
             되므로, 그때 이 숫자를 새 버전으로 바꾸면 됩니다(브라우저 콘솔에 "preload ... not used" 경고가 뜹니다). */}
         <link rel="preconnect" href="https://mts.kakaocdn.net" />
         <link rel="preload" as="script" href={KAKAO_MAP_SDK} fetchPriority="high" />
-        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/main/4.5.28/kakao.js" fetchPriority="high" />
-        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/libs/clusterer/1.1.4/clusterer.js" />
+        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/main/4.5.31/kakao.js" fetchPriority="high" />
+        <link rel="preload" as="script" href="//t1.kakaocdn.net/mapjsapi/js/libs/clusterer/1.1.5/clusterer.js" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var S=${JSON.stringify(KAKAO_MAP_SDK)};var isMap=location.pathname==="/";function early(){try{var m=window.kakao.maps;if(!document.body||document.getElementById("map")||window.__ggkEarlyMap)return;var lat=parseFloat(localStorage.getItem("user_lat")),lng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(lat)||isNaN(lng)){lat=37.5665;lng=126.978;}var el=document.createElement("div");el.id="ggk-early-map";el.style.cssText="position:fixed;inset:0;z-index:2";document.body.appendChild(el);var map=new m.Map(el,{center:new m.LatLng(lat,lng),level:3,scrollwheel:true,disableDoubleClickZoom:false});var h={map:map,el:el,painted:false};window.__ggkEarlyMap=h;try{m.event.addListener(map,"tilesloaded",function(){h.painted=true;});}catch(e){h.painted=true;}}catch(e){}}var s=document.createElement("script");s.src=S;s.async=true;try{s.fetchPriority="high";}catch(e){}if(isMap){s.onload=function(){try{window.kakao.maps.load(function(){if(document.body)early();else document.addEventListener("DOMContentLoaded",early);});}catch(e){}};}document.head.appendChild(s);})();`,
+            __html: `(function(){var S=${JSON.stringify(KAKAO_MAP_SDK)};var isMap=location.pathname==="/";function early(){try{var m=window.kakao.maps;if(!document.body||document.getElementById("map")||window.__ggkEarlyMap)return;var lat=parseFloat(localStorage.getItem("user_lat")),lng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(lat)||isNaN(lng)){lat=37.5665;lng=126.978;}var el=document.createElement("div");el.id="ggk-early-map";el.style.cssText="position:fixed;inset:0;z-index:2";document.body.appendChild(el);var map=new m.Map(el,{center:new m.LatLng(lat,lng),level:3,scrollwheel:true,disableDoubleClickZoom:false});var h={map:map,el:el,painted:false};window.__ggkEarlyMap=h;try{m.event.addListener(map,"tilesloaded",function(){h.painted=true;});}catch(e){h.painted=true;}}catch(e){}}if(isMap){try{var plat=parseFloat(localStorage.getItem("user_lat")),plng=parseFloat(localStorage.getItem("user_lng"));if(isNaN(plat)||isNaN(plng)){plat=37.5665;plng=126.978;}var q="?tx="+Math.floor(plng/0.05+1e-9)+"&ty="+Math.floor(plat/0.05+1e-9);var P=window.__ggkPrefetch={};["/api/public-data/nearby"+q,"/api/public-data/parks"+q].forEach(function(u){P[u]=fetch(u).then(function(r){if(!r.ok)throw 0;return r.json();});P[u].catch(function(){});});}catch(e){}}var s=document.createElement("script");s.src=S;s.async=true;try{s.fetchPriority="high";}catch(e){}if(isMap){s.onload=function(){try{window.kakao.maps.load(function(){if(document.body)early();else document.addEventListener("DOMContentLoaded",early);});}catch(e){}};}document.head.appendChild(s);})();`,
           }}
         />
       </head>

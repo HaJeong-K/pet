@@ -7,6 +7,30 @@
     {
       "path": "/api/cron/daily",
       "schedule": "0 18 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=1",
+      "schedule": "30 20 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=2",
+      "schedule": "30 22 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=3",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=4",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=5",
+      "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/daily?only=permits&ms=250000&slot=6",
+      "schedule": "30 6 * * *"
     }
   ]
 }

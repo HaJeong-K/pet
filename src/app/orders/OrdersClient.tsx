@@ -1,6 +1,6 @@
 "use client";
 
-// 주문·예약 내역 화면 — 위쪽 탭으로 숙소 예약 / 쇼핑 주문을 나눕니다. 로그인하지 않았으면 로그인 안내.
+// 주문·예약 내역 화면 — 마이페이지의 일부입니다(아래 탭바도 마이페이지가 켜짐). 로그인하지 않았으면 로그인 안내.
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -8,10 +8,8 @@ import { supabase } from "@/lib/supabase";
 import StayFrame from "@/components/lodging/StayFrame";
 import PageGuide from "@/components/PageGuide";
 import { ORDERS_GUIDE_KEY, ORDERS_GUIDE_STEPS } from "@/lib/pageGuides";
-import MyStaysCard from "@/components/lodging/MyStaysCard";
-import MyStoreOrders from "@/components/MyStoreOrders";
-
-const TABS = [{ id: "stay", label: "숙소 예약" }, { id: "store", label: "쇼핑 주문" }] as const;
+import OrdersPanel from "@/components/OrdersPanel";
+import { ChevronLeft } from "lucide-react";
 
 export default function OrdersClient() {
   const router = useRouter();
@@ -37,12 +35,8 @@ export default function OrdersClient() {
         {loggedIn && (
           <>
             <PageGuide storageKey={ORDERS_GUIDE_KEY} steps={ORDERS_GUIDE_STEPS} delayMs={1500} />
-            <div role="tablist" data-guide="orders-tabs" style={{ display: "flex", gap: 6, margin: "16px 0 12px" }}>
-              {TABS.map((t) => (
-                <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => router.replace(`/orders?tab=${t.id}`, { scroll: false })} style={{ flex: 1, padding: "11px 8px", borderRadius: 12, border: `1px solid ${tab === t.id ? "#3B2A20" : "#E1E0DF"}`, background: tab === t.id ? "#3B2A20" : "white", color: tab === t.id ? "white" : "#5F4D3A", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>{t.label}</button>
-              ))}
-            </div>
-            <div data-guide="orders-list">{tab === "stay" ? <MyStaysCard showEmpty /> : <MyStoreOrders />}</div>
+            <a href="/mypage" style={{ display: "inline-flex", alignItems: "center", gap: 2, margin: "14px 0 10px", color: "#2A1C14", fontSize: 13.5, fontWeight: 800, textDecoration: "none" }}><ChevronLeft size={16} />마이페이지</a>
+            <OrdersPanel key={tab} initialTab={tab} onTab={(t) => router.replace(`/orders?tab=${t}`, { scroll: false })} />
           </>
         )}
       </div>

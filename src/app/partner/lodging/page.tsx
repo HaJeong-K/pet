@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description: "반려동물과 여행하는 손님만 모이는 숙소 예약 서비스, 펫츠로드에 숙소를 입점해 보세요.",
 };
 
-const DARK = "#3B2A20", BRAND = "#A05A32", GOLD = "#F3DA9B", PAGE_BG = "#F4F3F2", SUB = "#6B5E55";
+const DARK = "#3B2A20", TEXT = "#111111", BRAND = "#A05A32", GOLD = "#F3DA9B", PAGE_BG = "#F4F3F2", SUB = "#1a1a1a";
 const wrap: React.CSSProperties = { width: "100%", maxWidth: 1120, margin: "0 auto", padding: "0 24px", boxSizing: "border-box" };
 const navLink: React.CSSProperties = { padding: "8px 10px", fontSize: 13, fontWeight: 700, color: "#85482A", textDecoration: "none", whiteSpace: "nowrap" };
 const h2: React.CSSProperties = { margin: "8px 0 0", fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 800, lineHeight: 1.32, letterSpacing: "-0.5px" };
@@ -180,7 +180,7 @@ export default function PartnerLodgingPage() {
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 16, fontSize: 13, color: "#655d4f", lineHeight: 1.7 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-start", marginTop: 16, fontSize: 13, color: "#1a1a1a", lineHeight: 1.7 }}>
             <MapPin size={14} style={{ flexShrink: 0, marginTop: 3 }} />
             <span>지도에 아직 없는 숙소도 신청할 수 있어요. 펫츠로드가 확인한 뒤 지도에 등록해 드려요.</span>
           </div>
@@ -202,7 +202,7 @@ export default function PartnerLodgingPage() {
           </div>
           <ol style={{ flex: "2 1 460px", margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
             {TERMS.map((t, i) => (
-              <li key={t} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", fontSize: 14.5, lineHeight: 1.75, color: "#3a3a32" }}>
+              <li key={t} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", fontSize: 14.5, lineHeight: 1.75, color: "#1a1a1a" }}>
                 <span className="ggk-logo" style={{ flexShrink: 0, fontSize: 13, fontWeight: 800, color: BRAND, marginTop: 2 }}>{String(i + 1).padStart(2, "0")}</span>
                 <span>{t}</span>
               </li>

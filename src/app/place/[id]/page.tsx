@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PlaceDetailClient from "./PlaceDetailClient";
+import { PageFooter } from "@/components/SiteFooter";
 import { siteUrl } from "@/lib/siteUrl";
 import { getPlaceMeta, placeShareDescription, placeShareImage } from "@/lib/server/placeMeta";
 
@@ -48,5 +49,11 @@ export async function generateMetadata({
 }
 
 export default function PlaceDetailPage() {
-  return <PlaceDetailClient />;
+  // 바로 열었을 때(공유 링크 등)만 이 화면이 쓰여 아래에 푸터를 붙입니다. 지도 위 창으로 열 때는 @modal 쪽이라 붙지 않습니다.
+  return (
+    <>
+      <PlaceDetailClient />
+      <PageFooter overTabBar={false} />
+    </>
+  );
 }

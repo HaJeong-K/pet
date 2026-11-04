@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
 
   if (body?.action === "cancel") {
     if (!canChangeStatus("customer", r.status as ReservationStatus, "cancelled")) return fail("가게에서 이미 확정했어요. 취소 요청을 보내 주세요.", 409);
-    const { data: changed } = await db.from("place_reservations").update({ status: "cancelled", updated_at: now }).eq("id", id).eq("status", r.status).select("id").maybeSingle();
+    const { data: changed } = await db.from("place_reservations").update({ status: "cancelled", cancelled_at: now, updated_at: now }).eq("id", id).eq("status", r.status).select("id").maybeSingle();
     if (!changed) return fail("그 사이 주문 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
     await refundStoreOrder(r, "손님 취소(가게 확정 전)");
     after(() => sendOwnerPush(Number(r.place_id), { title: "주문이 취소됐어요", body: `${r.customer_name}님이 주문을 취소했어요(전액 환불).`, tag: `ggk-order-${id}`, url: "/owner#reservations" }));

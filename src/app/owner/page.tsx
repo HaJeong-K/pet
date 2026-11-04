@@ -16,6 +16,7 @@
 // (서버 /api/owner/apply-premium도 관리자 대리 신청을 받지 않습니다).
 
 import LogoLoader from "@/components/LogoLoader";
+import { infoText } from "@/lib/infoLines";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -467,7 +468,7 @@ function PlaceTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: 
 
   if (loading) return <div style={{ ...card, color: "#666", fontSize: 13, textAlign: "center" }}><LogoLoader /></div>;
   if (!place) return <div style={{ ...card, color: "#666", fontSize: 13 }}>가게 정보를 찾을 수 없어요.</div>;
-  const rows: [string, string | null][] = [["주소", place.address], ["영업시간", place.hours], ["휴무일", place.closed_days], ["전화번호", place.phone], ["주차", place.parking], ["입장료", place.entry_fee], ["홈페이지", place.website], ["메모", place.memo]];
+  const rows: [string, string | null][] = [["주소", place.address], ["영업시간", infoText(place.hours) || null], ["휴무일", infoText(place.closed_days) || null], ["전화번호", place.phone], ["주차", infoText(place.parking) || null], ["입장료", infoText(place.entry_fee) || null], ["홈페이지", place.website], ["메모", place.memo]];
   return (
     <div style={card}>
       <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>{place.name}</div>

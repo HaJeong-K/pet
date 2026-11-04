@@ -7,10 +7,10 @@
 //   · 사장님 본인 가게면 "지금 정보가 맞아요" 버튼으로 사장님 확인을 남깁니다.
 // 로그인하지 않아도 누를 수 있습니다(기기 식별값으로 한 사람이 여러 번 세지지 않게).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, BadgeCheck, Check, ChevronDown, ChevronUp, Database, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { getUserKey } from "@/lib/analytics";
+import { getUserKey, trackEvent } from "@/lib/analytics";
 import { CHANGE_DETAILS, changeDetailLabel, freshnessOf, relativeDay, type ChangeDetail, type CheckSummary } from "@/lib/placeChecks";
 
 type Info = {
@@ -40,6 +40,16 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
   const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // 확인 요청 알림(src/lib/server/checkRequests.ts)을 눌러 들어왔는지 — 주소 끝의 ?check=1
+  const [asked, setAsked] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("check") !== "1") return;
+    setAsked(true);
+    const t = window.setTimeout(() => boxRef.current?.scrollIntoView({ block: "center" }), 600);
+    return () => window.clearTimeout(t);
+  }, []);
+  const notSure = () => { trackEvent("check_unsure", { placeId, placeName }); setAsked(false); setMessage({ ok: true, text: "알려 주셔서 고마워요. 다녀오신 다른 분께 여쭤볼게요." }); };
 
   const load = useCallback(async (): Promise<Info | null> => {
     try {
@@ -101,7 +111,13 @@ export default function PlaceFreshness({ placeId, placeName, isOwner, phone }: {
   const topChanged = summary.changed[0];
 
   return (
-    <div data-place-freshness style={{ marginTop: 10, borderRadius: 12, border: `1px solid ${tone.border}`, background: tone.bg, padding: "11px 12px" }}>
+    <div ref={boxRef} data-place-freshness style={{ marginTop: 10, borderRadius: 12, border: `1px solid ${tone.border}`, background: tone.bg, padding: "11px 12px" }}>
+      {asked && !info.mine && !isOwner && (
+        <div className="ggk-body" style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 10, background: "white", border: "1px solid #EDCCB6", fontSize: 12, color: "#3B2A20", lineHeight: 1.6 }}>
+          <b>정보 확인을 부탁드려요.</b> 다녀오셨다면 아래에서 알려 주세요.<br />
+          <button onClick={notSure} style={{ marginTop: 6, padding: "5px 10px", borderRadius: 8, border: "1px solid #ddd", background: "white", fontSize: 11.5, fontWeight: 700, color: "#666", cursor: "pointer", fontFamily: "inherit" }}>잘 모르겠어요(가 보지 않았어요)</button>
+        </div>
+      )}
       {/* 마지막 확인 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <ShieldCheck size={14} color={tone.color} />

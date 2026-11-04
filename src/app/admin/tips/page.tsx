@@ -220,6 +220,14 @@ export default function AdminProposalsPage() {
        제안 → src/lib/applyInfoUpdateProposal.ts (기존 행 UPDATE, 또는 공공데이터
        출처 장소면 실제 행으로 승격)
      - 그 외(기본값 "new_place"): 신규 장소 등록 제보 → 기존 approveProposal.ts (places INSERT) */
+  // 제보한 회원에게 "지도에 반영됐어요" 알림(실패해도 승인은 그대로) — src/lib/server/tipNotify.ts
+  const notifyTipper = async (proposalId: number) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await fetch("/api/admin/notify-tip", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ proposalId }) });
+    } catch { /* 알림 실패는 무시 */ }
+  };
+
   const handleApprove = async (proposal: any) => {
     if (proposal.proposal_kind === "info_update") {
       // 반영은 서버가 합니다(원래 장소를 숨기는 단계가 브라우저 권한으로는 막혀 있어서).
@@ -241,6 +249,7 @@ export default function AdminProposalsPage() {
       }
 
       setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true } : p));
+      notifyTipper(proposal.id);
       alert(`"${proposal.place_name}" 장소에 제안하신 정보가 반영되었습니다.
 지도·상세 화면에는 최대 5분 안에 보여요.`);
       return;
@@ -258,6 +267,7 @@ export default function AdminProposalsPage() {
     }
 
     setProposals(prev => prev.map(p => p.id === proposal.id ? { ...p, status: "approved", is_resolved: true, lat: result.lat, lng: result.lng } : p));
+    notifyTipper(proposal.id);
     alert(`"${proposal.place_name}" 장소가 지도에 등록되었습니다.`);
   };
 

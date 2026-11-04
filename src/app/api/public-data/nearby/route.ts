@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
   });
 
   // 브라우저는 칸 단위 주소로 요청하므로(src/lib/mapTile.ts) 같은 동네의 요청은 CDN이 대신 응답합니다.
-  // 관리자가 장소를 숨기거나 정보를 고쳐도 이 시간(약 5분)만큼은 예전 내용이 보일 수 있습니다.
+  // 관리자가 장소를 숨기거나 정보를 고쳐도 이 시간(약 30분)만큼은 예전 내용이 보일 수 있습니다.
   // 지도·목록에 필요한 값만 가볍게 보냅니다(브라우저가 expandPlace로 되돌려 씁니다).
   return NextResponse.json(nearby.map(compactPlace), { headers: { "Cache-Control": TILE_CACHE_CONTROL } });
 }

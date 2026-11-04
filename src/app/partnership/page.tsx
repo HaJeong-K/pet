@@ -29,13 +29,13 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${siteUrl}/partnership`, siteName: "펫츠로드", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
-const BRAND = "#A05A32", DARK = "#3B2A20", PAGE_BG = "#F4F3F2";
+const BRAND = "#A05A32", DARK = "#3B2A20", TEXT = "#111111", PAGE_BG = "#F4F3F2";
 const wrap: React.CSSProperties = { width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 22px", boxSizing: "border-box" };
-const navLink: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, color: "#6B5E55", textDecoration: "none", whiteSpace: "nowrap" };
+const navLink: React.CSSProperties = { padding: "8px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, color: "#1a1a1a", textDecoration: "none", whiteSpace: "nowrap" };
 const eyebrow: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: BRAND, letterSpacing: "0.2px" };
 const h2: React.CSSProperties = { margin: "8px 0 0", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800, lineHeight: 1.36, whiteSpace: "pre-line" };
 /** 본문 글 — 글 안의 줄바꿈을 그대로 보여 줍니다 */
-const body = (size = 14): React.CSSProperties => ({ fontSize: size, lineHeight: 1.8, color: "#6B5E55", whiteSpace: "pre-line" });
+const body = (size = 14): React.CSSProperties => ({ fontSize: size, lineHeight: 1.8, color: "#1a1a1a", whiteSpace: "pre-line" });
 
 const AUDIENCE = [
   { Icon: Search, title: "정보를 찾아 비교하는 보호자", text: "방문할 곳과 구매할 상품을\n직접 찾아보고 비교하는 이용자입니다.\n광고가 구매·방문 결정의 참고 정보로 쓰입니다." },
@@ -101,7 +101,7 @@ export default function PartnershipPage() {
   const paidPlans = OWNER_PLANS.filter((p) => p.id !== "basic");
   return (
     // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: DARK, wordBreak: "keep-all" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: TEXT, wordBreak: "keep-all" }}>
       {/* ── 상단 ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
@@ -180,7 +180,7 @@ export default function PartnershipPage() {
               <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: f.color }}>{f.no} · {f.name}</div>
               <h3 className="ggk-logo" style={{ ...h2, fontSize: "clamp(20px, 3.2vw, 28px)" }}>{f.title}</h3>
               <p style={{ ...body(15), margin: "14px 0 0" }}>{f.text}</p>
-              <div style={{ marginTop: 14, fontSize: 12.5, color: "#6B5E55" }}>대상 <b style={{ color: "#6B5E55", marginLeft: 4 }}>{f.who}</b></div>
+              <div style={{ marginTop: 14, fontSize: 12.5, color: "#1a1a1a" }}>대상 <b style={{ color: "#1a1a1a", marginLeft: 4 }}>{f.who}</b></div>
             </div>
             <div style={{ flex: "1 1 300px", minWidth: 0, borderRadius: 26, background: f.tone, padding: "clamp(22px, 4vw, 36px)" }}>
               <div style={{ width: 54, height: 54, borderRadius: 18, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,0.07)" }}>
@@ -215,7 +215,7 @@ export default function PartnershipPage() {
               </div>
             ))}
           </div>
-          <div style={{ ...body(12.5), marginTop: 16, color: "#6B5E55" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
+          <div style={{ ...body(12.5), marginTop: 16, color: "#1a1a1a" }}>{"게재 위치: 커뮤니티·마이페이지 (PC는 화면 양옆, 휴대폰은 화면 상단)\n브랜드 협업의 노출 방식은 상담 단계에서 별도로 협의합니다."}</div>
         </div>
       </section>
 
@@ -302,7 +302,7 @@ export default function PartnershipPage() {
           <p style={{ ...body(14), margin: "10px 0 0" }}>{"구체적인 계획이 정해지지 않아도 괜찮습니다.\n홍보 대상(매장·브랜드·상품)을 기재해 주시면\n적합한 방식을 제안드립니다."}</p>
         </div>
         <PartnershipForm />
-        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#6B5E55" }}>© 2026 펫츠로드</div>
+        <div style={{ marginTop: 26, textAlign: "center", fontSize: 12, color: "#1a1a1a" }}>© 2026 펫츠로드</div>
       </section>
       <PageFooter />
     </div>

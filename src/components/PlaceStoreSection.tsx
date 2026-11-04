@@ -16,6 +16,7 @@ import { paymentsReady } from "@/lib/payments";
 import { startPayment } from "@/lib/startPayment";
 import StoreReviewsList from "@/components/StoreReviewsList";
 import { canChangeStatus, groupProducts, isOpenStatus, ORDER_TYPE_LABEL, PARTY_SIZE_MAX, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX, STATUS_LABEL, type OrderType, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
+import TimePicker from "@/components/TimePicker";
 
 type Product = {
   id: number; name: string; description: string | null; price: number;
@@ -223,7 +224,7 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
                 {dineIn ? `방문 시간 (필수, ${PICKUP_MAX_DAYS}일 안)` : "오늘 받을 시간 (선택, 포장은 당일만)"}
                 {dineIn
                   ? <input type="datetime-local" value={form.pickupAt} min={toLocalInput(now)} max={toLocalInput(new Date(now.getTime() + PICKUP_MAX_DAYS * 86_400_000))} onChange={(e) => setForm({ ...form, pickupAt: e.target.value })} style={{ ...input, marginTop: 3 }} />
-                  : <input type="time" value={form.pickupAt.slice(11, 16)} min={toLocalInput(now).slice(11, 16)} max="23:59" onChange={(e) => setForm({ ...form, pickupAt: e.target.value ? `${toLocalInput(now).slice(0, 10)}T${e.target.value}` : "" })} style={{ ...input, marginTop: 3 }} />}
+                  : <TimePicker ariaLabel="찾아갈 시간" value={form.pickupAt.slice(11, 16)} min={toLocalInput(now).slice(11, 16)} onChange={(t) => setForm({ ...form, pickupAt: t ? `${toLocalInput(now).slice(0, 10)}T${t}` : "" })} style={{ marginTop: 3 }} />}
               </label>
               {dineIn && (
                 <label className="ggk-body" style={{ fontSize: 11, color: "#555" }}>

@@ -107,19 +107,36 @@ export type LodgingProfile = {
 };
 
 // ── 부가 옵션 ──
-export type ExtraUnit = "stay" | "night" | "day" | "person";
-export const EXTRA_UNITS: { id: ExtraUnit; label: string; hint: string }[] = [
-  { id: "stay", label: "1회", hint: "숙박 한 번에" },
-  { id: "night", label: "1박마다", hint: "숙박하는 밤 수만큼 자동으로" },
-  { id: "day", label: "이용일마다", hint: "손님이 이용할 날을 골라요(바비큐·불멍 등)" },
-  { id: "person", label: "1인당", hint: "고른 인원 수만큼" },
+// 요금 = 단가 × 수(1회면 개수·1인당이면 인원·1마리당이면 마리 수) × (박마다 받으면 손님이 고른 박 수)
+// 예) 2박 2인 예약에서 바비큐(1인당·박마다)를 첫날 밤만, 2명 → 단가 × 2명 × 1박
+// 예전 단위 "night"(1박마다)·"day"(이용일마다)는 "1회 + 박마다"로 읽습니다(저장된 값을 바꾸지 않아도 됩니다).
+export type ExtraUnit = "stay" | "person" | "pet" | "night" | "day";
+export type ExtraBasis = "stay" | "person" | "pet";
+export const EXTRA_BASES: { id: ExtraBasis; label: string; hint: string }[] = [
+  { id: "stay", label: "1회", hint: "개수만큼(예: 픽업 1회, 침구 1세트)" },
+  { id: "person", label: "1인당", hint: "손님이 고른 인원 수만큼" },
+  { id: "pet", label: "1마리당", hint: "손님이 고른 반려동물 수만큼" },
 ];
-export type LodgingExtra = { id: string; name: string; price: number; unit: ExtraUnit; max: number; note: string | null };
+/** 예전 화면·기록용 이름표 */
+export const EXTRA_UNITS: { id: ExtraUnit; label: string; hint: string }[] = [
+  ...EXTRA_BASES,
+  { id: "night", label: "1박마다", hint: "숙박하는 밤 수만큼" },
+  { id: "day", label: "이용일마다", hint: "손님이 이용할 날을 골라요" },
+];
+export type LodgingExtra = { id: string; name: string; price: number; unit: ExtraUnit; max: number; note: string | null; /** 박마다 받기(손님이 이용할 밤을 고름) */ per_night?: boolean };
+export const extraBasis = (x: Pick<LodgingExtra, "unit">): ExtraBasis => (x.unit === "person" || x.unit === "pet" ? x.unit : "stay");
+export const extraPerNight = (x: Pick<LodgingExtra, "unit" | "per_night">): boolean => x.unit === "night" || x.unit === "day" || !!x.per_night;
+/** "1인당 · 1박마다" 같은 요금 기준 글 */
+export const extraUnitLabel = (x: Pick<LodgingExtra, "unit" | "per_night">): string =>
+  [EXTRA_BASES.find((b) => b.id === extraBasis(x))!.label, extraPerNight(x) ? "1박마다" : null].filter(Boolean).join(" · ");
 export const EXTRAS_MAX = 12;
 export const EXTRA_QTY_MAX = 20;
 export const EXTRA_PRESETS = ["바비큐(숯·그릴)", "불멍 세트", "캠프파이어 세팅", "추가 침구", "수건 추가", "조식", "얼리 체크인", "레이트 체크아웃", "반려동물 용품 대여", "온수 수영장", "역·터미널 픽업"];
-/** 자주 쓰는 항목의 기본 단위 — 사장님이 바꿀 수 있습니다 */
-export const EXTRA_PRESET_UNIT: Record<string, ExtraUnit> = { "바비큐(숯·그릴)": "day", "불멍 세트": "day", "캠프파이어 세팅": "day", "조식": "person", "온수 수영장": "day" };
+/** 자주 쓰는 항목의 기본 기준 — 사장님이 바꿀 수 있습니다 */
+export const EXTRA_PRESET_UNIT: Record<string, { unit: ExtraBasis; per_night: boolean }> = {
+  "바비큐(숯·그릴)": { unit: "person", per_night: true }, "불멍 세트": { unit: "stay", per_night: true }, "캠프파이어 세팅": { unit: "stay", per_night: true },
+  "조식": { unit: "person", per_night: true }, "온수 수영장": { unit: "stay", per_night: true }, "반려동물 용품 대여": { unit: "pet", per_night: false },
+};
 export const PEAK_PERIODS_MAX = 6;
 
 export const EMPTY_PROFILE: LodgingProfile = {
@@ -164,7 +181,7 @@ export function cleanTime(value: unknown): string | null | "bad" {
   return `${String(h).padStart(2, "0")}:${m[2]}`;
 }
 
-/** 부가 옵션 다듬기 — 이름·요금 필수, 단위(1회·1박마다·1인당), 한 번에 고를 수 있는 최대 수량 */
+/** 부가 옵션 다듬기 — 이름·요금 필수, 기준(1회·1인당·1마리당)과 박마다 받기, 1회 옵션의 최대 개수 */
 export function cleanExtras(value: unknown): { extras: LodgingExtra[] } | { error: string } {
   if (!Array.isArray(value)) return { extras: [] };
   if (value.length > EXTRAS_MAX) return { error: `부가 옵션은 ${EXTRAS_MAX}개까지 둘 수 있어요.` };
@@ -175,11 +192,13 @@ export function cleanExtras(value: unknown): { extras: LodgingExtra[] } | { erro
     if (!name && (price == null || price === "bad")) continue; // 빈 줄은 건너뜀
     if (!name) return { error: `${i + 1}번째 부가 옵션의 이름을 적어 주세요.` };
     if (price == null || price === "bad") return { error: `"${name}" 요금을 0 이상의 숫자로 적어 주세요.` };
-    const unit = EXTRA_UNITS.find((u) => u.id === raw?.unit)?.id ?? "stay";
+    const rawUnit = EXTRA_UNITS.find((u) => u.id === raw?.unit)?.id ?? "stay";
+    const unit: ExtraBasis = rawUnit === "person" || rawUnit === "pet" ? rawUnit : "stay";
+    const perNight = rawUnit === "night" || rawUnit === "day" || raw?.per_night === true;
     const max = number(raw?.max, 1, EXTRA_QTY_MAX);
     const id = typeof raw?.id === "string" && /^[\w-]{1,24}$/.test(raw.id) ? raw.id : `x${i + 1}${Math.random().toString(36).slice(2, 7)}`;
     if (out.some((x) => x.id === id)) return { error: "부가 옵션이 겹쳐요. 다시 저장해 주세요." };
-    out.push({ id, name, price, unit, max: max == null || max === "bad" ? 1 : max, note: text(raw?.note, 60) });
+    out.push({ id, name, price, unit, per_night: perNight, max: max == null || max === "bad" ? 1 : max, note: text(raw?.note, 60) });
   }
   return { extras: out };
 }

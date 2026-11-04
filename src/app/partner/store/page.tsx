@@ -17,12 +17,12 @@ export const metadata: Metadata = {
   description: "카페·식당·수제 간식 가게의 포장 주문과 매장 식사 예약을 펫츠로드에서 받아 보십시오.",
 };
 
-const DARK = "#3B2A20", BRAND = "#A05A32", GOLD = "#F3DA9B", PAGE_BG = "#F4F3F2", SUB = "#6B5E55";
+const DARK = "#3B2A20", TEXT = "#111111", BRAND = "#A05A32", GOLD = "#F3DA9B", PAGE_BG = "#F4F3F2", SUB = "#1a1a1a";
 const wrap: React.CSSProperties = { width: "100%", maxWidth: 1120, margin: "0 auto", padding: "0 24px", boxSizing: "border-box" };
 const navLink: React.CSSProperties = { padding: "8px 10px", fontSize: 13, fontWeight: 700, color: "#85482A", textDecoration: "none", whiteSpace: "nowrap" };
 const h2: React.CSSProperties = { margin: "8px 0 0", fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 800, lineHeight: 1.32, letterSpacing: "-0.5px" };
 const eyebrow: React.CSSProperties = { fontSize: 13, fontWeight: 800, color: BRAND, letterSpacing: "0.2px" };
-const goldButton: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 24px", borderRadius: 999, background: GOLD, color: DARK, fontSize: 15.5, fontWeight: 800, textDecoration: "none" };
+const goldButton: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 8, padding: "15px 24px", borderRadius: 999, background: GOLD, color: TEXT, fontSize: 15.5, fontWeight: 800, textDecoration: "none" };
 
 const POINTS = [
   {
@@ -192,7 +192,7 @@ export default function PartnerStorePage() {
           </div>
           <ol style={{ flex: "2 1 460px", margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
             {TERMS.map((t, i) => (
-              <li key={t} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", fontSize: 14.5, lineHeight: 1.75, color: "#3a3a32" }}>
+              <li key={t} style={{ display: "flex", gap: 14, padding: "16px 18px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", fontSize: 14.5, lineHeight: 1.75, color: "#1a1a1a" }}>
                 <span className="ggk-logo" style={{ flexShrink: 0, fontSize: 13, fontWeight: 800, color: BRAND, marginTop: 2 }}>{String(i + 1).padStart(2, "0")}</span>
                 <span>{t}</span>
               </li>

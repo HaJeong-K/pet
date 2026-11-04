@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${siteUrl}/about`, siteName: "펫츠로드", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
-const BRAND = "#A05A32", DARK = "#3B2A20", PAGE_BG = "#F4F3F2";
+const BRAND = "#A05A32", DARK = "#3B2A20", TEXT = "#111111", PAGE_BG = "#F4F3F2";
 
 const FEATURES = [
   {
@@ -78,7 +78,7 @@ const wrap: React.CSSProperties = { width: "100%", maxWidth: 1040, margin: "0 au
 export default function AboutPage() {
   return (
     // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: DARK, wordBreak: "keep-all" }}>
+    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: PAGE_BG, color: TEXT, wordBreak: "keep-all" }}>
       {/* ── 상단 ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
@@ -139,7 +139,7 @@ export default function AboutPage() {
               <h2 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: "clamp(22px, 3.6vw, 32px)", fontWeight: 800, lineHeight: 1.32 }}>
                 {f.title[0]}<br />{f.title[1]}
               </h2>
-              <p style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.75, color: "#6B5E55" }}>{f.text}</p>
+              <p style={{ margin: "12px 0 0", fontSize: 15, lineHeight: 1.75, color: "#1a1a1a" }}>{f.text}</p>
             </div>
             <div style={{ flex: "1 1 300px", minWidth: 0, borderRadius: 26, background: f.tone, padding: "clamp(22px, 4vw, 36px)" }}>
               <div style={{ width: 54, height: 54, borderRadius: 18, background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,0.07)" }}>
@@ -170,7 +170,7 @@ export default function AboutPage() {
                   <s.Icon size={18} color={BRAND} />
                 </div>
                 <div className="ggk-logo" style={{ marginTop: 10, fontSize: 18, fontWeight: 800 }}>{s.title}</div>
-                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.65, color: "#6B5E55" }}>{s.text}</div>
+                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.65, color: "#1a1a1a" }}>{s.text}</div>
               </div>
             ))}
           </div>
@@ -219,7 +219,7 @@ export default function AboutPage() {
           {FAQ.map((item) => (
             <details key={item.q} style={{ borderRadius: 16, background: "white", border: "1px solid #E7E6E5", padding: "0 18px" }}>
               <summary style={{ cursor: "pointer", padding: "16px 0", fontSize: 15, fontWeight: 700, listStyle: "none" }}>{item.q}</summary>
-              <div style={{ padding: "0 0 16px", fontSize: 14, lineHeight: 1.75, color: "#6B5E55" }}>{item.a}</div>
+              <div style={{ padding: "0 0 16px", fontSize: 14, lineHeight: 1.75, color: "#1a1a1a" }}>{item.a}</div>
             </details>
           ))}
         </div>

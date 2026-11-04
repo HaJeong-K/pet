@@ -46,7 +46,8 @@ export type AnalyticsEventType =
   | "place_call"        // 장소 상세에서 전화번호 누르기
   | "place_website"     // 장소 상세에서 홈페이지 열기
   | "banner_view"       // 배너 광고가 화면에 보임(한 사람·한 가게·한 번 방문에 한 번만 셉니다)
-  | "banner_click";     // 배너 광고를 눌러 가게 화면으로 감
+  | "banner_click"      // 배너 광고를 눌러 가게 화면으로 감
+  | "check_unsure";     // 정보 확인 요청을 받았지만 "잘 모르겠어요"(src/lib/server/checkRequests.ts)
 
 export function trackEvent(
   type: AnalyticsEventType,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { notifyOwnerResult } from "@/lib/server/ownerResultNotify";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { db, isMissingSchema } from "@/lib/server/ownerStore";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
@@ -43,7 +44,9 @@ export async function POST(req: NextRequest) {
   if (body?.action === "reject") {
     if (!note) return fail("사유를 적어 주세요(사장님에게 보여요).", 400);
     const { error } = await db.from("store_partners").update({ status: "rejected", admin_note: note, decided_at: now, updated_at: now }).eq("id", id);
-    return error ? fail(error.message, 500) : NextResponse.json({ ok: true });
+    if (error) return fail(error.message, 500);
+    await notifyOwnerResult(row.owner_auth_user_id, "store", false, note);
+    return NextResponse.json({ ok: true });
   }
   if (body?.action !== "approve") return fail("요청이 올바르지 않아요.", 400);
 
@@ -72,5 +75,7 @@ export async function POST(req: NextRequest) {
   const { error: userError } = await db.from("users").update({ owner_place_id: linked }).eq("auth_user_id", row.owner_auth_user_id);
   if (userError) return fail(userError.message, 500);
   const { error } = await db.from("store_partners").update({ status: "approved", linked_place_id: linked, partner_since: kstToday(), admin_note: note, decided_at: now, updated_at: now }).eq("id", id);
-  return error ? fail(error.message, 500) : NextResponse.json({ ok: true, linkedPlaceId: linked });
+  if (error) return fail(error.message, 500);
+  await notifyOwnerResult(row.owner_auth_user_id, "store", true);
+  return NextResponse.json({ ok: true, linkedPlaceId: linked });
 }

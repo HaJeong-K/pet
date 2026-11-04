@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { won } from "@/lib/ownerPlans";
 import { startPayment } from "@/lib/startPayment";
 import { REVIEW_PHOTOS_MAX } from "@/lib/storeRules";
+import { OrderDetailSheet, type OrderView } from "@/components/OrderDetailSheet";
 
 /** 다시 주문할 내역을 가게 화면에 넘길 때 쓰는 이름 */
 export const REORDER_KEY = "ggk_store_reorder";
@@ -46,6 +47,7 @@ export default function MyStoreOrders() {
   const [rating, setRating] = useState(5);
   const [photos, setPhotos] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<Order | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const uploadPhoto = async (file: File) => {
@@ -85,6 +87,7 @@ export default function MyStoreOrders() {
   return (
     <div style={{ display: "grid", gap: 10 }}>
       {message && <div role="status" style={{ fontSize: 13.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {detail && <OrderDetailSheet order={detail as unknown as OrderView} onClose={() => setDetail(null)} />}
       {orders.map((o) => {
         const tone = STATUS_TONE[o.status] ?? { bg: "#f1f5f9", color: "#5f6672" };
         const payLabel = PAYMENT_STATUS_LABEL[o.payment_status];
@@ -93,7 +96,8 @@ export default function MyStoreOrders() {
             <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
               <span style={{ fontSize: 11.5, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: tone.bg, color: tone.color }}>{STATUS_LABEL[o.status]}</span>
               <a href={`/place/${o.place_id}`} style={{ fontSize: 15, fontWeight: 800, color: "#222", textDecoration: "none" }}>{o.place?.name ?? "가게"}</a>
-              <span style={{ marginLeft: "auto", fontSize: 12, color: "#666" }}>{when(o.created_at)}</span>
+              <button onClick={() => setDetail(o)} style={{ marginLeft: "auto", border: "1px solid #D9D8D7", background: "white", borderRadius: 999, padding: "5px 11px", fontSize: 12.5, fontWeight: 800, color: "#111", cursor: "pointer", fontFamily: "inherit" }}>상세 보기 ›</button>
+              <span style={{ width: "100%", fontSize: 12, color: "#4A3F38" }}>{when(o.created_at)} 주문</span>
             </div>
             <div style={{ marginTop: 8, fontSize: 13.5, color: "#444", lineHeight: 1.65 }}>
               <div>{ORDER_TYPE_LABEL[o.order_type ?? "pickup"]}{o.party_size ? ` · ${o.party_size}명` : ""}{o.pickup_at ? ` · ${o.order_type === "dine_in" ? "방문" : "가지러 갈 시간"} ${when(o.pickup_at)}` : ""}</div>

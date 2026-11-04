@@ -38,13 +38,15 @@ const LIST: GuideStep[] = [
   { selector: '[data-guide="list-panel"]', title: "주변 장소 목록", text: "지도에 보이는 장소와 검색 결과가 여기에 나와요.\n누르면 지도가 그 장소로 이동해요." },
 ];
 
-export const MAP_GUIDE_KEY = "ggk_guide_map_v6";
+export const MAP_GUIDE_KEY = "ggk_guide_map_v7";
 const MAP_STEPS: Record<GuideInterest, GuideStep[]> = {
   places: [
     { selector: SEARCH, title: "검색", text: "가게 이름이나 지역으로 찾아요.\n‘우리동네 핫플’, ‘내주변 카페’처럼 말하듯이 써도 돼요." },
     // 휴대폰: 가로로 넘기는 필터 줄 / PC: 가운데 필터 줄
     { selector: '[data-guide="filters-mobile"]', title: "필터", text: "실내·야외 동반 범위로 골라 볼 수 있어요.\n옆으로 밀면 동물병원·동물약국·공원이 더 있어요." },
     { selector: '[data-guide="filters"]', title: "필터", text: "실내·야외 동반 범위와 동물병원·동물약국·공원으로 골라 볼 수 있어요." },
+    // 마커 분류(필터) 바로 다음에 — 공원 버튼만 누를 때마다 켜고 끄는 토글이라 따로 알려 줍니다.
+    { selector: '[data-guide="park-toggle"]', title: "공원은 켜고 끄는 버튼", text: "공원 버튼은 누를 때마다 켜지고 꺼져요.\n켜 두면 다른 필터를 골라도 공원이 함께 보여요." },
     ...LIST,
     // 휴대폰: 메뉴 버튼 하나 / PC: 버튼 묶음
     { selector: '[aria-label="메뉴 열기"]', title: "추천·코스·제보", text: "새로 생긴 곳, 취향 추천, 산책 코스, 제보하기가\n이 메뉴에 모여 있어요." },
@@ -72,9 +74,12 @@ const MAP_STEPS: Record<GuideInterest, GuideStep[]> = {
     { selector: '[data-guide="tab-shop"]', title: "쇼핑 탭", text: "입점한 가게의 메뉴가 손님에게 보이는 화면입니다." },
   ],
 };
-/** 고른 목적에 맞는 지도 안내 */
-const PARK_STEP: GuideStep = { selector: '[data-guide="park-toggle"]', title: "공원", text: "공원 버튼으로 지도와 목록의\n공원을 켜고 꺼요." };
-export const mapGuideSteps = (): GuideStep[] => [...MAP_STEPS[getGuideInterest()], PARK_STEP];
+/** 고른 목적에 맞는 지도 안내 — 장소 찾기는 필터 바로 다음에 공원 안내가 들어 있고, 나머지 목적은 맨 끝에 붙입니다 */
+const PARK_STEP: GuideStep = { selector: '[data-guide="park-toggle"]', title: "공원은 켜고 끄는 버튼", text: "공원 버튼은 누를 때마다 켜지고 꺼져요.\n켜 두면 지도와 목록에 공원이 함께 보여요." };
+export const mapGuideSteps = (): GuideStep[] => {
+  const steps = MAP_STEPS[getGuideInterest()];
+  return steps.some((st) => st.selector === PARK_STEP.selector) ? steps : [...steps, PARK_STEP];
+};
 
 // 산책 코스 패널을 처음 열 때 — 코스를 고쳐 가는 방법
 export const ROUTE_GUIDE_KEY = "ggk_guide_route_v1";

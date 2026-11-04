@@ -10,6 +10,14 @@ import type { ParkPlace } from "@/lib/parkPlaces";
 import { countLevel, type CountRow } from "@/lib/tileCounts";
 
 async function getJson(url: string): Promise<unknown[]> {
+  // 첫 화면: layout.tsx가 지도 엔진과 함께 미리 받기 시작한 칸이면 그것을 넘겨받습니다(한 번만)
+  const early = (window as unknown as { __ggkPrefetch?: Record<string, Promise<unknown>> }).__ggkPrefetch;
+  const pending = early?.[url];
+  if (pending) {
+    delete early![url];
+    const data = await pending.catch(() => null);
+    if (Array.isArray(data)) return data;
+  }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} → ${res.status}`);
   const data = await res.json();

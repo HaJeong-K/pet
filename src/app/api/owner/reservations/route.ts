@@ -12,6 +12,11 @@ import { canChangeStatus, type ReservationStatus } from "@/lib/storeRules";
 //           취소 요청 답하기 { id, cancelAnswer: "approve" | "deny", ownerNote } — 받아 주면 전액 환불
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
+/** 진행 단계 시각 — 손님 상세 화면에 "가게가 ○시 ○분에 수락" 식으로 보여 줍니다 */
+const stampFor = (next: string): Record<string, string> => {
+  const at = new Date().toISOString();
+  return next === "accepted" ? { accepted_at: at } : next === "ready" ? { ready_at: at } : next === "completed" ? { completed_at: at } : next === "rejected" || next === "cancelled" ? { cancelled_at: at } : {};
+};
 const LIST_LIMIT = 200;
 
 export async function GET(req: NextRequest) {
@@ -52,7 +57,7 @@ export async function PATCH(req: NextRequest) {
     const answer = typeof body?.ownerNote === "string" ? body.ownerNote.trim().slice(0, 200) : "";
     if (!approve && !answer) return fail("받지 못하는 이유를 적어 주세요.", 400);
     const { data, error } = await db.from("place_reservations")
-      .update({ cancel_request_status: approve ? "approved" : "denied", cancel_request_answer: answer || null, ...(approve ? { status: "cancelled" } : {}), updated_at: new Date().toISOString() })
+      .update({ cancel_request_status: approve ? "approved" : "denied", cancel_request_answer: answer || null, ...(approve ? { status: "cancelled", cancelled_at: new Date().toISOString() } : {}), updated_at: new Date().toISOString() })
       .eq("id", id).eq("place_id", ctx.placeId).eq("cancel_request_status", "open").select(RESERVATION_COLUMNS).maybeSingle();
     if (error) return fail(error.message, 500);
     if (!data) return fail("그 사이 주문 상태가 바뀌었어요. 화면을 새로 고쳐 주세요.", 409);
@@ -65,7 +70,7 @@ export async function PATCH(req: NextRequest) {
 
   const ownerNote = typeof body?.ownerNote === "string" && body.ownerNote.trim() ? body.ownerNote.trim().slice(0, 200) : null;
   const { data, error } = await db.from("place_reservations")
-    .update({ status: next, ...(ownerNote ? { owner_note: ownerNote } : {}), updated_at: new Date().toISOString() })
+    .update({ status: next, ...(ownerNote ? { owner_note: ownerNote } : {}), ...stampFor(next), updated_at: new Date().toISOString() })
     // 그 사이 손님이 취소했을 수 있으니, 방금 확인한 상태일 때만 바꿉니다.
     .eq("id", id).eq("place_id", ctx.placeId).eq("status", current.status)
     .select(RESERVATION_COLUMNS).maybeSingle();

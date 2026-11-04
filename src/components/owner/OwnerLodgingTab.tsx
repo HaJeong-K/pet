@@ -15,11 +15,12 @@ import LogoLoader from "@/components/LogoLoader";
 import LodgingPartnerApply from "@/components/owner/LodgingPartnerApply";
 import OwnerRoomIcal from "@/components/owner/OwnerRoomIcal";
 import { supabase } from "@/lib/supabase";
+import TimePicker from "@/components/TimePicker";
 import {
   EMPTY_PROFILE, LODGING_SHORT_MAX, PEAK_PERIODS_MAX, LODGING_TEXT_MAX, PET_AMENITIES, PET_SIZES, PET_SPECIES, ROOM_AMENITIES, ROOM_DESC_MAX,
   ROOM_IMAGES_MAX, ROOM_NAME_MAX, ROOM_TYPE_MAX, ROOM_TYPE_SUGGESTIONS, ROOMS_PER_PLACE_MAX, petPolicySummary, roomPriceText,
-  EXTRA_PRESET_UNIT, EXTRA_PRESETS, EXTRA_UNITS, EXTRAS_MAX, PET_FEE_KEYS, ROOM_PHOTOS_MIN, WEEKDAY_LABELS,
-  type ExtraUnit, type LodgingProfile, type PetFeeKey, type PetSize, type PetSpecies,
+  EXTRA_BASES, EXTRA_PRESET_UNIT, EXTRA_PRESETS, EXTRAS_MAX, extraBasis, extraPerNight, PET_FEE_KEYS, ROOM_PHOTOS_MIN, WEEKDAY_LABELS,
+  type ExtraBasis, type LodgingProfile, type PetFeeKey, type PetSize, type PetSpecies,
 } from "@/lib/lodgingRules";
 
 type Room = {
@@ -29,7 +30,7 @@ type Room = {
 type State = { ready: boolean; profile: (LodgingProfile & { updated_at?: string }) | null; rooms: Room[] };
 
 /** 입력칸용(숫자도 글자로 들고 있다가 저장할 때 바꿈) */
-type ExtraForm = { id: string; name: string; price: string; unit: ExtraUnit; max: string; note: string };
+type ExtraForm = { id: string; name: string; price: string; unit: ExtraBasis; per_night: boolean; max: string; note: string };
 type ProfileForm = Omit<LodgingProfile, "max_pet_weight_kg" | "max_pets" | "pet_fee" | "check_in" | "check_out" | "pet_fee_note" | "pet_rules" | "stay_rules" | "refund_policy" | "pet_fees" | "extras" | "pet_free_count"> & {
   check_in: string; check_out: string; max_pet_weight_kg: string; max_pets: string; pet_fee: string; pet_free_count: string;
   pet_fee_note: string; pet_rules: string; stay_rules: string; refund_policy: string;
@@ -54,7 +55,7 @@ const toProfileForm = (p: LodgingProfile | null): ProfileForm => {
     max_pet_weight_kg: str(src.max_pet_weight_kg), max_pets: str(src.max_pets), pet_fee: str(src.pet_fee), pet_free_count: str(src.pet_free_count),
     pet_fee_note: src.pet_fee_note ?? "", pet_rules: src.pet_rules ?? "", stay_rules: src.stay_rules ?? "", refund_policy: src.refund_policy ?? "",
     pet_fees: Object.fromEntries(Object.entries(src.pet_fees ?? {}).map(([k, v]) => [k, str(v)])),
-    extras: (src.extras ?? []).map((x) => ({ id: x.id, name: x.name, price: str(x.price), unit: x.unit, max: str(x.max), note: x.note ?? "" })),
+    extras: (src.extras ?? []).map((x) => ({ id: x.id, name: x.name, price: str(x.price), unit: extraBasis(x), per_night: extraPerNight(x), max: str(x.max), note: x.note ?? "" })),
   };
 };
 const toRoomForm = (r: Room): RoomForm => ({
@@ -124,7 +125,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
   // ── ① 숙소 기본 정보·동반 규정 ──
   const setP = (patch: Partial<ProfileForm>) => { setProfile((prev) => ({ ...prev, ...patch })); setProfileSaved(null); };
   const setExtra = (i: number, patch: Partial<ExtraForm>) => setP({ extras: profile.extras.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
-  const addExtra = (name: string) => setP({ extras: [...profile.extras, { id: `x${Date.now().toString(36)}`, name, price: "", unit: EXTRA_PRESET_UNIT[name] ?? "stay", max: "1", note: "" }] });
+  const addExtra = (name: string) => setP({ extras: [...profile.extras, { id: `x${Date.now().toString(36)}`, name, price: "", unit: EXTRA_PRESET_UNIT[name]?.unit ?? "stay", per_night: EXTRA_PRESET_UNIT[name]?.per_night ?? false, max: "1", note: "" }] });
   // 받는 동물·크기에 맞는 요금 칸만(대형견을 안 받으면 대형견 요금 칸 없음)
   const feeKeys = PET_FEE_KEYS.filter((k) => (k.id === "cat" || k.id === "other" ? profile.pet_species.includes(k.id) : profile.pet_species.includes("dog") && profile.pet_sizes.includes(k.id)));
   const saveProfile = async () => {
@@ -324,19 +325,52 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
           <div style={{ fontSize: 12.5, color: "#555", marginTop: -6, lineHeight: 1.6 }}>바비큐·불멍·추가 침구처럼 따로 받는 요금이에요. 손님이 예약할 때 골라서 숙박 요금과 함께 결제해요.</div>
           <div style={{ display: "grid", gap: 8 }}>
             {profile.extras.map((x, i) => (
-              <div key={x.id} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 6 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)", gap: 6 }}>
-                  <input value={x.name} onChange={(e) => setExtra(i, { name: e.target.value.slice(0, 30) })} placeholder="옵션 이름 — 예: 바비큐(숯·그릴)" aria-label="옵션 이름" disabled={disabled} style={input} />
-                  <MoneyInput value={x.price} onChange={(v) => setExtra(i, { price: v })} disabled={disabled} />
+              <div key={x.id} style={{ padding: "14px 14px 12px", borderRadius: 14, border: "1px solid #E7E6E5", background: "white", display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <b style={{ fontSize: 13.5, color: "#1f1a12" }}>옵션 {i + 1}</b>
+                  {canAct && <button onClick={() => setP({ extras: profile.extras.filter((_, j) => j !== i) })} aria-label="이 옵션 빼기" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, border: "none", background: "transparent", color: "#b42318", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}><X size={13} />빼기</button>}
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  {EXTRA_UNITS.map((u) => <button key={u.id} disabled={disabled} onClick={() => setExtra(i, { unit: u.id })} aria-pressed={x.unit === u.id} title={u.hint} style={chip(x.unit === u.id)}>{u.label}</button>)}
-                  <span style={{ fontSize: 12, color: "#666", marginLeft: 4 }}>최대</span>
-                  <input value={x.max} onChange={(e) => setExtra(i, { max: digits(e.target.value, 2) })} inputMode="numeric" aria-label="최대 수량" disabled={disabled} style={{ ...input, width: 56, textAlign: "center", padding: "8px 6px" }} />
-                  <span style={{ fontSize: 12, color: "#666" }}>개</span>
-                  {canAct && <button onClick={() => setP({ extras: profile.extras.filter((_, j) => j !== i) })} aria-label="이 옵션 빼기" style={{ ...iconButton, marginLeft: "auto", borderColor: "#f3c7c5" }}><X size={13} color="#b42318" /></button>}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+                  <div>
+                    <div style={label}>옵션 이름</div>
+                    <input value={x.name} onChange={(e) => setExtra(i, { name: e.target.value.slice(0, 30) })} placeholder="예: 바비큐(숯·그릴)" aria-label="옵션 이름" disabled={disabled} style={input} />
+                  </div>
+                  <div>
+                    <div style={label}>요금</div>
+                    <MoneyInput value={x.price} onChange={(v) => setExtra(i, { price: v })} disabled={disabled} />
+                  </div>
                 </div>
-                <input value={x.note} onChange={(e) => setExtra(i, { note: e.target.value.slice(0, 60) })} placeholder="안내(선택) — 예: 저녁 9시까지 이용, 2인 기준" aria-label="옵션 안내" disabled={disabled} style={input} />
+                <div>
+                  <div style={label}>요금 기준</div>
+                  <div role="radiogroup" aria-label="요금 기준" style={{ display: "flex", padding: 3, borderRadius: 11, background: "#F1EFED", gap: 2 }}>
+                    {EXTRA_BASES.map((b) => {
+                      const on = x.unit === b.id;
+                      return <button key={b.id} type="button" role="radio" aria-checked={on} disabled={disabled} onClick={() => setExtra(i, { unit: b.id })} style={{ flex: 1, minHeight: 38, borderRadius: 9, border: "none", background: on ? "white" : "transparent", boxShadow: on ? "0 1px 3px rgba(42,28,20,0.15)" : "none", color: on ? "#2A1C14" : "#6B5E55", fontSize: 13.5, fontWeight: on ? 800 : 600, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" }}>{b.label}</button>;
+                    })}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#4A3F38", marginTop: 5 }}>{EXTRA_BASES.find((b) => b.id === x.unit)?.hint}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13.5, fontWeight: 700, color: "#1f1a12", cursor: disabled ? "default" : "pointer" }}>
+                    <input type="checkbox" checked={x.per_night} disabled={disabled} onChange={(e) => setExtra(i, { per_night: e.target.checked })} style={{ width: 17, height: 17, accentColor: "#A05A32" }} />
+                    1박마다 받기 <span style={{ fontWeight: 500, fontSize: 12, color: "#4A3F38" }}>손님이 이용할 밤을 골라요</span>
+                  </label>
+                  {x.unit === "stay" && (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#1f1a12" }}>
+                      최대
+                      <input value={x.max} onChange={(e) => setExtra(i, { max: digits(e.target.value, 2) })} inputMode="numeric" aria-label="최대 개수" disabled={disabled} style={{ ...input, width: 56, textAlign: "center", padding: "8px 6px" }} />
+                      개
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div style={label}>안내 <span style={optional}>(선택)</span></div>
+                  <input value={x.note} onChange={(e) => setExtra(i, { note: e.target.value.slice(0, 60) })} placeholder="예: 저녁 9시까지 이용, 식기·담요 포함" aria-label="옵션 안내" disabled={disabled} style={input} />
+                </div>
+                <div style={{ fontSize: 12.5, color: "#1f1a12", background: "#F4F3F2", borderRadius: 9, padding: "8px 10px" }}>
+                  손님 화면: <b>{x.price ? `${Number(x.price).toLocaleString("ko-KR")}원` : "0원"} · {[EXTRA_BASES.find((b) => b.id === x.unit)?.label, x.per_night ? "1박마다" : null].filter(Boolean).join(" · ")}</b>
+                  {x.unit !== "stay" && <span style={{ color: "#4A3F38" }}> — 손님이 {x.unit === "person" ? "인원" : "마리 수"}{x.per_night ? "와 이용할 밤" : ""}을 골라요</span>}
+                </div>
               </div>
             ))}
             {canAct && profile.extras.length < EXTRAS_MAX && (
@@ -398,11 +432,11 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
             <div>
               <div style={label}>체크인</div>
-              <input type="time" value={profile.check_in} onChange={(e) => setP({ check_in: e.target.value })} disabled={disabled} style={input} />
+              <TimePicker ariaLabel="체크인 시각" value={profile.check_in} onChange={(t) => setP({ check_in: t })} disabled={disabled} emptyLabel="정하지 않음" style={{ width: "100%" }} />
             </div>
             <div>
               <div style={label}>체크아웃</div>
-              <input type="time" value={profile.check_out} onChange={(e) => setP({ check_out: e.target.value })} disabled={disabled} style={input} />
+              <TimePicker ariaLabel="체크아웃 시각" value={profile.check_out} onChange={(t) => setP({ check_out: t })} disabled={disabled} emptyLabel="정하지 않음" style={{ width: "100%" }} />
             </div>
           </div>
           <div style={section}>성수기 · 예약 확정</div>

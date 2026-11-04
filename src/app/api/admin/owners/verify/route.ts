@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { notifyOwnerResult } from "@/lib/server/ownerResultNotify";
 import { NextRequest, NextResponse } from "next/server";
 
 // 사장님 가입 신청 승인/반려 — service role로 처리합니다(관리자 client 직접 write는
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await supabaseAdmin.from("users").update(update).eq("auth_user_id", userId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await notifyOwnerResult(userId, "verify", action === "approve");
 
     return NextResponse.json({ success: true });
   } catch (e) {

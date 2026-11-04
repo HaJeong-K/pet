@@ -12,6 +12,7 @@
 // 같은 값)를 붙여주면 그걸 쓰고, 없을 때만 검증 가능한 필드로 추정합니다 — 없는 사실을
 // 지어내지 않기 위해 benefit 문구도 실제 필드에서만 생성합니다.
 
+import { isTourShopCategory } from "@/lib/tourShopCategory";
 import { haversineKm } from "@/lib/geo";
 import { getOpenStatus, type OpenStatus } from "@/lib/openingHours";
 
@@ -342,11 +343,13 @@ function isRestCafe(place: RoutablePlace): boolean {
 export function isTasteRecommendable(place: Pick<RoutablePlace, "name" | "category">): boolean {
   const role = classifyStopRole(place as RoutablePlace);
   if (role === "vet" || role === "pharmacy") return false;
+  // 관광공사 데이터의 사람용 약국·안경원은 반려동물과 갈 곳으로 추천하지 않습니다(src/lib/tourShopCategory.ts)
+  if (place.category === "약국" || place.category === "안경원") return false;
   return !/공원/.test(place.category ?? "") && !/공원$/.test((place.name ?? "").trim());
 }
 
 function isCourseExcluded(place: RoutablePlace): boolean {
-  return (place.category || "").includes("쇼핑");
+  return isTourShopCategory(place.category) || (place.category || "").includes("쇼핑");
 }
 
 const normalizeName = (name: string) => name.replace(/\(.*?\)|\s|[·.,'"-]/g, "").toLowerCase();

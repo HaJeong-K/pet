@@ -7,6 +7,7 @@
 //     (지도 위 장소 상세 창의 공지를 누르면 이렇게 들어옵니다 — PlaceNoticeBar)
 // 공지는 사장님 센터 "공지"에서 씁니다. 서버는 /api/place-notices.
 
+import NoticeImages from "@/components/NoticeImages";
 import { NoticeTag, RoleMark } from "@/components/NoticeMarks";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, Megaphone, Pin, X } from "lucide-react";
@@ -55,9 +56,9 @@ export default function StayNotices({ placeId, placeName, title = "숙소 소식
       <section id="stay-notices" style={{ background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "14px 16px", scrollMarginTop: 60 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: "#FEF3C7" }}><Megaphone size={14} color="#B45309" /></span>
-          <h2 className="ggk-logo" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#222" }}>{title}</h2>
-          <span style={{ fontSize: 12, color: "#6e6e6e", fontWeight: 700 }}>{notices.length}</span>
-          <button onClick={() => show(null)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 2, border: "none", background: "transparent", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          <h2 className="ggk-logo" style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#111" }}>{title}</h2>
+          <span style={{ fontSize: 12, color: "#1a1a1a", fontWeight: 700 }}>{notices.length}</span>
+          <button onClick={() => show(null)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 2, border: "none", background: "transparent", color: "#1a1a1a", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             전체 보기<ChevronRight size={14} />
           </button>
         </div>
@@ -66,8 +67,8 @@ export default function StayNotices({ placeId, placeName, title = "숙소 소식
             <button key={n.id} onClick={() => show(n.id)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "10px 2px", border: "none", borderTop: i ? "1px solid #F0EFEE" : "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
               {n.pinned && <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 2, fontSize: 10.5, fontWeight: 800, color: "#B45309", background: "#FEF3C7", borderRadius: 5, padding: "1px 5px" }}><Pin size={9} />대표</span>}
               {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "#333", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
-              <span style={{ flexShrink: 0, fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
+              <span style={{ flexShrink: 0, fontSize: 11.5, color: "#1a1a1a" }}>{noticeDate(n.created_at)}</span>
             </button>
           ))}
         </div>
@@ -81,8 +82,8 @@ export default function StayNotices({ placeId, placeName, title = "숙소 소식
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px", background: "white", borderBottom: "1px solid #ECEBEA" }}>
               {open && <button onClick={() => setOpenId(null)} aria-label="목록으로" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={16} /></button>}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{placeName}</div>
-                <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{open ? "공지" : `숙소 소식 ${notices.length}`}</div>
+                <div style={{ fontSize: 12, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{placeName}</div>
+                <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#111" }}>{open ? "공지" : `숙소 소식 ${notices.length}`}</div>
               </div>
               <button onClick={() => { setViewer(false); setOpenId(null); }} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
             </div>
@@ -95,16 +96,17 @@ export default function StayNotices({ placeId, placeName, title = "숙소 소식
                     {open.pinned && <span style={{ display: "inline-flex", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, color: "#B45309", background: "#FEF3C7", borderRadius: 5, padding: "2px 6px" }}><Pin size={10} />대표 공지</span>}
                     {isNewNotice(open.created_at) && <span style={NEW_BADGE}>N</span>}
                   </div>
-                  <h3 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 800, color: "#222", lineHeight: 1.45 }}>{open.title}</h3>
+                  <h3 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 19, fontWeight: 800, color: "#111", lineHeight: 1.45 }}>{open.title}</h3>
                   {/* 작성자 — 숙소 이름 + 사장님 표시(커뮤니티 공지의 "운영진"과 같은 모양) */}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#222" }}>{placeName}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>{placeName}</span>
                     <RoleMark label="사장님" />
                   </div>
-                  <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: "#1a1a1a", marginTop: 4 }}>
                     {noticeDate(open.created_at)} 게시{open.updated_at.slice(0, 16) !== open.created_at.slice(0, 16) ? ` · ${noticeDate(open.updated_at)} 수정` : ""}
                   </div>
-                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F0EFEE", fontSize: 14.5, color: "#333", lineHeight: 1.85, whiteSpace: "pre-line" }}>{open.content}</div>
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F0EFEE", fontSize: 14.5, color: "#111", lineHeight: 1.85, whiteSpace: "pre-line" }}>{open.content}</div>
+                  <NoticeImages images={open.images} size={140} />
                   {/* 이전·다음 공지 */}
                   {(() => {
                     const i = notices.findIndex((n) => n.id === open.id);
@@ -125,10 +127,10 @@ export default function StayNotices({ placeId, placeName, title = "숙소 소식
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         {n.pinned && <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 2, fontSize: 10.5, fontWeight: 800, color: "#B45309" }}><Pin size={10} />대표</span>}
                         {isNewNotice(n.created_at) && <span style={NEW_BADGE}>N</span>}
-                        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 800, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
-                        <span style={{ flexShrink: 0, fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 800, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{n.title}</span>
+                        <span style={{ flexShrink: 0, fontSize: 11.5, color: "#1a1a1a" }}>{noticeDate(n.created_at)}</span>
                       </div>
-                      <div style={{ fontSize: 12.5, color: "#555", marginTop: 5, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-line" }}>{n.content}</div>
+                      <div style={{ fontSize: 12.5, color: "#1a1a1a", marginTop: 5, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-line" }}>{n.content}</div>
                     </button>
                   ))}
                 </div>

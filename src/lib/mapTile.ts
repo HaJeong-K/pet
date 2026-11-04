@@ -66,5 +66,5 @@ export function expandPlace(place: Record<string, unknown>): Record<string, unkn
   };
 }
 
-/** CDN 캐시 지시 — 5분 동안은 캐시를 그대로 쓰고, 그 뒤 하루까지는 일단 캐시를 주면서 뒤에서 새로 받아 둡니다. */
-export const TILE_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=86400";
+/** CDN 캐시 지시 — 30분 동안은 캐시를 그대로 쓰고(첫 방문자가 서버 준비 2초를 기다리는 일을 줄임), 그 뒤 하루까지는 일단 캐시를 주면서 뒤에서 새로 받아 둡니다. */
+export const TILE_CACHE_CONTROL = "public, max-age=60, s-maxage=1800, stale-while-revalidate=86400";

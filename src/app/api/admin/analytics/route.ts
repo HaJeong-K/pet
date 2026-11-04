@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
       supabaseAdmin.from("users").select("auth_user_id, user_key, created_at"),
       supabaseAdmin
         .from("analytics_events")
-        .select("event_type, user_key, auth_user_id, query, place_id, place_name, region, sub_region, created_at")
+        .select("event_type, user_key, auth_user_id, query, place_id, place_name, region, sub_region, created_at, meta")
         .gte("created_at", eventsSinceIso)
         .limit(50000),
       // 지역별 인기 장소 드릴다운 select가 방문 이벤트 유무와 무관하게 항상 동작하도록,
@@ -210,6 +210,21 @@ export async function GET(req: NextRequest) {
       if (!q) continue;
       searchCounts[q] = (searchCounts[q] || 0) + 1;
     }
+    // ── 결과 없던 검색어 TOP 10 (최근 30일) — 찾았는데 지도에 아무것도 안 나온 검색. 이 지역·종류부터 데이터를 보강합니다.
+    //    (2026-11-03부터 검색 기록에 결과 수를 함께 남김 — 그 전 기록은 결과 수가 없어 세지 않습니다)
+    const zeroCounts: Record<string, number> = {};
+    for (const e of events30) {
+      if (e.event_type !== "search" || !e.query) continue;
+      const results = (e.meta as { results?: unknown } | null)?.results;
+      if (results !== 0) continue;
+      const q = e.query.trim();
+      if (q) zeroCounts[q] = (zeroCounts[q] || 0) + 1;
+    }
+    const zeroResultSearches = Object.entries(zeroCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([query, count]) => ({ query, count }));
+
     const topSearches = Object.entries(searchCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
@@ -274,6 +289,7 @@ export async function GET(req: NextRequest) {
       signupsTrend,
       dailyVisitorsTrend,
       topSearches,
+      zeroResultSearches,
       topPlaces,
       availableSubRegions,
     });

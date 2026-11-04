@@ -15,7 +15,7 @@ import StayFrame from "@/components/lodging/StayFrame";
 import StayNotices from "@/components/lodging/StayNotices";
 import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import { supabase } from "@/lib/supabase";
-import { EXTRA_UNITS, petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
+import { extraUnitLabel, petPolicySummary, roomLowestPrice, roomPriceText, type LodgingProfile } from "@/lib/lodgingRules";
 import { stayDayLabel } from "@/lib/lodgingBooking";
 import { DANGEROUS_DOG_NOTICE, RULE_SANCTIONS } from "@/lib/lodgingConsents";
 import { PET_REQUIREMENT_GROUPS, petRequirementItems } from "@/lib/petRequirements";
@@ -35,7 +35,17 @@ const card: React.CSSProperties = { background: "white", padding: "30px 0", bord
 const h2: React.CSSProperties = { margin: 0, fontSize: 17, fontWeight: 800, color: "#222" };
 const tag: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, padding: "4px 9px", borderRadius: 999, background: "#FCF1E9", color: BLUE };
 const outline: React.CSSProperties = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "10px 14px", borderRadius: 11, border: "1px solid #d7e2f0", background: "white", color: BLUE, fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", textDecoration: "none" };
-const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+// 화면 안의 칸으로 이동 — scrollIntoView(부드럽게)는 아이폰 등에서 스크롤 칸 안에서 가끔 움직이지 않아,
+// 실제로 스크롤되는 칸을 찾아 위쪽 고정 탭 높이만큼 띄워서 직접 옮깁니다.
+const jump = (id: string) => {
+  const target = document.getElementById(id);
+  if (!target) return;
+  let box: HTMLElement | null = target.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  const offset = 64;
+  if (box) box.scrollTo({ top: box.scrollTop + target.getBoundingClientRect().top - box.getBoundingClientRect().top - offset, behavior: "smooth" });
+  else window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - offset, behavior: "smooth" });
+};
 
 function Stars({ value, size = 14 }: { value: number; size?: number }) {
   return (
@@ -60,6 +70,15 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
   const router = useRouter();
   const [reviews, setReviews] = useState<ReviewData | null>(null);
   const [showRules, setShowRules] = useState(true);
+  // 객실 목록이 화면에 보이면 아래 예약 띠를 숨깁니다(객실 카드의 '예약하기'를 가리지 않게)
+  const [roomsInView, setRoomsInView] = useState(false);
+  useEffect(() => {
+    const el = document.getElementById("stay-rooms");
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setRoomsInView(e.isIntersecting), { rootMargin: "-45% 0px -45% 0px" }); // 화면 한가운데 띠에 객실 목록이 걸릴 때만
+    io.observe(el);
+    return () => io.disconnect();
+  });
   const [copied, setCopied] = useState(false);
 
   const loadReviews = useCallback(async () => {
@@ -198,7 +217,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                       {profile.extras.map((x) => (
                         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
                           <span>{x.name}{x.note ? <span style={{ color: "#666" }}> · {x.note}</span> : null}</span>
-                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{EXTRA_UNITS.find((u) => u.id === x.unit)?.label}</span></b>
+                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{extraUnitLabel(x)}</span></b>
                         </div>
                       ))}
                     </div>
@@ -297,13 +316,13 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
       </div>
 
       {/* 아래 예약 띠 */}
-      {minPrice != null && (
+      {minPrice != null && !(roomsInView && rooms.length > 1) && (
         <div style={{ position: "sticky", bottom: "calc(var(--ggk-tabbar-space) + 8px)", zIndex: 6, margin: "20px clamp(18px, 4vw, 32px) 28px", padding: "14px 18px", borderRadius: 16, background: "white", boxShadow: "0 6px 24px rgba(0,0,0,0.14)", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>1박 요금</div>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{minPrice.toLocaleString("ko-KR")}원~</div>
           </div>
-          <button onClick={() => (rooms.length === 1 ? book(rooms[0].id) : jump("stay-rooms"))} style={{ padding: "13px 22px", borderRadius: 12, border: "none", background: BLUE, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+          <button onClick={() => (rooms.length === 1 ? book(rooms[0].id) : jump("stay-rooms"))} style={{ minHeight: 48, padding: "13px 22px", borderRadius: 12, border: "none", background: BLUE, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", touchAction: "manipulation" }}>
             {rooms.length === 1 ? "예약하기" : "객실 선택"}
           </button>
         </div>

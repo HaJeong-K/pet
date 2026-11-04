@@ -8,6 +8,7 @@ import { Hash, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { cleanSearchTags, SEARCH_TAGS_MAX } from "@/lib/talkSearch";
 import { cleanStoreInfo, type OrderDay, type StoreInfo } from "@/lib/storeRules";
+import TimePicker from "@/components/TimePicker";
 
 const WEEK_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const MODES = [{ id: "pickup", label: "포장 주문" }, { id: "dine_in", label: "매장 식사" }];
@@ -72,9 +73,9 @@ export default function OwnerStoreSettings({ placeId, isPreview, canAct, showMod
             영업시간·휴무일·주차는 &lsquo;가게 정보&rsquo; 메뉴에서 수정합니다.
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 9 }}>
-            <input type="time" aria-label="주문 시작 시간" value={hours.open} disabled={!canAct} onChange={(e) => setHours({ ...hours, open: e.target.value })} style={{ flex: 1, minWidth: 0, padding: "10px", borderRadius: 10, border: "1px solid #DDDCDB", fontSize: 14, fontFamily: "inherit" }} />
+            <TimePicker ariaLabel="주문 시작 시간" value={hours.open} disabled={!canAct} onChange={(t) => setHours({ ...hours, open: t })} style={{ flex: 1, minWidth: 0, width: "auto" }} />
             <span style={{ color: "#5c5c5c" }}>~</span>
-            <input type="time" aria-label="주문 마감 시간" value={hours.close} disabled={!canAct} onChange={(e) => setHours({ ...hours, close: e.target.value })} style={{ flex: 1, minWidth: 0, padding: "10px", borderRadius: 10, border: "1px solid #DDDCDB", fontSize: 14, fontFamily: "inherit" }} />
+            <TimePicker ariaLabel="주문 마감 시간" value={hours.close} disabled={!canAct} onChange={(t) => setHours({ ...hours, close: t })} style={{ flex: 1, minWidth: 0, width: "auto" }} />
             {canAct && <button type="button" onClick={() => save({ orderOpen: hours.open, orderClose: hours.close })} style={{ flexShrink: 0, padding: "10px 16px", borderRadius: 10, border: "none", background: "#3B2A20", color: "white", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>저장</button>}
           </div>
           <button type="button" onClick={() => setShowWeek((v) => !v)} aria-expanded={showWeek} style={{ marginTop: 8, padding: 0, border: "none", background: "transparent", color: "#85482A", fontSize: 13.5, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>요일별로 다르게 정하기 {showWeek ? "접기" : "열기"}</button>
@@ -86,9 +87,9 @@ export default function OwnerStoreSettings({ placeId, isPreview, canAct, showMod
                 return (
                   <div key={name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
                     <b style={{ flexShrink: 0, width: 22 }}>{name}</b>
-                    <input type="time" aria-label={`${name}요일 시작`} value={d.open} disabled={!canAct || d.closed} onChange={(e) => change({ open: e.target.value })} style={{ flex: 1, minWidth: 0, padding: 8, borderRadius: 9, border: "1px solid #DDDCDB", fontFamily: "inherit" }} />
+                    <TimePicker ariaLabel={`${name}요일 시작`} value={d.open} disabled={!canAct || d.closed} onChange={(t) => change({ open: t })} style={{ flex: 1, minWidth: 0, width: "auto" }} />
                     <span>~</span>
-                    <input type="time" aria-label={`${name}요일 마감`} value={d.close} disabled={!canAct || d.closed} onChange={(e) => change({ close: e.target.value })} style={{ flex: 1, minWidth: 0, padding: 8, borderRadius: 9, border: "1px solid #DDDCDB", fontFamily: "inherit" }} />
+                    <TimePicker ariaLabel={`${name}요일 마감`} value={d.close} disabled={!canAct || d.closed} onChange={(t) => change({ close: t })} style={{ flex: 1, minWidth: 0, width: "auto" }} />
                     <label style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 3, fontSize: 13 }}><input type="checkbox" checked={d.closed} disabled={!canAct} onChange={(e) => change({ closed: e.target.checked })} />안 받음</label>
                   </div>
                 );

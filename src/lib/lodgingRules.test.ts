@@ -16,7 +16,10 @@ describe("cleanLodgingProfile", () => {
     const r = cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small", "large"], pet_fee: 10000, pet_fees: { large: "20000", cat: "" },
       extras: [{ name: " 바비큐 ", price: "30000", unit: "stay", max: "2" }, { name: "", price: "" }] });
     expect("profile" in r && r.profile.pet_fees).toEqual({ large: 20000 });
-    expect("profile" in r && r.profile.extras.map((x) => [x.name, x.price, x.unit, x.max])).toEqual([["바비큐", 30000, "stay", 2]]);
+    expect("profile" in r && r.profile.extras.map((x) => [x.name, x.price, x.unit, x.max, x.per_night])).toEqual([["바비큐", 30000, "stay", 2, false]]);
+    // 예전 단위(1박마다)는 1회 + 박마다로 읽습니다
+    const old = cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small"], extras: [{ name: "불멍", price: "10000", unit: "night" }, { name: "용품", price: "0", unit: "pet" }] });
+    expect("profile" in old && old.profile.extras.map((x) => [x.unit, x.per_night])).toEqual([["stay", true], ["pet", false]]);
     expect("profile" in r && petPolicySummary(r.profile)).toContain("대형견 20,000원");
     expect("error" in cleanLodgingProfile({ pet_species: ["dog"], pet_sizes: ["small"], extras: [{ name: "바비큐", price: "-1" }] })).toBe(true);
   });

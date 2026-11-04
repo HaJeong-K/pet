@@ -5,6 +5,7 @@ import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
 import MyNotificationsCard from "@/components/MyNotificationsCard";
 import OwnerBadge from "@/components/OwnerBadge";
+import OrdersPanel from "@/components/OrdersPanel";
 import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
 import { ReceiptText } from "lucide-react";
 import MemoryStampsCard from "@/components/stamps/MemoryStampsCard";
@@ -875,14 +876,15 @@ export default function MyPage() {
 						<MyNotificationsCard />
 						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
 						{STAMPS_ENABLED && <MemoryStampsCard />}
-						<a href="/orders" data-guide="mypage-orders" className="ggk-body" style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 16px", padding: "15px 16px", borderRadius: 16, background: "white", border: "1px solid #e3eaf3", color: "#222", textDecoration: "none" }}>
-							<ReceiptText size={18} color="#8C5E3A" />
-							<span style={{ flex: 1, minWidth: 0 }}>
-								<b style={{ display: "block", fontSize: 15, fontWeight: 800 }}>주문·예약 내역</b>
-								<span style={{ fontSize: 12.5, color: "#555" }}>숙소·쇼핑 결제 내역, 취소 신청, 후기 쓰기</span>
-							</span>
-							<ChevronRight size={18} color="#777" />
-						</a>
+						{/* ── 주문·예약 내역 — 마이페이지 안에서 바로 보고, 상세 보기·취소·후기까지 합니다 */}
+						<section id="orders" data-guide="mypage-orders" style={{ margin: "0 0 18px", padding: "16px 16px 14px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", scrollMarginTop: 16 }}>
+							<div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+								<ReceiptText size={18} color="#3B2A20" />
+								<h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}>주문·예약 내역</h2>
+								<a href="/orders" style={{ marginLeft: "auto", fontSize: 12.5, fontWeight: 800, color: "#A05A32", textDecoration: "none" }}>크게 보기</a>
+							</div>
+							<OrdersPanel />
+						</section>
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>

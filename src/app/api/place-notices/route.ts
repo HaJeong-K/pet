@@ -8,7 +8,7 @@ import { sortNotices, type PlaceNotice } from "@/lib/placeNotices";
 export async function GET(req: NextRequest) {
   const placeId = Number(req.nextUrl.searchParams.get("placeId"));
   if (!Number.isInteger(placeId) || placeId <= 0) return NextResponse.json({ error: "가게를 찾을 수 없어요." }, { status: 400 });
-  const { data, error } = await db.from("place_notices").select("id, title, content, pinned, created_at, updated_at")
+  const { data, error } = await db.from("place_notices").select("id, title, content, pinned, created_at, updated_at, images")
     .eq("place_id", placeId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100);
   if (error && !isMissingSchema(error)) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ notices: sortNotices((data ?? []) as PlaceNotice[]) }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } });

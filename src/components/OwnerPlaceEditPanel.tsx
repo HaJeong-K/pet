@@ -72,7 +72,7 @@ export default function OwnerPlaceEditPanel({
 
       {open && (
         <div style={{ marginTop: 10, padding: 14, borderRadius: 14, border: "1px solid #eee", background: "#fafafa", display: "flex", flexDirection: "column", gap: 8 }}>
-          <Field label="운영시간"><input value={form.hours} onChange={set("hours")} style={inputStyle} placeholder="예: 매일 10:00~22:00" /></Field>
+          <Field label="운영시간"><textarea value={form.hours} onChange={set("hours")} rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} placeholder={`예: 평일 10:00~22:00${String.fromCharCode(10)}주말 11:00~21:00 (한 줄에 하나씩)`} /></Field>
           <Field label="전화번호"><input value={form.phone} onChange={set("phone")} style={inputStyle} /></Field>
           <Field label="휴무일"><input value={form.closed_days} onChange={set("closed_days")} style={inputStyle} placeholder="예: 매주 월요일" /></Field>
           <Field label="반려동물 동반 구역">

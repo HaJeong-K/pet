@@ -10,7 +10,7 @@ import { cleanInquiry, INQUIRY_KINDS, INQUIRY_MESSAGE_MAX, type InquiryKind } fr
 
 const CONTACT_EMAIL = "infoker12@naver.com";
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
-const label: React.CSSProperties = { display: "block", fontSize: 12.5, fontWeight: 800, color: "#444", marginBottom: 6 };
+const label: React.CSSProperties = { display: "block", fontSize: 12.5, fontWeight: 800, color: "#1a1a1a", marginBottom: 6 };
 
 export default function PartnershipForm() {
   const [form, setForm] = useState<{ kind: InquiryKind; name: string; company: string; contact: string; message: string; website: string }>({ kind: "ad", name: "", company: "", contact: "", message: "", website: "" });
@@ -44,7 +44,7 @@ export default function PartnershipForm() {
     return (
       <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #bbf7d0", padding: "34px 18px", textAlign: "center", scrollMarginTop: 70 }}>
         <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#15803D" }}>문의가 접수되었습니다</div>
-        <div style={{ marginTop: 10, fontSize: 13.5, color: "#555", lineHeight: 1.8, whiteSpace: "pre-line" }}>{`남겨 주신 연락처로 회신드리겠습니다.
+        <div style={{ marginTop: 10, fontSize: 13.5, color: "#1a1a1a", lineHeight: 1.8, whiteSpace: "pre-line" }}>{`남겨 주신 연락처로 회신드리겠습니다.
 영업일 기준 2~3일 안에 연락드립니다.`}</div>
       </div>
     );
@@ -61,15 +61,15 @@ export default function PartnershipForm() {
               return <button key={k.id} onClick={() => setForm({ ...form, kind: k.id })} aria-pressed={active} title={k.hint} style={{ padding: "9px 14px", borderRadius: 10, border: `1.5px solid ${active ? "#A05A32" : "#e2e4e8"}`, background: active ? "#F8E6D9" : "white", color: active ? "#6F3D24" : "#666", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{k.label}</button>;
             })}
           </div>
-          <div style={{ marginTop: 6, fontSize: 11.5, color: "#666" }}>{INQUIRY_KINDS.find((k) => k.id === form.kind)?.hint}</div>
+          <div style={{ marginTop: 6, fontSize: 11.5, color: "#1a1a1a" }}>{INQUIRY_KINDS.find((k) => k.id === form.kind)?.hint}</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
           <label><span style={label}>담당자명</span><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} maxLength={30} style={input} /></label>
-          <label><span style={label}>회사명 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>(선택)</span></span><input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} maxLength={60} style={input} /></label>
+          <label><span style={label}>회사명 <span style={{ fontWeight: 600, color: "#1a1a1a" }}>(선택)</span></span><input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} maxLength={60} style={input} /></label>
         </div>
         <label><span style={label}>연락처</span><input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} maxLength={100} placeholder="회신받을 이메일 또는 전화번호" style={input} /></label>
         <label>
-          <span style={label}>문의 내용 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>{form.message.length}/{INQUIRY_MESSAGE_MAX}</span></span>
+          <span style={label}>문의 내용 <span style={{ fontWeight: 600, color: "#1a1a1a" }}>{form.message.length}/{INQUIRY_MESSAGE_MAX}</span></span>
           <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} maxLength={INQUIRY_MESSAGE_MAX} rows={8} placeholder={`아래 내용을 기재해 주시면 더 빠르게 안내드릴 수 있습니다.
 
 · 홍보 대상 (매장·브랜드·상품)
@@ -79,7 +79,7 @@ export default function PartnershipForm() {
         </label>
         {/* 사람에게는 보이지 않는 칸(자동 입력 걸러 내기용) */}
         <input value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} />
-        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#555", lineHeight: 1.6, cursor: "pointer" }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: "#1a1a1a", lineHeight: 1.6, cursor: "pointer" }}>
           <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ width: 17, height: 17, marginTop: 2, flexShrink: 0 }} />
           <span style={{ whiteSpace: "pre-line" }}>{`개인정보 수집·이용에 동의합니다.
 · 수집 항목: 담당자명, 회사명, 연락처
@@ -90,7 +90,7 @@ export default function PartnershipForm() {
         <button onClick={submit} disabled={busy} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "13px 0", borderRadius: 11, border: "none", background: busy ? "#E2C6B3" : "#A05A32", color: "white", fontSize: 14, fontWeight: 800, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>
           <Send size={15} />{busy ? "접수 중…" : "문의 접수"}
         </button>
-        <div style={{ fontSize: 11.5, color: "#666", lineHeight: 1.7 }}>양식으로 접수되지 않는 경우 아래 주소로 메일을 보내 주시기 바랍니다.<br />{CONTACT_EMAIL}</div>
+        <div style={{ fontSize: 11.5, color: "#1a1a1a", lineHeight: 1.7 }}>양식으로 접수되지 않는 경우 아래 주소로 메일을 보내 주시기 바랍니다.<br />{CONTACT_EMAIL}</div>
       </div>
     </div>
   );

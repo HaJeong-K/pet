@@ -97,6 +97,8 @@ export async function approveProposal(
       is_resolved: true,
       lat,
       lng,
+      // 제보자 표시(장소 상세)·반영 알림이 이 장소를 찾을 수 있게 연결합니다.
+      ...(insertedPlace?.id ? { place_id: insertedPlace.id } : {}),
       ...(extra?.autoApprovedByAi ? { ai_verified: true } : {}),
     })
     .eq("id", proposal.id);

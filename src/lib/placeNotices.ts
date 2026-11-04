@@ -7,13 +7,15 @@ export const NOTICE_TITLE_MAX = 60;
 export const NOTICE_CONTENT_MAX = 2000;
 /** 한 가게가 보여 줄 수 있는 공지 수(지운 것 제외) */
 export const NOTICES_PER_PLACE_MAX = 100;
+/** 공지 한 개에 붙일 수 있는 사진 수 */
+export const NOTICE_IMAGES_MAX = 4;
 
-export type PlaceNotice = { id: number; title: string; content: string; pinned: boolean; created_at: string; updated_at: string };
+export type PlaceNotice = { id: number; title: string; content: string; pinned: boolean; created_at: string; updated_at: string; images?: string[] };
 
 /** 사장님이 보낸 공지를 다듬습니다. partial이면(고치기) 보낸 칸만 확인합니다. */
-export function cleanNotice(raw: unknown, partial = false): { notice: Partial<Pick<PlaceNotice, "title" | "content" | "pinned">> } | { error: string } {
+export function cleanNotice(raw: unknown, partial = false): { notice: Partial<Pick<PlaceNotice, "title" | "content" | "pinned" | "images">> } | { error: string } {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const out: Partial<Pick<PlaceNotice, "title" | "content" | "pinned">> = {};
+  const out: Partial<Pick<PlaceNotice, "title" | "content" | "pinned" | "images">> = {};
   if (!partial || r.title !== undefined) {
     const title = typeof r.title === "string" ? r.title.trim().replace(/\s+/g, " ") : "";
     if (!title) return { error: "공지 제목을 적어 주세요." };
@@ -27,6 +29,12 @@ export function cleanNotice(raw: unknown, partial = false): { notice: Partial<Pi
     out.content = content;
   }
   if (!partial || r.pinned !== undefined) out.pinned = r.pinned === true;
+  // 사진 주소는 "이 가게가 올린 사진인지"를 서버(API)가 따로 확인합니다. 여기서는 개수·모양만.
+  if (!partial || r.images !== undefined) {
+    const images = Array.isArray(r.images) ? r.images.filter((u): u is string => typeof u === "string" && /^https:\/\//.test(u)) : [];
+    if (images.length > NOTICE_IMAGES_MAX) return { error: `사진은 ${NOTICE_IMAGES_MAX}장까지 붙일 수 있어요.` };
+    out.images = [...new Set(images)];
+  }
   return { notice: out };
 }
 

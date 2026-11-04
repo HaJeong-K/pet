@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { startPayment } from "@/lib/startPayment";
 import { won } from "@/lib/ownerPlans";
 import { petLabel, stayDayLabel, STAY_STATUS, type StayPet, type StayStatus } from "@/lib/lodgingBooking";
+import { StayDetailSheet, type StayView } from "@/components/OrderDetailSheet";
 import { autoConfirmOn, CANCEL_CAUSE_LABEL, isOwnerViolation, OWNER_VIOLATION_KINDS, type CancelCause } from "@/lib/lodgingPolicy";
 
 type Stay = {
@@ -42,12 +43,15 @@ const button = (kind: "primary" | "plain" | "danger", disabled = false): React.C
   background: disabled ? "#D4D3D2" : kind === "primary" ? "#3B2A20" : "white", color: kind === "primary" ? "white" : kind === "danger" ? "#b42318" : "#555",
 });
 
+const detailButton: React.CSSProperties = { marginLeft: "auto", border: "1px solid #D9D8D7", background: "white", borderRadius: 999, padding: "5px 11px", fontSize: 12.5, fontWeight: 800, color: "#111", cursor: "pointer", fontFamily: "inherit" };
+
 export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean }) {
   const [stays, setStays] = useState<Stay[] | null>(null);
   const [issueKinds, setIssueKinds] = useState<Record<string, string>>({});
   const [issueFor, setIssueFor] = useState<number | null>(null);
   const [issue, setIssue] = useState({ kind: "", detail: "" });
   const [busy, setBusy] = useState(false);
+  const [detail, setDetail] = useState<Stay | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const call = useCallback(async (init: RequestInit = {}) => {
@@ -106,6 +110,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
           <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: st.background, color: st.color }}>{s.status === "completed" ? "이용 확정" : st.label}</span>
           {s.issue_status === "open" && <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#FEE2E2", color: "#B91C1C" }}>문제 확인 중</span>}
           <a href={`/place/${s.place_id}`} style={{ fontSize: 14, fontWeight: 800, color: "#222", textDecoration: "none" }}>{s.place?.name ?? "숙소"}</a>
+          <button onClick={() => setDetail(s)} style={detailButton}>상세 보기 ›</button>
         </div>
         <div style={{ fontSize: 13, color: "#444", marginTop: 6 }}>
           {stayDayLabel(s.check_in)} {s.checkInTime ?? ""} ~ {stayDayLabel(s.check_out)} {s.checkOutTime ?? ""} · {s.nights}박 · {s.room_name}
@@ -183,6 +188,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
       {message && <div role="status" style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
       <div style={{ display: "grid", gap: 8 }}>
         {open.map(row)}
+        {detail && <StayDetailSheet stay={detail as unknown as StayView} onClose={() => setDetail(null)} />}
         {done.length > 0 && <details><summary style={{ fontSize: 12.5, color: "#5c5c5c", cursor: "pointer", padding: "4px 0" }}>지난 예약 {done.length}건</summary><div style={{ display: "grid", gap: 8, marginTop: 8 }}>{done.map(row)}</div></details>}
       </div>
     </div>

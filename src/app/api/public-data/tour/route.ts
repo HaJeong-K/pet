@@ -1,5 +1,6 @@
 import { redactSecrets } from "@/lib/redact";
 import { NextRequest, NextResponse } from "next/server";
+import { tourShopCategory } from "@/lib/tourShopCategory";
 import { loadTourDetails, tourMemo, tidyLines, petZoneFrom, largeDogFrom, extractPhone, type TourDetail } from "@/lib/server/tourDetails";
 
 // ─────────────────────────────────────────────────────────────
@@ -152,7 +153,8 @@ export async function getTourPlaces(areaCode = "", maxItems?: number): Promise<a
         address: item.addr1 || "",
         lat: item.mapy,
         lng: item.mapx,
-        category: CONTENT_TYPE_LABEL[item.contenttypeid] || "반려동반 관광지",
+        // "쇼핑"(38)은 아울렛 매장·화장품점·약국 등이 한데 묶여 있어 이름으로 다시 나눕니다(src/lib/tourShopCategory.ts).
+        category: item.contenttypeid === "38" ? tourShopCategory(item.title) : CONTENT_TYPE_LABEL[item.contenttypeid] || "반려동반 관광지",
         // 관광공사는 이미지를 http 주소로 주는데, next/image는 https만 허용해서(next.config.ts)
         // 그대로 쓰면 화면 전체가 오류로 멈춥니다. 같은 서버가 https도 지원하므로 바꿔서 씁니다.
         image_url: item.firstimage ? String(item.firstimage).replace(/^http:\/\//, "https://") : null,

@@ -13,7 +13,7 @@
 // 금액은 서버가 다시 계산합니다(/api/lodging/bookings). 결제 키가 있으면 예약 뒤 결제창으로 넘어가고, 없으면 결제 단계 없이 접수되고, 결제는 따로 안내합니다.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Check, ChevronLeft, ChevronRight, Minus, Plus, Search, Stamp, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Minus, Plus, Search, Stamp, Trash2, X } from "lucide-react";
 import { breedSize, CAT_BREEDS, DOG_BREEDS, OTHER_BREED } from "@/lib/petBreeds";
 import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, FREE_CANCEL_NOTICE, RULE_AGREEMENT_LABEL, RULE_SANCTIONS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import { supabase } from "@/lib/supabase";
@@ -22,7 +22,8 @@ import { paymentsReady } from "@/lib/payments";
 import { petRequirementItems } from "@/lib/petRequirements";
 import { startPayment } from "@/lib/startPayment";
 import WheelPicker from "@/components/lodging/WheelPicker";
-import { EXTRA_UNITS, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
+import TimePicker from "@/components/TimePicker";
+import { extraBasis, extraPerNight, extraUnitLabel, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
 import { CASH_RECEIPT_TYPES, cleanCashReceiptNumber, PET_NOTE_MAX, type CashReceiptType, type PetGender, type StayPaymentMethod, addDays, daysBetween, kstToday, nightsOf, petNightFee, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
 import { refundSchedule } from "@/lib/lodgingPolicy";
 import { maxUsableStamps, STAMP_VALUE_WON, STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
@@ -65,6 +66,34 @@ function BreedPicker({ kindLabel, breeds, value, text, onPick, onText }: {
   );
 }
 
+/** 반려동물 칸 한 줄 — 위에 항목 이름, 아래에 입력 */
+function PetField({ label: text, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#1f1a12" }}>{text}{required ? <span style={{ color: "#DC2626" }}> *</span> : <span style={{ fontWeight: 500, color: "#6B5E55" }}> (선택)</span>}</div>
+      {children}
+      {hint && <div style={{ fontSize: 12, color: "#4A3F38" }}>{hint}</div>}
+    </div>
+  );
+}
+
+/** 한 줄로 붙은 선택 버튼(하나만 고름) */
+function Segmented({ options, value, onChange, compact }: { options: { id: string; label: string }[]; value: string; onChange: (id: string) => void; compact?: boolean }) {
+  return (
+    <div role="radiogroup" style={{ display: "flex", padding: 3, borderRadius: 11, background: "#F1EFED", gap: 2, flexShrink: 0 }}>
+      {options.map((o) => {
+        const on = o.id === value;
+        return (
+          <button key={o.id} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.id)}
+            style={{ flex: compact ? "0 0 auto" : 1, minHeight: 38, padding: compact ? "0 12px" : "0 10px", borderRadius: 9, border: "none", background: on ? "white" : "transparent", boxShadow: on ? "0 1px 3px rgba(42,28,20,0.15)" : "none", color: on ? "#2A1C14" : "#6B5E55", fontSize: 13.5, fontWeight: on ? 800 : 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function LodgingBookingSheet({ placeName, placePhone, profile, rooms, initialRoomId, onClose, variant = "sheet" }: {
   placeName: string;
   placePhone?: string | null;
@@ -92,23 +121,23 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const dogBreeds = DOG_BREEDS.filter((b) => sizeOptions.some((s) => s.id === b.size));
   const newPet = (): PetForm => ({ species: speciesOptions[0]?.id ?? "dog", size: sizeOptions[0]?.id ?? "small", weight: "", kind: "", breed: "", breedText: "", age: "", ageUnit: "year", gender: "", neutered: "", note: "" });
   const setPet = (i: number, patch: Partial<PetForm>) => setPets((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x)));
-  // 부가 옵션 — 고른 수량(0이면 안 고름)
+  const [pets, setPets] = useState<PetForm[]>(() => [newPet()]);
+  // 부가 옵션 — 고른 수(개수·인원·마리, 0이면 안 고름)
   const extraOptions = profile?.extras ?? [];
   const [extraQty, setExtraQty] = useState<Record<string, number>>({});
-  // 이용일마다 받는 옵션(바비큐 등)의 이용 날짜 — 고르지 않았으면 첫날
+  // 박마다 받는 옵션(바비큐 등)을 이용할 밤 — 고르지 않았으면 모든 밤
   const stayNights = checkIn && checkOut ? nightsOf(checkIn, checkOut) : [];
   const [extraDays, setExtraDays] = useState<Record<string, string[]>>({});
-  const daysFor = (id: string) => { const chosen = (extraDays[id] ?? []).filter((d) => stayNights.includes(d)); return chosen.length > 0 ? chosen : stayNights.slice(0, 1); };
-  const picks = extraOptions.filter((x) => (extraQty[x.id] ?? 0) > 0).map((x) => ({ id: x.id, qty: extraQty[x.id], ...(x.unit === "day" ? { days: daysFor(x.id) } : {}) }));
-  const [pets, setPets] = useState<PetForm[]>(() => [newPet()]);
+  const daysFor = (id: string) => { const chosen = (extraDays[id] ?? []).filter((d) => stayNights.includes(d)); return chosen.length > 0 ? chosen : stayNights; };
+  // 1인당·1마리당 옵션은 예약 인원·마리 수를 넘지 않게
+  const extraCap = (x: (typeof extraOptions)[number]) => (extraBasis(x) === "person" ? guests : extraBasis(x) === "pet" ? Math.max(1, pets.length) : x.max);
+  const picks = extraOptions.filter((x) => (extraQty[x.id] ?? 0) > 0).map((x) => ({ id: x.id, qty: Math.min(extraQty[x.id], extraCap(x)), ...(extraPerNight(x) ? { days: daysFor(x.id) } : {}) }));
   const [form, setForm] = useState({ paymentMethod: "card" as StayPaymentMethod, cashType: "none" as CashReceiptType, cashNumber: "", name: "", phone: "", email: "", memo: "", sameGuest: true, stayGuestName: "", stayGuestPhone: "", arrivalMethod: "" as ArrivalMethod | "", arrivalTime: "" });
   const [consents, setConsents] = useState<StayConsentId[]>([]);
   const [openConsent, setOpenConsent] = useState<StayConsentId | null>(null);
   const allAgreed = consents.length === STAY_CONSENTS.length;
-  // 숙소가 정한 입실 조건 — 항목마다 확인해야 예약할 수 있습니다
+  // 숙소가 정한 입실 조건 — 모두 읽고 맨 아래에서 한 번 동의합니다
   const petItems = petRequirementItems(profile?.pet_requirements);
-  const [petAcks, setPetAcks] = useState<string[]>([]);
-  const allPetAcked = petItems.every((i) => petAcks.includes(i.id));
   const [ruleAgreed, setRuleAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +201,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const petNightly = petsNightlyTotal(profile, stayPets);
   const petProblem = room ? petsAllowed(profile, room, stayPets) : null;
   const roomDays: RoomDay[] = days.map((d) => ({ day: d.day, closed: d.closed, price: d.price }));
-  const quote = room && checkIn && checkOut ? quoteStay(room, petNightly, roomDays, checkIn, checkOut, guests, picks, extraOptions) : null;
+  const quote = room && checkIn && checkOut ? quoteStay(room, petNightly, roomDays, checkIn, checkOut, guests, picks, extraOptions, pets.length) : null;
   const priced = quote && !("error" in quote) ? quote : null;
   // 스탬프를 뺀 실제 결제 금액
   const stampUse = priced ? stampDiscount(priced.total, stampsWanted, stampsOwned) : { used: 0, discount: 0 };
@@ -181,7 +210,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const schedule = priced && checkIn ? refundSchedule(payTotal, checkIn, today, profile?.peak_periods) : [];
   const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" ? !!breedOf(p) : !!p.kind.trim()) && (!profile?.pet_requirements?.min_age_months || !!p.age) && (!profile?.pet_requirements?.neutered || p.neutered !== ""));
   const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 9;
-  const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && allPetAcked && ruleAgreed && (form.paymentMethod !== "transfer" || form.cashType === "none" || !!cleanCashReceiptNumber(form.cashType, form.cashNumber)) && !busy
+  const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && ruleAgreed && (form.paymentMethod !== "transfer" || form.cashType === "none" || !!cleanCashReceiptNumber(form.cashType, form.cashNumber)) && !busy
     && (form.sameGuest || (!!form.stayGuestName.trim() && phoneOk(form.stayGuestPhone)));
   const maxPets = room?.max_pets ?? profile?.max_pets ?? 10;
 
@@ -195,7 +224,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
       const res = await fetch("/api/lodging/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, extras: picks, ...form, consents, petAcks, ruleAgreed, stamps: stampUse.used }),
+        body: JSON.stringify({ roomId: room.id, checkIn, checkOut, guests, pets: stayPets, extras: picks, ...form, consents, petAcks: ruleAgreed ? petItems.map((i) => i.id) : [], ruleAgreed, stamps: stampUse.used }),
       });
       const json = await res.json().catch(() => ({}));
       // 그 사이 다른 손님이 먼저 예약했으면 달력을 새로 받아 날짜 고르기로 돌아갑니다
@@ -323,90 +352,118 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                   </div>
                 )}
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 {pets.map((p, i) => {
                   const breeds = p.species === "dog" ? dogBreeds.map((b) => b.name) : p.species === "cat" ? CAT_BREEDS : [];
                   const fee = petNightFee(profile, { species: p.species, size: p.species === "dog" && p.size ? p.size : null });
                   return (
-                  <div key={i} style={{ padding: 10, borderRadius: 12, border: "1px solid #eee", display: "grid", gap: 7 }}>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                      {speciesOptions.map((s) => <button key={s.id} onClick={() => setPet(i, { species: s.id, breed: "", breedText: "" })} aria-pressed={p.species === s.id} style={chip(p.species === s.id)}>{s.label}</button>)}
-                      {pets.length > 1 && <button onClick={() => setPets((all) => all.filter((_, j) => j !== i))} aria-label={`${i + 1}번째 반려동물 빼기`} style={{ marginLeft: "auto", border: "none", background: "transparent", cursor: "pointer", color: "#b42318" }}><Trash2 size={15} /></button>}
+                  <div key={i} style={{ padding: "14px 14px 12px", borderRadius: 14, border: "1px solid #E7E6E5", background: "white", display: "grid", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <b style={{ fontSize: 14.5, color: "#1f1a12" }}>{i + 1}번째 반려동물</b>
+                      {profile && <span style={{ fontSize: 12.5, fontWeight: 700, color: "#A05A32" }}>{fee > 0 ? `1박 ${won(fee)}${(profile.pet_free_count ?? 0) > 0 ? ` · ${profile.pet_free_count}마리까지 무료` : ""}` : "추가 요금 없음"}</span>}
+                      {pets.length > 1 && <button onClick={() => setPets((all) => all.filter((_, j) => j !== i))} aria-label={`${i + 1}번째 반려동물 빼기`} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3, border: "none", background: "transparent", cursor: "pointer", color: "#b42318", fontSize: 12.5, fontWeight: 700, fontFamily: "inherit" }}><Trash2 size={14} />빼기</button>}
                     </div>
-                    {p.species !== "other" && (
+                    {speciesOptions.length > 1 && (
+                      <PetField label="종류" required>
+                        <Segmented options={speciesOptions.map((o) => ({ id: o.id, label: o.label }))} value={p.species} onChange={(id) => setPet(i, { species: id as PetSpecies, breed: "", breedText: "" })} />
+                      </PetField>
+                    )}
+                    {p.species !== "other" ? (
                       <BreedPicker
                         kindLabel={p.species === "dog" ? "견종" : "묘종"} breeds={breeds} value={p.breed} text={p.breedText}
-                        onPick={(breed) => { const size = breedSize(breed); setPet(i, { breed, ...(size && sizeOptions.some((s) => s.id === size) ? { size } : {}) }); }}
+                        onPick={(breed) => { const size = breedSize(breed); setPet(i, { breed, ...(size && sizeOptions.some((o) => o.id === size) ? { size } : {}) }); }}
                         onText={(breedText) => setPet(i, { breedText })}
                       />
+                    ) : (
+                      <PetField label="어떤 동물인가요" required>
+                        <input value={p.kind} onChange={(e) => setPet(i, { kind: e.target.value.slice(0, 20) })} placeholder="예: 토끼" aria-label="동물 종류" style={input} />
+                      </PetField>
                     )}
                     {p.species === "dog" && (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {sizeOptions.map((s) => <button key={s.id} onClick={() => setPet(i, { size: s.id })} aria-pressed={p.size === s.id} title={s.hint} style={chip(p.size === s.id)}>{s.label}</button>)}
-                        {sizeOptions.length < PET_SIZES.length && <span style={{ alignSelf: "center", fontSize: 11.5, color: "#666" }}>이 숙소는 {PET_SIZES.filter((s) => !sizeOptions.includes(s)).map((s) => s.label).join("·")}을 받지 않아요</span>}
-                      </div>
+                      <PetField label="크기" required hint={sizeOptions.length < PET_SIZES.length ? `이 숙소는 ${PET_SIZES.filter((o) => !sizeOptions.includes(o)).map((o) => o.label).join("·")}을 받지 않아요` : undefined}>
+                        <Segmented options={sizeOptions.map((o) => ({ id: o.id, label: o.label }))} value={p.size} onChange={(id) => setPet(i, { size: id as PetSize })} />
+                      </PetField>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: p.species === "other" ? "1fr 1fr" : "1fr", gap: 6 }}>
-                      {p.species === "other" && <input value={p.kind} onChange={(e) => setPet(i, { kind: e.target.value.slice(0, 20) })} placeholder="어떤 동물인가요? 예: 토끼" aria-label="동물 종류" style={input} />}
-                      <input value={p.weight} onChange={(e) => setPet(i, { weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} placeholder={profile?.max_pet_weight_kg != null ? `몸무게(kg) — ${profile.max_pet_weight_kg}kg 이하` : "몸무게(kg)"} inputMode="decimal" aria-label="몸무게" style={input} />
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+                      <PetField label="몸무게" hint={profile?.max_pet_weight_kg != null ? `${profile.max_pet_weight_kg}kg 이하만 입실할 수 있어요` : undefined}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input value={p.weight} onChange={(e) => setPet(i, { weight: e.target.value.replace(/[^\d.]/g, "").slice(0, 5) })} placeholder="예: 6.5" inputMode="decimal" aria-label="몸무게" style={{ ...input, flex: 1, minWidth: 0 }} />
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "#1f1a12" }}>kg</span>
+                        </div>
+                      </PetField>
+                      <PetField label="나이" required={!!profile?.pet_requirements?.min_age_months}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <input value={p.age} onChange={(e) => setPet(i, { age: e.target.value.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" placeholder="예: 3" aria-label={`${i + 1}번째 반려동물 나이`} style={{ ...input, flex: 1, minWidth: 0 }} />
+                          <Segmented options={[{ id: "year", label: "살" }, { id: "month", label: "개월" }]} value={p.ageUnit} onChange={(id) => setPet(i, { ageUnit: id as "year" | "month" })} compact />
+                        </div>
+                      </PetField>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 6 }}>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <input value={p.age} onChange={(e) => setPet(i, { age: e.target.value.replace(/\D/g, "").slice(0, 3) })} inputMode="numeric" placeholder={profile?.pet_requirements?.min_age_months ? "나이 (필수)" : "나이 (선택)"} aria-label={`${i + 1}번째 반려동물 나이`} style={{ ...input, flex: 1, minWidth: 0 }} />
-                        {(["year", "month"] as const).map((u) => <button key={u} type="button" onClick={() => setPet(i, { ageUnit: u })} aria-pressed={p.ageUnit === u} style={{ ...chip(p.ageUnit === u), flexShrink: 0 }}>{u === "year" ? "살" : "개월"}</button>)}
-                      </div>
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {(["male", "female"] as const).map((g) => <button key={g} type="button" onClick={() => setPet(i, { gender: p.gender === g ? "" : g })} aria-pressed={p.gender === g} style={chip(p.gender === g)}>{g === "male" ? "수컷" : "암컷"}</button>)}
-                        {(["yes", "no"] as const).map((n) => <button key={n} type="button" onClick={() => setPet(i, { neutered: p.neutered === n ? "" : n })} aria-pressed={p.neutered === n} style={chip(p.neutered === n)}>{n === "yes" ? "중성화 완료" : "중성화 안 함"}</button>)}
-                      </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+                      <PetField label="성별">
+                        <Segmented options={[{ id: "male", label: "수컷" }, { id: "female", label: "암컷" }]} value={p.gender} onChange={(id) => setPet(i, { gender: p.gender === id ? "" : (id as PetGender) })} />
+                      </PetField>
+                      <PetField label="중성화" required={!!profile?.pet_requirements?.neutered}>
+                        <Segmented options={[{ id: "yes", label: "했어요" }, { id: "no", label: "안 했어요" }]} value={p.neutered} onChange={(id) => setPet(i, { neutered: p.neutered === id ? "" : (id as "yes" | "no") })} />
+                      </PetField>
                     </div>
-                    <textarea value={p.note} onChange={(e) => setPet(i, { note: e.target.value.slice(0, PET_NOTE_MAX) })} rows={2} placeholder="특이사항 (선택) — 분리불안, 짖음, 입질, 낯가림, 복용 중인 약, 알레르기 등" aria-label={`${i + 1}번째 반려동물 특이사항`} style={{ ...input, resize: "vertical" }} />
-                    {profile && <div style={{ fontSize: 11.5, color: "#5c5c5c" }}>{fee > 0 ? `추가 요금 1박 ${won(fee)}${(profile.pet_free_count ?? 0) > 0 ? ` (${profile.pet_free_count}마리까지 무료)` : ""}` : "추가 요금 없음"}</div>}
+                    <PetField label="특이사항" hint="분리불안, 짖음, 입질, 낯가림, 복용 중인 약, 알레르기 등">
+                      <textarea value={p.note} onChange={(e) => setPet(i, { note: e.target.value.slice(0, PET_NOTE_MAX) })} rows={2} placeholder="숙소가 미리 알아야 할 점이 있으면 적어 주세요" aria-label={`${i + 1}번째 반려동물 특이사항`} style={{ ...input, resize: "vertical" }} />
+                    </PetField>
                   </div>
                   );
                 })}
               </div>
-              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 8, border: "1px dashed #DDB08C", background: "#FBF3ED", color: "#3B2A20", borderRadius: 10, padding: "9px 0", width: "100%", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ 반려동물 추가</button>}
+              {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 10, border: "1px dashed #C9A48A", background: "white", color: "#3B2A20", borderRadius: 12, padding: "12px 0", width: "100%", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}><Plus size={15} />반려동물 한 마리 더 추가</button>}
               {petProblem && <div role="status" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{petProblem}</div>}
             </div>
 
             {extraOptions.length > 0 && (
               <div>
-                <div style={label}>추가 옵션 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>이용할 것만 고르면 함께 결제돼요</span></div>
-                <div style={{ display: "grid", gap: 6 }}>
+                <div style={label}>추가 옵션 <span style={{ fontWeight: 600, color: "#4A3F38" }}>이용할 것만 체크하면 숙박 요금과 함께 결제돼요</span></div>
+                <div style={{ display: "grid", gap: 8 }}>
                   {extraOptions.map((x) => {
-                    const qty = extraQty[x.id] ?? 0;
+                    const cap = extraCap(x);
+                    const qty = Math.min(extraQty[x.id] ?? 0, cap);
                     const used = qty > 0;
-                    const unit = EXTRA_UNITS.find((u) => u.id === x.unit);
+                    const basis = extraBasis(x);
+                    const perNight = extraPerNight(x);
                     const chosen = daysFor(x.id);
+                    const nightsUsed = perNight ? Math.max(1, chosen.length) : 1;
+                    const countWord = basis === "person" ? "명" : basis === "pet" ? "마리" : "개";
+                    // 처음 고르면 1인당은 예약 인원, 1마리당은 함께 가는 마리 수, 1회는 1개
+                    const firstQty = basis === "person" ? guests : basis === "pet" ? pets.length : 1;
                     return (
-                      <div key={x.id} style={{ padding: "10px 12px", borderRadius: 12, border: `1px solid ${used ? "#DDB08C" : "#eee"}`, background: used ? "#FBF3ED" : "white", display: "grid", gap: 8 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 800, color: "#222" }}>{x.name}</div>
-                            <div style={{ fontSize: 12, color: "#555" }}>{won(x.price)} · {unit?.label}{x.note ? ` · ${x.note}` : ""}</div>
-                          </div>
-                          <div role="group" aria-label={`${x.name} 이용 여부`} style={{ display: "flex", flexShrink: 0, padding: 2, borderRadius: 9, background: "#EFEFEA" }}>
-                            {[false, true].map((on) => <button key={String(on)} type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: on ? Math.max(1, qty) : 0 }))} aria-pressed={used === on} style={{ padding: "6px 9px", borderRadius: 7, border: "none", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", background: used === on ? "white" : "transparent", color: used === on ? "#3B2A20" : "#666" }}>{on ? "이용" : "해당 없음"}</button>)}
-                          </div>
-                        </div>
-                        {used && x.max > 1 && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12.5, color: "#444" }}>
-                            <span style={{ flex: 1 }}>{x.unit === "person" ? "이용 인원" : "수량"}</span>
+                      <div key={x.id} style={{ padding: "12px 14px", borderRadius: 14, border: `1.5px solid ${used ? "#A05A32" : "#E7E6E5"}`, background: used ? "#FFF8F3" : "white", display: "grid", gap: 10 }}>
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                          <input type="checkbox" checked={used} onChange={(e) => setExtraQty((q) => ({ ...q, [x.id]: e.target.checked ? Math.max(1, Math.min(firstQty, cap)) : 0 }))} style={{ width: 19, height: 19, marginTop: 2, flexShrink: 0, accentColor: "#A05A32" }} />
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: "#1f1a12" }}>{x.name}</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}><b>{won(x.price)}</b> · {extraUnitLabel(x)}</span>
+                            {x.note && <span style={{ display: "block", fontSize: 12.5, color: "#4A3F38", marginTop: 2 }}>{x.note}</span>}
+                          </span>
+                        </label>
+                        {used && (basis !== "stay" || x.max > 1) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "#1f1a12", paddingLeft: 29 }}>
+                            <span style={{ flex: 1, fontWeight: 700 }}>{basis === "person" ? "이용 인원" : basis === "pet" ? "이용 마리 수" : "수량"} <span style={{ fontWeight: 500, color: "#4A3F38", fontSize: 12.5 }}>최대 {cap}{countWord}</span></span>
                             <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.max(1, qty - 1) }))} disabled={qty <= 1} aria-label={`${x.name} 줄이기`} style={{ ...stepper, opacity: qty <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
-                            <b style={{ minWidth: 18, textAlign: "center" }}>{qty}</b>
-                            <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.min(x.max, qty + 1) }))} disabled={qty >= x.max} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= x.max ? 0.4 : 1 }}><Plus size={14} /></button>
+                            <b style={{ minWidth: 34, textAlign: "center" }}>{qty}{countWord}</b>
+                            <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.min(cap, qty + 1) }))} disabled={qty >= cap} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= cap ? 0.4 : 1 }}><Plus size={14} /></button>
                           </div>
                         )}
-                        {used && x.unit === "day" && stayNights.length > 1 && (
-                          <div>
-                            <div style={{ fontSize: 12.5, color: "#444", marginBottom: 5 }}>이용할 날 <b>{chosen.length}일</b></div>
+                        {used && perNight && stayNights.length > 1 && (
+                          <div style={{ paddingLeft: 29 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f1a12", marginBottom: 6 }}>이용할 밤 <span style={{ fontWeight: 500, color: "#4A3F38", fontSize: 12.5 }}>{chosen.length}박 선택</span></div>
                             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                               {stayNights.map((d) => {
                                 const on = chosen.includes(d);
-                                return <button key={d} type="button" onClick={() => setExtraDays((all) => { const next = on ? chosen.filter((c) => c !== d) : [...chosen, d].sort(); return next.length > 0 ? { ...all, [x.id]: next } : all; })} aria-pressed={on} style={chip(on)}>{stayDayLabel(d)}</button>;
+                                return <button key={d} type="button" onClick={() => setExtraDays((all) => { const next = on ? chosen.filter((c) => c !== d) : [...chosen, d].sort(); return next.length > 0 ? { ...all, [x.id]: next } : all; })} aria-pressed={on} style={chip(on)}>{stayDayLabel(d)} 밤</button>;
                               })}
                             </div>
+                          </div>
+                        )}
+                        {used && (
+                          <div style={{ paddingLeft: 29, fontSize: 13, fontWeight: 800, color: "#A05A32" }}>
+                            {won(x.price)}{basis !== "stay" || qty > 1 ? ` × ${qty}${countWord}` : ""}{perNight ? ` × ${nightsUsed}박` : ""} = {won(x.price * qty * nightsUsed)}
                           </div>
                         )}
                       </div>
@@ -452,7 +509,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 {priced.nights.map((n) => <div key={n.day} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(n.day)} 1박</span><span>{won(n.price)}</span></div>)}
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가({pets.length}마리 × {priced.nights.length}박)</span><span>{won(priced.petTotal)}</span></div>}
-                {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{x.name} × {x.qty}{x.days ? ` · ${x.days.length}일` : ""}{x.unit === "night" ? ` × ${priced.nights.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
+                {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{x.name} · {won(x.price)} × {x.qty}{extraBasis(x) === "person" ? "명" : extraBasis(x) === "pet" ? "마리" : "개"}{x.days ? ` × ${x.days.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
                 {stampUse.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between", color: "#6B5525", fontWeight: 700 }}><span>추억 스탬프 {stampUse.used}개</span><span>-{won(stampUse.discount)}</span></div>}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#3B2A20" }}><span>총 결제 금액</span><span>{won(payTotal)}</span></div>
                 <div style={{ fontSize: 11.5, color: "#666" }}>추가 요금까지 모두 포함했어요. 현장에서 따로 내는 금액은 없어요. 현장에서 더 요구받으면 &lsquo;문제 있어요&rsquo;로 알려 주세요.</div>
@@ -518,10 +575,10 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>방문 수단 <span style={{ color: "#DC2626" }}>*</span></span>
                 {ARRIVAL_METHODS.map((m) => <button key={m.id} type="button" onClick={() => setForm((f) => ({ ...f, arrivalMethod: m.id }))} aria-pressed={form.arrivalMethod === m.id} style={chip(form.arrivalMethod === m.id)}>{m.label}</button>)}
               </div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>도착 예정</span>
-                <input type="time" value={form.arrivalTime} onChange={(e) => setForm((f) => ({ ...f, arrivalTime: e.target.value }))} aria-label="도착 예정 시각(선택)" style={{ ...input, width: 140 }} />
-                <span style={{ fontSize: 11.5, color: "#6e6e6e" }}>선택</span>
+                <TimePicker ariaLabel="도착 예정 시각(선택)" value={form.arrivalTime} onChange={(t) => setForm((f) => ({ ...f, arrivalTime: t }))} min={profile?.check_in ?? "12:00"} emptyLabel="아직 몰라요" />
+                <span style={{ fontSize: 11.5, color: "#6e6e6e" }}>선택 · 목록에 없는 시간은 맨 아래 &lsquo;직접 입력&rsquo;</span>
               </div>
               <textarea value={form.memo} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value.slice(0, 300) }))} rows={2} placeholder="숙소에 전할 말(선택) — 예: 늦게 도착해요, 노견이라 1층 객실 부탁드려요" aria-label="요청 사항" style={{ ...input, resize: "vertical" }} />
             </div>
@@ -543,30 +600,29 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
               )}
             </div>
 
-            <div data-guide="stay-rule-agreement" style={{ borderRadius: 12, border: "1px solid #F1D8C7", overflow: "hidden" }}>
-              <div style={{ padding: "11px 12px", background: "#FBF3ED", fontSize: 14, fontWeight: 800, color: "#3B2A20" }}>
-                숙소 규정을 확실히 읽어 보셨나요?
-                <div style={{ fontSize: 11.5, fontWeight: 500, color: "#555", marginTop: 2 }}>예약 전에 꼭 확인해 주세요.</div>
+            <div data-guide="stay-rule-agreement" style={{ borderRadius: 14, border: "1.5px solid #E2C3AE", overflow: "hidden", background: "white" }}>
+              <div style={{ padding: "14px 16px", background: "#FBEDE3" }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#111" }}>숙소 규정을 꼭 읽어 주세요</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#111", marginTop: 3 }}>맞지 않으면 현장에서 입실이 거부될 수 있어요.</div>
               </div>
-              {petItems.map((i) => (
-                <label key={i.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "9px 12px", borderTop: "1px solid #eef1f5", fontSize: 12.5, color: "#444", lineHeight: 1.55, cursor: "pointer" }}>
-                  <input type="checkbox" checked={petAcks.includes(i.id)} onChange={(e) => { setRuleAgreed(false); setPetAcks((all) => (e.target.checked ? [...all, i.id] : all.filter((x) => x !== i.id))); }} style={{ marginTop: 3, flexShrink: 0 }} />
-                  {i.text}
-                </label>
-              ))}
+              {petItems.length > 0 && (
+                <ul style={{ margin: 0, padding: "12px 16px 12px 34px", listStyle: "disc", display: "grid", gap: 8, fontSize: 15, color: "#111", lineHeight: 1.6, borderTop: "1px solid #F1D8C7" }}>
+                  {petItems.map((i) => <li key={i.id} style={{ fontWeight: 600 }}>{i.text}</li>)}
+                </ul>
+              )}
               {(profile?.pet_rules || profile?.stay_rules) && (
-                <div style={{ padding: "9px 12px", borderTop: "1px solid #eef1f5", display: "grid", gap: 7, fontSize: 12.5, color: "#444", lineHeight: 1.6, whiteSpace: "pre-line" }}>
-                  {profile?.pet_rules && <div><b style={{ color: "#333" }}>반려동물 동반 수칙</b><br />{profile.pet_rules}</div>}
-                  {profile?.stay_rules && <div><b style={{ color: "#333" }}>숙소 이용 수칙</b><br />{profile.stay_rules}</div>}
+                <div style={{ padding: "12px 16px", borderTop: "1px solid #F1D8C7", display: "grid", gap: 10, fontSize: 15, color: "#111", lineHeight: 1.65, whiteSpace: "pre-line" }}>
+                  {profile?.pet_rules && <div><b style={{ fontSize: 15.5 }}>반려동물 동반 수칙</b><br />{profile.pet_rules}</div>}
+                  {profile?.stay_rules && <div><b style={{ fontSize: 15.5 }}>숙소 이용 수칙</b><br />{profile.stay_rules}</div>}
                 </div>
               )}
-              <div style={{ padding: "10px 12px", borderTop: "1px solid #eef1f5", background: "#FFF8F6", display: "grid", gap: 6 }}>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면</div>
-                {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 12, color: "#5A4A44", lineHeight: 1.6 }}><b>{x.title}</b> · {x.text}</div>)}
+              <div style={{ padding: "12px 16px", borderTop: "1px solid #F1D8C7", background: "#FFF6F2", display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#9A3B27" }}>규정을 어기면</div>
+                {RULE_SANCTIONS.map((x) => <div key={x.title} style={{ fontSize: 14, color: "#111", lineHeight: 1.65 }}><b>{x.title}</b> · {x.text}</div>)}
               </div>
-              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "11px 12px", borderTop: "1px solid #F1D8C7", fontSize: 13, fontWeight: 700, color: allPetAcked ? "#222" : "#6e6e6e", lineHeight: 1.55, cursor: allPetAcked ? "pointer" : "default" }}>
-                <input type="checkbox" checked={ruleAgreed} disabled={!allPetAcked} onChange={(e) => setRuleAgreed(e.target.checked)} style={{ marginTop: 3, flexShrink: 0 }} />
-                {RULE_AGREEMENT_LABEL}
+              <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "14px 16px", borderTop: "1.5px solid #E2C3AE", background: ruleAgreed ? "#FFF8F3" : "white", fontSize: 15, fontWeight: 800, color: "#111", lineHeight: 1.55, cursor: "pointer" }}>
+                <input type="checkbox" checked={ruleAgreed} onChange={(e) => setRuleAgreed(e.target.checked)} style={{ width: 20, height: 20, marginTop: 1, flexShrink: 0, accentColor: "#A05A32" }} />
+                <span>[필수] {RULE_AGREEMENT_LABEL}</span>
               </label>
             </div>
 

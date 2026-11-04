@@ -1,5 +1,6 @@
 "use client";
 
+import { PageFooter } from "@/components/SiteFooter";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ImagePlus, X } from "lucide-react";
@@ -398,12 +399,13 @@ function CommunityWritePageContent() {
             overflowY: "auto",
 
             display: "flex",
-            justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "center",
 
             padding: "14px",
 
-            // ⭐ 핵심 수정
-            paddingBottom: "220px",
+            // 아래 탭바에 가리지 않을 만큼만(예전 220px은 글 등록 버튼 아래가 너무 길게 남았습니다)
+            paddingBottom: "calc(var(--ggk-tabbar-space, 24px) + 8px)",
           }}
         >
           <div
@@ -731,7 +733,7 @@ function CommunityWritePageContent() {
                   marginTop: "28px",
 
                   paddingTop: "22px",
-                  paddingBottom: "90px",
+                  paddingBottom: "8px",
 
                   borderTop: "1px solid #f0f2f5",
 
@@ -782,6 +784,9 @@ function CommunityWritePageContent() {
                 </button>
               </div>
             </div>
+          </div>
+          <div style={{ width: "100%", maxWidth: "640px", marginTop: 24, borderRadius: 14, overflow: "hidden" }}>
+            <PageFooter overTabBar={false} />
           </div>
         </div>
 

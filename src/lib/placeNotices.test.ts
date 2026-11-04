@@ -3,13 +3,15 @@ import { cleanNotice, isNewNotice, noticeDate, sortNotices } from "./placeNotice
 
 describe("공지 다듬기", () => {
   it("제목·내용 필수, 공백 정리", () => {
-    expect(cleanNotice({ title: "  11월   휴무 안내 ", content: " 11/3은 쉽니다 ", pinned: true })).toEqual({ notice: { title: "11월 휴무 안내", content: "11/3은 쉽니다", pinned: true } });
+    expect(cleanNotice({ title: "  11월   휴무 안내 ", content: " 11/3은 쉽니다 ", pinned: true })).toEqual({ notice: { title: "11월 휴무 안내", content: "11/3은 쉽니다", pinned: true, images: [] } });
     expect("error" in cleanNotice({ title: "", content: "내용" })).toBe(true);
     expect("error" in cleanNotice({ title: "제목", content: "  " })).toBe(true);
     expect("error" in cleanNotice({ title: "가".repeat(61), content: "내용" })).toBe(true);
   });
   it("고치기는 보낸 칸만", () => {
     expect(cleanNotice({ pinned: false }, true)).toEqual({ notice: { pinned: false } });
+    expect(cleanNotice({ images: ["https://a/1.jpg", "https://a/1.jpg", "javascript:x"] }, true)).toEqual({ notice: { images: ["https://a/1.jpg"] } });
+    expect(cleanNotice({ images: ["https://a/1", "https://a/2", "https://a/3", "https://a/4", "https://a/5"] }, true)).toEqual({ error: "사진은 4장까지 붙일 수 있어요." });
     expect("error" in cleanNotice({ title: "" }, true)).toBe(true);
   });
 });

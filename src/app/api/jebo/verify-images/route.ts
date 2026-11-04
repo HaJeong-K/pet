@@ -19,6 +19,7 @@ import { clientIp, createRateLimiter } from "@/lib/server/rateLimit";
 import { manualReviewFallback, verifyTipImages } from "@/lib/server/aiImageVerify";
 import { approveProposal } from "@/lib/approveProposal";
 import { notifyAdmin } from "@/lib/server/notify";
+import { notifyTipApproved } from "@/lib/server/tipNotify";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
   const result = await approveProposal(supabaseAdmin, proposal, { autoApprovedByAi: true });
   if (!result.ok) {
     console.error("[jebo/verify-images] AI 자동 승인 후 등록 실패 → 수동 검토:", result.reason);
+  } else {
+    await notifyTipApproved(proposal.id).catch(() => "skipped");
   }
   await notifyAdmin({
     title: result.ok ? "📍 새 제보 — AI 확인 후 자동 등록됨" : "📍 새 제보 — 자동 등록 실패, 검토 필요",

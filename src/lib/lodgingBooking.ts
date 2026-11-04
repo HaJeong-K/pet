@@ -9,7 +9,7 @@
 
 import { ARRIVAL_METHODS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
 import type { LodgingProfile, PetSize, PetSpecies, RoomInput } from "@/lib/lodgingRules";
-import { PET_SIZES, PET_SPECIES, PET_WEIGHT_MAX, EXTRA_QTY_MAX, type LodgingExtra, type PetFeeKey, type PetFees } from "@/lib/lodgingRules";
+import { PET_SIZES, PET_SPECIES, PET_WEIGHT_MAX, EXTRA_QTY_MAX, extraBasis, extraPerNight, type LodgingExtra, type PetFeeKey, type PetFees } from "@/lib/lodgingRules";
 
 /** 한 번에 숙박할 수 있는 최대 박 수 / 며칠 뒤까지 예약을 받는지 */
 export const STAY_MAX_NIGHTS = 14;
@@ -234,12 +234,12 @@ export function petsNightlyTotal(
   return fees.slice(0, charged).reduce((sum, f) => sum + f, 0);
 }
 
-/** 부가 옵션 한 줄의 금액 — 1회는 수량만큼, 1박마다는 수량×박 수, 이용일마다는 수량×고른 날 수, 1인당은 수량(인원)만큼 */
-export function extraAmount(extra: Pick<LodgingExtra, "price" | "unit">, qty: number, nights: number, useDays = 1): number {
-  return extra.price * qty * (extra.unit === "night" ? nights : extra.unit === "day" ? useDays : 1);
+/** 부가 옵션 한 줄의 금액 — 단가 × 수(개수·인원·마리) × (박마다면 고른 박 수) */
+export function extraAmount(extra: Pick<LodgingExtra, "price" | "unit" | "per_night">, qty: number, useNights = 1): number {
+  return extra.price * qty * (extraPerNight(extra) ? useNights : 1);
 }
 
-export type QuotedExtra = { id: string; name: string; unit: LodgingExtra["unit"]; price: number; qty: number; amount: number; days?: string[] };
+export type QuotedExtra = { id: string; name: string; unit: LodgingExtra["unit"]; per_night?: boolean; price: number; qty: number; amount: number; days?: string[] };
 
 /**
  * 예약 금액 — 객실(날짜별) + 기준 인원 초과 1명당 추가 요금 + 반려동물 추가 요금(마리별·1박) + 부가 옵션.
@@ -256,6 +256,8 @@ export function quoteStay(
   guests: number,
   picks: StayExtraPick[] = [],
   extras: LodgingExtra[] = [],
+  /** 함께 가는 반려동물 수 — 1마리당 옵션의 최대 수 */
+  petCount = 0,
 ): StayQuote | { error: string } {
   if (guests > room.max_guests) return { error: `이 객실은 최대 ${room.max_guests}명까지 이용할 수 있어요.` };
   const byDay = new Map(days.map((d) => [d.day, d]));
@@ -270,13 +272,17 @@ export function quoteStay(
   for (const pick of picks) {
     const extra = extras.find((x) => x.id === pick.id);
     if (!extra) return { error: "고른 부가 옵션을 찾을 수 없어요. 다시 골라 주세요." };
-    if (pick.qty > extra.max) return { error: `${extra.name}은(는) ${extra.max}개까지 고를 수 있어요.` };
+    const basis = extraBasis(extra);
+    if (basis === "person" && pick.qty > guests) return { error: `${extra.name} 이용 인원은 예약 인원(${guests}명)보다 많을 수 없어요.` };
+    if (basis === "pet" && pick.qty > Math.max(1, petCount)) return { error: `${extra.name}은(는) 함께 가는 반려동물 수(${petCount}마리)까지 고를 수 있어요.` };
+    if (basis === "stay" && pick.qty > extra.max) return { error: `${extra.name}은(는) ${extra.max}개까지 고를 수 있어요.` };
     let days: string[] | undefined;
-    if (extra.unit === "day") {
-      days = (pick.days ?? []).filter((d) => priced.some((n) => n.day === d));
+    if (extraPerNight(extra)) {
+      // 고른 밤이 없으면(예전 방식의 1박마다) 모든 밤
+      days = pick.days === undefined ? priced.map((n) => n.day) : pick.days.filter((d) => priced.some((n) => n.day === d));
       if (days.length === 0) return { error: `${extra.name}을(를) 이용할 날을 골라 주세요.` };
     }
-    quotedExtras.push({ id: extra.id, name: extra.name, unit: extra.unit, price: extra.price, qty: pick.qty, amount: extraAmount(extra, pick.qty, priced.length, days?.length ?? 1), ...(days ? { days } : {}) });
+    quotedExtras.push({ id: extra.id, name: extra.name, unit: extra.unit, per_night: extraPerNight(extra), price: extra.price, qty: pick.qty, amount: extraAmount(extra, pick.qty, days?.length ?? 1), ...(days ? { days } : {}) });
   }
   const extrasTotal = quotedExtras.reduce((s, x) => s + x.amount, 0);
   return { nights: priced, roomTotal, extraGuestTotal, petTotal, extras: quotedExtras, extrasTotal, total: roomTotal + extraGuestTotal + petTotal + extrasTotal };

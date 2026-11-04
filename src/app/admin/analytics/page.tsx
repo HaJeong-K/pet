@@ -23,6 +23,7 @@ type AnalyticsData = {
   signupsTrend: { date: string; count: number }[];
   dailyVisitorsTrend: { date: string; count: number }[];
   topSearches: { query: string; count: number }[];
+  zeroResultSearches?: { query: string; count: number }[];
   topPlaces: { placeName: string; region: string; subRegion: string; count: number }[];
   availableSubRegions: string[];
 };
@@ -252,6 +253,29 @@ export default function AdminAnalytics() {
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {data.topSearches.map((s, i) => (
+                        <div key={s.query} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#6e6e6e" }}>{i + 1}</span>
+                          <span style={{ flex: 1, fontSize: 12.5, color: "#333" }}>{s.query}</span>
+                          <span style={{ fontSize: 11, color: "#5c5c5c", fontWeight: 700 }}>{s.count}회</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={cardStyle}>
+                  <div className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "#111", marginBottom: 4 }}>
+                    <Search size={14} color="#B42318" /> 결과 없던 검색어 (최근 30일)
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#5c5c5c", marginBottom: 12, lineHeight: 1.6 }}>
+                    찾았는데 지도에 아무것도 안 나온 검색이에요.<br />
+                    이 지역·종류부터 장소를 보강하면 좋아요.
+                  </div>
+                  {!data.zeroResultSearches || data.zeroResultSearches.length === 0 ? (
+                    <div style={{ fontSize: 12, color: "#6e6e6e" }}>아직 없어요. (11월 3일부터 기록)</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {data.zeroResultSearches.map((s, i) => (
                         <div key={s.query} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ width: 18, fontSize: 11, fontWeight: 800, color: "#6e6e6e" }}>{i + 1}</span>
                           <span style={{ flex: 1, fontSize: 12.5, color: "#333" }}>{s.query}</span>

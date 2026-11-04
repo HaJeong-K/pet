@@ -171,7 +171,21 @@ describe("추가 옵션·현금영수증·반려동물 정보", () => {
   });
   it("숙박 기간 밖의 날이나 빈 날짜는 받지 않는다", () => {
     expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-03", 2, [{ id: "b", qty: 1, days: ["2026-12-01"] }], [bbq])).toBe(true);
-    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-03", 2, [{ id: "b", qty: 1 }], [bbq])).toBe(true);
+    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-03", 2, [{ id: "b", qty: 1, days: [] }], [bbq])).toBe(true);
+  });
+  it("1인당·박마다 옵션: 2박 2인 예약에서 1박만 2명이면 1박 2인 요금", () => {
+    const grill = { id: "g", name: "바비큐", price: 15000, unit: "person", per_night: true, max: 1, note: null } as never;
+    const q = quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 2, [{ id: "g", qty: 2, days: ["2026-11-03"] }], [grill]);
+    if ("error" in q) throw new Error(q.error);
+    expect(q.extrasTotal).toBe(30000);
+    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 2, [{ id: "g", qty: 3, days: ["2026-11-03"] }], [grill])).toBe(true);
+  });
+  it("1마리당 옵션은 함께 가는 반려동물 수까지", () => {
+    const kit = { id: "k", name: "용품 대여", price: 5000, unit: "pet", max: 1, note: null } as never;
+    const q = quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 2, [{ id: "k", qty: 2 }], [kit], 2);
+    if ("error" in q) throw new Error(q.error);
+    expect(q.extrasTotal).toBe(10000);
+    expect("error" in quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 2, [{ id: "k", qty: 3 }], [kit], 2)).toBe(true);
   });
   it("1박마다 옵션과 인원 추가금은 박 수만큼 받는다", () => {
     const q = quoteStay(room, 0, [], "2026-11-02", "2026-11-04", 3, [{ id: "t", qty: 1 }], [towel]);

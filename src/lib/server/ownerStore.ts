@@ -113,4 +113,4 @@ export async function listProducts(placeId: number, onlyActive: boolean): Promis
   return { ready: true, detailReady: false, products: ((base.data ?? []) as unknown as ProductRow[]).map((p) => ({ ...EMPTY_DETAIL, ...p })) };
 }
 
-export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at, order_type, party_size, coupon_id, discount, payment_status, refund_amount, cancel_request_status, cancel_request_reason, cancel_request_answer";
+export const RESERVATION_COLUMNS = "id, place_id, customer_auth_user_id, customer_name, customer_phone, items, total, pickup_at, memo, status, owner_note, created_at, updated_at, order_type, party_size, coupon_id, discount, payment_status, refund_amount, cancel_request_status, cancel_request_reason, cancel_request_answer, accepted_at, ready_at, completed_at, cancelled_at";

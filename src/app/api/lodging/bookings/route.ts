@@ -3,7 +3,7 @@ import { canReviewStay } from "@/lib/lodgingReviews";
 import { ensureFreshIcal } from "@/lib/server/lodgingIcal";
 import { NextRequest, NextResponse, after } from "next/server";
 import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
-import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, getLodging, heldOverlaps, roomDays } from "@/lib/server/lodgingStore";
+import { BOOKING_COLUMNS, BOOKING_FULL_COLUMNS, GUEST_INFO_COLUMNS, getLodging, heldOverlaps, roomDays } from "@/lib/server/lodgingStore";
 import { applyCancel, confirmStay, expireStaleRequests, MONEY_COLUMNS, NEED_SETTLEMENT_SQL, type MoneyBooking } from "@/lib/server/lodgingMoney";
 import { availableStamps, releaseStamps, spendStamps } from "@/lib/server/memoryStamps";
 import { STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
@@ -45,7 +45,7 @@ const shortDay = (day: string) => stayDayLabel(day);
 export async function GET(req: NextRequest) {
   const user = await userOf(req);
   if (!user) return fail("로그인이 필요해요.", 401);
-  let { data, error } = await db.from("lodging_bookings").select(BOOKING_FULL_COLUMNS).eq("guest_auth_user_id", user.id).order("created_at", { ascending: false }).limit(100);
+  let { data, error } = await db.from("lodging_bookings").select(`${BOOKING_FULL_COLUMNS}, ${GUEST_INFO_COLUMNS}`).eq("guest_auth_user_id", user.id).order("created_at", { ascending: false }).limit(100);
   let settlementReady = true;
   if (error && isMissingSchema(error)) {
     settlementReady = false;
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
   const days = await roomDays(r.roomId, r.checkIn, r.checkOut, { withIcal: true }).catch(() => []);
   // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
   const petNightly = petsNightlyTotal(profile, r.pets);
-  const q = quoteStay(room, petNightly, days, r.checkIn, r.checkOut, r.guests, r.extras, profile?.extras ?? []);
+  const q = quoteStay(room, petNightly, days, r.checkIn, r.checkOut, r.guests, r.extras, profile?.extras ?? [], r.pets.length);
   if ("error" in q) return fail(q.error, 400);
   if ((await heldOverlaps(r.roomId, r.checkIn, r.checkOut)).length > 0) return fail(FULL_MESSAGE, 409);
 

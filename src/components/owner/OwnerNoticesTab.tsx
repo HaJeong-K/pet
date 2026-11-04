@@ -7,14 +7,15 @@
 // 서버는 /api/owner/notices, 규칙은 src/lib/placeNotices.ts.
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { ImagePlus, Megaphone, Pencil, Pin, PinOff, Trash2, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { NOTICE_CONTENT_MAX, NOTICE_TITLE_MAX, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
+import { NOTICE_CONTENT_MAX, NOTICE_IMAGES_MAX, NOTICE_TITLE_MAX, noticeDate, type PlaceNotice } from "@/lib/placeNotices";
+import NoticeImages from "@/components/NoticeImages";
 
 const card: React.CSSProperties = { background: "white", borderRadius: 18, border: "1px solid #E7E6E5", padding: "18px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)" };
 const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
 const small = (danger = false): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 4, padding: "7px 10px", borderRadius: 9, border: `1px solid ${danger ? "#f3c7c5" : "#DDDCDB"}`, background: "white", color: danger ? "#b42318" : "#555", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
-const EMPTY = { title: "", content: "", pinned: false };
+const EMPTY: { title: string; content: string; pinned: boolean; images: string[] } = { title: "", content: "", pinned: false, images: [] };
 
 export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeId: number; isPreview: boolean; canAct: boolean }) {
   const [notices, setNotices] = useState<PlaceNotice[] | null>(null);
@@ -56,7 +57,31 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
     );
     if (ok) { setForm(EMPTY); setEditId(null); }
   };
-  const edit = (n: PlaceNotice) => { setEditId(n.id); setForm({ title: n.title, content: n.content, pinned: n.pinned }); setMessage(null); };
+  const edit = (n: PlaceNotice) => { setEditId(n.id); setForm({ title: n.title, content: n.content, pinned: n.pinned, images: n.images ?? [] }); setMessage(null); };
+  // 공지 사진 — 고르면 바로 올리고 주소만 공지에 붙입니다(최대 NOTICE_IMAGES_MAX장)
+  const [uploading, setUploading] = useState(false);
+  const addImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setMessage(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("로그인이 필요해요.");
+      const room = NOTICE_IMAGES_MAX - form.images.length;
+      const added: string[] = [];
+      for (const file of Array.from(files).slice(0, Math.max(0, room))) {
+        const body = new FormData();
+        body.append("file", file);
+        const res = await fetch(`/api/owner/notices/image${isPreview ? `?placeId=${placeId}` : ""}`, { method: "POST", headers: { Authorization: `Bearer ${session.access_token}` }, body });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || "사진을 올리지 못했어요.");
+        added.push(json.url);
+      }
+      setForm((f) => ({ ...f, images: [...f.images, ...added].slice(0, NOTICE_IMAGES_MAX) }));
+      if (files.length > room) setMessage({ ok: false, text: `사진은 ${NOTICE_IMAGES_MAX}장까지 붙일 수 있어요.` });
+    } catch (e) { setMessage({ ok: false, text: e instanceof Error ? e.message : "사진을 올리지 못했어요." }); }
+    finally { setUploading(false); }
+  };
   const remove = (n: PlaceNotice) => {
     if (!window.confirm(`"${n.title}" 공지를 지울까요?\n손님 화면에서 사라져요.`)) return;
     run(() => call({ method: "DELETE" }, `id=${n.id}`), "공지를 지웠어요.");
@@ -64,7 +89,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
   };
   const togglePin = (n: PlaceNotice) => run(() => call({ method: "PATCH", body: JSON.stringify({ id: n.id, pinned: !n.pinned }) }), n.pinned ? "고정을 풀었어요." : "대표 공지로 고정했어요.");
   const disabled = !canAct || busy || !ready;
-  const formReady = form.title.trim() && form.content.trim() && !disabled;
+  const formReady = form.title.trim() && form.content.trim() && !disabled && !uploading;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -81,6 +106,21 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
         <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
           <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value.slice(0, NOTICE_TITLE_MAX) }))} disabled={disabled} placeholder="제목 — 예: 11월 3일(월) 정기 휴무 안내" aria-label="공지 제목" style={input} />
           <textarea value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value.slice(0, NOTICE_CONTENT_MAX) }))} disabled={disabled} rows={5} placeholder={"내용 — 예: 11월 3일(월)은 정기 휴무입니다.\n4일(화)부터 정상 영업해요."} aria-label="공지 내용" style={{ ...input, resize: "vertical", lineHeight: 1.6 }} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {form.images.map((src) => (
+              <div key={src} style={{ position: "relative" }}>
+                <img src={src} alt="공지 사진" style={{ display: "block", width: 72, height: 72, objectFit: "cover", borderRadius: 10, border: "1px solid #EDECEB" }} />
+                <button type="button" aria-label="사진 빼기" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((u) => u !== src) }))} disabled={disabled} style={{ position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: 999, border: "none", background: "#3B2A20", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={12} /></button>
+              </div>
+            ))}
+            {form.images.length < NOTICE_IMAGES_MAX && (
+              <label style={{ width: 72, height: 72, borderRadius: 10, border: "1px dashed #CFCDCB", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 11, color: "#6B5E55", cursor: disabled || uploading ? "default" : "pointer", background: "#FAFAF9" }}>
+                <ImagePlus size={18} color="#A05A32" />
+                {uploading ? "올리는 중" : `사진 ${form.images.length}/${NOTICE_IMAGES_MAX}`}
+                <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={disabled || uploading} onChange={(e) => { addImages(e.target.files); e.target.value = ""; }} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#444", cursor: "pointer" }}>
               <input type="checkbox" checked={form.pinned} onChange={(e) => setForm((f) => ({ ...f, pinned: e.target.checked }))} disabled={disabled} style={{ width: 16, height: 16 }} />
@@ -111,6 +151,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
                 <span style={{ fontSize: 11.5, color: "#6e6e6e" }}>{noticeDate(n.created_at)}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "#666", marginTop: 5, lineHeight: 1.6, whiteSpace: "pre-line", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{n.content}</div>
+              <NoticeImages images={n.images} size={64} />
               {canAct && (
                 <div style={{ display: "flex", gap: 6, marginTop: 9, flexWrap: "wrap" }}>
                   <button onClick={() => edit(n)} disabled={busy} style={small()}><Pencil size={12} />고치기</button>

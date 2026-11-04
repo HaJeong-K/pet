@@ -451,11 +451,23 @@ export default function KakaoMap() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // 관리자 통계 분석 탭의 "검색어 추이" 계산용 — 실제로 입력을 멈춘 검색어만 기록
+  // 관리자 통계 분석 탭의 "검색어 추이"·"결과 없던 검색어" 계산용 — 실제로 입력을 멈춘 검색어만 기록.
+  // 서버 이름 검색·동네 확인이 끝날 시간을 1.5초 두고, 그때 목록에 나온 장소 수를 함께 남깁니다(0이면 데이터를 보강할 곳).
+  //   · 말하듯이 검색(어디서·무엇을): 조건에 맞아 목록에 나온 수 / · 가게 이름: 이름이 맞은 수
+  //   · 그 밖: 지역 이름으로 지도를 옮겼으면 "region"(결과 있음으로 봄), 지역도 못 찾았으면 0
+  const searchStateRef = useRef({ intent: false, list: 0, names: 0 });
+  const regionHitRef = useRef<{ q: string; found: boolean } | null>(null);
   useEffect(() => {
-    if (debouncedSearch.trim().length >= 2) {
-      trackEvent("search", { query: debouncedSearch.trim() });
-    }
+    const q = debouncedSearch.trim();
+    if (q.length < 2) return;
+    const timer = setTimeout(() => {
+      const st = searchStateRef.current;
+      const region = regionHitRef.current?.q === q ? regionHitRef.current.found : false;
+      const kind = st.intent ? "intent" : st.names > 0 ? "name" : region ? "region" : "none";
+      const results = st.intent ? st.list : st.names > 0 ? st.names : region ? -1 : 0;
+      trackEvent("search", { query: q, meta: { results, kind } });
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [debouncedSearch]);
 
   // (검색 시 지도 이동 로직은 nameSearchResults가 정의된 아래쪽으로 옮겼습니다 —
@@ -1680,6 +1692,8 @@ export default function KakaoMap() {
       .sort((a, b) => b.heat.views - a.heat.views || b.heat.liked - a.heat.liked)
       .map((entry) => entry.item);
   }, [displayedPlacesByDistance, intentActive, searchIntent, heatOf]);
+  // 검색 기록에 남길 결과 수(목록 패널을 접어 둬도 같은 값)
+  searchStateRef.current = { intent: intentActive, list: displayedPlaces.length, names: nameSearchResults.length };
 
   // 목록 내용이 바뀌면 처음 분량부터 다시 그립니다.
   useEffect(() => { setListLimit(LIST_PAGE); }, [displayedPlaces]);
@@ -1936,7 +1950,9 @@ export default function KakaoMap() {
     }
 
     (async () => {
-      const center = await searchRegionAndMoveMap(debouncedSearch.trim(), mapRef.current);
+      const q = debouncedSearch.trim();
+      const center = await searchRegionAndMoveMap(q, mapRef.current);
+      regionHitRef.current = { q, found: !!center };
       if (center) setSearchCenter(center);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

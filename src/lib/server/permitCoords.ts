@@ -14,6 +14,7 @@
 // 좌표는 중부원점TM(EPSG:5174)이라 지도에서 쓰는 위도·경도(WGS84)로 바꿉니다.
 // 키는 공공데이터포털 계정 키(관광공사 데이터에 쓰는 것과 같은 키)입니다.
 import proj4 from "proj4";
+import { createClient } from "@supabase/supabase-js";
 
 const EPSG5174 = "+proj=tmerc +lat_0=38 +lon_0=127.0028902777778 +k=1 +x_0=200000 +y_0=500000 +ellps=bessel +units=m +no_defs +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43";
 
@@ -34,7 +35,7 @@ export function serviceOrder(category: string): ServiceKey[] {
   return [first, ...(Object.keys(SERVICE_PATHS) as ServiceKey[]).filter((k) => k !== first)];
 }
 
-const squash = (text: string) => text.replace(/[\s,()·.\-]/g, "").toLowerCase();
+export const squash = (text: string) => text.replace(/[\s,()·.\-]/g, "").toLowerCase();
 
 /**
  * 주소에서 "도로명 + 건물번호"를 뽑습니다. 예: "경상북도 안동시 풍천면 수호로 59, 1층" → { road: "수호로", number: "59" }
@@ -55,12 +56,32 @@ export function districtOf(address: string): string | null {
   return found;
 }
 
-type PermitRow = { BPLC_NM?: string; ROAD_NM_ADDR?: string; CRD_INFO_X?: string; CRD_INFO_Y?: string; SALS_STTS_CD?: string };
+export type PermitRow = { BPLC_NM?: string; ROAD_NM_ADDR?: string; LOTNO_ADDR?: string; CRD_INFO_X?: string; CRD_INFO_Y?: string; SALS_STTS_CD?: string; TELNO?: string; CLSBIZ_YMD?: string };
 
 async function query(service: ServiceKey, cond: string, value: string, key: string): Promise<PermitRow[]> {
+  return queryPermit(SERVICE_PATHS[service], cond, value, key);
+}
+
+/** 인허가 데이터 종류마다 하루에 부를 수 있는 횟수(공공데이터포털 개발계정 1만 건 — 여유를 둠) */
+export const PERMIT_DAILY_LIMIT = 9_500;
+/** 오늘 이 종류의 한도를 다 썼을 때 던지는 오류 */
+export class PermitQuotaError extends Error {}
+
+/** 오늘 사용량을 1 올리고, 한도를 넘었으면 PermitQuotaError. 사용량 표가 없으면 세지 않고 진행합니다. */
+async function spendQuota(path: string): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data, error } = await db.rpc("bump_api_usage", { p_api: `permit:${path}` });
+  if (!error && typeof data === "number" && data > PERMIT_DAILY_LIMIT) throw new PermitQuotaError(`${path} 오늘 한도 도달`);
+}
+
+/** 인허가 데이터 한 종류(path = general_restaurants·animal_hospitals 등)에서 조건에 맞는 기록을 최대 100건 */
+export async function queryPermit(path: string, cond: string, value: string, key: string): Promise<PermitRow[]> {
+  await spendQuota(path);
   // 포털 키는 이미 주소용으로 바뀐(인코딩된) 모양으로 발급됩니다 — 그대로 붙입니다.
-  const url = `https://apis.data.go.kr/1741000/${SERVICE_PATHS[service]}/info?serviceKey=${key}&pageNo=1&numOfRows=100&returnType=json&${encodeURIComponent(`cond[${cond}]`)}=${encodeURIComponent(value)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  const url = `https://apis.data.go.kr/1741000/${path}/info?serviceKey=${key}&pageNo=1&numOfRows=100&returnType=json&${encodeURIComponent(`cond[${cond}]`)}=${encodeURIComponent(value)}`;
+  // 음식점(230만 건)처럼 큰 데이터는 주소 검색 한 번에 10초 넘게 걸리기도 합니다
+  const res = await fetch(url, { signal: AbortSignal.timeout(25_000) });
   if (!res.ok) throw new Error(`인허가 조회 실패 ${res.status}`);
   const json = await res.json().catch(() => null);
   const items = json?.response?.body?.items?.item ?? json?.response?.body?.items ?? [];
@@ -98,7 +119,8 @@ export async function findPermitCoord(row: { name: string; address: string; cate
       const rows = await query(service, "ROAD_NM_ADDR::LIKE", `${road.road} ${road.number}`, key);
       // "수호로 59"로 찾으면 "수호로 590"도 섞여 나오므로, 번호 바로 뒤가 숫자가 아닌 것만 남깁니다.
       const same = rows.filter((c) => {
-        const addr = squash((c.ROAD_NM_ADDR ?? "").replace(/\(.*?\)/g, " "));
+        // 쉼표 뒤(동·호수, 예: "섭골길 51-41, 101호")는 떼고 비교합니다 — 붙이면 "51-41101"이 돼 같은 주소를 놓칩니다
+        const addr = squash((c.ROAD_NM_ADDR ?? "").split(",")[0].replace(/\(.*?\)/g, " "));
         const at = addr.indexOf(want);
         return at >= 0 && !/\d/.test(addr[at + want.length] ?? "") && districtOk(c);
       });

@@ -183,7 +183,7 @@ export default function TabBar() {
     if (pathname.startsWith("/stay")) return "stay";
     if (pathname.startsWith("/admin")) return "admin";
     if (pathname.startsWith("/owner")) return isOwner || isAdmin ? "owner" : "mypage";
-    if (pathname.startsWith("/mypage")) return "mypage";
+    if (pathname.startsWith("/mypage") || pathname.startsWith("/orders")) return "mypage";
     if (pathname.startsWith("/login")) return "login";
     return "map";
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import OwnerBadge from "@/components/OwnerBadge";
+import { infoLines } from "@/lib/infoLines";
 import PlaceStampButton from "@/components/stamps/PlaceStampButton";
 import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import LogoLoader from "@/components/LogoLoader";
@@ -23,6 +24,7 @@ import OwnerManagedBadge from "@/components/OwnerManagedBadge";
 import PlaceLodgingSection from "@/components/lodging/PlaceLodgingSection";
 import { isLodgingCategory } from "@/lib/ownerKind";
 import PlaceFreshness from "@/components/PlaceFreshness";
+import PlaceTippers from "@/components/PlaceTippers";
 import { rememberInterest } from "@/lib/interestRegions";
 import {
   calculateAffinityBreakdown,
@@ -41,7 +43,7 @@ import PageGuide from "@/components/PageGuide";
 import { PLACE_GUIDE_KEY, PLACE_GUIDE_STEPS } from "@/lib/pageGuides";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
-  Shuffle, MapPin, Clock, PawPrint, Plus, Navigation,
+  MapPin, Clock, PawPrint, Plus, Navigation,
   ImageOff, ChefHat, LandPlot, Dog, Shield,
   ChevronLeft, ChevronRight, Phone,
   Car,         // 주차
@@ -174,10 +176,11 @@ type AdminMenuState = {
 // 영업시간처럼 "월~화 09:30~19:00, 수 09:30~13:30, 목~토 09:30~19:00"같이 쉼표로 요일별
 // 구간이 나뉘어 있는 값은 한 줄에 다 이어붙어 있으면 읽기 어려워서, 쉼표 단위로
 // 줄바꿈해서 보여줍니다. 쉼표가 없는 값(예: "매일 10:00~22:00")은 그대로 한 줄입니다.
+// 영업시간·휴무일·주차·입장료 — " / ", 쉼표, 붙어 온 "- 항목"을 한 줄씩(src/lib/infoLines.ts)
 function MultilineText({ text }: { text: string | null | undefined }) {
   if (!text) return <>—</>;
-  const parts = text.split(",").map((s) => s.trim()).filter(Boolean);
-  if (parts.length <= 1) return <>{text}</>;
+  const parts = infoLines(text);
+  if (parts.length <= 1) return <>{parts[0] ?? text}</>;
   return (
     <>
       {parts.map((part, i) => (
@@ -531,6 +534,12 @@ export default function PlaceDetail({
       }
       setIsPublicDataPlace(publicDataPlace);
       setPlace(resolvedPlace);
+      // 공공데이터 장소인데 전화번호가 비어 있으면 인허가 데이터에서 같은 가게를 한 번 찾아 채웁니다(찾으면 다음 방문자에게도 보임)
+      if (publicDataPlace && !resolvedPlace.phone) {
+        fetch(`/api/public-data/permit?id=${placeId}`).then((r) => r.json()).then((j) => {
+          if (!cancelled && j?.phone) setPlace((p: any) => (p && !p.phone ? { ...p, phone: j.phone } : p));
+        }).catch(() => {});
+      }
 
       // ── 2단계: 리뷰·사진·답글·반응 — 서로 기다릴 필요가 없어 동시에 요청합니다.
       // 실패해도 장소 정보는 그대로 보여줍니다.
@@ -595,12 +604,14 @@ export default function PlaceDetail({
   // 관리자 통계 분석 탭의 "지역별 인기 장소 TOP10" 계산용 — 상세페이지 조회 이벤트
   useEffect(() => {
     if (!place) return;
-    trackEvent("place_view", {
+    // 회원이면 계정도 함께 남깁니다 — 찜한 사람이 없는 장소의 "정보 확인 요청"을 최근에 본 회원에게 보내는 데 씁니다(src/lib/server/checkRequests.ts).
+    supabase.auth.getSession().then(({ data: { session } }) => trackEvent("place_view", {
       placeId: place.id,
       placeName: place.name,
       region: extractRegion(place.address),
       subRegion: extractSubRegion(place.address),
-    });
+      authUserId: session?.user?.id ?? null,
+    })).catch(() => {});
     // 둘러본 곳의 위치를 "관심 지역"으로 이 기기에만 기억합니다(내 동네에 배너 가게가 없을 때 그 근처 가게를 보여 주는 데 씀).
     rememberInterest(place.lat, place.lng, "place");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -713,6 +724,7 @@ export default function PlaceDetail({
 
   // ── 댓글 등록
   const handleSubmit = async () => {
+    if (!isLoggedIn) return; // 댓글은 로그인한 회원만
     if (!myNickname || !content) return;
 
     if (!session && !password) return;
@@ -746,6 +758,7 @@ export default function PlaceDetail({
   };
 
   const handleReplySubmit = async (reviewId: string) => {
+    if (!isLoggedIn) return; // 답글도 로그인한 회원만
     if (!replyContent.trim()) return;
     if (!isLoggedIn && !replyPassword.trim()) return;
     const userKey = getUserKey();
@@ -1412,7 +1425,7 @@ export default function PlaceDetail({
                 <CalendarOff size={10} />휴무일
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.closed_days || "—"}
+                <MultilineText text={place.closed_days} />
               </div>
             </div>
           </div>
@@ -1424,7 +1437,7 @@ export default function PlaceDetail({
                 <Car size={10} />주차
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.parking || "—"}
+                <MultilineText text={place.parking} />
               </div>
             </div>
             <div style={{ padding:"10px 12px" }}>
@@ -1432,7 +1445,7 @@ export default function PlaceDetail({
                 <Ticket size={10} />입장료
               </div>
               <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500 }}>
-                {place.entry_fee || "—"}
+                <MultilineText text={place.entry_fee} />
               </div>
             </div>
           </div>
@@ -1452,6 +1465,7 @@ export default function PlaceDetail({
 
         {/* 정보 확인 — 마지막 확인일(방문자·사장님·공공데이터)과 다녀온 사람의 "정보가 맞아요 / 달라졌어요" */}
         <PlaceFreshness placeId={placeId} placeName={place.name} isOwner={isPlaceOwner} phone={place.phone} />
+        <PlaceTippers placeId={placeId} />
 
         {/* 찜/추천/비추천/네이버 */}
         <div data-guide="place-actions" style={{ marginTop:"12px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:"7px" }}>
@@ -1530,33 +1544,25 @@ export default function PlaceDetail({
           </div>
         </div>
 
-        {/* 댓글 작성 */}
+        {/* 댓글 작성 — 로그인한 회원만(보기는 누구나). 닉네임은 잘리지 않게 한 줄 전체를 씁니다. */}
+        {isLoggedIn && (
         <div style={{ padding:"10px", background:"#f5f6f8", borderRadius:"10px", marginBottom:"8px" }}>
-          <div style={{ display:"grid", gridTemplateColumns: isLoggedIn ? "calc(40% - 21px)" : "4fr auto 6fr", gap:"7px", marginBottom:"7px", alignItems:"stretch" }}>
-            <div style={{ display:"flex", alignItems:"center", background:"white", padding:"7px 10px", borderRadius:"7px", border:"1px solid #ddd", fontSize:"12px", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", width:"100%" }}>
-              {myNickname}
-            </div>
-            {!isLoggedIn && (
-              <button onClick={createRandomNickname} style={{ width:"38px", height:"38px", aspectRatio:"1/1", borderRadius:"7px", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                <Shuffle size={14} />
-              </button>
-            )}
-            {!isLoggedIn && (
-              <input placeholder="비밀번호" type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width:"100%", padding:"7px 10px", borderRadius:"7px", border:"1px solid #ddd", fontSize:"12px", background:"white" }} />
-            )}
+          <div className="ggk-body" style={{ fontSize:"12px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}>
+            <b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요
           </div>
           <div style={{ display:"flex", gap:"7px", alignItems:"stretch" }}>
             <textarea placeholder="댓글을 입력하세요" value={content} onChange={(e) => setContent(e.target.value)} style={{ flex:1, minHeight:"58px", padding:"8px 10px", borderRadius:"7px", background:"white", border:"1px solid #ddd", fontSize:"12px", resize:"none" }} />
-            <button onClick={handleSubmit} disabled={(!session && !password) || !content} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:((!session && !password)||!content)?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: ((!session && !password)||!content) ? "#4f4a3f" : "white", cursor:((!session && !password)||!content)?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
+            <button onClick={handleSubmit} disabled={!content} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:!content?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: !content ? "#4f4a3f" : "white", cursor:!content?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
               등록
             </button>
           </div>
         </div>
+        )}
 
         {/* 비로그인 로그인 유도 */}
         {!isLoggedIn && (
           <div style={{ padding:"12px 14px", background:"#f5f6f8", borderRadius:"10px", marginBottom:"10px", textAlign:"center", border:"1px solid #eee" }}>
-            <div style={{ marginBottom:"10px", fontSize:"12px", color:"#555" }}>회원으로 댓글을 작성하고, 찜 기능을 이용해보세요!</div>
+            <div style={{ marginBottom:"10px", fontSize:"12px", color:"#555", lineHeight:1.6 }}>댓글은 로그인한 뒤에 남길 수 있어요.<br />찜과 숙소 예약·쇼핑 주문도 로그인 후 이용해 주세요.</div>
             <div style={{ display:"flex", justifyContent:"center", gap:"8px" }}>
               <button onClick={() => router.push(`/login?redirect=/place/${placeId}`)} className="ggk-body" style={{ padding:"8px 16px", borderRadius:"8px", border:"none", background:"linear-gradient(145deg,#2a2a2a,#111)", color:"white", fontWeight:700, cursor:"pointer", fontSize:"12px", boxShadow:"0 1px 5px rgba(0,0,0,0.18)" }}>로그인</button>
               <button onClick={() => router.push(`/signup?redirect=/place/${placeId}`)} className="ggk-body" style={{ padding:"8px 16px", borderRadius:"8px", border:"1px solid #ddd", background:"linear-gradient(145deg,#f5f6f8,#eaebee)", color:"#333", fontWeight:700, cursor:"pointer", fontSize:"12px", boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>회원가입</button>
@@ -1651,18 +1657,20 @@ export default function PlaceDetail({
                   )}
 
                   {/* 답글 입력 */}
-                  {replyingId === r.id && (
+                  {replyingId === r.id && !isLoggedIn && (
+                    <div className="ggk-body" style={{ marginTop:"8px", marginLeft:"28px", padding:"10px 12px", background:"#f5f6f8", borderRadius:"9px", fontSize:"11.5px", color:"#555" }}>
+                      답글은 로그인한 뒤에 남길 수 있어요.{" "}
+                      <button onClick={() => router.push(`/login?redirect=/place/${placeId}`)} style={{ border:"none", background:"none", padding:0, color:"#A05A32", fontWeight:700, cursor:"pointer", fontSize:"11.5px" }}>로그인하기</button>
+                    </div>
+                  )}
+                  {replyingId === r.id && isLoggedIn && (
                     <div style={{ marginTop:"8px", marginLeft:"28px", padding:"10px", background:isPlaceOwner?"#FFFBEB":"#f8fafc", borderRadius:"9px", border:`1px solid ${isPlaceOwner?"#FDE68A":"#e2e8f0"}` }}>
                       {isPlaceOwner && (
                         <div className="ggk-body" style={{ display:"flex", alignItems:"center", gap:"4px", marginBottom:"7px", fontSize:"11px", fontWeight:700, color:"#92400E" }}>
                           <Store size={12} />사장님 답글로 등록돼요 — 고객에게 "사장님" 배지와 함께 보여요.
                         </div>
                       )}
-                      <div style={{ display:"grid", gridTemplateColumns:isLoggedIn?"calc(40% - 20px)":"4fr auto 6fr", gap:"7px", marginBottom:"7px" }}>
-                        <div style={{ display:"flex", alignItems:"center", background:"white", padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", fontSize:"11px", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>{myNickname}</div>
-                        {!isLoggedIn && <button onClick={createRandomNickname} style={{ width:"36px", height:"36px", borderRadius:"6px", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><Shuffle size={13} /></button>}
-                        {!isLoggedIn && <input placeholder="비밀번호" type="password" value={replyPassword} onChange={(e) => setReplyPassword(e.target.value)} style={{ width:"100%", padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", fontSize:"11px", boxSizing:"border-box" }} />}
-                      </div>
+                      <div className="ggk-body" style={{ fontSize:"11px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}><b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요</div>
                       <div style={{ display:"flex", gap:"7px" }}>
                         <textarea placeholder={isPlaceOwner ? "방문해 주신 고객께 답글을 남겨 보세요" : "답글을 입력하세요"} value={replyContent} onChange={(e) => setReplyContent(e.target.value)} style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box" }} />
                         <button disabled={!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())} onClick={() => handleReplySubmit(r.id)} className="ggk-body" style={{ width:"46px", borderRadius:"6px", border:"none", background:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: (!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())) ? "#4f4a3f" : "white", cursor:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"default":"pointer", fontSize:"11px", fontWeight:700 }}>등록</button>

@@ -144,6 +144,8 @@ export async function applyInfoUpdateProposal(
     supabase.from("reports").update({ place_id: to }).eq("place_id", from),
     supabase.from("analytics_events").update({ place_id: String(to) }).eq("place_id", String(from)),
     supabase.from("users").update({ owner_place_id: to }).eq("owner_place_id", from),
+    // 제보도 새 번호로(장소 상세의 제보자 표시·반영 알림 링크가 새 장소를 가리키게)
+    supabase.from("proposals").update({ place_id: to }).eq("place_id", from),
   ]);
   for (const m of moves) if (m.error) console.error("[applyInfoUpdateProposal] 기록 이동 실패:", m.error.message);
 

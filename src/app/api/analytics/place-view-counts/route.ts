@@ -35,7 +35,8 @@ export async function GET() {
       counts[id] = (counts[id] || 0) + 1;
     }
 
-    return NextResponse.json({ counts });
+    // 최근 30일 조회 이벤트를 최대 5만 줄 읽는 무거운 집계라, CDN이 10분 동안 대신 응답하게 합니다(조회수는 조금 늦어도 괜찮음).
+    return NextResponse.json({ counts }, { headers: { "Cache-Control": "public, max-age=60, s-maxage=600, stale-while-revalidate=3600" } });
   } catch (e) {
     console.error("[/api/analytics/place-view-counts] failed:", e);
     return NextResponse.json({ counts: {} }, { status: 200 });
