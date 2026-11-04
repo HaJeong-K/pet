@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import LogoLoader from "@/components/LogoLoader";
-import { HeartHandshake, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { SupportOrg } from "@/lib/server/supportOrgs";
 
 async function call(method: "GET" | "PUT", orgs?: SupportOrg[]) {
@@ -55,8 +55,6 @@ export default function AdminSupportOrgs() {
       <AdminNav active="support" onRefresh={load} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <HeartHandshake size={18} color="#A05A32" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>후원 단체</div>
           <a href="/shelter-notices/support" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#A05A32" }}>방문자 화면 보기 →</a>
         </div>
         <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7, marginBottom: 14 }}>

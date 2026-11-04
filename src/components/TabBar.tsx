@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown, ShoppingBag, BedDouble, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Map, Users, ShieldCheck, User, LogIn, PawPrint, Store, ClipboardList, Package, Crown, ShoppingBag, BedDouble, CalendarDays } from "lucide-react";
 import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab } from "@/lib/ownerTab";
 import { supabase } from "@/lib/supabase";
 import { playBark } from "@/lib/ownerAlertSound";
@@ -15,11 +15,22 @@ async function tabProfile(uid: string) {
   return isMissingOwnerKind(first.error) ? (await query("is_admin, owner_status, owner_place_id")).data : first.data;
 }
 
+const TABBAR_COLLAPSE_KEY = "ggk_tabbar_collapsed";
+
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
   // 사장님 센터에서 지금 보는 메뉴(아래의 화면 숨김 판단보다 먼저 불러야 합니다 — 훅은 항상 같은 순서로)
   const ownerTab = useSyncExternalStore(subscribeOwnerTab, getOwnerTab, getOwnerTabOnServer);
+  // 접어 두기 — 화면 왼쪽·오른쪽 끝의 작은 손잡이로 줄여서 다른 버튼을 가리지 않게. 이 기기에 기억합니다.
+  const [collapsed, setCollapsedState] = useState<"left" | "right" | null>(null);
+  useEffect(() => {
+    try { const v = localStorage.getItem(TABBAR_COLLAPSE_KEY); if (v === "left" || v === "right") { const t = window.setTimeout(() => setCollapsedState(v), 0); return () => window.clearTimeout(t); } } catch { /* 저장소를 못 쓰면 펼친 채로 */ }
+  }, []);
+  const setCollapsed = (v: "left" | "right" | null) => {
+    setCollapsedState(v);
+    try { if (v) localStorage.setItem(TABBAR_COLLAPSE_KEY, v); else localStorage.removeItem(TABBAR_COLLAPSE_KEY); } catch { /* 기억 못 해도 지금 화면에서는 적용 */ }
+  };
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -140,7 +151,8 @@ export default function TabBar() {
     const measure = () => {
       const bar = barRef.current;
       // 탭바가 없는 화면(로그인·장소 상세 등)은 기본 여백만 둡니다.
-      if (!bar) { root.style.setProperty("--ggk-tabbar-space", "24px"); return; }
+      // 탭바가 없거나 접어 둔 화면은 기본 여백만 둡니다.
+      if (!bar || collapsed) { root.style.setProperty("--ggk-tabbar-space", "24px"); return; }
       const rect = bar.getBoundingClientRect();
       if (rect.height === 0) return;
       // 화면 아래 끝에서 탭바 윗변까지 = 탭바가 가리는 높이. 여기에 숨 쉴 틈 16px.
@@ -157,21 +169,14 @@ export default function TabBar() {
       window.removeEventListener("resize", measure);
       window.visualViewport?.removeEventListener("resize", measure);
     };
-  }, [pathname, isLoggedIn, isAdmin, isOwner]);
+  }, [pathname, isLoggedIn, isAdmin, isOwner, collapsed]);
 
+  // 탭바는 소개 화면(서비스 소개·광고 제휴·입점 안내)에서만 숨깁니다 — 다른 화면은 탭바로 오가므로 항상 보입니다(2026-11-04 대표 요청).
+  // 가리는 게 불편하면 탭바를 왼쪽·오른쪽 끝으로 접어 둘 수 있습니다(아래 collapsed).
   const hideTabBar =
-    pathname.includes("/login") ||
-    pathname.includes("/signup") ||
-    pathname === "/reset-password" ||
-    pathname.includes("/place/") ||
-    pathname === "/report" ||
-    pathname === "/jebo" ||
-    // 푸터에서 들어가는 안내 화면(서비스 소개·광고 제휴·입점 안내)
     pathname === "/about" ||
     pathname === "/partnership" ||
-    pathname.startsWith("/partner/") ||
-    pathname.startsWith("/owner") ||
-    pathname.startsWith("/admin");  
+    pathname.startsWith("/partner/");
 
   if (hideTabBar) return null;
 
@@ -237,6 +242,30 @@ export default function TabBar() {
   const activeIdx = tabs.findIndex((t) => t.key === activeTab);
   const TAB_COUNT = tabs.length;
 
+  // 접어 둔 상태: 화면 옆 끝에 지금 보는 탭 아이콘이 든 작은 손잡이만 — 누르면 다시 펼칩니다.
+  if (collapsed) {
+    const ActiveIcon = (activeIdx >= 0 ? tabs[activeIdx].icon : Map) as typeof Map;
+    const badgeSum = tabs.reduce((n, t) => n + (Number((t as { badge?: number }).badge) || 0), 0);
+    const left = collapsed === "left";
+    return (
+      <button
+        onClick={() => setCollapsed(null)}
+        aria-label="탭바 펼치기"
+        data-guide="tabbar"
+        style={{
+          position: "fixed", bottom: "calc(20px + env(safe-area-inset-bottom, 0px))", [left ? "left" : "right"]: 0, zIndex: 998,
+          width: 46, height: 58, padding: 0, border: "1px solid rgba(0,0,0,0.08)", [left ? "borderLeft" : "borderRight"]: "none",
+          borderRadius: left ? "0 18px 18px 0" : "18px 0 0 18px", background: "rgba(255,255,255,0.96)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.12)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+        }}
+      >
+        <ActiveIcon size={19} color="#A05A32" strokeWidth={2.2} />
+        {left ? <ChevronRight size={13} color="#2A1C14" /> : <ChevronLeft size={13} color="#2A1C14" />}
+        {badgeSum > 0 && <span style={{ position: "absolute", top: 4, [left ? "right" : "left"]: 4, width: 9, height: 9, borderRadius: "50%", background: "#EF4444", border: "1.5px solid white" }} />}
+      </button>
+    );
+  }
+
   return (
     <>
       <style>{`
@@ -265,6 +294,22 @@ export default function TabBar() {
           maxWidth: "calc(100vw - 28px)",
         }}
       >
+        {/* 접어 두기 손잡이 — 왼쪽 끝은 왼쪽으로, 오른쪽 끝은 오른쪽으로 접습니다 */}
+        {(["left", "right"] as const).map((side) => (
+          <button
+            key={side}
+            onClick={() => setCollapsed(side)}
+            aria-label={side === "left" ? "탭바를 왼쪽으로 접기" : "탭바를 오른쪽으로 접기"}
+            title={side === "left" ? "왼쪽으로 접기" : "오른쪽으로 접기"}
+            style={{
+              position: "absolute", top: -15, [side]: 18, zIndex: 2, height: 18, padding: "0 8px", display: "flex", alignItems: "center", gap: 1,
+              border: "1px solid rgba(0,0,0,0.08)", borderBottom: "none", borderRadius: "9px 9px 0 0", background: "rgba(255,255,255,0.96)",
+              color: "#4A3F38", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'Noto Sans KR', sans-serif",
+            }}
+          >
+            {side === "left" ? <><ChevronLeft size={11} />접기</> : <>접기<ChevronRight size={11} /></>}
+          </button>
+        ))}
         {/* 탭 바 본체 */}
         <div
           style={{

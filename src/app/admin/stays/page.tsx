@@ -77,7 +77,6 @@ export default function AdminStays() {
     <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <AdminNav active="stays" onRefresh={load} />
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 12, wordBreak: "keep-all" }}>
-        <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>숙박 예약</div>
         <div style={{ fontSize: 12.5, color: "#5c5c5c", lineHeight: 1.7 }}>
           문제 접수는 손님 내용과 사장님 의견(3영업일)을 보고 판단해 주세요.<br />
           결제대행 연동 전에는 결제 확인과 정산 이체를 직접 표시합니다.

@@ -7,6 +7,12 @@ describe("닉네임 금지어", () => {
     expect(isReservedNickname("사 장 님")).toBe(true);
     expect(isReservedNickname("펫츠로드 운영진")).toBe(true);
     expect(isReservedNickname("관리자1")).toBe(true);
+    expect(isReservedNickname("펫츠로드 개발자")).toBe(true);
+    expect(isReservedNickname("PetsRoad")).toBe(true);
+    expect(isReservedNickname("운영자김")).toBe(true);
+  });
+  it("관리자 계정은 예외", () => {
+    expect(isReservedNickname("펫츠로드", true)).toBe(false);
   });
   it("보통 닉네임은 쓸 수 있다", () => {
     expect(isReservedNickname("슈나우저맘")).toBe(false);

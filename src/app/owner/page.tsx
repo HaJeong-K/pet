@@ -255,9 +255,9 @@ export default function OwnerPage() {
       <div className="oc-grid">
         {/* 왼쪽 메뉴(넓은 화면) */}
         <aside className="oc-side owner-no-print">
-          <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#2A1C14,#3B2A20 55%,#70482F)", color: "white", marginBottom: 18 }}>
+          <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", marginBottom: 18 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.14)", fontSize: 11, fontWeight: 800 }}>
-              <BadgeCheck size={11} color="#F3DA9B" />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
+              <BadgeCheck size={11} color="#F6D7BE" />{isPreview ? "관리자 모드" : `인증된 ${kindInfo.label} 사장님`}
             </div>
             <div className="ggk-logo" style={{ fontSize: 16.5, fontWeight: 800, marginTop: 8, lineHeight: 1.35, wordBreak: "keep-all" }}>{storeName}</div>
           </div>
@@ -270,7 +270,7 @@ export default function OwnerPage() {
                   return (
                     <button key={key} className="oc-item" onClick={() => setTab(key)} aria-current={shown === key ? "page" : undefined}>
                       <Icon size={16} />{labelOf(key)}
-                      {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: shown === key ? "#F3DA9B" : "#DC2626", color: shown === key ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, lineHeight: "19px", textAlign: "center" }}>{n}</span>}
+                      {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: shown === key ? "#F6D7BE" : "#DC2626", color: shown === key ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, lineHeight: "19px", textAlign: "center" }}>{n}</span>}
                     </button>
                   );
                 })}
@@ -300,7 +300,7 @@ export default function OwnerPage() {
                   fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                 }}>
                   <Icon size={14} />{labelOf(key)}
-                  {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F3DA9B" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
+                  {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
                 </button>
               );
             })}

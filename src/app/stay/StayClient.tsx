@@ -48,7 +48,7 @@ const regionOf = (address: string | null) => (address ?? "").split(" ").slice(0,
 const subKeyOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/); return t.length >= 2 ? `${normalizeSidoName(t[0])} ${t[1]}` : null; };
 /** 시·도 이름("강원특별자치도" → "강원") — 전체 지역에서 시·도별로 나눌 때 */
 const sidoOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/)[0]; return t ? normalizeSidoName(t) : null; };
-const INK = "#2A1C14", SUB = "#6B5E55", DARK = "#3B2A20", LINE = "#EDECEB", WASH = "#F4F3F2";
+const INK = "#2A1C14", SUB = "#6B5E55", DARK = "#3B2A20", LINE = "#EDECEB", WASH = "#FAF9F8";
 const PICKS = 8; // 바로 예약 칸에 먼저 보여 줄 숙소 수
 const rowTag: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, padding: "3px 9px", borderRadius: 7, background: WASH, color: "#444" };
 const moreButton: React.CSSProperties = { width: "100%", marginTop: 20, padding: "15px 0", borderRadius: 14, border: `1px solid ${DARK}`, background: "white", color: DARK, fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" };
@@ -138,7 +138,7 @@ export default function StayClient() {
       `}</style>
 
       {/* 머리말 + 검색 */}
-      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
+      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
         <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(23px, 4vw, 29px)", fontWeight: 800, lineHeight: 1.35 }}>우리 아이도 환영하는<br />숙소를 찾아보세요</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 22, padding: "15px 18px", borderRadius: 16, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.16)" }}>
           <Search size={19} color={SUB} />

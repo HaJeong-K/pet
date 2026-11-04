@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
-import { ShieldCheck, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import type { QualityIssue, QualityReport } from "@/lib/server/dataQuality";
 import VisitorReportsCard from "@/components/admin/VisitorReportsCard";
 
@@ -58,8 +58,6 @@ export default function AdminQuality() {
       <AdminNav active="quality" onRefresh={load} />
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <ShieldCheck size={18} color="#A05A32" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>데이터 품질</div>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>
             {report ? `마지막 점검 ${new Date(report.checkedAt).toLocaleString("ko-KR")} · 장소 ${report.placesChecked}곳 · 사진 ${report.imagesChecked}장` : "직접 등록·제보된 장소를 매주 자동 점검해요"}
           </span>

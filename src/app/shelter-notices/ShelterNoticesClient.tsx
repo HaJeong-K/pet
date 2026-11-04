@@ -189,14 +189,14 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
       style={{
         // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
         display: "flex", flexDirection: "column", height: "100dvh", overflowY: "auto",
-        background: "#F4F3F2", alignItems: "center",
+        background: "#FAF9F8", alignItems: "center",
       }}
     >
       {/* 공고가 다 뜬 뒤에 안내를 시작합니다(카드를 짚는 단계가 있어서) */}
       <PageGuide storageKey={ADOPT_GUIDE_KEY} steps={ADOPT_GUIDE_STEPS} enabled={!loading} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column" }}>
         {/* 머리 띠 — 이 화면의 한마디. 차분한 갈색 바탕에 흰 글씨(커뮤니티 화면의 초록 띠와 같은 틀). */}
-        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", borderRadius: "0 0 26px 26px", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
+        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", borderRadius: "0 0 26px 26px", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
           <PawPrint aria-hidden="true" size={150} color="rgba(255,255,255,0.07)" style={{ position: "absolute", right: -18, bottom: -34, transform: "rotate(-14deg)" }} />
           <div style={{ position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>

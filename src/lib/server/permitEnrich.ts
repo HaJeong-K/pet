@@ -5,13 +5,13 @@
 //   · 같은 가게인지는 src/lib/permitMatch.ts가 엄격하게 판단합니다(같은 도로명·건물번호 + 이름이 맞을 때만).
 //   · 결과는 public_place_permits 표에 남깁니다. 못 찾은 곳도 줄을 남겨 90일 동안 다시 묻지 않습니다.
 //   · 지도 목록을 만들 때(src/lib/publicDataAggregate.ts) 비어 있는 전화번호만 채웁니다 — 원래 값은 바꾸지 않습니다.
-//   · 폐업으로 나온 곳은 지우지 않고 관리자 신고 목록에 "폐업 의심"으로 올립니다(같은 자리에 새 가게가 열었을 수 있어 사람이 확인).
+//   · 폐업한 지 1년이 넘은 곳은 지도에서 자동으로 빼고, 최근 1년 안에 폐업한 곳만 관리자 신고 목록에 "폐업 의심"으로 올립니다.
 // 이용허락: 공공데이터포털 "이용허락범위 제한 없음"(행정안전부_동물·문화·식품 인허가 조회서비스).
 
 import { createClient } from "@supabase/supabase-js";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { districtOf, permitApiKey, PermitQuotaError, queryPermit, roadPart, squash } from "@/lib/server/permitCoords";
-import { loadPermitRows } from "@/lib/server/permitPhones";
+import { closedLongAgo, loadPermitRows } from "@/lib/server/permitPhones";
 import { PERMIT_PATHS, permitKindsFor, pickPermit, type PermitKind, type PermitMatch, type PermitRecord } from "@/lib/permitMatch";
 
 const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
@@ -119,8 +119,10 @@ export async function runPermitEnrich(maxMs: number): Promise<{ checked: number;
   return { checked, matched, phones, closed, left: Math.max(0, targets.length - next), ...(exhausted.size ? { quotaFull: [...exhausted] } : {}) };
 }
 
-/** 폐업으로 나온 장소를 관리자 신고 목록에 올립니다(같은 장소에 열린 자동 신고가 있으면 또 만들지 않음) */
+/** 최근(1년 안) 폐업으로 나온 장소를 관리자 신고 목록에 올립니다(같은 장소에 열린 자동 신고가 있으면 또 만들지 않음) */
 async function reportClosed(db: ReturnType<typeof admin>, place: Target, found: PermitMatch) {
+  // 폐업한 지 1년이 넘었으면 지도에서 자동으로 빠지므로(src/lib/server/permitPhones.ts) 신고를 만들지 않습니다
+  if (closedLongAgo(found.closedOn)) return;
   const { count } = await db.from("reports").select("*", { count: "exact", head: true }).eq("place_id", place.id).eq("reporter_key", SYSTEM_REPORTER).eq("is_resolved", false);
   if (count) return;
   await db.from("reports").insert([{

@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
-import { AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 
 // /api/log-error → client_errors 테이블에 쌓인 실사용자 환경 오류(렌더링 오류,
 // 처리되지 않은 예외/프라미스 거부)를 확인하는 관리자 페이지. Sentry 같은 SaaS
@@ -76,10 +76,6 @@ export default function AdminErrorsPage() {
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <AlertTriangle size={18} color="#dc2626" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>
-            에러 로그
-          </div>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>최근 200건</span>
         </div>
 

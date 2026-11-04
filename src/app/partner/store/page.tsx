@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description: "카페·식당·수제 간식 가게의 포장 주문과 매장 식사 예약을 펫츠로드에서 받아 보십시오.",
 };
 
-const DARK = "#3B2A20", TEXT = "#111111", BRAND = "#A05A32", GOLD = "#F3DA9B", PAGE_BG = "#F4F3F2", SUB = "#1a1a1a";
+const DARK = "#3B2A20", TEXT = "#111111", BRAND = "#A05A32", GOLD = "#F6D7BE", PAGE_BG = "#F4F3F2", SUB = "#1a1a1a";
 const wrap: React.CSSProperties = { width: "100%", maxWidth: 1120, margin: "0 auto", padding: "0 24px", boxSizing: "border-box" };
 const navLink: React.CSSProperties = { padding: "8px 10px", fontSize: 13, fontWeight: 700, color: "#85482A", textDecoration: "none", whiteSpace: "nowrap" };
 const h2: React.CSSProperties = { margin: "8px 0 0", fontSize: "clamp(24px, 3.6vw, 34px)", fontWeight: 800, lineHeight: 1.32, letterSpacing: "-0.5px" };
@@ -100,7 +100,7 @@ export default function PartnerStorePage() {
       </header>
 
       {/* ── 첫 화면 ── */}
-      <section style={{ background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white" }}>
+      <section style={{ background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white" }}>
         <div style={{ ...wrap, padding: "clamp(52px, 9vw, 104px) 24px clamp(48px, 8vw, 88px)" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.18)", fontSize: 12.5, fontWeight: 700 }}>
             <ShoppingBag size={13} />카페·식당·수제 간식 가게 입점 안내

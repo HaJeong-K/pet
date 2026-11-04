@@ -262,17 +262,17 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 .ggk-book-aside { position: sticky; top: 16px; }
               }
             `}</style>
-            <section style={{ background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white", borderRadius: "0 0 26px 26px", padding: "22px 24px 26px" }}>
+            <section style={{ background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", borderRadius: "0 0 26px 26px", padding: "22px 24px 26px" }}>
               <button onClick={step === 2 ? () => setStep(1) : onClose} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 0, border: "none", background: "transparent", color: "rgba(255,255,255,0.88)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
                 <ChevronLeft size={16} />{step === 2 ? "날짜·인원 다시 고르기" : placeName}
               </button>
               <h1 className="ggk-logo" style={{ margin: "14px 0 0", fontSize: "clamp(26px, 4.4vw, 36px)", fontWeight: 800, lineHeight: 1.25, letterSpacing: "-0.6px" }}>
-                {step === 1 ? <>함께 머물 날을<br /><span style={{ color: "#F3DA9B" }}>골라 주세요.</span></> : step === 2 ? <>예약 내용을<br /><span style={{ color: "#F3DA9B" }}>확인해 주세요.</span></> : <>예약이<br /><span style={{ color: "#F3DA9B" }}>접수되었어요.</span></>}
+                {step === 1 ? <>함께 머물 날을<br /><span style={{ color: "#F6D7BE" }}>골라 주세요.</span></> : step === 2 ? <>예약 내용을<br /><span style={{ color: "#F6D7BE" }}>확인해 주세요.</span></> : <>예약이<br /><span style={{ color: "#F6D7BE" }}>접수되었어요.</span></>}
               </h1>
               <ol aria-label="예약 단계" style={{ display: "flex", gap: 6, margin: "18px 0 0", padding: 0, listStyle: "none", flexWrap: "wrap" }}>
                 {["날짜·인원", "확인·결제", "완료"].map((text, i) => (
-                  <li key={text} aria-current={step === i + 1 ? "step" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: step === i + 1 ? "#F3DA9B" : "rgba(255,255,255,0.12)", color: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.88)" }}>
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.2)", color: step === i + 1 ? "#F3DA9B" : "white" }}>{i + 1}</span>{text}
+                  <li key={text} aria-current={step === i + 1 ? "step" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: step === i + 1 ? "#F6D7BE" : "rgba(255,255,255,0.12)", color: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.88)" }}>
+                    <span style={{ width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, background: step === i + 1 ? "#3B2A20" : "rgba(255,255,255,0.2)", color: step === i + 1 ? "#F6D7BE" : "white" }}>{i + 1}</span>{text}
                   </li>
                 ))}
               </ol>

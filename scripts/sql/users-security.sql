@@ -48,7 +48,7 @@ begin
 
   if tg_op = 'INSERT' then
     -- 소셜 계정 이름에 금지어가 있어도 가입은 되게, 임시 닉네임으로 바꿉니다
-    if replace(coalesce(new.nickname, ''), ' ', '') ~ '(사장님|운영진|관리자|펫츠로드)' then
+    if replace(coalesce(new.nickname, ''), ' ', '') ~* '(사장님|운영진|운영자|운영팀|관리자|개발자|펫츠로드|같이가개|공식계정|어드민|admin|petsroad|staff)' then
       new.nickname := '회원' || substr(md5(random()::text), 1, 6);
     end if;
     if new.auth_user_id is null and (new.owner_status is not null or new.owner_place_id is not null) then
@@ -64,7 +64,7 @@ begin
   if new.owner_place_id is distinct from old.owner_place_id and coalesce(new.owner_status, '') <> 'pending' then
     raise exception '권한이 없어요.' using errcode = '42501';
   end if;
-  if new.nickname is distinct from old.nickname and replace(coalesce(new.nickname, ''), ' ', '') ~ '(사장님|운영진|관리자|펫츠로드)' then
+  if new.nickname is distinct from old.nickname and replace(coalesce(new.nickname, ''), ' ', '') ~* '(사장님|운영진|운영자|운영팀|관리자|개발자|펫츠로드|같이가개|공식계정|어드민|admin|petsroad|staff)' then
     raise exception '이 닉네임은 쓸 수 없어요.' using errcode = '42501';
   end if;
   return new;

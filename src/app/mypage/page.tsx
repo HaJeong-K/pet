@@ -24,6 +24,7 @@ import { isPublicDataPlaceId, getRememberedPlace } from "@/lib/placeCache";
 import { fetchPublicDataPlaceById } from "@/lib/publicDataPlaces";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
@@ -35,7 +36,6 @@ import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
 import OwnerStatsPanel from "@/components/OwnerStatsPanel";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
-import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 import LocalAdStrip from "@/components/LocalAdStrip";
 
 // 이 시간 안에 로딩이 끝나지 않으면 흰 화면 대신 "다시 불러오기" 안내를 보여줍니다.
@@ -77,6 +77,23 @@ const inp: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+type MySection = "home" | "orders" | "bookmarks" | "courses" | "posts" | "reviews" | "level";
+const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof Home }[] = [
+  { key: "home", label: "한눈에 보기", desc: "내 활동과 알림, 최근 주문·예약을 한 화면에서 확인해요.", Icon: Home },
+  { key: "orders", label: "주문·예약 내역", desc: "숙소 예약과 쇼핑 주문의 결제 내역을 보고, 취소·후기까지 여기서 해요.", Icon: ReceiptText },
+  { key: "bookmarks", label: "찜한 장소", desc: "다시 가 보고 싶은 장소를 모아 봐요.", Icon: Heart },
+  { key: "courses", label: "저장한 코스", desc: "저장한 산책·나들이 코스와 내 경로를 다시 열어요.", Icon: Footprints },
+  { key: "posts", label: "작성한 글", desc: "커뮤니티에 쓴 글과 공지를 모아 봐요.", Icon: MessageCircle },
+  { key: "reviews", label: "작성한 댓글", desc: "장소 후기와 커뮤니티 댓글을 모아 봐요.", Icon: PawPrint },
+  { key: "level", label: "내 레벨·점수", desc: "지금 단계와 다음 단계까지 남은 점수, 점수 받는 법을 확인해요.", Icon: Award },
+];
+const MY_GROUPS: { title: string; keys: MySection[] }[] = [
+  { title: "홈", keys: ["home"] },
+  { title: "이용 내역", keys: ["orders"] },
+  { title: "내 활동", keys: ["bookmarks", "courses", "posts", "reviews"] },
+  { title: "내 정보", keys: ["level"] },
+];
+
 export default function MyPage() {
   const router = useRouter();
   const [session, setSession]           = useState<any>(null);
@@ -85,7 +102,8 @@ export default function MyPage() {
   const [myLevel, setMyLevel]           = useState<number | null>(null);
   const [bookmarks, setBookmarks]       = useState<any[]>([]);
   const [myReviews, setMyReviews]       = useState<any[]>([]);
-  const [activeSection, setActiveSection] = useState<"bookmarks"|"courses"|"posts"|"reviews">("bookmarks");
+  // 왼쪽 메뉴(넓은 화면)·위쪽 메뉴(휴대폰)로 고르는 화면 — 사장님 센터와 같은 구성
+  const [activeSection, setActiveSection] = useState<MySection>("home");
   // 장소 상세의 "내 경로에 추가"에서 "마이페이지에서 보기"로 오면(/mypage#routes) 코스·내 경로 칸을 엽니다
   useEffect(() => {
     if (window.location.hash !== "#routes") return;
@@ -127,7 +145,7 @@ export default function MyPage() {
   const [postPage, setPostPage]         = useState(1);
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get("tab");
-    if (tab === "courses" || tab === "posts" || tab === "reviews") setActiveSection(tab);
+    if (tab && MY_SECTIONS.some((x) => x.key === tab)) setActiveSection(tab as MySection);
   }, []);
   const handleDeleteCourse = async (id: number) => {
     if (!window.confirm("이 코스를 저장 목록에서 지울까요?")) return;
@@ -305,7 +323,7 @@ export default function MyPage() {
 
   const handleCheckNickname = async () => {
     if (!newNickname.trim()) { setNickMsg({ok:false,text:"닉네임을 입력해주세요."}); return; }
-    if (isReservedNickname(newNickname)) { setNickChecked(true); setNickMsg({ok:false,text:RESERVED_NICKNAME_MESSAGE}); return; }
+    if (isReservedNickname(newNickname, !!userProfile?.is_admin)) { setNickChecked(true); setNickMsg({ok:false,text:RESERVED_NICKNAME_MESSAGE}); return; }
     setIsCheckingNick(true);
     const { data: dup } = await supabase.rpc("check_nickname_exists", { p_nickname: newNickname });
     setIsCheckingNick(false);
@@ -514,6 +532,10 @@ export default function MyPage() {
   const reviewTotalPages = Math.ceil(allReviews.length / PAGE_SIZE);
   const pagedReviews = allReviews.slice((reviewPage - 1) * PAGE_SIZE, reviewPage * PAGE_SIZE);
 
+  // 왼쪽 메뉴 옆 숫자
+  const sectionCount = (key: MySection): number | null =>
+    key === "bookmarks" ? bookmarks.length : key === "courses" ? myCourses.length : key === "posts" ? myPosts.length : key === "reviews" ? allReviews.length : null;
+
   return (
     <>
       {/* 로그인해서 내 정보가 다 뜬 뒤에 안내를 시작합니다 */}
@@ -531,7 +553,7 @@ export default function MyPage() {
           레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
       {loading && loadStalled && (
         <div role="alert" style={{
-          position: "fixed", inset: 0, zIndex: 50, background: "#F4F3F2", opacity: 1,
+          position: "fixed", inset: 0, zIndex: 50, background: "#FAF9F8", opacity: 1,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
           fontFamily: "'Noto Sans KR', sans-serif", textAlign: "center", padding: 24,
         }}>
@@ -544,202 +566,146 @@ export default function MyPage() {
           }}>다시 불러오기</button>
         </div>
       )}
-      <div className="ggk-body" style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
-        // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
-        columnGap: "clamp(0px, calc((100vw - 1032px) / 2), 16px)",
-        minHeight: "100dvh",
-        background: "#F4F3F2",
-        opacity: loading ? 0 : 1,
-        transition: "opacity 0.2s ease",
-      }}>
+      <div className="ggk-body mp-shell" style={{ height: "100dvh", overflowY: "auto", background: "#FAF9F8", opacity: loading ? 0 : 1, transition: "opacity 0.2s ease" }}>
+        <style>{`
+          .mp-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; }
+          .mp-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+          .mp-side { display: none; }
+          .mp-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
+          .mp-chips::-webkit-scrollbar { display: none; }
+          .mp-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) 0; }
+          .mp-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #2A1C14; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; font-family: inherit; text-decoration: none; transition: background .12s ease, color .12s ease; }
+          .mp-item:hover { background: #EDECEB; }
+          .mp-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32, 0.18); }
+          .mp-top-name { display: none; }
+          @media (min-width: 720px) { .mp-top-name { display: flex; } }
+          @media (min-width: 980px) {
+            .mp-grid { grid-template-columns: 252px minmax(0, 1fr); }
+            .mp-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F7F6F5; padding: 18px 14px var(--ggk-tabbar-space, 24px); box-sizing: border-box; }
+            .mp-chips { display: none; }
+            .mp-main { padding-top: 28px; }
+          }
+        `}</style>
 
-        <AdRailLeft />
+        {/* 위 고정 막대 */}
+        <header className="mp-top">
+          <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
+            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+          </Link>
+          <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
+          <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>마이페이지</span>
+          <div className="mp-top-name" style={{ marginLeft: "auto", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: "#2A1C14", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 }}>{userProfile?.nickname}</span>
+            <LevelBadge level={myLevel} />
+          </div>
+          <button data-guide="mypage-settings" onClick={() => { setSettingView("menu"); setShowSettings(true); }} aria-label="설정" style={{ marginLeft: 8, width: 34, height: 34, borderRadius: 10, border: "1px solid #E0DFDE", background: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            <Settings size={16} color="#3B2A20" />
+          </button>
+        </header>
 
-        {/* ── 중앙 콘텐츠 */}
-        <div style={{
-            // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
-            // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
-            gridColumn: "2",
-          minWidth: 0,
-          width: "100%",
-          height: "100dvh",
-          overflow: "hidden",
-          background: "#F4F3F2",
-          display: "flex",
-          flexDirection: "column",
-        }}>
+        <div className="mp-grid">
+          {/* 왼쪽 메뉴(넓은 화면) */}
+          <aside className="mp-side">
+            <div style={{ padding: "14px 14px", borderRadius: 16, background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "rgba(255,255,255,0.18)", border: "2px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800 }}>
+                  {userProfile?.avatar_url
+                    ? <Image src={userProfile.avatar_url} alt="" width={42} height={42} referrerPolicy="no-referrer" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : userProfile?.nickname?.charAt(0)}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div className="ggk-logo" style={{ fontSize: 15.5, fontWeight: 800, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {userProfile?.owner_status === "verified" && <BadgeCheck size={15} color="#F6D7BE" />}
+                    {userProfile?.nickname}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.88)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session?.user?.email}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} variant="badge" onOpen={() => setActiveSection("level")} />
+                <OwnerBadge userId={session?.user?.id} />
+              </div>
+            </div>
+            {MY_GROUPS.map((g) => (
+              <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: "#4A3F38", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
+                <div style={{ display: "grid", gap: 2 }}>
+                  {g.keys.map((key) => {
+                    const meta = MY_SECTIONS.find((x) => x.key === key)!;
+                    const n = sectionCount(key);
+                    return (
+                      <button key={key} className="mp-item" onClick={() => setActiveSection(key)} aria-current={activeSection === key ? "page" : undefined}>
+                        <meta.Icon size={16} />{meta.label}
+                        {n != null && n > 0 && <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, opacity: 0.85 }}>{n}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
+            ))}
+            <nav aria-label="계정" style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#4A3F38", letterSpacing: "0.3px", padding: "0 12px 6px" }}>계정</div>
+              <div style={{ display: "grid", gap: 2 }}>
+                <button className="mp-item" onClick={() => { setSettingView("nickname"); setShowSettings(true); }}><User size={16} />닉네임 변경</button>
+                {!isOAuthUser && <button className="mp-item" onClick={() => { setSettingView("password"); setShowSettings(true); }}><Lock size={16} />비밀번호 변경</button>}
+                <button className="mp-item" onClick={() => setShowLogoutModal(true)}><LogOut size={16} />로그아웃</button>
+                <button className="mp-item" onClick={() => { setSettingView("withdraw"); setShowSettings(true); }} style={{ color: "#B42318" }}><UserX size={16} />회원 탈퇴</button>
+              </div>
+            </nav>
+            {(userProfile?.owner_status === "verified" || userProfile?.is_admin) && (
+              <Link href="/owner" className="mp-item" style={{ marginTop: "auto" }}><Store size={16} />사장님 센터</Link>
+            )}
+            <Link href="/" className="mp-item" style={{ marginTop: userProfile?.owner_status === "verified" || userProfile?.is_admin ? 4 : "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14 }}>
+              <ArrowLeft size={16} />메인 페이지로 돌아가기
+            </Link>
+          </aside>
 
-          {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
-          <LocalAdStrip />
+          <div style={{ minWidth: 0 }}>
+            {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
+            <LocalAdStrip />
+            {/* 휴대폰 메뉴(옆으로 밀어 보기) */}
+            <div className="mp-chips">
+              {MY_SECTIONS.map(({ key, label, Icon }) => {
+                const on = activeSection === key;
+                return (
+                  <button key={key} onClick={() => setActiveSection(key)} aria-current={on ? "page" : undefined} style={{
+                    flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999,
+                    border: on ? "1px solid #3B2A20" : "1px solid #E0DFDE", background: on ? "#3B2A20" : "white", color: on ? "white" : "#2A1C14",
+                    fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
+                  }}>
+                    <Icon size={14} />{label}
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* ── 프로필 머리말 — 서비스 소개·광고 제휴 화면과 같은 짙은 그라데이션 ── */}
-					<div
-						style={{
-							position: "relative",
-							overflow: "hidden",
-							background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)",
-							borderRadius: "0 0 26px 26px",
-							padding: "26px clamp(18px, 4vw, 40px)",
-							flexShrink: 0,
-						}}
-					>
-						{/* 프로필 · 내 레벨 · 설정 — 넓은 화면은 한 줄(프로필 | 내 레벨 | 설정), 좁은 화면은 내 레벨이 아래로 꽉 차게 */}
-						<style>{`
-							.mp-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; position: relative; width: 100%; }
-							.mp-hero-profile { order: 1; flex: 1 1 auto; min-width: 0; }
-							.mp-hero-settings { order: 2; }
-							.mp-hero-level { order: 3; flex: 1 1 100%; min-width: 0; }
-							@media (min-width: 900px) {
-								.mp-hero-level { order: 2; flex: 0 0 auto; }
-								.mp-hero-settings { order: 3; }
-							}
-						`}</style>
-						<div className="mp-hero-row">
-							{/* 좌측 */}
-							<div
-								className="mp-hero-profile"
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "16px",
-									minWidth: 0,
-								}}
-							>
-								{/* 프로필 이미지 */}
-								<div
-									style={{
-										width: "48px",
-										height: "48px",
-										borderRadius: "50%",
-										overflow: "hidden",
-										flexShrink: 0,
-										background: userProfile?.avatar_url
-											? "transparent"
-											: "rgba(255,255,255,0.16)",
-										border: "2px solid rgba(255,255,255,0.55)",
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										color: "white",
-										fontSize: "17px",
-										fontWeight: 800,
-									}}
-								>
-									{userProfile?.avatar_url ? (
-										<Image
-											src={userProfile.avatar_url}
-											alt={userProfile.nickname}
-											width={48}
-											height={48}
-                      referrerPolicy="no-referrer"
-											style={{
-												width: "100%",
-												height: "100%",
-												objectFit: "cover",
-											}}
-										/>
-									) : (
-										userProfile?.nickname?.charAt(0)
-									)}
-								</div>
+            <main className="mp-main">
+              <div style={{ maxWidth: 1080 }}>
+              {/* 화면 제목 */}
+              {(() => { const meta = MY_SECTIONS.find((x) => x.key === activeSection)!; return (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4A3F38" }}>마이페이지<span style={{ margin: "0 6px", color: "#C9C3BE" }}>/</span>{MY_GROUPS.find((g) => g.keys.includes(activeSection))?.title}</div>
+                  <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
+                    <span style={{ width: 36, height: 36, borderRadius: 11, background: "#FBEDE3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><meta.Icon size={18} color="#8A5A3E" /></span>
+                    {meta.label}
+                  </h1>
+                  <p style={{ margin: "8px 0 0", fontSize: 14, color: "#2A1C14", lineHeight: 1.6 }}>{meta.desc}</p>
+                </div>
+              ); })()}
 
-								{/* 닉네임 */}
-								<div style={{ minWidth: 0 }}>
-									<div
-										className="ggk-logo"
-										style={{
-											fontSize: "17px",
-											fontWeight: 700,
-											color: "white",
-											marginBottom: "3px",
-											display: "flex",
-											alignItems: "center",
-											gap: 5,
-										}}
-									>
-										{userProfile?.owner_status === "verified" && (
-											<span title="인증된 사장님 계정" style={{ display: "inline-flex" }}>
-												<BadgeCheck size={18} color="#C9966E" fill="white" />
-											</span>
-										)}
-										{userProfile?.nickname}
-										<LevelBadge level={myLevel} onDark />
-										<OwnerBadge userId={session?.user?.id} />
-									</div>
-
-									<div
-										style={{
-											fontSize: "11px",
-											color: "rgba(255,255,255,0.88)",
-											overflow: "hidden",
-											textOverflow: "ellipsis",
-											whiteSpace: "nowrap",
-											marginBottom: "3px",
-										}}
-									>
-										{session?.user?.email}
-									</div>
-
-									{/* 카카오/구글 간편가입 회원 배지 — 일러스트 없이 텍스트 배지만 */}
-									{(session?.user?.app_metadata?.provider === "kakao" || session?.user?.app_metadata?.provider === "google") && (
-										<span
-											style={{
-												display: "inline-flex",
-												alignItems: "center",
-												fontSize: "10px",
-												fontWeight: 700,
-												color: "white",
-												background: session?.user?.app_metadata?.provider === "kakao" ? "rgba(254,229,0,0.28)" : "rgba(255,255,255,0.22)",
-												border: "1px solid rgba(255,255,255,0.35)",
-												borderRadius: "999px",
-												padding: "3px 9px",
-											}}
-										>
-											{session?.user?.app_metadata?.provider === "kakao" ? "카카오 계정 가입자" : "구글 계정 가입자"}
-										</span>
-									)}
-								</div>
-							</div>
-
-							{/* 내 레벨 — 위쪽에는 단계 배지만 작게. 점수·방문·단계 안내 같은 자세한 내용은 설정 창의 "내 레벨·점수"에서 봅니다. */}
-							<div className="mp-hero-level">
-								<MemberLevelCard accessToken={session?.access_token} onLevel={setMyLevel} variant="badge" onOpen={() => { setSettingView("level"); setShowSettings(true); }} />
-							</div>
-
-							{/* 설정 버튼 */}
-							<button
-								className="mp-hero-settings"
-								data-guide="mypage-settings"
-								onClick={() => setShowSettings(true)}
-								style={{
-									width: "32px",
-									height: "32px",
-									borderRadius: "50%",
-									border: "1px solid rgba(255,255,255,0.4)",
-									background: "rgba(255,255,255,0.14)",
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "center",
-									cursor: "pointer",
-									flexShrink: 0,
-								}}
-							>
-								<Settings size={15} color="white" />
-							</button>
-						</div>
-					</div>
-
+            <div style={{ minHeight: "60vh" }}>
+            {/* ── 한눈에 보기 — 내 활동 숫자(누르면 그 화면으로), 알림, 추억 스탬프, 최근 주문·예약 */}
+            {activeSection === "home" && (
+              <div style={{ display: "grid", gap: 16 }}>
           {/* ── 상단 카드 영역 */}
 					<div style={{ flexShrink: 0 }}>
 						{/* ── 통계 카드 */}
 						<div
 							data-guide="mypage-tabs"
 							style={{
-								margin: "20px auto",
+								margin: "0",
 									maxWidth: "1000px",
-									padding: "0 clamp(14px, 3vw, 28px)",
+									padding: "0",
 									boxSizing: "border-box",
 								display: "grid",
 								gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
@@ -752,8 +718,8 @@ export default function MyPage() {
                 style={{
                   padding: 20,
                   borderRadius: 16,
-                  border: activeSection === "bookmarks" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
-                  background: activeSection === "bookmarks" ? "#3B2A20" : "white",
+                  border: (activeSection as MySection) === "bookmarks" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: (activeSection as MySection) === "bookmarks" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
                   boxShadow: "none",
@@ -765,10 +731,10 @@ export default function MyPage() {
                   gap: 6,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, color: activeSection === "bookmarks" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: (activeSection as MySection) === "bookmarks" ? "rgba(255,255,255,0.85)" : "#999" }}>
                   찜한 장소
                 </div>
-                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "bookmarks" ? "white" : "#333", lineHeight: 1 }}>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "bookmarks" ? "white" : "#333", lineHeight: 1 }}>
                   {bookmarks.length}
                 </div>
               </button>
@@ -779,8 +745,8 @@ export default function MyPage() {
                 style={{
                   padding: "20px 8px",
                   borderRadius: 16,
-                  border: activeSection === "courses" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
-                  background: activeSection === "courses" ? "#3B2A20" : "white",
+                  border: (activeSection as MySection) === "courses" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: (activeSection as MySection) === "courses" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
                   boxShadow: "none",
@@ -792,10 +758,10 @@ export default function MyPage() {
                   gap: 6,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: activeSection === "courses" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: (activeSection as MySection) === "courses" ? "rgba(255,255,255,0.85)" : "#999" }}>
                   코스·내 경로
                 </div>
-                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "courses" ? "white" : "#333", lineHeight: 1 }}>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "courses" ? "white" : "#333", lineHeight: 1 }}>
                   {myCourses.length}
                 </div>
               </button>
@@ -806,8 +772,8 @@ export default function MyPage() {
                 style={{
                   padding: "20px 8px",
                   borderRadius: 16,
-                  border: activeSection === "posts" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
-                  background: activeSection === "posts" ? "#3B2A20" : "white",
+                  border: (activeSection as MySection) === "posts" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: (activeSection as MySection) === "posts" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
                   boxShadow: "none",
@@ -819,10 +785,10 @@ export default function MyPage() {
                   gap: 6,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: activeSection === "posts" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: (activeSection as MySection) === "posts" ? "rgba(255,255,255,0.85)" : "#999" }}>
                   작성한 글
                 </div>
-                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "posts" ? "white" : "#333", lineHeight: 1 }}>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "posts" ? "white" : "#333", lineHeight: 1 }}>
                   {myPosts.length}
                 </div>
               </button>
@@ -833,8 +799,8 @@ export default function MyPage() {
                 style={{
                   padding: 20,
                   borderRadius: 16,
-                  border: activeSection === "reviews" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
-                  background: activeSection === "reviews" ? "#3B2A20" : "white",
+                  border: (activeSection as MySection) === "reviews" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: (activeSection as MySection) === "reviews" ? "#3B2A20" : "white",
                   textAlign: "center",
                   cursor: "pointer",
                   boxShadow: "none",
@@ -846,45 +812,34 @@ export default function MyPage() {
                   gap: 6,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, color: activeSection === "reviews" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: (activeSection as MySection) === "reviews" ? "rgba(255,255,255,0.85)" : "#999" }}>
                   작성한 댓글
                 </div>
-                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: activeSection === "reviews" ? "white" : "#333", lineHeight: 1 }}>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "reviews" ? "white" : "#333", lineHeight: 1 }}>
                   {allReviews.length}
                 </div>
               </button>
 						</div>
 					</div>
 
-					{/* ── 리스트 영역 (여기만 스크롤) — 로그인 정보가 나오는 프로필 히어로 영역과
-              동일한 폭(전체 컨테이너 폭, 40px 인셋)을 갖도록 확장했습니다. */}
-          <div
-            style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: "auto",
-            width: "100%",
-            maxWidth: "1200px",
-            margin: "0 auto",
-            padding: "0 40px 0",
-            scrollbarWidth: "thin",
-            boxSizing: "border-box",
-          }}>
-            <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
-            <div style={{ flex: "1 0 auto" }}>
-						{/* ── 알림(숙박 예약 확정·거절, 체크인 전날 안내, 후기 요청 — 알림이 있을 때만) */}
-						<MyNotificationsCard />
-						{/* ── 내 숙박 예약(예약이 있을 때만 보입니다 — 취소·이용 확정·문제 접수) */}
-						{STAMPS_ENABLED && <MemoryStampsCard />}
-						{/* ── 주문·예약 내역 — 마이페이지 안에서 바로 보고, 상세 보기·취소·후기까지 합니다 */}
-						<section id="orders" data-guide="mypage-orders" style={{ margin: "0 0 18px", padding: "16px 16px 14px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5", scrollMarginTop: 16 }}>
-							<div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
-								<ReceiptText size={18} color="#3B2A20" />
-								<h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}>주문·예약 내역</h2>
-								<a href="/orders" style={{ marginLeft: "auto", fontSize: 12.5, fontWeight: 800, color: "#A05A32", textDecoration: "none" }}>크게 보기</a>
-							</div>
-							<OrdersPanel />
-						</section>
+
+                <MyNotificationsCard />
+                {STAMPS_ENABLED && <MemoryStampsCard />}
+                <section style={{ padding: "16px 16px 14px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                    <ReceiptText size={18} color="#3B2A20" />
+                    <h2 className="ggk-logo" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}>최근 주문·예약</h2>
+                    <button onClick={() => setActiveSection("orders")} style={{ marginLeft: "auto", border: "none", background: "transparent", fontSize: 12.5, fontWeight: 800, color: "#A05A32", cursor: "pointer", fontFamily: "inherit" }}>전체 보기</button>
+                  </div>
+                  <OrdersPanel />
+                </section>
+              </div>
+            )}
+            {/* ── 주문·예약 내역 */}
+            {activeSection === "orders" && <section id="orders" data-guide="mypage-orders"><OrdersPanel /></section>}
+            {/* ── 내 레벨·점수 */}
+            {activeSection === "level" && <div style={{ background: "white", border: "1px solid #E7E6E5", borderRadius: 18, overflow: "hidden" }}><MemberLevelCard accessToken={session?.access_token} variant="card" /></div>}
+
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (
 							<>
@@ -1363,25 +1318,14 @@ export default function MyPage() {
             )}
 
             </div>
-            {/* ── 하단 푸터 — 목록과 함께 스크롤됩니다. 예전엔 스크롤 영역 밖에 고정해 둬서 항상 화면 아래를
-                차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
-                하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
-            <div style={{
-              flexShrink: 0, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", margin: "28px -40px 0",
-              padding: "18px 40px calc(78px + 18px)", boxSizing: "border-box",
-            }}>
+              </div>
+            </main>
+            {/* 하단 푸터 — 목록을 끝까지 내렸을 때 보입니다(하단 탭바에 가려지지 않게 아래 여백) */}
+            <div style={{ marginTop: 28, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", padding: "18px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space, 78px) + 18px)", boxSizing: "border-box" }}>
               <SiteFooter />
-            </div>
             </div>
           </div>
         </div>
-
-        {/* 우측 레일 — 화면 비율이 1:1 이상일 때만 오른쪽 여백 칼럼의 정가운데에
-            표시됩니다. 선정 규칙(지역 우선·마감임박순)은 커뮤니티와 완전히 동일하지만,
-            shelterOffset={2}로 순위 3~4위 공고를 보여줘서 커뮤니티 페이지와 마이페이지에
-            똑같은 공고가 중복 노출되지 않도록 했습니다. */}
-        <AdRailRight rightMode="shelter" shelterOffset={2} />
-
       </div>
 
       {/* ══════════════════════════════════════

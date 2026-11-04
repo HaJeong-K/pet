@@ -21,9 +21,26 @@ export async function loadPermitRows(db: SupabaseClient, columns: string[], only
   return out;
 }
 
-/** 지도 목록용: 맞춘 인허가 기록의 전화번호(place_id → 전화번호). 표가 없거나 읽지 못하면 빈 목록 */
-export async function loadPermitPhones(): Promise<Map<number, string>> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return new Map();
-  const rows = await loadPermitRows(admin(), ["place_id", "phone"], true).catch(() => []);
-  return new Map(rows.filter((r) => r.phone).map((r) => [Number(r.place_id), String(r.phone)]));
+/** 폐업한 지 이만큼 지난 곳은 지도에서 자동으로 숨깁니다(그보다 최근이면 관리자 신고 목록에서 사람이 확인) — 2026-11-04 대표 결정 */
+export const CLOSED_HIDE_DAYS = 365;
+
+/** 폐업일("2024-01-01" 또는 "20240101")이 CLOSED_HIDE_DAYS보다 오래됐는지. 날짜를 모르면 false */
+export function closedLongAgo(closedOn: string | null | undefined, now = Date.now()): boolean {
+  const d = (closedOn ?? "").replace(/\D/g, "");
+  if (d.length !== 8) return false;
+  const t = Date.parse(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T00:00:00+09:00`);
+  return Number.isFinite(t) && now - t > CLOSED_HIDE_DAYS * 86_400_000;
+}
+
+/**
+ * 지도 목록용: 맞춘 인허가 기록의 전화번호(place_id → 전화번호)와, 폐업한 지 1년이 넘어 숨길 장소.
+ * 표가 없거나 읽지 못하면 빈 값.
+ */
+export async function loadPermitInfo(): Promise<{ phones: Map<number, string>; closed: Set<number> }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return { phones: new Map(), closed: new Set() };
+  const rows = await loadPermitRows(admin(), ["place_id", "phone", "status", "closed_on"], true).catch(() => []);
+  return {
+    phones: new Map(rows.filter((r) => r.phone && r.status !== "closed").map((r) => [Number(r.place_id), String(r.phone)])),
+    closed: new Set(rows.filter((r) => r.status === "closed" && closedLongAgo(r.closed_on as string | null)).map((r) => Number(r.place_id))),
+  };
 }

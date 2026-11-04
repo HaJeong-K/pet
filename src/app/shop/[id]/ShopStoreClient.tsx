@@ -35,7 +35,7 @@ type StoreData = {
 type Review = { photos?: string[] | null; id: number; display_name: string | null; rating: number; content: string; owner_reply: string | null; created_at: string };
 type Tab = "menu" | "info" | "reviews";
 
-const INK = "#2A1C14", SUB = "#6B5E55", BRAND = "#A05A32", DARK = "#3B2A20", LINE = "#EDECEB", WASH = "#F4F3F2";
+const INK = "#2A1C14", SUB = "#6B5E55", BRAND = "#A05A32", DARK = "#3B2A20", LINE = "#EDECEB", WASH = "#FAF9F8";
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const field: React.CSSProperties = { width: "100%", padding: "13px 14px", borderRadius: 12, border: `1px solid ${LINE}`, fontSize: 15, boxSizing: "border-box", fontFamily: "inherit", background: "white", color: INK };
 const stepper: React.CSSProperties = { width: 36, height: 36, borderRadius: "50%", border: `1px solid ${LINE}`, background: "white", color: INK, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
@@ -281,7 +281,7 @@ export default function ShopStoreClient({ placeId }: { placeId: number }) {
         `}</style>
         <div className="shop-head">
         {/* 대표 사진 */}
-        <div className="shop-cover" style={{ position: "relative", overflow: "hidden", background: cover ? `url("${cover}") center/cover no-repeat` : "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="shop-cover" style={{ position: "relative", overflow: "hidden", background: cover ? `url("${cover}") center/cover no-repeat` : "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           {!cover && <ShoppingBag size={44} color="rgba(255,255,255,0.5)" />}
           <a href="/shop" aria-label="쇼핑으로 돌아가기" style={{ position: "absolute", top: 16, left: 16, width: 40, height: 40, borderRadius: "50%", background: "white", boxShadow: "0 2px 10px rgba(0,0,0,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={22} color={INK} /></a>
         </div>

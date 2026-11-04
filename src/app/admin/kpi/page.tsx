@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
-import { TrendingUp, Download } from "lucide-react";
+import { Download } from "lucide-react";
 
 // ── 사업 성과 지표 ──
 // 지원사업 중간·최종 보고에 바로 쓸 수 있도록 월별 지표와 누적 현황을 한 화면에 모으고,
@@ -124,8 +124,6 @@ export default function AdminKpi() {
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <TrendingUp size={18} color="#A05A32" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>성과 지표</div>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {[6, 12, 24].map((m) => (

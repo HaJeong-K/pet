@@ -318,7 +318,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         className="ggk-body"
         style={{
           minHeight: "100dvh",
-          background: "#F4F3F2",
+          background: "#FAF9F8",
           display: "grid",
           gridTemplateColumns: "minmax(0, 1fr) min(1000px, 100%) minmax(0, 1fr)",
           // 좁은 화면(1000px+간격 미만)에서는 칸 간격을 0으로 — 16px×2가 남으면 본문이 오른쪽으로 잘립니다.
@@ -340,7 +340,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
 
             height: "100dvh",
 
-            background: "#F4F3F2",
+            background: "#FAF9F8",
 
             overflow: "hidden",
 
@@ -350,7 +350,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           {/* ── 웰컴 배너 — 페이지 최상단. 시안 .hero 스펙: solid primary, full-bleed, no radius ── */}
           <div style={{
             position: "relative", overflow: "hidden",
-            background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", borderRadius: "0 0 26px 26px",
+            background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", borderRadius: "0 0 26px 26px",
             padding: "24px 40px", display: "flex", alignItems: "center",
             justifyContent: "space-between", gap: 10,
           }}>

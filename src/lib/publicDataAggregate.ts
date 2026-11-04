@@ -19,7 +19,7 @@ import { getAllParks } from "@/lib/server/allParks";
 import { findParkDuplicateIds } from "@/lib/parkDuplicates";
 import { countBySource, type MapCounts } from "@/lib/cronDigest";
 import { dedupeAcrossSources } from "@/lib/publicDataDedupe";
-import { loadPermitPhones } from "@/lib/server/permitPhones";
+import { loadPermitInfo } from "@/lib/server/permitPhones";
 
 const SOURCE_ID_BASE: Record<string, number> = {
   tour: 1_000_000_000,
@@ -143,12 +143,14 @@ async function dropParkDuplicates(list: any[]): Promise<any[]> {
   return duplicates.size === 0 ? list : list.filter((p) => !duplicates.has(p.id));
 }
 
-// 비어 있는 전화번호만 행정안전부 인허가 데이터로 맞춘 번호로 채웁니다(src/lib/server/permitEnrich.ts가 매일 새벽 맞춰 둠).
-// 원래 있던 번호는 바꾸지 않습니다. 표를 못 읽으면 그대로 둡니다.
+// 행정안전부 인허가 데이터로 맞춘 결과 반영(src/lib/server/permitEnrich.ts가 매일 맞춰 둠):
+//   · 비어 있는 전화번호만 채웁니다(원래 있던 번호는 바꾸지 않음)
+//   · 폐업한 지 1년이 넘은 곳은 지도에서 뺍니다(최근 폐업은 관리자 신고 목록에서 확인)
+// 표를 못 읽으면 그대로 둡니다.
 async function fillPermitPhones(list: any[]): Promise<any[]> {
-  const phones = await loadPermitPhones().catch(() => new Map<number, string>());
-  if (phones.size === 0) return list;
-  return list.map((p) => (!p.phone && phones.has(p.id) ? { ...p, phone: phones.get(p.id) } : p));
+  const { phones, closed } = await loadPermitInfo().catch(() => ({ phones: new Map<number, string>(), closed: new Set<number>() }));
+  if (phones.size === 0 && closed.size === 0) return list;
+  return list.filter((p) => !closed.has(p.id)).map((p) => (!p.phone && phones.has(p.id) ? { ...p, phone: phones.get(p.id) } : p));
 }
 
 async function refresh(): Promise<any[]> {

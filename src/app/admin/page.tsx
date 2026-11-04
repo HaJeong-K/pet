@@ -119,22 +119,7 @@ export default function AdminDashboard() {
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarWidth: "thin" }}>
           <div style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "24px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>
 
-            {/* ── 웰컴 배너 — 시안 .hero 스펙: solid primaryDark, no radius ── */}
-            <div style={{
-              position: "relative", overflow: "hidden",
-              background: "#85482A",
-              padding: "clamp(24px, 6vw, 48px) clamp(20px, 5vw, 40px)", marginBottom: 24,
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-            }}>
-              <div>
-                <div className="ggk-logo" style={{ fontSize: 28, fontWeight: 700, color: "white", marginBottom: 8 }}>
-                  안녕하세요, 관리자님
-                </div>
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>
-                  오늘도 펫츠로드 커뮤니티를 안전하게 지켜주셔서 감사합니다.
-                </div>
-              </div>
-            </div>
+            <div style={{ marginBottom: 18, fontSize: 14, color: "#2A1C14" }}>안녕하세요, 관리자님. 오늘도 펫츠로드를 안전하게 지켜 주셔서 고마워요.</div>
 
             {/* ── 카카오톡 관리자 알림 연결 ── */}
             <KakaoTalkAlertCard />

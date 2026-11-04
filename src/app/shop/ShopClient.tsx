@@ -35,7 +35,7 @@ function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: numb
 const fmtDistance = (km: number) => (km < 1 ? `${Math.round(km * 1000 / 10) * 10}m` : `${km.toFixed(km < 10 ? 1 : 0)}km`);
 const sidoOf = (address: string | null) => { const t = (address ?? "").trim().split(/\s+/)[0]; return t ? normalizeSidoName(t) : ""; };
 
-const INK = "#2A1C14", SUB = "#6B5E55", LINE = "#EDECEB", WASH = "#F4F3F2";
+const INK = "#2A1C14", SUB = "#6B5E55", LINE = "#EDECEB", WASH = "#FAF9F8";
 const REGIONS = REGION_BOARDS.map((b) => b.label);
 const wrap: React.CSSProperties = { padding: "0 clamp(18px, 4vw, 32px)" };
 const CATEGORY_ICON: [RegExp, LucideIcon][] = [[/간식/, Cookie], [/화식/, Soup], [/음료|멍푸치노/, Coffee], [/사료|영양/, Pill], [/케이크|특식/, Cake], [/장난감/, Bone], [/의류|액세서리/, Shirt], [/산책/, Footprints], [/위생/, Brush], [/미용/, Scissors], [/선물|세트/, Gift]];
@@ -98,7 +98,7 @@ export default function ShopClient() {
         }
       `}</style>
       {/* 머리말 + 검색 — 숙소 탭과 같은 모양 */}
-      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
+      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
         <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(23px, 4vw, 29px)", fontWeight: 800, lineHeight: 1.35 }}>우리 아이 간식·용품,<br />미리 주문하고 받아 가세요</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 22, padding: "15px 18px", borderRadius: 16, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.16)" }}>
           <Search size={19} color={SUB} />

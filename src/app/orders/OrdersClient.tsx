@@ -24,7 +24,7 @@ export default function OrdersClient() {
   return (
     // 아래 여백(--ggk-tabbar-space)과 양옆 레일은 StayFrame이 맡습니다
     <StayFrame wide>
-      <section style={{ background: "linear-gradient(160deg,#2A1C14 0%,#3B2A20 50%,#70482F 100%)", color: "white", padding: "26px 24px 28px", borderRadius: "0 0 26px 26px" }}>
+      <section style={{ background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", padding: "26px 24px 28px", borderRadius: "0 0 26px 26px" }}>
         <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(26px, 4.4vw, 36px)", fontWeight: 800, lineHeight: 1.25, letterSpacing: "-0.6px" }}>주문·예약 내역</h1>
         <p style={{ margin: "8px 0 0", fontSize: 14, color: "rgba(255,255,255,0.88)", lineHeight: 1.6 }}>결제 내역과 영수증을 보고,<br />취소를 신청하거나 후기를 남길 수 있어요.</p>
       </section>

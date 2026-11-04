@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AdminNav from "@/components/AdminNav";
-import { Calculator, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { PLAN_MONTHLY_PRICE, PLAN_NAME, won } from "@/lib/ownerPlans";
 import { breakEven, DEFAULT_COSTS, DEFAULT_MIX, scenarioRows, type CostItem, type PlanMix } from "@/lib/breakEven";
 
@@ -45,8 +45,6 @@ export default function AdminBusiness() {
       <AdminNav active="business" />
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Calculator size={18} color="#A05A32" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>사업성 계산 (손익분기)</div>
           <button onClick={() => update(defaults())} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}><RotateCcw size={12} />처음 값으로</button>
         </div>
         <div style={{ fontSize: 12.5, color: "#555", lineHeight: 1.7 }}>

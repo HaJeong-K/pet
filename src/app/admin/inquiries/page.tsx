@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import LogoLoader from "@/components/LogoLoader";
 import { AdminPager, usePaged } from "@/components/admin/AdminListTools";
-import { ChevronDown, ChevronUp, Handshake, Mail, Phone } from "lucide-react";
+import { ChevronDown, ChevronUp, Mail, Phone } from "lucide-react";
 import { INQUIRY_NOTE_MAX, INQUIRY_STATUSES, inquiryKindLabel, inquiryStatus, type InquiryStatus } from "@/lib/partnerInquiry";
 
 type Inquiry = { id: number; kind: string; name: string; company: string | null; contact: string; message: string; status: InquiryStatus; admin_note: string | null; created_at: string; processed_at: string | null };
@@ -131,8 +131,6 @@ export default function AdminInquiries() {
       <AdminNav active="inquiries" onRefresh={load} />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <Handshake size={18} color="#A05A32" />
-          <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#111" }}>광고·제휴 문의</div>
           <a href="/partnership" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#A05A32" }}>방문자 화면 보기 →</a>
         </div>
         <div style={{ fontSize: 12, color: "#555", lineHeight: 1.7, marginBottom: 14 }}>문의를 누르면 전체 내용이 펼쳐져요. 답은 적힌 연락처로 직접 하고, 진행 상황에 맞게 상태를 바꾸고 메모를 남겨 두세요.</div>
