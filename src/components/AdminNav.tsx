@@ -78,6 +78,9 @@ function tabOfPath(pathname: string): TabKey {
   return best.key;
 }
 
+// ⚠ 클래스 이름을 "ad-"로 시작하게 하지 마세요 — 광고 차단 프로그램이 "ad-top"·"ad-side" 같은 이름을 광고로 보고 숨겨서
+//   라이브 사이트에서 관리자 화면이 통째로 빈 화면이 됩니다. 그래서 "mgr-"를 씁니다.
+
 // 화면(page)이 넘긴 새로고침 함수를 틀의 위 막대 버튼에 연결합니다.
 type RefreshCtx = { setRefresh: (fn: (() => void) | null) => void };
 const AdminRefreshContext = createContext<RefreshCtx | null>(null);
@@ -160,29 +163,29 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
   return (
     <AdminRefreshContext.Provider value={ctx}>
       {/* 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 이 틀 자체를 스크롤 칸으로 둡니다(사장님 센터와 같음). */}
-      <div ref={scrollRef} className="ggk-body ad-shell">
+      <div ref={scrollRef} className="ggk-body mgr-shell">
         <style>{`
-          .ad-shell { height: 100dvh; overflow-y: auto; background: #F4F3F2; color: #2A1C14; }
-          .ad-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; box-sizing: border-box; }
-          .ad-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
-          .ad-side { display: none; }
-          .ad-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
-          .ad-chips::-webkit-scrollbar { display: none; }
-          .ad-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); box-sizing: border-box; }
-          .ad-inner { max-width: 1120px; }
-          .ad-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #2A1C14; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
-          .ad-item:hover { background: #EDECEB; }
-          .ad-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32, 0.18); }
+          .mgr-shell { height: 100dvh; overflow-y: auto; background: #F4F3F2; color: #2A1C14; }
+          .mgr-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; box-sizing: border-box; }
+          .mgr-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+          .mgr-side { display: none; }
+          .mgr-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
+          .mgr-chips::-webkit-scrollbar { display: none; }
+          .mgr-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); box-sizing: border-box; }
+          .mgr-inner { max-width: 1120px; }
+          .mgr-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #2A1C14; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
+          .mgr-item:hover { background: #EDECEB; }
+          .mgr-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32, 0.18); }
           @media (min-width: 980px) {
-            .ad-grid { grid-template-columns: 252px minmax(0, 1fr); }
-            .ad-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
-            .ad-chips { display: none; }
-            .ad-main { padding-top: 28px; }
+            .mgr-grid { grid-template-columns: 252px minmax(0, 1fr); }
+            .mgr-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
+            .mgr-chips { display: none; }
+            .mgr-main { padding-top: 28px; }
           }
         `}</style>
 
         {/* 위 고정 막대 */}
-        <header className="ad-top">
+        <header className="mgr-top">
           <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
             <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
           </Link>
@@ -195,9 +198,9 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
           )}
         </header>
 
-        <div className="ad-grid">
+        <div className="mgr-grid">
           {/* 왼쪽 메뉴(넓은 화면) */}
-          <aside className="ad-side">
+          <aside className="mgr-side">
             <div style={{ padding: 14, borderRadius: 16, background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", marginBottom: 18 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.14)", fontSize: 11, fontWeight: 800 }}>
                 <BadgeCheck size={11} color="#F6D7BE" />펫츠로드 운영
@@ -213,7 +216,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
                     const on = tab.key === active;
                     const n = badgeOf(tab.key);
                     return (
-                      <button key={tab.key} className="ad-item" aria-current={on ? "page" : undefined} onClick={() => go(tab.href)}>
+                      <button key={tab.key} className="mgr-item" aria-current={on ? "page" : undefined} onClick={() => go(tab.href)}>
                         <Icon size={16} />{tab.label}
                         {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center", lineHeight: "19px" }}>{n}</span>}
                       </button>
@@ -222,14 +225,14 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
                 </div>
               </nav>
             ))}
-            <Link href="/" className="ad-item" style={{ marginTop: "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14 }}>
+            <Link href="/" className="mgr-item" style={{ marginTop: "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14 }}>
               <ArrowLeft size={16} />메인 페이지로 돌아가기
             </Link>
           </aside>
 
           <div style={{ minWidth: 0 }}>
             {/* 휴대폰 메뉴(옆으로 밀어 보기) */}
-            <div ref={rowRef} className="ad-chips" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
+            <div ref={rowRef} className="mgr-chips" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const on = tab.key === active;
@@ -243,8 +246,8 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
               })}
             </div>
 
-            <main className="ad-main">
-              <div className="ad-inner">
+            <main className="mgr-main">
+              <div className="mgr-inner">
                 {/* 화면 제목 — 사장님 센터와 같은 모양 */}
                 <div style={{ marginBottom: 18 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4A3F38" }}>관리자 센터<span style={{ margin: "0 6px", color: "#C9C3BE" }}>/</span>{groupOf}</div>
