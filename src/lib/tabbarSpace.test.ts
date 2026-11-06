@@ -25,9 +25,9 @@ const all = files(SRC).map((path) => ({ path: rel(path), text: readFileSync(path
 // 탭바가 떠 있는 채로 세로로 길게 스크롤되는 화면들 — 새 화면을 만들면 여기에 추가하세요.
 const PAGES_UNDER_TABBAR = [
   "app/orders/OrdersClient.tsx", "app/pay/success/page.tsx", "app/pay/fail/page.tsx", "app/partner/store/page.tsx",
-  "app/admin/page.tsx", "app/admin/reports/page.tsx", "app/admin/tips/page.tsx", "app/admin/review/page.tsx",
-  "app/admin/owners/page.tsx", "app/admin/premium/page.tsx", "app/admin/analytics/page.tsx", "app/admin/traffic/page.tsx", "app/admin/kpi/page.tsx",
-  "app/admin/quality/page.tsx", "app/admin/errors/page.tsx", "app/admin/members/page.tsx", "app/admin/support/page.tsx", "app/admin/inquiries/page.tsx", "app/admin/business/page.tsx", "app/admin/stays/page.tsx", "app/partnership/page.tsx", "app/partner/lodging/page.tsx", "components/lodging/StayFrame.tsx",
+  // 관리자 화면들은 공통 틀(AdminNav)의 본문 칸이 아래 여백을 맡습니다(아래 "관리자 화면" 검사)
+  "components/AdminNav.tsx",
+  "app/partnership/page.tsx", "app/partner/lodging/page.tsx", "components/lodging/StayFrame.tsx",
   "app/owner/page.tsx", "app/shelter-notices/ShelterNoticesClient.tsx",
   "app/shelter-notices/support/SupportClient.tsx", "app/shelter-notices/support/[id]/ShelterDetailClient.tsx",
 ];
@@ -44,9 +44,9 @@ describe("하단 탭바 가림 방지", () => {
     expect(file!.text).toMatch(/--ggk-tabbar-space|ggk-tabbar-pad/);
   });
 
-  it("관리자 화면은 새로 생겨도 모두 목록에 들어 있다", () => {
-    const adminPages = all.filter((f) => /^app\/admin\/.*page\.tsx$/.test(f.path)).map((f) => f.path);
-    expect(adminPages.filter((p) => !PAGES_UNDER_TABBAR.includes(p))).toEqual([]);
+  it("관리자 화면은 새로 생겨도 모두 공통 틀(AdminNav — 아래 여백 포함)을 쓴다", () => {
+    const adminPages = all.filter((f) => /^app\/admin\/.*page\.tsx$/.test(f.path));
+    expect(adminPages.filter((f) => !f.text.includes("<AdminNav")).map((f) => f.path)).toEqual([]);
   });
 
   it("화면 높이에 100vh를 쓰지 않는다(100dvh 사용)", () => {
