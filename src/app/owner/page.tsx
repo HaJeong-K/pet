@@ -20,7 +20,6 @@ import { infoText } from "@/lib/infoLines";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import {
   Store, ArrowLeft, BarChart3, MessageCircle, Pencil, Crown, FileText, BadgeCheck, Check, Printer, ChevronRight, Search, ClipboardList, Package, Megaphone, BedDouble, CalendarDays, Bell,
@@ -46,6 +45,7 @@ import { isPlacePremiumNow } from "@/lib/premium";
 import { isLodgingCategory, isMissingOwnerKind, ownerKindInfo } from "@/lib/ownerKind";
 import PageGuide from "@/components/PageGuide";
 import { OWNER_GUIDE_KEY, OWNER_GUIDE_STEPS } from "@/lib/pageGuides";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // 사장님 센터의 메뉴. 자주 쓰는 것(대시보드·예약·상품·광고)은 아래 탭바(TabBar.tsx)에도 있습니다.
 type TabKey = OwnerTabKey;
@@ -239,7 +239,7 @@ export default function OwnerPage() {
       {/* 위 고정 막대 */}
       <header className="oc-top owner-no-print">
         <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
-          <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+          <BrandLogo height={26} />
         </Link>
         <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
         <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>사장님 센터</span>
@@ -725,6 +725,13 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
   useEffect(() => {
     let cancelled = false;
     fetchOwnerStats(isPreview ? placeId : undefined).then((r) => { if (!cancelled) { setStats(r.stats); setError(r.error); } });
+    // 화면에도 상세 보고서(그래프 수치·기간 비교·투자 대비 효과)를 바로 보여 줍니다
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/owner/report${isPreview ? `?placeId=${placeId}` : ""}`, { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {}, cache: "no-store" }).catch(() => null);
+      const json = res && res.ok ? await res.json().catch(() => null) : null;
+      if (!cancelled && json) setDetail(json);
+    })();
     return () => { cancelled = true; };
   }, [placeId, isPreview]);
 
@@ -796,6 +803,8 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
         · 가장 많이 본 날: {best && best.views > 0 ? `${best.day.slice(5).replace("-", "월 ")}일 (${best.views}회)` : "아직 조회가 없어요"}<br />
         · 누적 찜 {stats.bookmarks.toLocaleString("ko-KR")} · 추천 {stats.likes.toLocaleString("ko-KR")} · 후기 {stats.reviews.toLocaleString("ko-KR")}건
       </div>
+
+      {detail && <div style={{ marginTop: 20, paddingTop: 4, borderTop: "1px solid #F0EFEE" }}><OwnerDetailedReport r={detail} screen /></div>}
 
       <div style={{ fontSize: 11, color: "#6e6e6e", marginTop: 12, lineHeight: 1.7 }}>
         · 같은 사람이 여러 번 보면 여러 번 세는 횟수 기준이에요. 개인을 알 수 있는 정보는 포함되지 않아요.<br />

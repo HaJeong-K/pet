@@ -33,17 +33,20 @@ async function loadInitial(): Promise<CommunityInitial | null> {
     // 댓글·좋아요 수는 저장된 숫자 대신 실제 개수를 셉니다(CommunityClient와 같은 보정).
     const commentCount: Record<string, number> = {};
     const likeCount: Record<string, number> = {};
+    const dislikeCount: Record<string, number> = {};
     if (posts.length > 0) {
       const ids = posts.map((p) => p.id);
-      const [{ data: commentRows }, { data: likeRows }] = await Promise.all([
+      const [{ data: commentRows }, { data: likeRows }, { data: dislikeRows }] = await Promise.all([
         supabase.from("community_comments").select("post_id").eq("deleted", false).in("post_id", ids),
         supabase.from("community_post_likes").select("post_id").in("post_id", ids),
+        supabase.from("community_post_dislikes").select("post_id").in("post_id", ids),
       ]);
+      (dislikeRows || []).forEach((l) => { dislikeCount[l.post_id] = (dislikeCount[l.post_id] || 0) + 1; });
       (commentRows || []).forEach((c) => { commentCount[c.post_id] = (commentCount[c.post_id] || 0) + 1; });
       (likeRows || []).forEach((l) => { likeCount[l.post_id] = (likeCount[l.post_id] || 0) + 1; });
     }
     return {
-      posts: posts.map((p) => ({ ...p, comment_count: commentCount[p.id] ?? p.comment_count ?? 0, likes: likeCount[p.id] ?? p.likes ?? 0 })),
+      posts: posts.map((p) => ({ ...p, comment_count: commentCount[p.id] ?? p.comment_count ?? 0, likes: likeCount[p.id] ?? p.likes ?? 0, dislikes: dislikeCount[p.id] ?? 0 })),
       totalCount: listResult.count ?? 0,
       notices: noticeResult.data || [],
       generatedAt: Date.now(),

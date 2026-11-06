@@ -7,6 +7,7 @@
 // 데이터는 /api/owner/report, 계산 규칙은 src/lib/ownerReport.ts.
 
 import { changeText, METRICS, ratio, totals, type Metrics, type MetricKey } from "@/lib/ownerReport";
+import { PLAN_MONTHLY_PRICE, won, type PaidPlanId } from "@/lib/ownerPlans";
 
 export type DetailedReport = {
   place: { id: number; name: string; category: string | null; address: string | null };
@@ -41,14 +42,20 @@ const thS: React.CSSProperties = { padding: "7px 8px", background: "#F9FAFB", bo
 const tdS: React.CSSProperties = { padding: "7px 8px", borderBottom: `1px solid ${LINE}`, color: INK };
 const note: React.CSSProperties = { fontSize: 11, color: SUB, lineHeight: 1.7, marginTop: 6 };
 
-/** 막대 그래프 — 인쇄해도 글자가 늘어나지 않게 SVG 대신 상자로 그립니다 */
+/** 막대 그래프 — 막대 위에 정확한 수치를 함께 적습니다. 평균선(점선)도 그립니다. 인쇄해도 글자가 늘어나지 않게 SVG 대신 상자로 그립니다 */
 function Bars({ values, labels, color, height = 110 }: { values: number[]; labels: string[]; color: string; height?: number }) {
   const max = Math.max(1, ...values);
+  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+  const many = values.length > 14;
   return (
     <div role="img" aria-label="막대 그래프">
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height, borderBottom: `1px solid ${LINE}` }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "flex-end", gap: 2, height: height + 16, borderBottom: `1px solid ${LINE}` }}>
+        {avg > 0 && <div aria-hidden style={{ position: "absolute", left: 0, right: 0, bottom: (avg / max) * height, borderTop: `1px dashed ${SUB}` }}><span style={{ position: "absolute", right: 0, top: -14, fontSize: 9.5, color: SUB, background: "white", padding: "0 3px" }}>평균 {n(Math.round(avg * 10) / 10)}</span></div>}
         {values.map((v, i) => (
-          <div key={i} title={`${labels[i] || ""} ${v}`} style={{ flex: 1, height: `${Math.max((v / max) * 100, v > 0 ? 3 : 1)}%`, background: v > 0 ? color : LINE, printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }} />
+          <div key={i} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+            <span style={{ fontSize: many ? 8.5 : 11, fontWeight: 800, color: v > 0 ? INK : SUB, lineHeight: 1.1, marginBottom: 2 }}>{v}</span>
+            <div title={`${labels[i] || ""} ${v}`} style={{ width: "100%", height: Math.max((v / max) * height, v > 0 ? 3 : 1), background: v > 0 ? color : LINE, borderRadius: "2px 2px 0 0", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }} />
+          </div>
         ))}
       </div>
       <div style={{ display: "flex", gap: 2, marginTop: 3 }}>
@@ -76,8 +83,20 @@ function CompareTable({ ours, other, oursLabel, otherLabel }: { ours: Metrics; o
   );
 }
 
-export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
+/** screen: 화면에 바로 보여 줄 때(표지 없이). 인쇄할 때는 표지부터 */
+export default function OwnerDetailedReport({ r, screen = false }: { r: DetailedReport; screen?: boolean }) {
   const cur = totals(r.current), prev = totals(r.previous);
+  // ── 투자 대비 효과(유료 요금제일 때) — 한 달 요금으로 얻은 조회·행동, 1건당 비용 ──
+  const price = r.plan ? PLAN_MONTHLY_PRICE[r.plan.id as PaidPlanId] ?? 0 : 0;
+  const base = r.beforePaid ? totals(r.beforePaid.metrics) : null;
+  const peer = r.peers ? totals(r.peers.metrics) : null;
+  const per = (v: number) => (price > 0 && v > 0 ? won(Math.round(price / v)) : "-");
+  const times = (a: number, b: number) => (b > 0 ? `${(a / b).toFixed(1)}배` : a > 0 ? "새로 생김" : "-");
+  // ── 최근 7일 vs 그 전 7일(일별 기록에서) ──
+  const sum = (arr: { views: number; clicks: number }[], k: "views" | "clicks") => arr.reduce((a, d) => a + d[k], 0);
+  const last7 = r.daily.slice(-7), prev7 = r.daily.slice(-14, -7);
+  const dayAvg = (v: number) => n(Math.round((v / 30) * 10) / 10);
+  const bestDay = [...r.daily].sort((a, b) => b.views - a.views)[0];
   const kpis: [string, number, number][] = [["노출", cur.exposure, prev.exposure], ["클릭", cur.clicks, prev.clicks], ["상세 조회", cur.views, prev.views], ["방문·문의 행동", cur.actions, prev.actions]];
   const funnel: [string, number][] = [["노출(코스·추천·배너)", cur.exposure], ["클릭", cur.clicks], ["상세 조회", cur.views], ["방문·문의 행동", cur.actions]];
   const funnelMax = Math.max(1, ...funnel.map(([, v]) => v));
@@ -86,8 +105,8 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
 
   return (
     <div style={{ color: INK, fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontSize: 12.5, lineHeight: 1.6, wordBreak: "keep-all" }}>
-      {/* 표지 */}
-      <div style={{ minHeight: "250mm", display: "flex", flexDirection: "column", justifyContent: "space-between", breakAfter: "page", padding: "20mm 6mm 10mm" }}>
+      {/* 표지 — 인쇄할 때만 */}
+      {!screen && <div style={{ minHeight: "250mm", display: "flex", flexDirection: "column", justifyContent: "space-between", breakAfter: "page", padding: "20mm 6mm 10mm" }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 800, color: ACCENT, letterSpacing: 1 }}>펫츠로드 · 반려동물 동반 장소 플랫폼</div>
           <div style={{ fontSize: 32, fontWeight: 900, marginTop: 18, lineHeight: 1.3 }}>마케팅 성과 보고서</div>
@@ -105,7 +124,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
       {/* 1. 요약 */}
       <section style={{ breakInside: "avoid" }}>
@@ -115,7 +134,8 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
             <div key={k} style={{ border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 10px" }}>
               <div style={{ fontSize: 11, color: SUB, fontWeight: 700 }}>{k}</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{n(v)}</div>
-              <div style={{ fontSize: 11, color: v >= p ? "#15803D" : "#B91C1C", fontWeight: 700 }}>직전 30일 대비 {changeText(v, p)}</div>
+              <div style={{ fontSize: 11, color: v >= p ? "#15803D" : "#B91C1C", fontWeight: 700 }}>직전 30일 {n(p)} → {changeText(v, p)}</div>
+              <div style={{ fontSize: 11, color: SUB }}>하루 평균 {dayAvg(v)}</div>
             </div>
           ))}
         </div>
@@ -125,6 +145,37 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
             {(r.insights.highlights.length ? r.insights.highlights : ["분석 기간 동안 쌓인 기록이 적어 주요 성과를 뽑기 어렵습니다. 기록이 쌓이면 자동으로 채워집니다."]).map((h) => <li key={h}>{h}</li>)}
           </ul>
         </div>
+      </section>
+
+      {/* 투자 대비 효과 — 돈을 쓴 만큼 무엇을 얻었는지 한눈에 */}
+      <section style={sectionStyle}>
+        <h2 style={h2}>한눈에 보는 투자 대비 효과</h2>
+        {price > 0 ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+              {[
+                ["한 달 요금", won(price), r.plan?.name ?? ""],
+                ["상세 조회 1회당", per(cur.views), `${n(cur.views)}회 조회`],
+                ["방문·문의 행동 1건당", per(cur.actions), `길찾기·전화·홈페이지 ${n(cur.actions)}건`],
+                ["노출 1회당", per(cur.exposure), `${n(cur.exposure)}회 노출`],
+              ].map(([k, v, sub]) => (
+                <div key={k} style={{ border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 11px", background: "#FFFBF5" }}>
+                  <div style={{ fontSize: 11, color: SUB, fontWeight: 700 }}>{k}</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: ACCENT }}>{v}</div>
+                  <div style={{ fontSize: 11, color: SUB }}>{sub}</div>
+                </div>
+              ))}
+            </div>
+            <ul style={{ margin: "10px 0 0", paddingLeft: 18, display: "grid", gap: 3 }}>
+              {base && <li>무료로 이용하던 때(30일 환산)보다 상세 조회가 <b>{times(cur.views, base.views)}</b>({n(base.views)} → {n(cur.views)}회), 방문·문의 행동이 <b>{times(cur.actions, base.actions)}</b>({n(base.actions)} → {n(cur.actions)}건)예요.{cur.views - base.views > 0 && <> 늘어난 조회 {n(cur.views - base.views)}회를 1회당 <b>{won(Math.round(price / (cur.views - base.views)))}</b>에 얻은 셈이에요.</>}</li>}
+              {peer && <li>비슷한 무료 업체 평균보다 상세 조회 <b>{times(cur.views, peer.views)}</b>({n(peer.views)} → {n(cur.views)}회), 노출 <b>{times(cur.exposure, peer.exposure)}</b>({n(peer.exposure)} → {n(cur.exposure)}회)예요.</li>}
+              <li>하루 평균 {dayAvg(cur.exposure)}번 손님 화면에 보였고, {dayAvg(cur.views)}번 상세 화면이 열렸어요. 하루 요금으로 치면 약 {won(Math.round(price / 30))}이에요.</li>
+            </ul>
+          </>
+        ) : (
+          <div style={{ color: SUB }}>지금은 무료로 이용 중이에요. 유료 요금제를 시작하면 요금 대비 조회·행동 1건당 비용과 무료 이용 때와의 차이를 여기서 보여 드려요.
+            {peer && <> 참고로 비슷한 무료 업체 평균 대비 상세 조회는 {times(cur.views, peer.views)}예요.</>}</div>
+        )}
       </section>
 
       {/* 2. 기간 비교 */}
@@ -145,10 +196,25 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
           </tbody>
         </table>
         <div style={note}>최근 30일 {dot(r.period.from)} ~ {dot(r.period.to)} · 직전 30일 {dot(r.period.previousFrom)} ~ {dot(r.period.previousTo)}</div>
+        {r.daily.length >= 14 && (
+          <table style={{ ...table, marginTop: 12 }}>
+            <thead><tr><th style={thS}>최근 7일 vs 그 전 7일</th><th style={{ ...thS, textAlign: "right" }}>최근 7일</th><th style={{ ...thS, textAlign: "right" }}>그 전 7일</th><th style={{ ...thS, textAlign: "right" }}>증감</th></tr></thead>
+            <tbody>
+              {(["views", "clicks"] as const).map((k) => (
+                <tr key={k}>
+                  <td style={{ ...tdS, fontWeight: 700 }}>{k === "views" ? "상세 조회" : "클릭"}</td>
+                  <td style={{ ...tdS, textAlign: "right", fontWeight: 800 }}>{n(sum(last7, k))}</td>
+                  <td style={{ ...tdS, textAlign: "right" }}>{n(sum(prev7, k))}</td>
+                  <td style={{ ...tdS, textAlign: "right", fontWeight: 700, color: sum(last7, k) >= sum(prev7, k) ? "#15803D" : "#B91C1C" }}>{changeText(sum(last7, k), sum(prev7, k))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       {/* 3. 유료 이용 효과 */}
-      <section style={{ ...sectionStyle, breakBefore: "page" }}>
+      <section style={{ ...sectionStyle, breakBefore: screen ? undefined : "page" }}>
         <h2 style={h2}>3. 유료 이용 효과 분석</h2>
         {r.beforePaid && (
           <div style={{ breakInside: "avoid" }}>
@@ -180,7 +246,7 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
             <div key={k} style={{ display: "grid", gridTemplateColumns: "140px 1fr 90px", alignItems: "center", gap: 8 }}>
               <span style={{ fontWeight: 700 }}>{k}</span>
               <div style={{ height: 14, background: "#F3F4F6", borderRadius: 3 }}><div style={{ width: `${(v / funnelMax) * 100}%`, height: "100%", background: i === 0 ? "#FCD34D" : i === 1 ? "#F59E0B" : i === 2 ? ACCENT : "#78350F", borderRadius: 3 }} /></div>
-              <span style={{ textAlign: "right", fontWeight: 800 }}>{n(v)}회</span>
+              <span style={{ textAlign: "right", fontWeight: 800 }}>{n(v)}회{i > 0 && <span style={{ display: "block", fontSize: 10.5, fontWeight: 700, color: SUB }}>앞 단계의 {pct(ratio(v, funnel[i - 1][1]))}</span>}</span>
             </div>
           ))}
         </div>
@@ -194,12 +260,13 @@ export default function OwnerDetailedReport({ r }: { r: DetailedReport }) {
       </section>
 
       {/* 5. 일별 추이 */}
-      <section style={{ ...sectionStyle, breakBefore: "page" }}>
+      <section style={{ ...sectionStyle, breakBefore: screen ? undefined : "page" }}>
         <h2 style={h2}>5. 일별 추이(최근 30일)</h2>
         <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2 }}>상세 조회</div>
         <Bars values={r.daily.map((d) => d.views)} labels={r.daily.map((d, i) => (i % 5 === 0 ? d.day.slice(5).replace("-", "/") : ""))} color={ACCENT} />
         <div style={{ fontSize: 12, fontWeight: 700, margin: "10px 0 2px" }}>클릭(코스·추천·배너)</div>
         <Bars values={r.daily.map((d) => d.clicks)} labels={r.daily.map((d, i) => (i % 5 === 0 ? d.day.slice(5).replace("-", "/") : ""))} color={BLUE} height={90} />
+        <div style={note}>30일 합계 상세 조회 {n(r.daily.reduce((a, d) => a + d.views, 0))}회 · 클릭 {n(r.daily.reduce((a, d) => a + d.clicks, 0))}회{bestDay && bestDay.views > 0 ? ` · 가장 많이 본 날 ${bestDay.day.slice(5).replace("-", "월 ")}일(${bestDay.views}회)` : ""}. 점선은 하루 평균이에요.</div>
       </section>
 
       {/* 6. 요일별 관심 */}

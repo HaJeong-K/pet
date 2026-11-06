@@ -9,6 +9,7 @@
 //   · 바깥 틀은 StayFrame — 다른 화면처럼 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 // 데이터는 /api/lodging/list(공공데이터 숙소 + 직접 등록된 숙소), 정렬·검색·필터는 여기서 합니다.
 
+import PageHero, { HeroSearch } from "@/components/PageHero";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CalendarCheck, MapPin, Search } from "lucide-react";
@@ -137,18 +138,17 @@ export default function StayClient() {
         @media (min-width: 900px) { .stay-picks { grid-template-columns: repeat(4, minmax(0, 1fr)); } .stay-row-price { display: block; } .stay-row-price-inline { display: none; } }
       `}</style>
 
-      {/* 머리말 + 검색 */}
-      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
-        <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(23px, 4vw, 29px)", fontWeight: 800, lineHeight: 1.35 }}>우리 아이도 환영하는<br />숙소를 찾아보세요</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 22, padding: "15px 18px", borderRadius: 16, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.16)" }}>
+      {/* 머리말 + 검색 — 탭 화면 공통 머리말(src/components/PageHero.tsx) */}
+      <PageHero eyebrow="반려동물 동반 숙소" title="우리 아이도 환영하는 숙소" desc="동반 조건을 한눈에 비교하고, 펫츠로드에서 바로 예약해요.">
+        <HeroSearch>
           <Search size={19} color={SUB} />
           <input value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE); }} placeholder="말하듯이 찾기 — 예: 대구 독채, 강릉 한옥" aria-label="숙소 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 15.5, fontFamily: "inherit", color: INK, background: "transparent" }} />
           {query && <button onClick={() => { setQuery(""); setLimit(PAGE); }} aria-label="검색어 지우기" style={{ border: "none", background: WASH, borderRadius: 999, width: 24, height: 24, cursor: "pointer", color: "#555", fontSize: 14, lineHeight: "24px", padding: 0 }}>×</button>}
-        </div>
-      </div>
+        </HeroSearch>
+      </PageHero>
 
       {/* 지역 · 세부 지역 · 조건 — 화면을 내려도 위에 붙어 있음 */}
-      <div style={{ position: "sticky", top: 0, zIndex: 5, marginTop: 14, background: "white", borderBottom: `1px solid ${LINE}` }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 5, background: "white", borderBottom: `1px solid ${LINE}` }}>
         <div data-guide="stay-regions" style={{ display: "flex", overflowX: "auto", scrollbarWidth: "none", padding: "0 clamp(10px, 3vw, 24px)" }}>
           {REGION_LABELS.map((label) => {
             const on = region === label;

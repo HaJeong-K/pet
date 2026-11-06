@@ -1,7 +1,6 @@
 "use client";
 
 import HomeNoticeBar from "@/components/HomeNoticeBar";
-import Image from "next/image";
 import { shortAddress } from "@/lib/shortAddress";
 import { MAP_PANEL_INK, MapPanelEmpty, MapPanelHeader, mapPanelFrame, mapPanelScroll, PlaceRowCard } from "@/components/map/MapPanel";
 import { ParkIcon, PlaceIcon, parkIconSvg, placeIconKey, placeIconSvg } from "@/components/PlaceIcon";
@@ -56,6 +55,7 @@ import {
   Home, Trees, HousePlus, BedDouble, Sprout,
   ArrowLeft, ChevronUp,
 } from "lucide-react";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // 리스트/신규 장소/추천 장소 패널이 겹치지 않고 화면 폭에 비례해 배치되도록 하는 기준선.
 // 이보다 좁은 화면(모바일 세로, 웹 분할화면 등)에서는 리스트·신규·추천 패널을 동시에
@@ -3922,14 +3922,7 @@ const courseMeta = (route: RouteResult) => ({
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {/* 로고: 핀 속 슈나우저 + "펫츠로드"(앱 아이콘과 같은 핀). 예전 손그림 두 마리는 빈 화면 등의 마스코트로 남겨 뒀습니다. */}
-                <Image
-                  src="/icons/petsroad_lockup.png"
-                  alt="펫츠로드"
-                  width={721}
-                  height={231}
-                  priority
-                  style={{ height: "30px", width: "auto", display: "block", objectFit: "contain", flexShrink: 0 }}
-                />
+                <BrandLogo height={30} />
                 <div style={{
                   flex: 1, minWidth: 0, height: 38, display: "flex", alignItems: "center", gap: 6,
                   background: "#f5f6f8", borderRadius: 999, padding: "0 12px", border: "1px solid #e8eaed", boxSizing: "border-box",
@@ -4010,14 +4003,7 @@ const courseMeta = (route: RouteResult) => ({
           {/* 좌측: 로고 — 위 상자가 세 칸 격자라 가운데 검색창·필터가 화면 정중앙에 옵니다
               (예전엔 오른쪽 버튼 묶음이 로고보다 넓어 가운데 칸이 왼쪽으로 밀렸습니다) */}
           <div style={{ lineHeight: 1, justifySelf: "start" }}>
-            <Image
-              src="/icons/petsroad_lockup.png"
-              alt="펫츠로드"
-              width={721}
-              height={231}
-              priority
-              style={{ height: "52px", width: "auto", display: "block", objectFit: "contain" }}
-            />
+            <BrandLogo height={52} />
             <div
               className="ggk-body"
               style={{ fontSize: "10px", color: "#5c5c5c", fontWeight: 400, marginTop: "6px", letterSpacing: "-0.1px", whiteSpace: "nowrap" }}

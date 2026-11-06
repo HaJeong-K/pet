@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Megaphone, Handshake, MapPin, BarChart3, ArrowRight, Store, PawPrint, Type, Scale, MessageSquareText,
   Search, Users, HeartHandshake, ShieldCheck, Ban, BadgeCheck, Building2, Bone, Gift, Map as MapIcon,
@@ -10,6 +9,7 @@ import { OWNER_PLANS, won } from "@/lib/ownerPlans";
 import { SchnauzerHead } from "@/components/brand/SchnauzerPeek";
 import PartnershipForm from "./PartnershipForm";
 import { PageFooter } from "@/components/SiteFooter";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // ── 광고·제휴 안내(/partnership) ──
 // 사이트 아래의 "광고·제휴 문의"에서 들어옵니다. 광고주·제휴사가 읽는 사업 안내 화면이라 용어와 말투를 그에 맞춥니다
@@ -106,7 +106,7 @@ export default function PartnershipPage() {
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
           <Link href="/" aria-label="펫츠로드 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
+            <BrandLogo height={38} />
           </Link>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* 좁은 화면에서는 로고와 "문의하기"만 남깁니다 */}

@@ -13,6 +13,7 @@ import { BedDouble, Check, ChevronRight, ClipboardList, Copy, CreditCard, ImageO
 import LevelBadge from "@/components/LevelBadge";
 import { SchnauzerHead } from "@/components/brand/SchnauzerPeek";
 import { setGuideInterest, type GuideInterest } from "@/lib/pageGuides";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const CONTACT_EMAIL = "infoker12@naver.com";
 /** 끝까지 봤거나 "다시 보지 않기"를 눌렀는지(기기에 계속 남음). 소개 내용을 크게 바꾸면 끝의 숫자를 올립니다. */
@@ -358,7 +359,7 @@ export default function WelcomeIntro({ onClose }: { onClose: () => void }) {
         {/* 머리: 로고 · 닫기 */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 6px" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ height: 30, width: "auto", display: "block" }} />
+          <BrandLogo height={30} />
           <button onClick={() => close(false)} aria-label="닫기" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.07)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={15} color="#555" />
           </button>

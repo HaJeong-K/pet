@@ -217,7 +217,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                       {profile.extras.map((x) => (
                         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
                           <span>{x.name}{x.note ? <span style={{ color: "#666" }}> · {x.note}</span> : null}</span>
-                          <b style={{ flexShrink: 0, color: "#333" }}>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{extraUnitLabel(x)}</span></b>
+                          {/* 0원으로 등록한 서비스는 손님에게 "무료"로 보여 줍니다 */}
+                          <b style={{ flexShrink: 0, color: x.price > 0 ? "#333" : "#15803D" }}>{x.price > 0 ? <>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{extraUnitLabel(x)}</span></> : "무료"}</b>
                         </div>
                       ))}
                     </div>

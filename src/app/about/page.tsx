@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import {
   MapPin, Dog, Footprints, MessageCircleHeart, Flag, PawPrint, Store, ArrowRight,
   Home, Trees, Stethoscope, Bell, Bookmark, BadgeCheck, BarChart3, Search,
 } from "lucide-react";
 import { siteUrl } from "@/lib/siteUrl";
 import { PageFooter } from "@/components/SiteFooter";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // ── 서비스 소개(/about) ──
 // 처음 온 사람이 "여기가 뭐 하는 곳인지"를 한 화면씩 넘기며 알 수 있게 한 소개 페이지.
@@ -83,7 +83,7 @@ export default function AboutPage() {
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 58 }}>
           <Link href="/" aria-label="펫츠로드 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ objectFit: "contain", height: 38, width: "auto" }} priority />
+            <BrandLogo height={38} />
           </Link>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* 좁은 화면에서는 로고와 "지도 열기"만 남깁니다 */}

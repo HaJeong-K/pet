@@ -5,6 +5,7 @@
 // 구성은 여기어때·당근·노션의 오류 화면처럼 흰 바탕에 왼쪽 위 로고, 가운데 제목·안내 한 줄·버튼 하나입니다.
 
 import { SchnauzerHead } from "@/components/brand/SchnauzerPeek";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const DARK = "#3B2A20";
 const SUB = "#6B5E55";
@@ -24,7 +25,7 @@ export default function ErrorScreen({ title, onRetry }: { title: string; onRetry
         {/* 앱 상태가 망가졌을 수 있어 화면 이동이 아니라 처음부터 새로 엽니다 */}
         <a href="/" aria-label="펫츠로드 지도" style={{ display: "block" }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- 오류 중에는 이미지 최적화 서버도 실패할 수 있어 원본을 바로 씁니다 */}
-          <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ display: "block", height: 34, width: "auto" }} />
+          <BrandLogo height={34} />
         </a>
       </header>
 

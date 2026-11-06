@@ -215,11 +215,12 @@ export default function TabBar() {
     { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
     // 반려동물 동반 숙소 찾기·예약(/stay) — 숙박 앱처럼 쓰고 싶은 사람을 위한 탭
     { key: "stay",      label: "숙소",     icon: BedDouble, onClick: () => router.push("/stay"),          isReport: false },
-    { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
-    // 유기동물 보호소 공고(전체 목록·지역 알림) — 예전엔 이 화면으로 가는 링크가 어디에도 없었습니다.
-    { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
     // 동네 가게가 올린 상품을 모아 보고 예약 포장을 넣는 화면(/shop)
+    // ⚠ 순서(2026-11-06 대표 결정): 지도 · 숙소 · 쇼핑 · 커뮤니티 · 입양 · 마이페이지 — 수익이 나는 숙소·쇼핑을 첫 화면 바로 옆에 둡니다.
     { key: "shop",      label: "쇼핑",     icon: ShoppingBag, onClick: () => router.push("/shop"),         isReport: false },
+    { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
+    // 유기동물 보호소 공고(전체 목록·지역 알림) — 탭으로 유지(2026-11-06 대표 결정)
+    { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
     ...(isAdmin ? [
       { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
     ] : []),
@@ -393,7 +394,8 @@ export default function TabBar() {
                 </span>
                 <span
                   style={{
-                    fontSize: "9px",
+                    // 칸이 5개 이하면 글자를 키웁니다(관리자·사장님 칸이 붙어 6~7개면 작게)
+                    fontSize: TAB_COUNT <= 5 ? "10.5px" : "9px",
                     fontWeight: isActive ? 700 : 500,
                     color: isActive ? activeColor : inactiveColor,
                     letterSpacing: "0.15px",

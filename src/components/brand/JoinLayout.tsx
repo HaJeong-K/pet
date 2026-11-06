@@ -9,12 +9,12 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Check, X, type LucideIcon } from "lucide-react";
 import { closeModal } from "@/lib/closeModal";
 import { PEEK_SPACE, PeekingDogs } from "@/components/brand/SchnauzerPeek";
 import { PageFooter } from "@/components/SiteFooter";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 export type JoinPoint = { Icon: LucideIcon; title: string; text: string };
 
@@ -95,7 +95,7 @@ export default function JoinLayout({ theme = "oat", eyebrow, EyebrowIcon, headin
         {/* 왼쪽(휴대폰은 위) 브랜드 칸 */}
         <aside className="ggk-join-brand" style={{ background: t.band, color: t.ink }}>
           <Link href="/" aria-label="펫츠로드 지도" style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", padding: "6px 10px", borderRadius: 12, background: "#FFFFFF", border: `1px solid ${t.chipLine}` }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 28, width: "auto" }} priority />
+            <BrandLogo height={28} />
           </Link>
           <div style={{ marginTop: "clamp(18px, 6vh, 64px)" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: "#FFFFFF", border: `1px solid ${t.chipLine}`, color: t.chipInk, fontSize: 12.5, fontWeight: 700 }}>

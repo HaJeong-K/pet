@@ -7,6 +7,7 @@
 //   · /shop?store=번호 로 들어오면 그 가게 화면으로 넘깁니다(지도 상세의 "예약하러 가기").
 // 바깥 틀은 숙소 탭과 같은 StayFrame — 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 
+import PageHero, { HeroSearch } from "@/components/PageHero";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -100,17 +101,16 @@ export default function ShopClient() {
           .shop-cats > button { flex: 1 1 0; min-width: 0; }
         }
       `}</style>
-      {/* 머리말 + 검색 — 숙소 탭과 같은 모양 */}
-      <div style={{ padding: "34px clamp(18px, 4vw, 32px) 28px", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", borderRadius: "0 0 26px 26px" }}>
-        <h1 className="ggk-logo" style={{ margin: 0, fontSize: "clamp(23px, 4vw, 29px)", fontWeight: 800, lineHeight: 1.35 }}>우리 아이 간식·용품,<br />미리 주문하고 받아 가세요</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 22, padding: "15px 18px", borderRadius: 16, background: "white", boxShadow: "0 8px 24px rgba(0,0,0,0.16)" }}>
+      {/* 머리말 + 검색 — 탭 화면 공통 머리말(src/components/PageHero.tsx) */}
+      <PageHero eyebrow="포장·매장 주문" title="우리 아이 간식·용품, 미리 주문" desc="동네 가게에 미리 주문하고 편하게 받아 가세요.">
+        <HeroSearch>
           <Search size={19} color={SUB} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="가게나 상품을 말하듯이 찾기 — 예: 대구 수제간식" aria-label="가게·상품 검색" style={{ flex: 1, minWidth: 0, border: "none", outline: "none", fontSize: 15.5, fontFamily: "inherit", color: INK, background: "transparent" }} />
-        </div>
-      </div>
+        </HeroSearch>
+      </PageHero>
 
       {/* 분류 */}
-      <div role="group" aria-label="분류" className="shop-cats" style={{ ...wrap, marginTop: 26 }}>
+      <div role="group" aria-label="분류" className="shop-cats" style={{ ...wrap, marginTop: 10 }}>
         {[null, ...categories].map((name) => {
           const on = category === name;
           const Icon = name ? iconOf(name) : LayoutGrid;

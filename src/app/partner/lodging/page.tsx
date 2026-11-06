@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   BadgeCheck, BedDouble, CalendarCheck, CalendarSync, Coffee, FileText, MapPin, PawPrint, ShieldCheck, Wallet,
 } from "lucide-react";
@@ -10,6 +9,7 @@ import { PageFooter } from "@/components/SiteFooter";
 import {
   AUTO_CONFIRM_DAYS, BASIC_FEE_RATE, CANCEL_FEE_RATE, LODGING_CONTRACT_VERSION, PREMIUM_FEE_RATE, PROMO_FEE_RATE, PROMO_MONTHS,
 } from "@/lib/lodgingPolicy";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // 숙소 사장님용 입점 안내(/partner/lodging) — 서비스 소개(/about)와 같은 구성:
 //   위에 붙는 머리 줄 → 화면 전체 폭 첫 화면(한 줄 소개·입점 프로모션) → 펫츠로드에 입점하면(번호 붙은 4가지)
@@ -91,7 +91,7 @@ export default function PartnerLodgingPage() {
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(244, 243, 242,0.92)", backdropFilter: "blur(8px)", borderBottom: "1px solid #E3E2E1" }}>
         <div style={{ ...wrap, display: "flex", alignItems: "center", gap: 14, height: 60 }}>
           <Link href="/" aria-label="펫츠로드 지도" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ objectFit: "contain", height: 36, width: "auto" }} priority />
+            <BrandLogo height={36} />
           </Link>
           <span style={{ fontSize: 12.5, fontWeight: 800, color: BRAND, padding: "4px 10px", borderRadius: 999, background: "#F8E6D9" }}>숙소 입점</span>
           <nav style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>

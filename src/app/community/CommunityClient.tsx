@@ -1,5 +1,7 @@
 "use client";
 
+import PageHero from "@/components/PageHero";
+import { BoardPickerMobile, BoardScroller, type BoardItem } from "@/components/community/BoardNav";
 import OwnerBadge from "@/components/OwnerBadge";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
@@ -17,9 +19,10 @@ import { AdRailLeft, AdRailRight } from "@/components/SideAdRail";
 import LocalAdStrip from "@/components/LocalAdStrip";
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import {
-  ArrowLeft, MessageCircle, Heart, Eye,
+  ArrowLeft, MessageCircle, Eye, ThumbsUp, ThumbsDown,
   Pencil, Pin, LogIn, X, Search,
   Megaphone, MapPinned, ChevronDown, Check,
+  PawPrint,
 } from "lucide-react";
 
 const FONT_STYLE = `
@@ -261,12 +264,17 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
         // (이제 페이지당 최대 15건만 대상이라 이 보정 쿼리도 훨씬 가벼워졌습니다.)
         let commentCountMap: Record<string, number> = {};
         let likeCountMap: Record<string, number> = {};
+        let dislikeCountMap: Record<string, number> = {};
         if (postData && postData.length > 0) {
           const postIds = postData.map((p: any) => p.id);
-          const [{ data: commentRows }, { data: likeRows }] = await Promise.all([
+          const [{ data: commentRows }, { data: likeRows }, { data: dislikeRows }] = await Promise.all([
             supabase.from("community_comments").select("post_id").eq("deleted", false).in("post_id", postIds),
             supabase.from("community_post_likes").select("post_id").in("post_id", postIds),
+            supabase.from("community_post_dislikes").select("post_id").in("post_id", postIds),
           ]);
+          (dislikeRows || []).forEach((l: any) => {
+            dislikeCountMap[l.post_id] = (dislikeCountMap[l.post_id] || 0) + 1;
+          });
           (commentRows || []).forEach((c: any) => {
             commentCountMap[c.post_id] = (commentCountMap[c.post_id] || 0) + 1;
           });
@@ -278,6 +286,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           ...p,
           comment_count: commentCountMap[p.id] ?? p.comment_count ?? 0,
           likes: likeCountMap[p.id] ?? p.likes ?? 0,
+          dislikes: dislikeCountMap[p.id] ?? 0,
         }));
 
         if (!cancelled) {
@@ -306,6 +315,15 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
   const getBoardLabel = (id: string) =>
     BOARDS.find((b) => b.id === id)?.label || id;
 
+  // 게시판 고르기(휴대폰 목록 창) — 묶음별 게시판과 설명
+  const pickBoard = (id: string) => { setActiveBoard(id); setCurrentPage(1); setSearchQuery(""); setSelectedPostType("all"); };
+  const boardNavGroups: { title: string; boards: BoardItem[] }[] = [
+    { title: "모아 보기", boards: [{ id: ALL_BOARD_ID, label: "전체", desc: "모든 게시판의 새 글" }, { id: BEST_BOARD_ID, label: "인기", desc: "좋아요·댓글이 많은 글", tone: "hot" }, { id: NOTICE_BOARD_ID, label: "공지", desc: "펫츠로드 운영 소식" }] },
+    { title: "주제 게시판", boards: TOPIC_BOARDS.map((b) => ({ id: b.id, label: b.label, desc: b.desc })) },
+    { title: "사장님 게시판", boards: [{ id: "business", label: "사장님", desc: "반려동물 관련 가게의 소식·이벤트", tone: "biz" }] },
+    { title: "지역 게시판", boards: REGION_BOARDS.map((b) => ({ id: b.id, label: b.label })) },
+  ];
+
   return (
     <>
       <style>{FONT_STYLE}</style>
@@ -315,7 +333,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           좌우 여백 칼럼은 항상 폭이 완전히 동일하므로 본문은 항상 화면 정중앙에 옵니다.
           레일은 각 여백 칼럼 "안에서" justifySelf:center로 그 여백 폭의 정가운데에 옵니다. */}
       <div
-        className="ggk-body"
+        className="ggk-body ggk-readable"
         style={{
           minHeight: "100dvh",
           background: "#FAF9F8",
@@ -347,22 +365,14 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
             scrollbarWidth: "thin",
           }}
         >
-          {/* ── 웰컴 배너 — 페이지 최상단. 시안 .hero 스펙: solid primary, full-bleed, no radius ── */}
-          <div style={{
-            position: "relative", overflow: "hidden",
-            background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", borderRadius: "0 0 26px 26px",
-            padding: "24px 40px", display: "flex", alignItems: "center",
-            justifyContent: "space-between", gap: 10,
-          }}>
-            <div>
-              <div className="ggk-logo" style={{ fontSize: 22, fontWeight: 700, color: "white", marginBottom: 5 }}>
-                반려인들의 이야기
-              </div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.88)" }}>
-                산책 친구부터 방문 후기까지, 자유롭게 나눠보세요
-              </div>
-            </div>
-          </div>
+          {/* 머리말 — 탭 화면 공통(src/components/PageHero.tsx) */}
+          <PageHero eyebrow="커뮤니티" title="반려인들의 이야기" desc="산책 친구부터 방문 후기까지, 자유롭게 나눠 보세요."
+            action={
+              // 유기동물 입양 공고 — 아래 탭바에서 빠지고 커뮤니티 안으로 들어왔습니다
+              <button onClick={() => router.push("/shelter-notices")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                <PawPrint size={14} /> 입양 공고
+              </button>
+            } />
 
           {/* 우리 동네 가게 배너('동네 대표' 요금제) — 보여 줄 가게가 있을 때만, 좁은 화면에서만 */}
           <LocalAdStrip />
@@ -382,14 +392,19 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
           >
             {/* 주제 게시판 — 수가 많아 옆으로 넘기는 줄에 담습니다(휴대폰·PC 공통).
                 지역 드롭다운과 글쓰기 버튼은 넘기는 줄 밖에 둬서 항상 보입니다. */}
-            <div
-              className="ggk-board-strip"
-              style={isNarrow
-                ? { display: "flex", gap: "6px", overflowX: "auto", scrollbarWidth: "none", flex: 1, minWidth: 0 }
-                : { display: "flex", gap: "6px", flexWrap: "wrap", flex: 1, minWidth: 0 }}
-            >
-              <style>{`.ggk-board-strip::-webkit-scrollbar { display: none; }`}</style>
-              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: NOTICE_BOARD_ID, label: "공지" }, ...(session ? [{ id: SAVED_BOARD_ID, label: "저장한 글" }] : []), { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
+            {isNarrow ? (
+              // 휴대폰(시안 E): 지금 게시판 이름 + [바꾸기] → 전체 목록 창, 아래에 전체·인기·공지 빠른 이동
+              <BoardPickerMobile
+                active={activeBoard}
+                activeLabel={boardNavGroups.flatMap((g) => g.boards).find((b) => b.id === activeBoard)?.label ?? "전체"}
+                quick={[{ id: ALL_BOARD_ID, label: "전체" }, { id: BEST_BOARD_ID, label: "인기", tone: "hot" }, { id: NOTICE_BOARD_ID, label: "공지" }]}
+                groups={boardNavGroups}
+                onPick={pickBoard}
+              />
+            ) : (
+            // PC(시안 A): 한 줄 — 넘치면 양 끝 흐림 + ‹ › 버튼
+            <BoardScroller>
+              {[{ id: ALL_BOARD_ID, label: "전체" }, { id: NOTICE_BOARD_ID, label: "공지" }, { id: BEST_BOARD_ID, label: "인기" }, ...TOPIC_BOARDS].map((board) => {
                 const active = activeBoard === board.id;
                 const best = board.id === BEST_BOARD_ID;
                 return (
@@ -402,13 +417,13 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                       setSelectedPostType("all");
                     }}
                     style={{
-                      flexShrink: 0,
+                      flex: isNarrow ? "0 0 auto" : "1 0 auto",
                       border: active ? "none" : "1px solid rgba(0,0,0,0.08)",
                       borderRadius: "10px",
-                      padding: isNarrow ? "8px 12px" : "8px 11px",
+                      padding: isNarrow ? "8px 12px" : "7px 9px",
                       background: active ? (best ? "#D9534F" : "#A05A32") : "#fff",
-                      color: active ? "white" : best ? "#c9302c" : "#555",
-                      fontSize: "13px",
+                      color: active ? "white" : best ? "#c9302c" : "#1a1a1a",
+                      fontSize: isNarrow ? "13px" : "12px",
                       fontWeight: active || best ? 700 : 600,
                       cursor: "pointer",
                       whiteSpace: "nowrap",
@@ -429,13 +444,13 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                   setSelectedPostType("all");
                 }}
                 style={{
-                  flexShrink: 0,
+                  flex: isNarrow ? "0 0 auto" : "1 0 auto",
                   border: "none",
                   borderRadius: "10px",
-                  padding: isNarrow ? "8px 12px" : "8px 11px",
+                  padding: isNarrow ? "8px 12px" : "7px 9px",
                   background: activeBoard === "business" ? "linear-gradient(145deg, #d97706, #b45309)" : "#fef3c7",
                   color: activeBoard === "business" ? "white" : "#92400e",
-                  fontSize: "13px",
+                  fontSize: isNarrow ? "13px" : "12px",
                   fontWeight: 700,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
@@ -443,8 +458,10 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
               >
                 사장님
               </button>
-            </div>
+            </BoardScroller>
+            )}
 
+            {!isNarrow && (<>
             {/* 지역 게시판 선택 — 커스텀 드롭다운 (네이티브 select의 기본 브라우저 스타일을 걷어내고
                 앱 톤에 맞춘 팝오버로 교체). 다른 버튼들처럼 내용만큼만 폭을 차지하도록
                 flex:1/width:100% 를 제거하고, 남는 영역은 그냥 빈 공간으로 둡니다. */}
@@ -454,7 +471,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 className="ggk-body"
                 style={{
                   borderRadius: "10px",
-                  padding: isNarrow ? "8px 12px" : "8px 16px",
+                  padding: isNarrow ? "8px 12px" : "7px 12px",
                   background: REGION_BOARDS.some((b) => b.id === activeBoard) ? "#A05A32" : "#fff",
                   color: REGION_BOARDS.some((b) => b.id === activeBoard) ? "white" : "#555",
                   border: REGION_BOARDS.some((b) => b.id === activeBoard) ? "none" : "1px solid rgba(0,0,0,0.08)",
@@ -516,6 +533,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 </>
               )}
             </div>
+            </>)}
 
           </div>
 
@@ -906,18 +924,23 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                                 )}
 
                                 {/* 통계 — 시안처럼 구분선 없이 */}
+                                {/* 순서: 조회수 · 댓글 · 좋아요 · 싫어요 (2026-11-06 대표 결정) */}
                                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
-                                    <Heart size={12} color="#ff8787" />
-                                    {post.likes || 0}
+                                  <span title="조회수" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
+                                    <Eye size={12} color="#999" />
+                                    {post.views || 0}
                                   </span>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
+                                  <span title="댓글" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
                                     <MessageCircle size={12} color="#a9805a" />
                                     {post.comment_count || 0}
                                   </span>
-                                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
-                                    <Eye size={12} color="#bbb" />
-                                    {post.views || 0}
+                                  <span title="좋아요" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
+                                    <ThumbsUp size={12} color="#A05A32" />
+                                    {post.likes || 0}
+                                  </span>
+                                  <span title="싫어요" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#666", fontWeight: 600 }}>
+                                    <ThumbsDown size={12} color="#6B5D55" />
+                                    {post.dislikes || 0}
                                   </span>
                                 </div>
                               </div>

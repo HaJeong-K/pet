@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
 import MemberLevelCard from "@/components/MemberLevelCard";
@@ -29,14 +30,16 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints, Award, Bell, MapPinned,
+  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints, Award, Bell, MapPinned, Bookmark,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
-import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
-import OwnerStatsPanel from "@/components/OwnerStatsPanel";
+// 설정 안에서만 여는 무거운 사장님 화면은 열 때 내려받습니다(첫 화면 속도)
+const OwnerPlaceEditPanel = dynamic(() => import("@/components/OwnerPlaceEditPanel"), { ssr: false });
+const OwnerStatsPanel = dynamic(() => import("@/components/OwnerStatsPanel"), { ssr: false });
 import PetIllustration from "@/components/illustrations/PetIllustration";
 import SiteFooter from "@/components/SiteFooter";
 import LocalAdStrip from "@/components/LocalAdStrip";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // 이 시간 안에 로딩이 끝나지 않으면 흰 화면 대신 "다시 불러오기" 안내를 보여줍니다.
 const MYPAGE_STALL_MS = 8000;
@@ -77,7 +80,7 @@ const inp: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-type MySection = "home" | "orders" | "notifications" | "bookmarks" | "routes" | "courses" | "posts" | "reviews" | "level";
+type MySection = "home" | "orders" | "notifications" | "bookmarks" | "routes" | "courses" | "posts" | "saved" | "reviews" | "level";
 const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof Home }[] = [
   { key: "home", label: "한눈에 보기", desc: "내 활동과 알림, 최근 주문·예약을 한 화면에서 확인해요.", Icon: Home },
   { key: "orders", label: "주문·예약 내역", desc: "숙소 예약과 쇼핑 주문의 결제 내역을 보고, 취소·후기까지 여기서 해요.", Icon: ReceiptText },
@@ -86,13 +89,14 @@ const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof H
   { key: "routes", label: "내 경로", desc: "장소 상세의 '내 경로에 추가'로 담은 곳을 순서대로 엮은 나만의 코스예요. 순서 바꾸기·빼기·길찾기를 여기서 해요.", Icon: MapPinned },
   { key: "courses", label: "추천 코스", desc: "지도의 추천 코스에서 저장한 산책·나들이 코스예요.", Icon: Footprints },
   { key: "posts", label: "작성한 글", desc: "커뮤니티에 쓴 글과 공지를 모아 봐요.", Icon: MessageCircle },
+  { key: "saved", label: "저장한 글", desc: "커뮤니티에서 저장해 둔 글을 모아 봐요.", Icon: Bookmark },
   { key: "reviews", label: "작성한 댓글", desc: "장소 후기와 커뮤니티 댓글을 모아 봐요.", Icon: PawPrint },
   { key: "level", label: "내 레벨·점수", desc: "지금 단계와 다음 단계까지 남은 점수, 점수 받는 법을 확인해요.", Icon: Award },
 ];
 const MY_GROUPS: { title: string; keys: MySection[] }[] = [
   { title: "홈", keys: ["home"] },
   { title: "이용 내역", keys: ["orders", "notifications"] },
-  { title: "내 활동", keys: ["bookmarks", "routes", "courses", "posts", "reviews"] },
+  { title: "내 활동", keys: ["bookmarks", "routes", "courses", "posts", "saved", "reviews"] },
   { title: "내 정보", keys: ["level"] },
 ];
 
@@ -114,6 +118,7 @@ export default function MyPage() {
   }, []);
   const [myCourses, setMyCourses]       = useState<SavedCourse[]>([]); // 저장한 AI 코스
   const [myPosts, setMyPosts]           = useState<any[]>([]); // 커뮤니티에 내가 쓴 글
+  const [mySaved, setMySaved]           = useState<any[]>([]); // 커뮤니티에서 저장한 글(예전 커뮤니티 "저장한 글" 게시판이 여기로 옮겨옴)
   const [loading, setLoading]           = useState(true);
   // 로딩이 너무 오래 걸리면(네트워크 멈춤·인증 교착 등) 투명한 흰 화면으로 두지 않고 안내를 띄웁니다.
   const [loadStalled, setLoadStalled]   = useState(false);
@@ -200,6 +205,9 @@ export default function MyPage() {
     return map;
   };
 
+  // 속도(2026-11-06): 예전엔 조회를 차례로(글 → 저장한 글 → 코스 → 장소) 기다린 뒤에야 화면을 보여 줘서 오래 걸렸습니다.
+  //   이제 모든 조회를 한꺼번에 시작하고, 프로필만 오면 화면을 바로 띄운 뒤 나머지는 오는 대로 채웁니다.
+  //   찜·댓글의 장소 정보(공공데이터 장소는 외부에서 받아 와 가장 느림)도 화면을 막지 않습니다.
   const loadData = async (sess: any) => {
     setBookmarks([]);
     setMyReviews([]);
@@ -207,76 +215,86 @@ export default function MyPage() {
     setMyCourses([]);
 
     const uid = sess.user.id;
+    const safe = <T,>(p: PromiseLike<T>, label: string) => Promise.resolve(p).catch((e) => { console.error(`[mypage] ${label} failed:`, e); return null; });
 
+    const profileP = safe(supabase.from("users").select("*").eq("auth_user_id", uid).single(), "profile");
+    // 커뮤니티에 내가 쓴 글(삭제된 글 제외)
+    const postsP = safe(supabase.from("community_posts")
+      .select("*") // review_status(자동 검토 상태) 컬럼이 아직 없는 환경에서도 조회되도록 전체 컬럼으로 받습니다
+      .eq("author_auth_key", uid)
+      .eq("deleted", false)
+      .eq("is_admin_deleted", false)
+      .order("created_at", { ascending: false }), "posts");
+    const bookmarksP = safe(supabase.from("reactions")
+      .select("place_id")
+      .eq("user_key", uid)
+      .eq("type", "bookmark")
+      .order("created_at", { ascending: false }), "bookmarks");
+    // ⚠ reviews.place_id에는 places 외래키가 없습니다(공공데이터 장소 id도 담기 때문).
+    // 그래서 places(...) 조인을 쓰면 PostgREST가 "relationship 없음" 오류를 냅니다. 장소 정보는 아래에서 place_id로 따로 붙입니다.
+    const reviewsP = safe(supabase.from("reviews")
+      .select("id, content, created_at, likes, place_id")
+      .eq("auth_user_id", uid)
+      .eq("deleted", false)
+      .eq("is_admin_deleted", false)
+      .order("created_at", { ascending: false }), "reviews");
+    const repliesP = safe(supabase.from("review_replies")
+      .select("id, content, created_at, likes, review_id, reviews!inner(place_id)")
+      .eq("auth_user_id", uid)
+      .eq("deleted", false)
+      .eq("is_admin_deleted", false)
+      .order("created_at", { ascending: false }), "replies");
+    const commentsP = safe(supabase.from("community_comments")
+      .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
+      .eq("author_auth_key", uid)
+      .eq("deleted", false)
+      .neq("is_admin_deleted", true)
+      .order("created_at", { ascending: false }), "comments");
+    // 저장한 글 — 저장한 순서대로(지워진 글은 빼고)
+    const savedP = safe((async () => {
+      const { data: saves } = await supabase.from("community_saves").select("post_id, created_at").eq("auth_user_id", uid).order("created_at", { ascending: false }).limit(200);
+      const savedIds = (saves ?? []).map((x) => x.post_id);
+      if (!savedIds.length) return [];
+      const { data: savedPosts } = await supabase.from("community_posts").select("id, title, content, board_id, created_at, nickname, likes, comment_count, views").in("id", savedIds).eq("deleted", false);
+      const byId = new Map((savedPosts ?? []).map((x) => [x.id, x]));
+      return savedIds.map((id) => byId.get(id)).filter(Boolean);
+    })(), "saved");
+    const coursesP = safe(listSavedCourses(), "courses");
+
+    // 프로필이 오면 화면을 바로 띄웁니다
+    const profileRes: any = await profileP;
+    setUserProfile(profileRes?.data ?? null);
+    setLoading(false);
+
+    // 나머지는 오는 대로 채웁니다(서로 기다리지 않음)
+    void postsP.then((r: any) => setMyPosts(r?.data || []));
+    void commentsP.then((r: any) => setMyCommunityComments(r?.data || []));
+    void savedP.then((r) => setMySaved(r || []));
+    void coursesP.then((r) => setMyCourses(r || []));
+
+    // 찜·댓글이 가리키는 장소 정보를 한 번에 모읍니다. 등록 장소는 places 테이블에서,
+    // 공공데이터 장소(id 10억 이상)는 places에 없으므로 공공데이터 API에서 가져옵니다.
     try {
-      // 커뮤니티에 내가 쓴 글(삭제된 글 제외) — 아래 조회들과 동시에 진행합니다.
-      const postsPromise = supabase.from("community_posts")
-        .select("*") // review_status(자동 검토 상태) 컬럼이 아직 없는 환경에서도 조회되도록 전체 컬럼으로 받습니다
-        .eq("author_auth_key", uid)
-        .eq("deleted", false)
-        .eq("is_admin_deleted", false)
-        .order("created_at", { ascending: false });
-      const [
-        { data: profile },
-        { data: bookmarkReactions },
-        { data: reviews },
-        { data: reviewReplies },
-        { data: communityComments },
-      ] = await Promise.all([
-        supabase.from("users").select("*").eq("auth_user_id", uid).single(),
-        supabase.from("reactions")
-          .select("place_id")
-          .eq("user_key", uid)
-          .eq("type", "bookmark")
-          .order("created_at", { ascending: false }),
-        // ⚠ reviews.place_id에는 places 외래키가 없습니다(공공데이터 장소 id도 담기 때문).
-        // 그래서 places(...) 조인을 쓰면 PostgREST가 "relationship 없음" 오류를 내고, 예전엔
-        // 이 오류가 조용히 무시돼 작성한 댓글이 항상 0개로 보였습니다. 장소 정보는 아래에서
-        // place_id로 따로 모아 붙입니다.
-        supabase.from("reviews")
-          .select("id, content, created_at, likes, place_id")
-          .eq("auth_user_id", uid)
-          .eq("deleted", false)
-          .eq("is_admin_deleted", false)
-          .order("created_at", { ascending: false }),
-        supabase.from("review_replies")
-          .select("id, content, created_at, likes, review_id, reviews!inner(place_id)")
-          .eq("auth_user_id", uid)
-          .eq("deleted", false)
-          .eq("is_admin_deleted", false)
-          .order("created_at", { ascending: false }),
-        supabase.from("community_comments")
-          .select("id, content, created_at, likes, post_id, parent_id, community_posts(id, title, board_id)")
-          .eq("author_auth_key", uid)   // ← auth_user_id → author_auth_key 로 변경
-          .eq("deleted", false)
-          .neq("is_admin_deleted", true)
-          .order("created_at", { ascending: false }),
-      ]);
-      setUserProfile(profile);
-      setMyCommunityComments(communityComments || []);
-      setMyPosts((await postsPromise).data || []);
-      setMyCourses(await listSavedCourses().catch(() => []));
-
-      // 찜·댓글이 가리키는 장소 정보를 한 번에 모읍니다. 등록 장소는 places 테이블에서,
-      // 공공데이터 장소(id 10억 이상 — 관광공사·공원 등)는 places에 없으므로 공공데이터 API에서
-      // 가져옵니다. 예전엔 places 테이블만 조회해서 공공데이터 장소를 찜하면 마이페이지에
-      // 0개로 보였습니다.
-      const bookmarkIds = (bookmarkReactions || []).map((x: any) => x.place_id);
+      const [bm, rv, rp]: any[] = await Promise.all([bookmarksP, reviewsP, repliesP]);
+      const bookmarkIds = (bm?.data || []).map((x: any) => x.place_id);
+      const reviews = rv?.data || [];
+      const reviewReplies = rp?.data || [];
+      // 장소 정보가 오기 전에도 개수·내용은 먼저 보여 줍니다(장소 이름은 이어서 채워짐)
+      setMyReviews(reviews.map((r: any) => ({ ...r, places: null })));
+      setMyReviewReplies(reviewReplies.map((r: any) => ({ ...r, reviews: { ...r.reviews, places: null } })));
       const placeMap = await loadPlacesByIds([
         ...bookmarkIds,
-        ...(reviews || []).map((r: any) => r.place_id),
-        ...(reviewReplies || []).map((r: any) => r.reviews?.place_id),
+        ...reviews.map((r: any) => r.place_id),
+        ...reviewReplies.map((r: any) => r.reviews?.place_id),
       ]);
       setBookmarks(bookmarkIds.map((id: any) => placeMap.get(String(id))).filter(Boolean));
-      setMyReviews((reviews || []).map((r: any) => ({ ...r, places: placeMap.get(String(r.place_id)) ?? null })));
-      setMyReviewReplies((reviewReplies || []).map((r: any) => ({
+      setMyReviews(reviews.map((r: any) => ({ ...r, places: placeMap.get(String(r.place_id)) ?? null })));
+      setMyReviewReplies(reviewReplies.map((r: any) => ({
         ...r,
         reviews: { ...r.reviews, places: placeMap.get(String(r.reviews?.place_id)) ?? null },
       })));
     } catch (e) {
-      console.error("[mypage] loadData failed:", e);
-    } finally {
-      setLoading(false);
+      console.error("[mypage] places failed:", e);
     }
   };
 
@@ -539,7 +557,7 @@ export default function MyPage() {
   const aiCourses = myCourses.filter((c) => !isMyRoute(c));
   // 왼쪽 메뉴 옆 숫자
   const sectionCount = (key: MySection): number | null =>
-    key === "bookmarks" ? bookmarks.length : key === "routes" ? myRoutes.length : key === "courses" ? aiCourses.length : key === "posts" ? myPosts.length : key === "reviews" ? allReviews.length : null;
+    key === "bookmarks" ? bookmarks.length : key === "routes" ? myRoutes.length : key === "courses" ? aiCourses.length : key === "posts" ? myPosts.length : key === "saved" ? mySaved.length : key === "reviews" ? allReviews.length : null;
 
   return (
     <>
@@ -595,7 +613,7 @@ export default function MyPage() {
         {/* 위 고정 막대 */}
         <header className="mp-top">
           <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+            <BrandLogo height={26} />
           </Link>
           <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
           <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>마이페이지</span>
@@ -709,14 +727,15 @@ export default function MyPage() {
 							data-guide="mypage-tabs"
 							style={{
 								margin: "0",
-									maxWidth: "1000px",
 									padding: "0",
 									boxSizing: "border-box",
 								display: "grid",
-								gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
 								gap: 10,
 							}}
+							className="mp-stats"
 						>
+							{/* 다섯 칸을 아래 "최근 주문·예약"과 같은 폭으로 한 줄에(휴대폰은 3칸씩) */}
+							<style>{`.mp-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } @media (min-width: 720px) { .mp-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }`}</style>
 							{/* 찜한 장소 — 시안 .toggle-card 스펙: 아이콘 없이 중앙정렬, 선택 시 solid primary */}
               <button
                 onClick={() => setActiveSection("bookmarks")}
@@ -795,6 +814,33 @@ export default function MyPage() {
                 </div>
                 <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "posts" ? "white" : "#333", lineHeight: 1 }}>
                   {myPosts.length}
+                </div>
+              </button>
+
+              {/* 저장한 글 */}
+              <button
+                onClick={() => setActiveSection("saved")}
+                style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  border: (activeSection as MySection) === "saved" ? "1px solid #3B2A20" : "1px solid #E7E6E5",
+                  background: (activeSection as MySection) === "saved" ? "#3B2A20" : "white",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  boxShadow: "none",
+                  transition: "all 0.18s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 600, color: (activeSection as MySection) === "saved" ? "rgba(255,255,255,0.85)" : "#999" }}>
+                  저장한 글
+                </div>
+                <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "saved" ? "white" : "#333", lineHeight: 1 }}>
+                  {mySaved.length}
                 </div>
               </button>
 
@@ -1096,6 +1142,33 @@ export default function MyPage() {
                   })
                 )}
               </>
+            )}
+
+            {/* ── 저장한 글(커뮤니티) */}
+            {activeSection === "saved" && (
+              mySaved.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "48px 16px", background: "white", border: "1px solid #E7E6E5", borderRadius: 18 }}>
+                  <Bookmark size={28} color="#A05A32" style={{ margin: "0 auto 10px", display: "block" }} />
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#111" }}>아직 저장한 글이 없어요</div>
+                  <div style={{ fontSize: 13.5, color: "#2A1C14", marginTop: 8, lineHeight: 1.7 }}>커뮤니티 글 아래 &ldquo;저장&rdquo;을 누르면 여기에 모여요.</div>
+                  <button onClick={() => router.push("/community")} style={{ marginTop: 14, padding: "10px 18px", borderRadius: 10, border: "none", background: "#3B2A20", color: "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>커뮤니티 둘러보기</button>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {mySaved.map((post) => (
+                    <button key={post.id} onClick={() => router.push(`/community/post/${post.id}`)} className="card-hover" style={{ textAlign: "left", padding: "13px 15px", cursor: "pointer", background: "white", borderRadius: 18, border: "1px solid #e8eaed", fontFamily: "inherit" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "#F8E6D9", color: "#85482A" }}>{boardLabel(post.board_id)}</span>
+                        <span style={{ fontSize: 12, color: "#4A3F38" }}>{post.nickname}</span>
+                        <span style={{ marginLeft: "auto", fontSize: 11, color: "#4A3F38" }}>{formatDate(post.created_at)}</span>
+                      </div>
+                      <div style={{ fontSize: 14.5, fontWeight: 700, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.title}</div>
+                      {post.content && <div style={{ marginTop: 4, fontSize: 13, color: "#2A1C14", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{post.content}</div>}
+                      <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: 12, color: "#4A3F38" }}><span>좋아요 {post.likes ?? 0}</span><span>댓글 {post.comment_count ?? 0}</span><span>조회 {post.views ?? 0}</span></div>
+                    </button>
+                  ))}
+                </div>
+              )
             )}
 
             {/* ── 작성한 글(커뮤니티) */}

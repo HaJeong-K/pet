@@ -368,7 +368,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
                   <input value={x.note} onChange={(e) => setExtra(i, { note: e.target.value.slice(0, 60) })} placeholder="예: 저녁 9시까지 이용, 식기·담요 포함" aria-label="옵션 안내" disabled={disabled} style={input} />
                 </div>
                 <div style={{ fontSize: 12.5, color: "#1f1a12", background: "#F4F3F2", borderRadius: 9, padding: "8px 10px" }}>
-                  손님 화면: <b>{x.price ? `${Number(x.price).toLocaleString("ko-KR")}원` : "0원"} · {[EXTRA_BASES.find((b) => b.id === x.unit)?.label, x.per_night ? "1박마다" : null].filter(Boolean).join(" · ")}</b>
+                  손님 화면: <b>{Number(x.price) > 0 ? `${Number(x.price).toLocaleString("ko-KR")}원 · ${[EXTRA_BASES.find((b) => b.id === x.unit)?.label, x.per_night ? "1박마다" : null].filter(Boolean).join(" · ")}` : "무료"}</b>{!(Number(x.price) > 0) && <span style={{ color: "#4A3F38" }}> — 요금을 0원으로 두면 손님에게 &ldquo;무료&rdquo;로 보여요</span>}
                   {x.unit !== "stay" && <span style={{ color: "#4A3F38" }}> — 손님이 {x.unit === "person" ? "인원" : "마리 수"}{x.per_night ? "와 이용할 밤" : ""}을 골라요</span>}
                 </div>
               </div>

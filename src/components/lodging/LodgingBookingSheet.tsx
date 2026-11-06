@@ -12,7 +12,7 @@
 // variant="page"면 덮는 창 없이 숙소 예약 화면(/stay/번호/book)에 그대로 그립니다.
 // 금액은 서버가 다시 계산합니다(/api/lodging/bookings). 결제 키가 있으면 예약 뒤 결제창으로 넘어가고, 없으면 결제 단계 없이 접수되고, 결제는 따로 안내합니다.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Minus, Plus, Search, Stamp, Trash2, X } from "lucide-react";
 import { breedSize, CAT_BREEDS, DOG_BREEDS, OTHER_BREED } from "@/lib/petBreeds";
 import { ARRIVAL_METHODS, DANGEROUS_DOG_NOTICE, FREE_CANCEL_NOTICE, RULE_AGREEMENT_LABEL, RULE_SANCTIONS, STAY_CONSENTS, type ArrivalMethod, type StayConsentId } from "@/lib/lodgingConsents";
@@ -125,6 +125,18 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   // 부가 옵션 — 고른 수(개수·인원·마리, 0이면 안 고름)
   const extraOptions = profile?.extras ?? [];
   const [extraQty, setExtraQty] = useState<Record<string, number>>({});
+  // 추가 침구 — 기본 인원을 넘는 사람 수만큼 처음부터 골라 둡니다(2026-11-06 대표 결정).
+  //   인원을 바꾸면 따라 바뀌고, 손님이 직접 고친 뒤에는 그대로 둡니다.
+  const isBedding = (x: { name: string }) => /침구|이불/.test(x.name);
+  const overStd = Math.max(0, guests - (room?.std_guests ?? guests));
+  const touchedExtras = useRef<Set<string>>(new Set());
+  const setQty = (id: string, v: number) => { touchedExtras.current.add(id); setExtraQty((q) => ({ ...q, [id]: v })); };
+  useEffect(() => {
+    const auto = extraOptions.filter((x) => isBedding(x) && !touchedExtras.current.has(x.id));
+    if (auto.length === 0) return;
+    setExtraQty((q) => { const n = { ...q }; for (const x of auto) n[x.id] = overStd; return n; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overStd, extraOptions.length]);
   // 박마다 받는 옵션(바비큐 등)을 이용할 밤 — 고르지 않았으면 모든 밤
   const stayNights = checkIn && checkOut ? nightsOf(checkIn, checkOut) : [];
   const [extraDays, setExtraDays] = useState<Record<string, string[]>>({});
@@ -208,7 +220,9 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const payTotal = priced ? priced.total - stampUse.discount : 0;
   const stampMax = priced ? maxUsableStamps(priced.total, stampsOwned) : 0;
   const schedule = priced && checkIn ? refundSchedule(payTotal, checkIn, today, profile?.peak_periods) : [];
-  const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" ? !!breedOf(p) : !!p.kind.trim()) && (!profile?.pet_requirements?.min_age_months || !!p.age) && (!profile?.pet_requirements?.neutered || p.neutered !== ""));
+  const step1Ready = !!priced && !petProblem && pets.every((p) => (p.species !== "dog" || p.size) && (p.species !== "other" ? !!breedOf(p) : !!p.kind.trim()) && (!profile?.pet_requirements?.min_age_months || !!p.age) && !!p.gender && p.neutered !== "");
+  // 성별·중성화는 모든 숙소에서 필수(2026-11-06 대표 결정) — 비어 있으면 버튼 위에 안내
+  const missingSexInfo = pets.some((p) => !p.gender || p.neutered === "");
   const phoneOk = (v: string) => v.replace(/\D/g, "").length >= 9;
   const step2Ready = !!form.name.trim() && phoneOk(form.phone) && !!form.arrivalMethod && allAgreed && ruleAgreed && (form.paymentMethod !== "transfer" || form.cashType === "none" || !!cleanCashReceiptNumber(form.cashType, form.cashNumber)) && !busy
     && (form.sameGuest || (!!form.stayGuestName.trim() && phoneOk(form.stayGuestPhone)));
@@ -402,10 +416,10 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                       </PetField>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
-                      <PetField label="성별">
+                      <PetField label="성별" required>
                         <Segmented options={[{ id: "male", label: "수컷" }, { id: "female", label: "암컷" }]} value={p.gender} onChange={(id) => setPet(i, { gender: p.gender === id ? "" : (id as PetGender) })} />
                       </PetField>
-                      <PetField label="중성화" required={!!profile?.pet_requirements?.neutered}>
+                      <PetField label="중성화" required>
                         <Segmented options={[{ id: "yes", label: "했어요" }, { id: "no", label: "안 했어요" }]} value={p.neutered} onChange={(id) => setPet(i, { neutered: p.neutered === id ? "" : (id as "yes" | "no") })} />
                       </PetField>
                     </div>
@@ -434,23 +448,23 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                     const nightsUsed = perNight ? Math.max(1, chosen.length) : 1;
                     const countWord = basis === "person" ? "명" : basis === "pet" ? "마리" : "개";
                     // 처음 고르면 1인당은 예약 인원, 1마리당은 함께 가는 마리 수, 1회는 1개
-                    const firstQty = basis === "person" ? guests : basis === "pet" ? pets.length : 1;
+                    const firstQty = isBedding(x) && overStd > 0 ? overStd : basis === "person" ? guests : basis === "pet" ? pets.length : 1;
                     return (
                       <div key={x.id} style={{ padding: "12px 14px", borderRadius: 14, border: `1.5px solid ${used ? "#A05A32" : "#E7E6E5"}`, background: used ? "#FFF8F3" : "white", display: "grid", gap: 10 }}>
                         <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-                          <input type="checkbox" checked={used} onChange={(e) => setExtraQty((q) => ({ ...q, [x.id]: e.target.checked ? Math.max(1, Math.min(firstQty, cap)) : 0 }))} style={{ width: 19, height: 19, marginTop: 2, flexShrink: 0, accentColor: "#A05A32" }} />
+                          <input type="checkbox" checked={used} onChange={(e) => setQty(x.id, e.target.checked ? Math.max(1, Math.min(firstQty, cap)) : 0)} style={{ width: 19, height: 19, marginTop: 2, flexShrink: 0, accentColor: "#A05A32" }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: "#1f1a12" }}>{x.name}</span>
-                            <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}><b>{won(x.price)}</b> · {extraUnitLabel(x)}</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}>{x.price > 0 ? <><b>{won(x.price)}</b> · {extraUnitLabel(x)}</> : <b style={{ color: "#15803D" }}>무료</b>}</span>
                             {x.note && <span style={{ display: "block", fontSize: 12.5, color: "#2A1C14", marginTop: 2 }}>{x.note}</span>}
                           </span>
                         </label>
                         {used && (basis !== "stay" || x.max > 1) && (
                           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "#1f1a12", paddingLeft: 29 }}>
                             <span style={{ flex: 1, fontWeight: 700 }}>{basis === "person" ? "이용 인원" : basis === "pet" ? "이용 마리 수" : "수량"} <span style={{ fontWeight: 500, color: "#2A1C14", fontSize: 12.5 }}>최대 {cap}{countWord}</span></span>
-                            <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.max(1, qty - 1) }))} disabled={qty <= 1} aria-label={`${x.name} 줄이기`} style={{ ...stepper, opacity: qty <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
+                            <button type="button" onClick={() => setQty(x.id, Math.max(1, qty - 1))} disabled={qty <= 1} aria-label={`${x.name} 줄이기`} style={{ ...stepper, opacity: qty <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
                             <b style={{ minWidth: 34, textAlign: "center" }}>{qty}{countWord}</b>
-                            <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.min(cap, qty + 1) }))} disabled={qty >= cap} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= cap ? 0.4 : 1 }}><Plus size={14} /></button>
+                            <button type="button" onClick={() => setQty(x.id, Math.min(cap, qty + 1))} disabled={qty >= cap} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= cap ? 0.4 : 1 }}><Plus size={14} /></button>
                           </div>
                         )}
                         {used && perNight && stayNights.length > 1 && (
@@ -466,7 +480,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                         )}
                         {used && (
                           <div style={{ paddingLeft: 29, fontSize: 13, fontWeight: 800, color: "#A05A32" }}>
-                            {won(x.price)}{basis !== "stay" || qty > 1 ? ` × ${qty}${countWord}` : ""}{perNight ? ` × ${nightsUsed}박` : ""} = {won(x.price * qty * nightsUsed)}
+                            {x.price > 0 ? <>{won(x.price)}{basis !== "stay" || qty > 1 ? ` × ${qty}${countWord}` : ""}{perNight ? ` × ${nightsUsed}박` : ""} = {won(x.price * qty * nightsUsed)}</> : <>무료{basis !== "stay" || qty > 1 ? ` · ${qty}${countWord}` : ""}{perNight ? ` · ${nightsUsed}박` : ""}</>}
                           </div>
                         )}
                       </div>
@@ -491,6 +505,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
             )}
             {quote && "error" in quote && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{quote.error}</div>}
             {error && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{error}</div>}
+            {priced && missingSexInfo && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>반려동물의 성별과 중성화 여부를 골라 주세요.</div>}
             <button onClick={() => setStep(2)} disabled={!step1Ready} style={primary(!step1Ready)}>{priced ? `${won(priced.total)} · 다음` : "날짜를 골라 주세요"}</button>
           </div>
           </div>
@@ -512,7 +527,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 {priced.nights.map((n) => <div key={n.day} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(n.day)} 1박</span><span>{won(n.price)}</span></div>)}
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가({pets.length}마리 × {priced.nights.length}박)</span><span>{won(priced.petTotal)}</span></div>}
-                {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{x.name} · {won(x.price)} × {x.qty}{extraBasis(x) === "person" ? "명" : extraBasis(x) === "pet" ? "마리" : "개"}{x.days ? ` × ${x.days.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
+                {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{x.name} · {x.price > 0 ? `${won(x.price)} × ${x.qty}${extraBasis(x) === "person" ? "명" : extraBasis(x) === "pet" ? "마리" : "개"}${x.days ? ` × ${x.days.length}박` : ""}` : `무료 · ${x.qty}${extraBasis(x) === "person" ? "명" : extraBasis(x) === "pet" ? "마리" : "개"}`}</span><span>{x.amount > 0 ? won(x.amount) : "무료"}</span></div>)}
                 {stampUse.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between", color: "#6B5525", fontWeight: 700 }}><span>추억 스탬프 {stampUse.used}개</span><span>-{won(stampUse.discount)}</span></div>}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#3B2A20" }}><span>총 결제 금액</span><span>{won(payTotal)}</span></div>
                 <div style={{ fontSize: 11.5, color: "#262626" }}>추가 요금까지 모두 포함했어요. 현장에서 따로 내는 금액은 없어요. 현장에서 더 요구받으면 &lsquo;문제 있어요&rsquo;로 알려 주세요.</div>

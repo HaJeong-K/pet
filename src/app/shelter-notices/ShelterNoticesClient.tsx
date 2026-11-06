@@ -1,5 +1,6 @@
 "use client";
 
+import PageHero from "@/components/PageHero";
 import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -185,7 +186,7 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
 
   return (
     <div
-      className="ggk-body"
+      className="ggk-body ggk-readable"
       style={{
         // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
         display: "flex", flexDirection: "column", height: "100dvh", overflowY: "auto",
@@ -195,33 +196,18 @@ export default function ShelterNoticesClient({ initial = null, phraseSeed }: { i
       {/* 공고가 다 뜬 뒤에 안내를 시작합니다(카드를 짚는 단계가 있어서) */}
       <PageGuide storageKey={ADOPT_GUIDE_KEY} steps={ADOPT_GUIDE_STEPS} enabled={!loading} />
       <div style={{ width: "100%", maxWidth: "1200px", display: "flex", flexDirection: "column" }}>
-        {/* 머리 띠 — 이 화면의 한마디. 차분한 갈색 바탕에 흰 글씨(커뮤니티 화면의 초록 띠와 같은 틀). */}
-        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", borderRadius: "0 0 26px 26px", padding: "24px clamp(20px, 4vw, 40px) 24px", wordBreak: "keep-all" }}>
-          <PawPrint aria-hidden="true" size={150} color="rgba(255,255,255,0.07)" style={{ position: "absolute", right: -18, bottom: -34, transform: "rotate(-14deg)" }} />
-          <div style={{ position: "relative" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.14)", color: "#E9E8E7", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.4px" }}>
-                유기동물 공고 · 마감 임박순
-              </span>
-              {/* 입양은 어렵지만 돕고 싶은 분을 위한 화면 — 보호센터 문의처와 후원 단체의 공식 창구 */}
-              <button
-                onClick={() => router.push("/shelter-notices/support")}
-                style={{
-                  flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 12.5, fontWeight: 800, cursor: "pointer",
-                }}
-              >
-                <HeartHandshake size={14} /> 보호소·후원
-              </button>
-            </div>
-            <div className="ggk-logo" style={{ marginTop: 10, fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.3, letterSpacing: "-0.3px" }}>
-              사지 말고, <span style={{ color: "#F6C89A" }}>입양하세요</span>
-            </div>
-            <div style={{ marginTop: 7, fontSize: 12.5, color: "rgba(255,255,255,0.82)", lineHeight: 1.65 }}>
-              가족을 기다리는 아이들이에요. 국가동물보호정보시스템의 공고를 그대로 보여 드려요.
-            </div>
-          </div>
-        </div>
+        {/* 머리말 — 탭 화면 공통(src/components/PageHero.tsx) */}
+        <PageHero
+          eyebrow="유기동물 공고 · 마감 임박순"
+          title={<>사지 말고, <span style={{ color: "#FFE0C2" }}>입양하세요</span></>}
+          desc="가족을 기다리는 아이들이에요. 국가동물보호정보시스템의 공고를 그대로 보여 드려요."
+          action={
+            // 입양은 어렵지만 돕고 싶은 분을 위한 화면 — 보호센터 문의처와 후원 단체의 공식 창구
+            <button onClick={() => router.push("/shelter-notices/support")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.14)", color: "white", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+              <HeartHandshake size={14} /> 보호소·후원
+            </button>
+          }
+        />
 
         <div style={{ padding: "16px 20px 4px" }}>
           <p style={{ fontSize: 12, color: "#5c5c5c", lineHeight: 1.6, marginBottom: 12 }}>

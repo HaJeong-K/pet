@@ -109,6 +109,8 @@ export async function POST(req: NextRequest) {
   const room = rooms.find((x) => x.id === r.roomId);
   if (!room) return fail("예약할 수 없는 객실이에요.", 404);
 
+  // 성별·중성화 여부는 모든 숙소에서 필수(2026-11-06 대표 결정)
+  if (r.pets.some((p) => !p.gender || typeof p.neutered !== "boolean")) return fail("반려동물의 성별과 중성화 여부를 골라 주세요.", 400);
   const petProblem = petsAllowed(profile, room, r.pets);
   if (petProblem) return fail(petProblem, 400);
   // 숙소가 정한 입실 조건을 손님이 항목마다 확인했는지 — 확인 기록은 동의 기록과 함께 남깁니다

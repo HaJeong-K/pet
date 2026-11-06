@@ -209,7 +209,7 @@ export function StayDetailSheet({ stay: s, onClose }: { stay: StayView; onClose:
         {pd?.nights?.map((n) => <Row key={n.day} k={`${stayDayLabel(n.day)} 1박`} v={won(n.price)} />)}
         {(pd?.extraGuestTotal ?? 0) > 0 && <Row k="인원 추가" v={won(pd!.extraGuestTotal!)} />}
         {(pd?.petTotal ?? 0) > 0 && <Row k="반려동물 추가" v={won(pd!.petTotal!)} />}
-        {pd?.extras?.map((x) => <Row key={x.name} k={x.name} v={`${won(x.price)} × ${x.qty}${x.unit === "person" ? "명" : x.unit === "pet" ? "마리" : "개"}${x.days ? ` × ${x.days.length}박` : ""} = ${won(x.amount)}`} />)}
+        {pd?.extras?.map((x) => <Row key={x.name} k={x.name} v={x.price <= 0 ? `무료 · ${x.qty}${x.unit === "person" ? "명" : x.unit === "pet" ? "마리" : "개"}` : `${won(x.price)} × ${x.qty}${x.unit === "person" ? "명" : x.unit === "pet" ? "마리" : "개"}${x.days ? ` × ${x.days.length}박` : ""} = ${won(x.amount)}`} />)}
         {(s.stamp_discount ?? 0) > 0 && <Row k="스탬프 할인" v={`-${won(s.stamp_discount ?? 0)}`} />}
         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 10, borderTop: "1px solid #E7E6E5", fontSize: 16.5, fontWeight: 800, color: "#111" }}><span>총 결제 금액</span><span>{won(s.total)}</span></div>
         {s.cancel_cause && <Row k="취소 결과" v={`${CANCEL_CAUSE_LABEL[s.cancel_cause]} · 환불 ${won(s.refund_amount ?? 0)}${s.compensation_amount ? ` + 배상 ${won(s.compensation_amount)}` : ""}${s.refund_done_at ? ` (${at(s.refund_done_at)} 완료)` : " (처리 중)"}`} />}

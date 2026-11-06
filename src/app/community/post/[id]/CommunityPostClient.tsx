@@ -82,6 +82,7 @@ interface Post {
   avatar_url?: string | null;
   created_at: string;
   likes?: number;
+  dislikes?: number;
   views?: number;
 }
 
@@ -142,6 +143,8 @@ export default function CommunityDetailPage() {
   const [session, setSession] = useState<any>(null);
   const [sort, setSort] = useState<"latest" | "like">("latest");
   const [likedPost, setLikedPost] = useState(false);
+  const [dislikedPost, setDislikedPost] = useState(false);
+  const [reactBusy, setReactBusy] = useState(false);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
   const [likedReplyIds2, setLikedReplyIds2] = useState<Set<string>>(new Set());
   const [isAdminDeleted, setIsAdminDeleted] = useState(false);
@@ -208,12 +211,12 @@ export default function CommunityDetailPage() {
       // 실제 community_post_likes 개수와 어긋난 채 계속 잘못된 값이 보입니다.
       // 커뮤니티 목록(community/page.tsx)과 동일하게, 저장된 컬럼 대신 실제 좋아요
       // 테이블 행 수를 세어 항상 정확한 값을 보여줍니다.
-      const { count: liveLikes } = await supabase
-        .from("community_post_likes")
-        .select("*", { count: "exact", head: true })
-        .eq("post_id", Number(postId));
+      const [{ count: liveLikes }, { count: liveDislikes }] = await Promise.all([
+        supabase.from("community_post_likes").select("*", { count: "exact", head: true }).eq("post_id", Number(postId)),
+        supabase.from("community_post_dislikes").select("*", { count: "exact", head: true }).eq("post_id", Number(postId)),
+      ]);
 
-      setPost({ ...data, views: newViews, likes: liveLikes ?? data.likes ?? 0 });
+      setPost({ ...data, views: newViews, likes: liveLikes ?? data.likes ?? 0, dislikes: liveDislikes ?? 0 });
       if (!alreadyCountedToday) {
         await supabase
           .from("community_posts")
@@ -234,40 +237,61 @@ export default function CommunityDetailPage() {
   };
 
   // ─────────────────────────────
-  // 게시글 좋아요 여부 불러오기
+  // 게시글 좋아요·싫어요 여부 불러오기 — 로그인 회원 기준(저장과 같음)
   // ─────────────────────────────
-  const fetchPostLikeStatus = async () => {
-    const userKey = getUserKey();
-    const { data } = await supabase
-      .from("community_post_likes")
-      .select("id")
-      .eq("post_id", Number(postId))
-      .eq("user_key", userKey)
-      .maybeSingle();
-    setLikedPost(!!data);
+  const fetchPostLikeStatus = async (uid?: string | null) => {
+    if (!uid) { setLikedPost(false); setDislikedPost(false); return; }
+    const [{ data: l }, { data: d }] = await Promise.all([
+      supabase.from("community_post_likes").select("id").eq("post_id", Number(postId)).eq("user_key", uid).maybeSingle(),
+      supabase.from("community_post_dislikes").select("id").eq("post_id", Number(postId)).eq("user_key", uid).maybeSingle(),
+    ]);
+    setLikedPost(!!l);
+    setDislikedPost(!!d);
   };
 
   // ─────────────────────────────
-  // 게시글 좋아요 토글 — 댓글 좋아요와 동일한 방식(좋아요 테이블 + 카운터 컬럼)
+  // 좋아요·싫어요 누르기 — 둘 중 하나만(하나를 누르면 다른 하나는 풀립니다), 다시 누르면 취소
+  //   개수는 표의 실제 행 수로 다시 세어 보여 줍니다(저장된 숫자 칸이 어긋나는 일 방지).
   // ─────────────────────────────
-  const handlePostLike = async () => {
-    if (!post) return;
-    const userKey = getUserKey();
-    if (likedPost) {
-      await supabase.from("community_post_likes").delete().eq("post_id", Number(postId)).eq("user_key", userKey);
-      const newLikes = Math.max(0, (post.likes || 0) - 1);
-      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
-      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
-      setLikedPost(false);
-    } else {
-      const { error } = await supabase.from("community_post_likes").insert([{ post_id: Number(postId), user_key: userKey }]);
-      if (error) { console.error(error); return; }
-      const newLikes = (post.likes || 0) + 1;
-      await supabase.from("community_posts").update({ likes: newLikes }).eq("id", Number(postId));
-      setPost((prev: any) => prev ? { ...prev, likes: newLikes } : prev);
-      setLikedPost(true);
+  const recountReactions = async () => {
+    const [{ count: lc }, { count: dc }] = await Promise.all([
+      supabase.from("community_post_likes").select("*", { count: "exact", head: true }).eq("post_id", Number(postId)),
+      supabase.from("community_post_dislikes").select("*", { count: "exact", head: true }).eq("post_id", Number(postId)),
+    ]);
+    setPost((prev: any) => prev ? { ...prev, likes: lc ?? prev.likes ?? 0, dislikes: dc ?? prev.dislikes ?? 0 } : prev);
+    // 목록·마이페이지에 보이는 좋아요 숫자 칸도 맞춰 둡니다(권한이 없으면 조용히 넘어감)
+    if (lc != null) await supabase.from("community_posts").update({ likes: lc }).eq("id", Number(postId));
+  };
+  const reactToPost = async (kind: "like" | "dislike") => {
+    if (!post || reactBusy) return;
+    const uid = session?.user?.id;
+    if (!uid) { alert("로그인한 뒤 누를 수 있어요."); return; }
+    const pid = Number(postId);
+    const mine = kind === "like" ? likedPost : dislikedPost;
+    const other = kind === "like" ? dislikedPost : likedPost;
+    const table = kind === "like" ? "community_post_likes" : "community_post_dislikes";
+    const otherTable = kind === "like" ? "community_post_dislikes" : "community_post_likes";
+    setReactBusy(true);
+    try {
+      if (mine) {
+        const { error } = await supabase.from(table).delete().eq("post_id", pid).eq("user_key", uid);
+        if (error) throw error;
+      } else {
+        if (other) await supabase.from(otherTable).delete().eq("post_id", pid).eq("user_key", uid);
+        const { error } = await supabase.from(table).insert([{ post_id: pid, user_key: uid }]);
+        if (error && error.code !== "23505") throw error; // 23505 = 이미 눌러 둔 상태
+      }
+      await fetchPostLikeStatus(uid);
+      await recountReactions();
+    } catch (e) {
+      console.error(e);
+      alert("반영하지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+    } finally {
+      setReactBusy(false);
     }
   };
+  const handlePostLike = () => reactToPost("like");
+  const handlePostDislike = () => reactToPost("dislike");
 
   // ─────────────────────────────
   // 댓글 불러오기
@@ -659,7 +683,7 @@ export default function CommunityDetailPage() {
         const { data } = await supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single();
         setIsAdmin(!!data?.is_admin);
       }
-      await Promise.all([fetchPost(), fetchComments(), fetchPostLikeStatus()]);
+      await Promise.all([fetchPost(), fetchComments(), fetchPostLikeStatus(sess?.user?.id)]);
       setLoading(false);
     };
     init();
@@ -1158,18 +1182,7 @@ export default function CommunityDetailPage() {
                           gap: "10px",
                         }}
                       >
-                        <button
-                          onClick={handlePostLike}
-                          style={{
-                            display: "flex", alignItems: "center", gap: "3px",
-                            border: "none", background: "transparent", padding: 0, cursor: "pointer",
-                            color: likedPost ? "#e0574c" : "#666",
-                          }}
-                        >
-                          <Heart size={12} fill={likedPost ? "#e0574c" : "none"} color={likedPost ? "#e0574c" : "#999"} />
-                          {post.likes || 0}
-                        </button>
-
+                        {/* 좋아요 수는 글 아래 좋아요·싫어요 버튼에 나오므로 여기서는 조회수만 */}
                         <span style={{ display: "flex", alignItems: "center", gap: "3px" }}>
                           <Eye size={12} />
                           {post.views || 0}
@@ -1325,23 +1338,12 @@ export default function CommunityDetailPage() {
                       marginTop: "22px",
                     }}
                   >
-                    <button
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "8px 14px",
-                        borderRadius: "999px",
-                        border: "1px solid #e5e7eb",
-                        background: "white",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        color: "#444",
-                      }}
-                    >
-                      <ThumbsUp size={14} />
-                      좋아요
+                    <button onClick={handlePostLike} disabled={reactBusy} aria-pressed={likedPost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: likedPost ? "1px solid #A05A32" : "1px solid #e5e7eb", background: likedPost ? "#FCF1E9" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: likedPost ? "#A05A32" : "#444", fontFamily: "inherit" }}>
+                      <ThumbsUp size={14} fill={likedPost ? "#A05A32" : "none"} />좋아요 <b style={{ fontWeight: 800 }}>{post?.likes ?? 0}</b>
+                    </button>
+
+                    <button onClick={handlePostDislike} disabled={reactBusy} aria-pressed={dislikedPost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: dislikedPost ? "1px solid #3B2A20" : "1px solid #e5e7eb", background: dislikedPost ? "#F1EFEE" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: dislikedPost ? "#3B2A20" : "#444", fontFamily: "inherit" }}>
+                      <ThumbsDown size={14} fill={dislikedPost ? "#3B2A20" : "none"} />싫어요 <b style={{ fontWeight: 800 }}>{post?.dislikes ?? 0}</b>
                     </button>
 
                     <button onClick={toggleSave} aria-pressed={saved} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: saved ? "1px solid #6F3D24" : "1px solid #e5e7eb", background: saved ? "#FCF1E9" : "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: saved ? "#6F3D24" : "#444" }}>
@@ -1350,25 +1352,6 @@ export default function CommunityDetailPage() {
 
                     <button onClick={sharePost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: "#444" }}>
                       <Share2 size={14} />{shareMessage ?? "공유"}
-                    </button>
-
-                    <button
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "8px 14px",
-                        borderRadius: "999px",
-                        border: "1px solid #e5e7eb",
-                        background: "white",
-                        cursor: "pointer",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        color: "#444",
-                      }}
-                    >
-                      <ThumbsDown size={14} />
-                      싫어요
                     </button>
                   </div>
                 </>

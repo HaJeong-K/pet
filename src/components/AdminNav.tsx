@@ -3,9 +3,9 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake, Calculator, BedDouble, Route } from "lucide-react";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 // ── 관리자 페이지 공통 틀 — 사장님 센터(/owner)·마이페이지(/mypage)와 똑같은 구성입니다.
 //   전체 폭 위 고정 막대(로고 | 관리자 센터 · 새로고침) → 그 아래 넓은 화면은 왼쪽 묶음 메뉴(252px) + 본문,
@@ -187,7 +187,7 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
         {/* 위 고정 막대 */}
         <header className="mgr-top">
           <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
-            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+            <BrandLogo height={26} />
           </Link>
           <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
           <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>관리자 센터</span>
