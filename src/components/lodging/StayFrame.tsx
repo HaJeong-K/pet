@@ -27,7 +27,8 @@ export default function StayFrame({ children, background = "white", wide = false
       <AdRailLeft />
       {/* 가운데 칸 고정 — 좌우 레일이 숨겨진 화면에서 본문이 폭 0인 첫 칸으로 밀리지 않게 */}
       <div style={{ gridColumn: "2", minWidth: 0, height: "100dvh", overflowY: "auto", scrollbarWidth: "thin" }}>
-        <div style={{ paddingBottom: "var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>{children}<PageFooter overTabBar={false} /></div>
+        {/* ggk-readable: 작은 글자를 한 단계씩 키웁니다(globals.css) */}
+        <div className="ggk-readable" style={{ paddingBottom: "var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>{children}<PageFooter overTabBar={false} /></div>
       </div>
       <AdRailRight rightMode="shelter" />
     </div>

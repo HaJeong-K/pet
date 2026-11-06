@@ -29,7 +29,7 @@ import {
   Heart, MessageCircle, ArrowLeft, LogOut, MapPin,
   Settings, X, ChevronRight, Trash2, PawPrint,
   Home, Trees, Building2, User, Lock, UserX, Check,
-  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints, Award,
+  Eye, EyeOff, BadgeCheck, Store, Crown, BarChart3, Navigation, Footprints, Award, Bell, MapPinned,
 } from "lucide-react";
 import { openPlaceDetail } from "@/lib/openPlace";
 import OwnerPlaceEditPanel from "@/components/OwnerPlaceEditPanel";
@@ -77,20 +77,22 @@ const inp: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-type MySection = "home" | "orders" | "bookmarks" | "courses" | "posts" | "reviews" | "level";
+type MySection = "home" | "orders" | "notifications" | "bookmarks" | "routes" | "courses" | "posts" | "reviews" | "level";
 const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof Home }[] = [
   { key: "home", label: "한눈에 보기", desc: "내 활동과 알림, 최근 주문·예약을 한 화면에서 확인해요.", Icon: Home },
   { key: "orders", label: "주문·예약 내역", desc: "숙소 예약과 쇼핑 주문의 결제 내역을 보고, 취소·후기까지 여기서 해요.", Icon: ReceiptText },
+  { key: "notifications", label: "알림", desc: "예약 확정·주문 상태·댓글·제보 결과 같은 소식을 모아 봐요.", Icon: Bell },
   { key: "bookmarks", label: "찜한 장소", desc: "다시 가 보고 싶은 장소를 모아 봐요.", Icon: Heart },
-  { key: "courses", label: "저장한 코스", desc: "저장한 산책·나들이 코스와 내 경로를 다시 열어요.", Icon: Footprints },
+  { key: "routes", label: "내 경로", desc: "장소 상세의 '내 경로에 추가'로 담은 곳을 순서대로 엮은 나만의 코스예요. 순서 바꾸기·빼기·길찾기를 여기서 해요.", Icon: MapPinned },
+  { key: "courses", label: "추천 코스", desc: "지도의 추천 코스에서 저장한 산책·나들이 코스예요.", Icon: Footprints },
   { key: "posts", label: "작성한 글", desc: "커뮤니티에 쓴 글과 공지를 모아 봐요.", Icon: MessageCircle },
   { key: "reviews", label: "작성한 댓글", desc: "장소 후기와 커뮤니티 댓글을 모아 봐요.", Icon: PawPrint },
   { key: "level", label: "내 레벨·점수", desc: "지금 단계와 다음 단계까지 남은 점수, 점수 받는 법을 확인해요.", Icon: Award },
 ];
 const MY_GROUPS: { title: string; keys: MySection[] }[] = [
   { title: "홈", keys: ["home"] },
-  { title: "이용 내역", keys: ["orders"] },
-  { title: "내 활동", keys: ["bookmarks", "courses", "posts", "reviews"] },
+  { title: "이용 내역", keys: ["orders", "notifications"] },
+  { title: "내 활동", keys: ["bookmarks", "routes", "courses", "posts", "reviews"] },
   { title: "내 정보", keys: ["level"] },
 ];
 
@@ -104,10 +106,10 @@ export default function MyPage() {
   const [myReviews, setMyReviews]       = useState<any[]>([]);
   // 왼쪽 메뉴(넓은 화면)·위쪽 메뉴(휴대폰)로 고르는 화면 — 사장님 센터와 같은 구성
   const [activeSection, setActiveSection] = useState<MySection>("home");
-  // 장소 상세의 "내 경로에 추가"에서 "마이페이지에서 보기"로 오면(/mypage#routes) 코스·내 경로 칸을 엽니다
+  // 장소 상세의 "내 경로에 추가"에서 "마이페이지에서 보기"로 오면(/mypage#routes) 내 경로 칸을 엽니다
   useEffect(() => {
     if (window.location.hash !== "#routes") return;
-    const timer = window.setTimeout(() => setActiveSection("courses"), 0);
+    const timer = window.setTimeout(() => setActiveSection("routes"), 0);
     return () => window.clearTimeout(timer);
   }, []);
   const [myCourses, setMyCourses]       = useState<SavedCourse[]>([]); // 저장한 AI 코스
@@ -532,9 +534,12 @@ export default function MyPage() {
   const reviewTotalPages = Math.ceil(allReviews.length / PAGE_SIZE);
   const pagedReviews = allReviews.slice((reviewPage - 1) * PAGE_SIZE, reviewPage * PAGE_SIZE);
 
+  // 내가 직접 만든 경로와 추천 코스에서 저장한 코스를 나눠 보여 줍니다(같은 표에 theme으로 구분)
+  const myRoutes = myCourses.filter((c) => isMyRoute(c));
+  const aiCourses = myCourses.filter((c) => !isMyRoute(c));
   // 왼쪽 메뉴 옆 숫자
   const sectionCount = (key: MySection): number | null =>
-    key === "bookmarks" ? bookmarks.length : key === "courses" ? myCourses.length : key === "posts" ? myPosts.length : key === "reviews" ? allReviews.length : null;
+    key === "bookmarks" ? bookmarks.length : key === "routes" ? myRoutes.length : key === "courses" ? aiCourses.length : key === "posts" ? myPosts.length : key === "reviews" ? allReviews.length : null;
 
   return (
     <>
@@ -759,10 +764,10 @@ export default function MyPage() {
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", color: (activeSection as MySection) === "courses" ? "rgba(255,255,255,0.85)" : "#999" }}>
-                  코스·내 경로
+                  추천 코스
                 </div>
                 <div className="ggk-logo" style={{ fontSize: 24, fontWeight: 700, color: (activeSection as MySection) === "courses" ? "white" : "#333", lineHeight: 1 }}>
-                  {myCourses.length}
+                  {aiCourses.length}
                 </div>
               </button>
 
@@ -823,7 +828,6 @@ export default function MyPage() {
 					</div>
 
 
-                <MyNotificationsCard />
                 {STAMPS_ENABLED && <MemoryStampsCard />}
                 <section style={{ padding: "16px 16px 14px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
@@ -834,6 +838,21 @@ export default function MyPage() {
                   <OrdersPanel />
                 </section>
               </div>
+            )}
+            {/* ── 알림 */}
+            {activeSection === "notifications" && <MyNotificationsCard full />}
+            {/* ── 내 경로 — 직접 만든 코스(장소 상세의 "내 경로에 추가") */}
+            {activeSection === "routes" && (
+              myRoutes.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "48px 16px", background: "white", border: "1px solid #E7E6E5", borderRadius: 18 }}>
+                  <MapPinned size={30} color="#A05A32" style={{ margin: "0 auto 10px", display: "block" }} />
+                  <div style={{ fontSize: 15, color: "#111", fontWeight: 800 }}>아직 만든 경로가 없어요</div>
+                  <div style={{ fontSize: 13.5, color: "#2A1C14", marginTop: 8, lineHeight: 1.7 }}>
+                    가고 싶은 장소를 열고 &ldquo;내 경로에 추가&rdquo;를 누르면<br />새 경로를 만들거나 기존 경로 끝에 담을 수 있어요.
+                  </div>
+                  <button onClick={() => router.push("/")} style={{ marginTop: 14, padding: "10px 18px", borderRadius: 10, border: "none", background: "#3B2A20", color: "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>지도에서 장소 고르기</button>
+                </div>
+              ) : myRoutes.map((route) => <MyRouteCard key={route.id} route={route} onDelete={handleDeleteCourse} />)
             )}
             {/* ── 주문·예약 내역 */}
             {activeSection === "orders" && <section id="orders" data-guide="mypage-orders"><OrdersPanel /></section>}
@@ -981,7 +1000,7 @@ export default function MyPage() {
             {/* ── 저장한 코스 */}
             {activeSection === "courses" && (
               <>
-                {myCourses.length === 0 ? (
+                {aiCourses.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "56px 0" }}>
                     <div style={{
                       width: 56, height: 56, borderRadius: 18, background: "#f0f2f5",
@@ -990,10 +1009,10 @@ export default function MyPage() {
                       <PetIllustration variant="empty" width={40} />
                     </div>
                     <div style={{ fontSize: 13, color: "#5f6672", fontWeight: 700 }}>
-                      아직 저장한 코스·경로가 없어요
+                      아직 저장한 추천 코스가 없어요
                     </div>
                     <div style={{ fontSize: 12, color: "#6b7078", marginTop: 6, lineHeight: 1.6 }}>
-                      지도의 AI 코스에서 "이 코스 저장"을 누르거나,<br />장소 상세의 "내 경로에 추가"로 나만의 여행 경로를 만들어 보세요.
+                      지도의 추천 코스에서 &ldquo;이 코스 저장&rdquo;을 누르면 여기에 모여요.<br />직접 고른 장소로 만든 코스는 &ldquo;내 경로&rdquo;에 있어요.
                     </div>
                     <button
                       onClick={() => router.push("/")}
@@ -1003,9 +1022,7 @@ export default function MyPage() {
                     </button>
                   </div>
                 ) : (
-                  myCourses.map((course) => {
-                    // 내가 직접 만든 경로 — 순서 바꾸기·빼기·이름 바꾸기
-                    if (isMyRoute(course)) return <MyRouteCard key={course.id} route={course} onDelete={handleDeleteCourse} />;
+                  aiCourses.map((course) => {
                     const points = course.stops.map((st) => ({ lat: st.lat, lng: st.lng, name: st.name }));
                     return (
                       <div
@@ -1321,7 +1338,7 @@ export default function MyPage() {
               </div>
             </main>
             {/* 하단 푸터 — 목록을 끝까지 내렸을 때 보입니다(하단 탭바에 가려지지 않게 아래 여백) */}
-            <div style={{ marginTop: 28, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", padding: "18px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space, 78px) + 18px)", boxSizing: "border-box" }}>
+            <div style={{ marginTop: 28, background: "transparent", borderTop: "1px solid rgba(42, 28, 20, 0.08)", padding: "18px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space, 78px) + 18px)", boxSizing: "border-box" }}>
               <SiteFooter />
             </div>
           </div>

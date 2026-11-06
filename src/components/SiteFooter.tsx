@@ -333,10 +333,14 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** 지도 화면 말고 모든 화면의 맨 아래에 두는 푸터. overTabBar면 하단 탭바에 가리지 않게 여백을 둡니다 */
-export function PageFooter({ overTabBar = true }: { overTabBar?: boolean }) {
+/**
+ * 지도 화면 말고 모든 화면의 맨 아래에 두는 푸터. overTabBar면 하단 탭바에 가리지 않게 여백을 둡니다.
+ * 바탕은 따로 칠하지 않고(투명) 각 화면의 바탕색을 그대로 씁니다 — 화면마다 흰색·연회색이 달라 푸터만 튀어 보였습니다.
+ * 위쪽 가는 선으로만 본문과 나눕니다. 꼭 다른 색이 필요하면 background로 넘깁니다.
+ */
+export function PageFooter({ overTabBar = true, background = "transparent" }: { overTabBar?: boolean; background?: string }) {
   return (
-    <div className="owner-no-print" style={{ padding: `28px 16px ${overTabBar ? "calc(var(--ggk-tabbar-space, 24px) + 8px)" : "24px"}`, borderTop: "1px solid #E7E6E5", background: "white" }}>
+    <div className="owner-no-print" style={{ padding: `28px 16px ${overTabBar ? "calc(var(--ggk-tabbar-space, 24px) + 8px)" : "24px"}`, borderTop: "1px solid rgba(42, 28, 20, 0.08)", background }}>
       <SiteFooter />
     </div>
   );

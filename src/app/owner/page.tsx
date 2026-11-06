@@ -387,7 +387,7 @@ function KindBadge({ isPreview, label }: { isPreview: boolean; label: string }) 
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   // 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 페이지 자체를 스크롤 영역으로 둡니다.
   return (
-    <div className="ggk-body owner-page" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div className="ggk-body owner-page ggk-readable" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
       <style>{`
         @media print {
           body { overflow: visible !important; }

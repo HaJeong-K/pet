@@ -1004,7 +1004,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
                 차지했는데(휴대폰에서는 목록이 보이는 자리가 크게 줄어듦), 이제는 목록을 끝까지 내렸을 때 보입니다.
                 하단 탭바(약 78px)에 가려지지 않도록 아래 여백은 그대로 둡니다. */}
             <div style={{
-              flexShrink: 0, background: "#F4F3F2", borderTop: "1px solid #E0DFDE", margin: "28px -28px 0",
+              flexShrink: 0, background: "transparent", borderTop: "1px solid rgba(42, 28, 20, 0.08)", margin: "28px -28px 0",
               padding: "18px 28px calc(78px + 18px)", boxSizing: "border-box",
             }}>
               <SiteFooter />

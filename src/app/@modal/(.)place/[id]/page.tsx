@@ -380,7 +380,9 @@ export default function ModalPage() {
         .share-row { transition: background 0.12s ease; }
         .share-row:hover { background: #f5f6f8 !important; }
         .report-cat-btn { transition: all 0.14s ease; }
-        .report-cat-btn:hover { border-color: #999 !important; background: #f8f9fb !important; }
+        /* 마우스가 있는 화면에서, 아직 고르지 않은 칸에만 — 휴대폰은 누른 뒤에도 hover가 남아 고른 칸(검정 바탕·흰 글자)의
+           바탕만 연하게 덮여 글자가 안 보였습니다 */
+        @media (hover: hover) { .report-cat-btn[aria-pressed="false"]:hover { border-color: #999 !important; background: #f8f9fb !important; } }
         @keyframes modalFadeIn {
           from { opacity: 0; transform: translate(-50%, 50%) scale(0.97); }
           to   { opacity: 1; transform: translate(-50%, 50%) scale(1); }
@@ -747,6 +749,7 @@ export default function ModalPage() {
                       <button
                         key={cat.value}
                         className="report-cat-btn"
+                        aria-pressed={reportCategory === cat.value}
                         onClick={() => setReportCategory(cat.value)}
                         style={{
                           width: "100%", padding: "11px 13px",

@@ -8,8 +8,9 @@ import AdminNav from "@/components/AdminNav";
 import {
   ArrowLeft, Flag, CheckCircle, Trash2, PartyPopper,
   AlertCircle, RefreshCw, MessageSquare, MessageCircle,
-  MapPin, X,
+  MapPin, X, Pencil,
 } from "lucide-react";
+import ReportFixPanel from "@/components/admin/ReportFixPanel";
 
 /* ── 폰트/스타일 공통 ── */
 const STYLES = `
@@ -146,6 +147,8 @@ import { AdminPager, BulkBar, SelectBox, usePaged, useSelection, type BulkAction
 export default function AdminReportsPage() {
   const router = useRouter();
   const [reports,    setReports]    = useState<any[]>([]);
+  // "검토 후 고치기"를 펼친 신고
+  const [fixFor, setFixFor] = useState<number | null>(null);
   const [loading,    setLoading]    = useState(false);
   const [activeFilter, setActiveFilter] = useState<"pending"|"done">("pending");
   const [resolvedReports, setResolvedReports] = useState<any[]>([]);
@@ -1077,6 +1080,10 @@ export default function AdminReportsPage() {
                       {/* ⚠ 신고 사유는 카드 상단 뱃지(report_category 라벨)에 이미 나와
                           있어서, 여기서 report_reason을 또 보여주는 게 중복이라 없앴습니다. */}
 
+                      {activeFilter === "pending" && fixFor === report.id && report.place_id && (
+                        <ReportFixPanel reportId={report.id} placeId={Number(report.place_id)} category={report.report_category} reason={report.content || report.report_reason}
+                          onDone={() => { setReports((prev) => prev.filter((r) => r.id !== report.id)); setResolvedReports((prev) => [{ ...report, is_resolved: true }, ...prev]); setFixFor(null); }} />
+                      )}
                       {activeFilter === "pending" && (
                         <div style={{ display:"flex", gap:7 }}>
                           {/* 기각 — 신고된 내용은 그대로 두고 신고만 닫습니다(처리 결과에 "기각"으로 남음) */}
@@ -1099,6 +1106,14 @@ export default function AdminReportsPage() {
                                 boxShadow:"0 2px 8px rgba(239,68,68,0.30)",
                                 fontFamily:"'Noto Sans KR', sans-serif" }}>
                               <Trash2 size={13} />내용 삭제
+                            </button>
+                          )}
+
+                          {/* 장소 신고: 내용을 보고 그 자리에서 고치기(상호 변경·주소·영업시간 등) */}
+                          {report.type === "place" && report.place_id && (
+                            <button className="action-btn ggk-body" onClick={() => setFixFor(fixFor === report.id ? null : report.id)} aria-expanded={fixFor === report.id}
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"1px solid #3B2A20", background: fixFor === report.id ? "#3B2A20" : "white", color: fixFor === report.id ? "white" : "#3B2A20", fontWeight:800, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", gap:5, fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Pencil size={13} />검토 후 고치기
                             </button>
                           )}
 

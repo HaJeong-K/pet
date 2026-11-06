@@ -593,7 +593,8 @@ export default function KakaoMap() {
   // 넓은 화면에서는 예전처럼 리스트 패널이 항상 보입니다.
   const isNarrowScreen = useMediaQuery(NARROW_BREAKPOINT);
   // 도구 막대에 이름까지 넣을 만큼 넓은지 — 좁으면 같은 막대에 아이콘만(마우스를 올리면 이름)
-  const toolbarLabels = useMediaQuery("(min-width: 1240px)");
+  // 도구 막대 이름표는 아주 넓은 화면에서만 — 좁으면 아이콘만 두어 가운데 검색창·필터 자리를 지킵니다
+  const toolbarLabels = useMediaQuery("(min-width: 1480px)");
   const [showListPanelMobile, setShowListPanelMobile] = useState(false);
   // 휴대폰에서는 목록이 바텀시트로 항상 깔려 있고(지도 앱 공통 패턴), 신규·추천·AI 코스를
   // 열면 그 시트가 목록 자리를 대신합니다. (showListPanelMobile은 예전 "목록" 버튼용 — 지금은 안 씀)
@@ -3909,6 +3910,9 @@ const courseMeta = (route: RouteResult) => ({
             justifyContent: "space-between",
             rowGap: "8px",
             columnGap: "12px",
+            // 넓은 화면: [로고 | 검색창·필터 | 도구] 세 칸. 양옆 칸을 같은 비율로 둬서 가운데가 화면 정중앙에 오고,
+            // 자리가 모자라면 가운데 필터가 두 줄로 접힙니다(공지 줄은 세 칸을 모두 차지).
+            ...(!isNarrowScreen ? { display: "grid", gridTemplateColumns: "minmax(max-content, 1fr) minmax(0, 620px) minmax(max-content, 1fr)" } : {}),
             ...(isNarrowScreen ? { top: "8px", left: "8px", right: "8px", padding: "8px 10px", borderRadius: "16px" } : {}),
           }}
         >
@@ -4003,8 +4007,9 @@ const courseMeta = (route: RouteResult) => ({
             </div>
           ) : (
           <>
-          {/* 좌측: 로고 */}
-          <div style={{ flexShrink: 0, lineHeight: 1 }}>
+          {/* 좌측: 로고 — 위 상자가 세 칸 격자라 가운데 검색창·필터가 화면 정중앙에 옵니다
+              (예전엔 오른쪽 버튼 묶음이 로고보다 넓어 가운데 칸이 왼쪽으로 밀렸습니다) */}
+          <div style={{ lineHeight: 1, justifySelf: "start" }}>
             <Image
               src="/icons/petsroad_lockup.png"
               alt="펫츠로드"
@@ -4025,8 +4030,8 @@ const courseMeta = (route: RouteResult) => ({
               중앙 정렬을 유지합니다(margin: 0 auto). */}
           <div
             style={{
-              flex: "1 1 240px",
               minWidth: 0,
+              width: "100%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -4107,7 +4112,7 @@ const courseMeta = (route: RouteResult) => ({
           {/* 우측: (좁은 화면 전용) 목록 + 신규 장소 + 추천 장소 + 제보하기 —
               목록/신규/추천 세 패널은 좁은 화면에서 동시에 펼치면 자리가 없으므로
               하나를 열면 나머지 둘은 자동으로 닫습니다. */}
-          <div style={{ display: "flex", gap: "5px", flexShrink: 0, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ justifySelf: "end", display: "flex", gap: "5px", alignItems: "center", justifyContent: "flex-end" }}>
             {isNarrowScreen && (
               <button
                 onClick={() => { setShowListPanelMobile((v) => !v); setShowRecentPanel(false); setShowRecommendPanel(false); setShowRoutePanel(false); }}
@@ -4169,7 +4174,7 @@ const courseMeta = (route: RouteResult) => ({
           </>
           )}
           {/* 공지 한 줄 — 커뮤니티 공지가 올라오면 제목 아래에 보입니다(없으면 아무것도 없음) */}
-          <HomeNoticeBar compact={isNarrowScreen} />
+          <div style={{ gridColumn: "1 / -1", minWidth: 0, width: "100%" }}><HomeNoticeBar compact={isNarrowScreen} /></div>
         </div>
       )}
 

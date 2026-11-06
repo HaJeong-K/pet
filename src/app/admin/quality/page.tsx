@@ -4,7 +4,7 @@ import LogoLoader from "@/components/LogoLoader";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
-import { Play } from "lucide-react";
+import { ChevronDown, ChevronUp, Play } from "lucide-react";
 import type { QualityIssue, QualityReport } from "@/lib/server/dataQuality";
 import VisitorReportsCard from "@/components/admin/VisitorReportsCard";
 
@@ -34,6 +34,8 @@ export default function AdminQuality() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<QualityIssue["kind"] | "all">("all");
+  // 분류 근거를 펼쳐 둔 문제 한 줄
+  const [openIssue, setOpenIssue] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -92,19 +94,46 @@ export default function AdminQuality() {
           <div style={{ padding: 40, textAlign: "center", color: "#A05A32", fontSize: 13, fontWeight: 700 }}>문제가 발견되지 않았어요 👍</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {issues.map((i, idx) => (
-              <a key={`${i.kind}-${i.placeId}-${idx}`} href={`/place/${i.placeId}`} target="_blank" rel="noopener noreferrer" style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "white",
-                border: "1px solid #eee", textDecoration: "none", color: "inherit",
-              }}>
-                <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: KIND_LABEL[i.kind].bg, color: KIND_LABEL[i.kind].color, flexShrink: 0 }}>
-                  {KIND_LABEL[i.kind].label}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#222" }}>{i.placeName}</span>
-                <span style={{ fontSize: 12, color: "#555" }}>{i.detail}</span>
-                <span style={{ marginLeft: "auto", fontSize: 11, color: "#6e6e6e", flexShrink: 0 }}>#{i.placeId}</span>
-              </a>
-            ))}
+            {issues.map((i, idx) => {
+              const key = `${i.kind}-${i.placeId}-${idx}`;
+              const open = openIssue === key;
+              return (
+                <div key={key} style={{ borderRadius: 12, background: "white", border: `1px solid ${open ? "#D9C2B2" : "#eee"}`, overflow: "hidden" }}>
+                  {/* 누르면 아래에 분류 근거(점검에 쓴 실제 값과 기준)가 열립니다 */}
+                  <button onClick={() => setOpenIssue(open ? null : key)} aria-expanded={open} style={{
+                    width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: "none", background: "transparent",
+                    cursor: "pointer", textAlign: "left", fontFamily: "inherit", flexWrap: "wrap",
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: KIND_LABEL[i.kind].bg, color: KIND_LABEL[i.kind].color, flexShrink: 0 }}>
+                      {KIND_LABEL[i.kind].label}
+                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{i.placeName}</span>
+                    <span style={{ fontSize: 13, color: "#2A1C14" }}>{i.detail}</span>
+                    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2A1C14", flexShrink: 0 }}>
+                      #{i.placeId} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    </span>
+                  </button>
+                  {open && (
+                    <div style={{ padding: "4px 14px 14px", borderTop: "1px solid #F1EAE4", background: "#FCFAF8" }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#85482A", margin: "10px 0 6px" }}>분류 근거</div>
+                      {i.evidence?.length ? (
+                        <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "minmax(110px, auto) 1fr", gap: "6px 12px", fontSize: 13, lineHeight: 1.55 }}>
+                          {i.evidence.map((e) => (
+                            <div key={e.label} style={{ display: "contents" }}>
+                              <dt style={{ color: "#4A3F38", fontWeight: 700 }}>{e.label}</dt>
+                              <dd style={{ margin: 0, color: "#111", wordBreak: "break-all" }}>{e.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      ) : (
+                        <div style={{ fontSize: 13, color: "#2A1C14" }}>이 점검 기록에는 근거가 저장돼 있지 않아요. &quot;지금 점검&quot;을 한 번 누르면 근거가 함께 저장돼요.</div>
+                      )}
+                      <a href={`/place/${i.placeId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 13, fontWeight: 800, color: "#A05A32" }}>장소 열어 보기 ↗</a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

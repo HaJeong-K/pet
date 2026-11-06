@@ -40,10 +40,11 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
   };
 
   // ⚠ 장소 상세 창(모달) 안에서 열면 그 창의 틀에 갇혀 아래쪽이 잘려 보였습니다 — 화면(body)에 바로 띄웁니다.
+  //    장소 상세 창의 배경(zIndex 9999)보다 위에 둬야 합니다 — 예전엔 2000이라 창 뒤에 숨어 "눌러도 안 된다"로 보였습니다.
   //    휴대폰 아래쪽 홈 바(safe area)만큼 여백도 둡니다.
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label="내 경로에 추가" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+    <div role="dialog" aria-modal="true" aria-label="내 경로에 추가" onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 10050, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "85dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <MapPinned size={18} color="#A05A32" />

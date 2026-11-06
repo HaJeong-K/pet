@@ -87,3 +87,20 @@ button:active {
 
 /* 입력칸 안내 글자 — 연해서 안 보인다는 의견이 있어 어디서나 또렷하게 */
 input::placeholder, textarea::placeholder { color: #6e6e6e; opacity: 1; }
+
+/* ── 글자 키우기(ggk-readable) — 사장님 센터·숙소·쇼핑·예약 화면(2026-11-06 대표 요청: "글자를 조금 더 크게, 가독성 있게").
+   화면마다 글자 크기가 style로 박혀 있어서, 자주 쓰는 작은 크기(9~15px)를 한 단계씩 키워 덮어씁니다.
+   큰 제목(16px 이상)은 그대로 둡니다. 새 화면을 만들 때도 이 상자 안이면 자동으로 적용됩니다. */
+.ggk-readable [style*="font-size: 9px"] { font-size: 10.5px !important; }
+.ggk-readable [style*="font-size: 9.5px"] { font-size: 11px !important; }
+.ggk-readable [style*="font-size: 10px"] { font-size: 11.5px !important; }
+.ggk-readable [style*="font-size: 10.5px"] { font-size: 12px !important; }
+.ggk-readable [style*="font-size: 11px"] { font-size: 12.5px !important; }
+.ggk-readable [style*="font-size: 11.5px"] { font-size: 13px !important; }
+.ggk-readable [style*="font-size: 12px"] { font-size: 13.5px !important; }
+.ggk-readable [style*="font-size: 12.5px"] { font-size: 14px !important; }
+.ggk-readable [style*="font-size: 13px"] { font-size: 14.5px !important; }
+.ggk-readable [style*="font-size: 13.5px"] { font-size: 15px !important; }
+.ggk-readable [style*="font-size: 14px"] { font-size: 15px !important; }
+.ggk-readable [style*="font-size: 14.5px"] { font-size: 15.5px !important; }
+.ggk-readable [style*="font-size: 15px"] { font-size: 16px !important; }

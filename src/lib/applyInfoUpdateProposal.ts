@@ -31,6 +31,9 @@ export interface InfoUpdateProposalLike {
   closed_days?: string | null;
   parking?: string | null;
   entry_fee?: string | null;
+  /** 관리자가 신고를 보고 고칠 때만: 바뀐 상호명·주소(제보에서는 쓰지 않음) */
+  new_name?: string | null;
+  new_address?: string | null;
 }
 
 export type ApplyInfoUpdateResult =
@@ -56,6 +59,8 @@ export async function applyInfoUpdateProposal(
   loadOriginal: (id: number) => Promise<any | null> = fetchPublicDataPlaceById
 ): Promise<ApplyInfoUpdateResult> {
   const provided = pickProvided({
+    name: proposal.new_name,
+    address: proposal.new_address,
     category: proposal.category,
     hours: proposal.hours,
     pet_zone: proposal.pet_zone,
@@ -92,8 +97,8 @@ export async function applyInfoUpdateProposal(
   }
 
   const merged = {
-    name: original.name,
-    address: original.address,
+    name: provided.name ?? original.name,
+    address: provided.address ?? original.address,
     lat: original.lat,
     lng: original.lng,
     pet_zone: provided.pet_zone ?? original.pet_zone,

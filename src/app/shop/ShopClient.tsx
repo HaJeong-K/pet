@@ -89,12 +89,15 @@ export default function ShopClient() {
       <style>{`
         .shop-thumb { width: clamp(100px, 18vw, 128px); aspect-ratio: 1; }
         .shop-side { display: none; }
-        .shop-cats { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
-        .shop-cats > button { flex: 0 0 78px; }
+        /* 분류 버튼은 작게 줄여 한 줄에 모두 — 휴대폰에서 다 안 들어가면 옆으로 밀어서 봅니다 */
+        .shop-cats { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+        .shop-cats::-webkit-scrollbar { display: none; }
+        .shop-cats > button { flex: 0 0 62px; }
         @media (min-width: 720px) {
           .shop-thumb { width: 200px; aspect-ratio: 4 / 3; }
           .shop-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-          .shop-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 16px 6px; overflow: visible; }
+          .shop-cats { display: flex; gap: 4px; overflow: visible; }
+          .shop-cats > button { flex: 1 1 0; min-width: 0; }
         }
       `}</style>
       {/* 머리말 + 검색 — 숙소 탭과 같은 모양 */}
@@ -112,8 +115,8 @@ export default function ShopClient() {
           const on = category === name;
           const Icon = name ? iconOf(name) : LayoutGrid;
           return (
-            <button key={name ?? "전체"} onClick={() => setCategory(on ? null : name)} aria-pressed={on} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 0, border: "none", background: "transparent", color: on ? INK : "#444", fontSize: 13, fontWeight: on ? 800 : 600, fontFamily: "inherit", cursor: "pointer", lineHeight: 1.3 }}>
-              <span style={{ width: 54, height: 54, borderRadius: 18, background: on ? "#3B2A20" : "#FBEDE3", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={24} color={on ? "white" : "#A05A32"} /></span>
+            <button key={name ?? "전체"} onClick={() => setCategory(on ? null : name)} aria-pressed={on} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "2px 0", border: "none", background: "transparent", color: on ? INK : "#1a1a1a", fontSize: 12, fontWeight: on ? 800 : 600, fontFamily: "inherit", cursor: "pointer", lineHeight: 1.3, textAlign: "center", wordBreak: "keep-all" }}>
+              <span style={{ width: 42, height: 42, borderRadius: 14, background: on ? "#3B2A20" : "#FBEDE3", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={19} color={on ? "white" : "#A05A32"} /></span>
               {name ?? "전체"}
             </button>
           );

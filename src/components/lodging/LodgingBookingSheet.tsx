@@ -36,8 +36,8 @@ type PetForm = { species: PetSpecies; size: PetSize | ""; weight: string; kind: 
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 const shortWon = (n: number) => (n >= 10000 ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만` : n.toLocaleString("ko-KR"));
 const box: React.CSSProperties = { padding: "14px 14px", borderRadius: 14, background: "#F4F3F2" };
-const input: React.CSSProperties = { width: "100%", padding: "10px 11px", borderRadius: 10, border: "1px solid #ddd", fontSize: 14, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
-const label: React.CSSProperties = { fontSize: 14, fontWeight: 800, color: "#1f1a12", marginBottom: 8 };
+const input: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #D9D8D7", fontSize: 15, boxSizing: "border-box", fontFamily: "inherit", background: "white" };
+const label: React.CSSProperties = { fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 10 };
 const chip = (on: boolean): React.CSSProperties => ({ padding: "7px 11px", borderRadius: 999, border: `1px solid ${on ? "#3B2A20" : "#DDDCDB"}`, background: on ? "#FCF1E9" : "white", color: on ? "#3B2A20" : "#666", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" });
 const stepper: React.CSSProperties = { width: 32, height: 32, padding: 0, borderRadius: 999, border: "1px solid #ddd", background: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#333" };
 const monthBtn: React.CSSProperties = { border: "1px solid #e2e4e8", background: "white", borderRadius: 8, width: 28, height: 28, padding: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
@@ -55,7 +55,7 @@ function BreedPicker({ kindLabel, breeds, value, text, onPick, onText }: {
   const options = [{ value: "", label: `${kindLabel}을 골라 주세요` }, ...shown.map((b) => ({ value: b, label: b })), { value: OTHER_BREED, label: "목록에 없어요 (직접 입력)" }];
   return (
     <div style={{ display: "grid", gap: 6 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>{kindLabel} <span style={{ color: "#DC2626" }}>*</span> <span style={{ fontWeight: 500, color: "#666" }}>위아래로 밀어서 골라 주세요</span></div>
+      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1a1a1a" }}>{kindLabel} <span style={{ color: "#DC2626" }}>*</span> <span style={{ fontWeight: 500, color: "#262626" }}>위아래로 밀어서 골라 주세요</span></div>
       <div style={{ position: "relative" }}>
         <Search size={15} color="#777" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`${kindLabel} 검색 (예: ${kindLabel === "견종" ? "슈나우저" : "러시안"})`} aria-label={`${kindLabel} 검색`} style={{ ...input, paddingLeft: 32 }} />
@@ -72,7 +72,7 @@ function PetField({ label: text, required, hint, children }: { label: string; re
     <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: "#1f1a12" }}>{text}{required ? <span style={{ color: "#DC2626" }}> *</span> : <span style={{ fontWeight: 500, color: "#6B5E55" }}> (선택)</span>}</div>
       {children}
-      {hint && <div style={{ fontSize: 12, color: "#4A3F38" }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 12, color: "#2A1C14" }}>{hint}</div>}
     </div>
   );
 }
@@ -246,7 +246,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 
   const isPage = variant === "page";
   const body = (
-      <div onClick={(e) => e.stopPropagation()} className={isPage ? "ggk-book-page" : undefined} style={isPage
+      <div onClick={(e) => e.stopPropagation()} className={isPage ? "ggk-book-page ggk-readable" : "ggk-readable"} style={isPage
         ? { width: "100%", boxSizing: "border-box", wordBreak: "keep-all" }
         : { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px 24px", boxSizing: "border-box", wordBreak: "keep-all" }}>
         {isPage && (
@@ -282,8 +282,8 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
         {!isPage && <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           {step === 2 && <button onClick={() => setStep(1)} aria-label="이전 단계" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={16} /></button>}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: "#5c5c5c" }}>{placeName}</div>
-            <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#222" }}>{step === 1 ? "날짜·인원·반려동물" : step === 2 ? "예약 확인" : "예약 완료"}</div>
+            <div style={{ fontSize: 12, color: "#262626" }}>{placeName}</div>
+            <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#111" }}>{step === 1 ? "날짜·인원·반려동물" : step === 2 ? "예약 확인" : "예약 완료"}</div>
           </div>
           <button onClick={onClose} aria-label="닫기" style={{ width: 32, height: 32, borderRadius: 999, border: "none", background: "#f3f3f3", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={16} /></button>
         </div>}
@@ -297,7 +297,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {rooms.map((r) => <button key={r.id} onClick={() => { setRoomId(r.id); setCheckIn(null); setCheckOut(null); }} aria-pressed={r.id === room.id} style={chip(r.id === room.id)}>{r.name}</button>)}
                 </div>
-                <div style={{ fontSize: 12, color: "#5c5c5c", marginTop: 5 }}>{roomPriceText(room)} · 기준 {room.std_guests}명 · 최대 {room.max_guests}명</div>
+                <div style={{ fontSize: 12, color: "#262626", marginTop: 5 }}>{roomPriceText(room)} · 기준 {room.std_guests}명 · 최대 {room.max_guests}명</div>
               </div>
             )}
 
@@ -309,9 +309,11 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                   <button onClick={() => setMonth(next.slice(0, 7))} disabled={month >= lastMonth} aria-label="다음 달" style={{ ...monthBtn, opacity: month >= lastMonth ? 0.35 : 1 }}><ChevronRight size={13} /></button>
                 </div>
               </div>
-              <div style={{ textAlign: "center", fontSize: 13.5, fontWeight: 800, color: "#333", margin: "4px 0 6px" }}>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 3 }}>
-                {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: i === 0 ? "#DC2626" : i === 6 ? "#3B2A20" : "#666" }}>{w}</div>)}
+              {/* 달력은 넓은 화면에서도 읽기 좋은 폭(최대 440px)으로 가운데에 둡니다 — 칸이 너무 넓게 퍼지면 날짜를 찾기 어려웠습니다 */}
+              <div style={{ maxWidth: 440, margin: "0 auto" }}>
+              <div style={{ textAlign: "center", fontSize: 16, fontWeight: 800, color: "#111", margin: "6px 0 10px" }}>{Number(month.slice(0, 4))}년 {Number(month.slice(5, 7))}월</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 4 }}>
+                {WEEK.map((w, i) => <div key={w} style={{ textAlign: "center", fontSize: 13.5, fontWeight: 800, color: i === 0 ? "#DC2626" : i === 6 ? "#1D4F91" : "#111", paddingBottom: 2 }}>{w}</div>)}
                 {cells.map((day, i) => {
                   if (!day) return <div key={`b${i}`} />;
                   const d = byDay.get(day);
@@ -322,17 +324,18 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                   const selectable = ok || (!!checkIn && !checkOut && day > checkIn);
                   return (
                     <button key={day} onClick={() => selectable && pick(day)} disabled={!selectable} aria-pressed={edge}
-                      style={{ minHeight: 48, padding: "4px 2px", borderRadius: 9, border: edge ? "2px solid #3B2A20" : "1px solid #eee", background: edge ? "#3B2A20" : inRange ? "#FCF1E9" : "white", color: edge ? "white" : ok ? "#333" : "#707070", cursor: selectable ? "pointer" : "default", fontFamily: "inherit", textDecoration: !ok && day >= today && !edge ? "line-through" : "none" }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 800 }}>{Number(day.slice(8))}</div>
-                      {ok && d && <div style={{ fontSize: 9.5, fontWeight: 600, opacity: 0.8, marginTop: 1 }}>{shortWon(d.price)}</div>}
+                      style={{ minHeight: 54, padding: "5px 2px", borderRadius: 10, border: edge ? "2px solid #3B2A20" : "1px solid #E7E6E5", background: edge ? "#3B2A20" : inRange ? "#FBEDE3" : "white", color: edge ? "white" : ok ? "#111" : "#9A938E", cursor: selectable ? "pointer" : "default", fontFamily: "inherit", textDecoration: !ok && day >= today && !edge ? "line-through" : "none" }}>
+                      <div style={{ fontSize: 15.5, fontWeight: 800 }}>{Number(day.slice(8))}</div>
+                      {ok && d && <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: edge ? "white" : "#A05A32" }}>{shortWon(d.price)}</div>}
                     </button>
                   );
                 })}
               </div>
+              </div>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={label}>인원 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>기준 {room.std_guests}명 · 최대 {room.max_guests}명{(room.extra_guest_fee ?? 0) > 0 ? ` · 초과 1명당 1박 ${won(room.extra_guest_fee ?? 0)}` : ""}</span></div>
+              <div style={label}>인원 <span style={{ fontWeight: 600, color: "#333" }}>기준 {room.std_guests}명 · 최대 {room.max_guests}명{(room.extra_guest_fee ?? 0) > 0 ? ` · 초과 1명당 1박 ${won(room.extra_guest_fee ?? 0)}` : ""}</span></div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <button onClick={() => setGuests((g) => Math.max(1, g - 1))} disabled={guests <= 1} aria-label="인원 줄이기" style={{ ...stepper, opacity: guests <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
                 <b style={{ minWidth: 20, textAlign: "center" }}>{guests}</b>
@@ -341,7 +344,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
             </div>
 
             <div>
-              <div style={label}>함께 가는 반려동물 <span style={{ fontWeight: 600, color: "#6e6e6e" }}>정확히 적어야 입실 거부를 막을 수 있어요</span></div>
+              <div style={label}>함께 가는 반려동물 <span style={{ fontWeight: 600, color: "#333" }}>정확히 적어야 입실 거부를 막을 수 있어요</span></div>
               {profile && <div style={{ fontSize: 12, color: "#3B2A20", marginBottom: 7 }}>이 숙소는 {petPolicySummary(profile)}</div>}
               <div role="note" style={{ marginBottom: 8, padding: "9px 11px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FBD5D5", fontSize: 12, color: "#991B1B", lineHeight: 1.6 }}>
                 <div style={{ display: "flex", gap: 6 }}><AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} /><span style={{ whiteSpace: "pre-line" }}>{DANGEROUS_DOG_NOTICE}</span></div>
@@ -419,7 +422,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 
             {extraOptions.length > 0 && (
               <div>
-                <div style={label}>추가 옵션 <span style={{ fontWeight: 600, color: "#4A3F38" }}>이용할 것만 체크하면 숙박 요금과 함께 결제돼요</span></div>
+                <div style={label}>추가 옵션 <span style={{ fontWeight: 600, color: "#2A1C14" }}>이용할 것만 체크하면 숙박 요금과 함께 결제돼요</span></div>
                 <div style={{ display: "grid", gap: 8 }}>
                   {extraOptions.map((x) => {
                     const cap = extraCap(x);
@@ -439,12 +442,12 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: "#1f1a12" }}>{x.name}</span>
                             <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}><b>{won(x.price)}</b> · {extraUnitLabel(x)}</span>
-                            {x.note && <span style={{ display: "block", fontSize: 12.5, color: "#4A3F38", marginTop: 2 }}>{x.note}</span>}
+                            {x.note && <span style={{ display: "block", fontSize: 12.5, color: "#2A1C14", marginTop: 2 }}>{x.note}</span>}
                           </span>
                         </label>
                         {used && (basis !== "stay" || x.max > 1) && (
                           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "#1f1a12", paddingLeft: 29 }}>
-                            <span style={{ flex: 1, fontWeight: 700 }}>{basis === "person" ? "이용 인원" : basis === "pet" ? "이용 마리 수" : "수량"} <span style={{ fontWeight: 500, color: "#4A3F38", fontSize: 12.5 }}>최대 {cap}{countWord}</span></span>
+                            <span style={{ flex: 1, fontWeight: 700 }}>{basis === "person" ? "이용 인원" : basis === "pet" ? "이용 마리 수" : "수량"} <span style={{ fontWeight: 500, color: "#2A1C14", fontSize: 12.5 }}>최대 {cap}{countWord}</span></span>
                             <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.max(1, qty - 1) }))} disabled={qty <= 1} aria-label={`${x.name} 줄이기`} style={{ ...stepper, opacity: qty <= 1 ? 0.4 : 1 }}><Minus size={14} /></button>
                             <b style={{ minWidth: 34, textAlign: "center" }}>{qty}{countWord}</b>
                             <button type="button" onClick={() => setExtraQty((q) => ({ ...q, [x.id]: Math.min(cap, qty + 1) }))} disabled={qty >= cap} aria-label={`${x.name} 늘리기`} style={{ ...stepper, opacity: qty >= cap ? 0.4 : 1 }}><Plus size={14} /></button>
@@ -452,7 +455,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                         )}
                         {used && perNight && stayNights.length > 1 && (
                           <div style={{ paddingLeft: 29 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f1a12", marginBottom: 6 }}>이용할 밤 <span style={{ fontWeight: 500, color: "#4A3F38", fontSize: 12.5 }}>{chosen.length}박 선택</span></div>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1f1a12", marginBottom: 6 }}>이용할 밤 <span style={{ fontWeight: 500, color: "#2A1C14", fontSize: 12.5 }}>{chosen.length}박 선택</span></div>
                             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                               {stayNights.map((d) => {
                                 const on = chosen.includes(d);
@@ -477,13 +480,13 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
           <div className={isPage ? "ggk-book-aside" : undefined} style={isPage ? undefined : { display: "contents" }}>
             {/* 지금 금액 — 추가 요금까지 모두 여기서 결제하고, 현장에서는 내지 않습니다 */}
             {priced && (
-              <div style={{ padding: "12px 13px", borderRadius: 12, background: "#FBF3ED", display: "grid", gap: 4, fontSize: 13, color: "#445" }}>
+              <div style={{ padding: "12px 13px", borderRadius: 12, background: "#FBF3ED", display: "grid", gap: 4, fontSize: 13, color: "#1a1a1a" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>객실 {priced.nights.length}박</span><span>{won(priced.roomTotal)}</span></div>
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가</span><span>{won(priced.petTotal)}</span></div>}
                 {priced.extrasTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>추가 옵션</span><span>{won(priced.extrasTotal)}</span></div>}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #E3E2E1", paddingTop: 6, marginTop: 2, fontSize: 15, fontWeight: 800, color: "#3B2A20" }}><span>총 금액</span><span>{won(priced.total)}</span></div>
-                <div style={{ fontSize: 11.5, color: "#667" }}>추가 요금까지 모두 포함된 금액이에요. 현장에서 따로 내는 돈은 없어요.</div>
+                <div style={{ fontSize: 11.5, color: "#262626" }}>추가 요금까지 모두 포함된 금액이에요. 현장에서 따로 내는 돈은 없어요.</div>
               </div>
             )}
             {quote && "error" in quote && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{quote.error}</div>}
@@ -496,8 +499,8 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
         {step === 2 && room && priced && checkIn && checkOut && (
           <div className={isPage ? "ggk-book-main" : undefined} style={isPage ? { maxWidth: 760, margin: "0 auto", padding: "32px 18px 32px" } : { display: "grid", gap: 14 }}>
             <div style={box}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#222" }}>{room.name}</div>
-              <div style={{ fontSize: 12.5, color: "#555", marginTop: 4, lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#111" }}>{room.name}</div>
+              <div style={{ fontSize: 12.5, color: "#1a1a1a", marginTop: 4, lineHeight: 1.7 }}>
                 {stayDayLabel(checkIn)} {profile?.check_in ? `${profile.check_in} 체크인` : ""} ~ {stayDayLabel(checkOut)} {profile?.check_out ? `${profile.check_out} 체크아웃` : ""}<br />
                 {priced.nights.length}박 · {guests}명 · 반려동물 {pets.length}마리
               </div>
@@ -505,14 +508,14 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 
             <div>
               <div style={label}>요금</div>
-              <div style={{ display: "grid", gap: 4, fontSize: 13, color: "#555" }}>
+              <div style={{ display: "grid", gap: 4, fontSize: 13, color: "#1a1a1a" }}>
                 {priced.nights.map((n) => <div key={n.day} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(n.day)} 1박</span><span>{won(n.price)}</span></div>)}
                 {priced.extraGuestTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>인원 추가</span><span>{won(priced.extraGuestTotal)}</span></div>}
                 {priced.petTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>반려동물 추가({pets.length}마리 × {priced.nights.length}박)</span><span>{won(priced.petTotal)}</span></div>}
                 {priced.extras.map((x) => <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span>{x.name} · {won(x.price)} × {x.qty}{extraBasis(x) === "person" ? "명" : extraBasis(x) === "pet" ? "마리" : "개"}{x.days ? ` × ${x.days.length}박` : ""}</span><span>{won(x.amount)}</span></div>)}
                 {stampUse.discount > 0 && <div style={{ display: "flex", justifyContent: "space-between", color: "#6B5525", fontWeight: 700 }}><span>추억 스탬프 {stampUse.used}개</span><span>-{won(stampUse.discount)}</span></div>}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid #eee", paddingTop: 8, marginTop: 4, fontSize: 16, fontWeight: 800, color: "#3B2A20" }}><span>총 결제 금액</span><span>{won(payTotal)}</span></div>
-                <div style={{ fontSize: 11.5, color: "#666" }}>추가 요금까지 모두 포함했어요. 현장에서 따로 내는 금액은 없어요. 현장에서 더 요구받으면 &lsquo;문제 있어요&rsquo;로 알려 주세요.</div>
+                <div style={{ fontSize: 11.5, color: "#262626" }}>추가 요금까지 모두 포함했어요. 현장에서 따로 내는 금액은 없어요. 현장에서 더 요구받으면 &lsquo;문제 있어요&rsquo;로 알려 주세요.</div>
               </div>
             </div>
 
@@ -535,12 +538,12 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 
             <div>
               <div style={label}>취소하면 돌려받는 금액</div>
-              <div style={{ display: "grid", gap: 4, fontSize: 12.5, color: "#555" }}>
+              <div style={{ display: "grid", gap: 4, fontSize: 12.5, color: "#1a1a1a" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}><span>오늘({stayDayLabel(today)}) 안에 취소</span><b style={{ color: "#15803D" }}>{won(payTotal)} 전액</b></div>
                 {schedule.filter((r) => r.until > today).map((r) => (
                   <div key={r.until} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(r.until)}까지 취소</span><span style={{ fontWeight: 700, color: r.rate === 0 ? "#15803D" : "#B45309" }}>{r.rate === 0 ? `${won(r.refund)} 전액` : `${won(r.refund)} (${r.rate}% 공제)`}</span></div>
                 ))}
-                <div style={{ fontSize: 11.5, color: "#666", marginTop: 2 }}>공정거래위원회 소비자분쟁해결기준(숙박업)에 따릅니다. 체크인 날이 지나면 취소할 수 없어요.</div>
+                <div style={{ fontSize: 11.5, color: "#262626", marginTop: 2 }}>공정거래위원회 소비자분쟁해결기준(숙박업)에 따릅니다. 체크인 날이 지나면 취소할 수 없어요.</div>
               </div>
             </div>
 
@@ -556,7 +559,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
             <div style={{ display: "grid", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ ...label, marginBottom: 0 }}>이용자 정보 <span style={{ color: "#DC2626" }}>*</span></div>
-                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#444", cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "#1a1a1a", cursor: "pointer" }}>
                   <input type="checkbox" checked={form.sameGuest} onChange={(e) => setForm((f) => ({ ...f, sameGuest: e.target.checked }))} style={{ width: 15, height: 15 }} />예약자와 같아요
                 </label>
               </div>
@@ -566,19 +569,19 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                   <input value={form.stayGuestPhone} onChange={(e) => setForm((f) => ({ ...f, stayGuestPhone: e.target.value.slice(0, 13) }))} placeholder="실제 이용자 휴대전화" aria-label="실제 이용자 휴대전화" inputMode="tel" style={input} />
                 </div>
               )}
-              <div style={{ fontSize: 11.5, color: "#666" }}>숙소가 입실 안내·확인 연락을 드릴 분이에요.</div>
+              <div style={{ fontSize: 11.5, color: "#262626" }}>숙소가 입실 안내·확인 연락을 드릴 분이에요.</div>
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
               <div style={label}>방문 정보</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>방문 수단 <span style={{ color: "#DC2626" }}>*</span></span>
+                <span style={{ fontSize: 12.5, color: "#1a1a1a", width: 70 }}>방문 수단 <span style={{ color: "#DC2626" }}>*</span></span>
                 {ARRIVAL_METHODS.map((m) => <button key={m.id} type="button" onClick={() => setForm((f) => ({ ...f, arrivalMethod: m.id }))} aria-pressed={form.arrivalMethod === m.id} style={chip(form.arrivalMethod === m.id)}>{m.label}</button>)}
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontSize: 12.5, color: "#555", width: 70 }}>도착 예정</span>
+                <span style={{ fontSize: 12.5, color: "#1a1a1a", width: 70 }}>도착 예정</span>
                 <TimePicker ariaLabel="도착 예정 시각(선택)" value={form.arrivalTime} onChange={(t) => setForm((f) => ({ ...f, arrivalTime: t }))} min={profile?.check_in ?? "12:00"} emptyLabel="아직 몰라요" />
-                <span style={{ fontSize: 11.5, color: "#6e6e6e" }}>선택 · 목록에 없는 시간은 맨 아래 &lsquo;직접 입력&rsquo;</span>
+                <span style={{ fontSize: 11.5, color: "#333" }}>선택 · 목록에 없는 시간은 맨 아래 &lsquo;직접 입력&rsquo;</span>
               </div>
               <textarea value={form.memo} onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value.slice(0, 300) }))} rows={2} placeholder="숙소에 전할 말(선택) — 예: 늦게 도착해요, 노견이라 1층 객실 부탁드려요" aria-label="요청 사항" style={{ ...input, resize: "vertical" }} />
             </div>
@@ -590,12 +593,12 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
               </div>
               {form.paymentMethod === "transfer" && (
                 <div style={{ padding: "10px 12px", borderRadius: 12, background: "#F8F8F4", display: "grid", gap: 7 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 800, color: "#444" }}>현금영수증</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1a1a1a" }}>현금영수증</div>
                   <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {CASH_RECEIPT_TYPES.map((t) => <button key={t.id} type="button" onClick={() => setForm((f) => ({ ...f, cashType: t.id, cashNumber: "" }))} aria-pressed={form.cashType === t.id} style={chip(form.cashType === t.id)}>{t.label}</button>)}
                   </div>
                   {form.cashType !== "none" && <input value={form.cashNumber} onChange={(e) => setForm((f) => ({ ...f, cashNumber: e.target.value.slice(0, 13) }))} inputMode="numeric" placeholder={CASH_RECEIPT_TYPES.find((t) => t.id === form.cashType)?.hint} aria-label="현금영수증 번호" style={input} />}
-                  <div style={{ fontSize: 11.5, color: "#666", lineHeight: 1.6 }}>신청한 내용은 숙소에 전달되고, 숙소에서 발급해요.</div>
+                  <div style={{ fontSize: 11.5, color: "#262626", lineHeight: 1.6 }}>신청한 내용은 숙소에 전달되고, 숙소에서 발급해요.</div>
                 </div>
               )}
             </div>
@@ -627,7 +630,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
             </div>
 
             <div style={{ borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <label style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 12px", background: "#f8fafc", fontSize: 14, fontWeight: 800, color: "#222", cursor: "pointer" }}>
+              <label style={{ display: "flex", gap: 8, alignItems: "center", padding: "12px 12px", background: "#f8fafc", fontSize: 14, fontWeight: 800, color: "#111", cursor: "pointer" }}>
                 <input type="checkbox" checked={allAgreed} onChange={(e) => setConsents(e.target.checked ? STAY_CONSENTS.map((c) => c.id) : [])} style={{ width: 17, height: 17 }} />
                 필수 약관 전체 동의
               </label>
@@ -635,11 +638,11 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 <div key={c.id} style={{ borderTop: "1px solid #f0f0f0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
                     <input type="checkbox" id={`consent-${c.id}`} checked={consents.includes(c.id)} onChange={(e) => setConsents((all) => (e.target.checked ? [...all, c.id] : all.filter((x) => x !== c.id)))} style={{ width: 15, height: 15 }} />
-                    <label htmlFor={`consent-${c.id}`} style={{ flex: 1, fontSize: 12.5, color: "#444", cursor: "pointer" }}><b style={{ color: "#DC2626" }}>[필수]</b> {c.label}</label>
-                    <button type="button" onClick={() => setOpenConsent(openConsent === c.id ? null : c.id)} aria-expanded={openConsent === c.id} style={{ border: "none", background: "transparent", color: "#5c5c5c", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>{openConsent === c.id ? "접기" : "보기"}</button>
+                    <label htmlFor={`consent-${c.id}`} style={{ flex: 1, fontSize: 12.5, color: "#1a1a1a", cursor: "pointer" }}><b style={{ color: "#DC2626" }}>[필수]</b> {c.label}</label>
+                    <button type="button" onClick={() => setOpenConsent(openConsent === c.id ? null : c.id)} aria-expanded={openConsent === c.id} style={{ border: "none", background: "transparent", color: "#262626", fontSize: 11.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline" }}>{openConsent === c.id ? "접기" : "보기"}</button>
                   </div>
                   {openConsent === c.id && (
-                    <ul style={{ margin: 0, padding: "0 14px 10px 34px", fontSize: 11.5, color: "#666", lineHeight: 1.7 }}>
+                    <ul style={{ margin: 0, padding: "0 14px 10px 34px", fontSize: 11.5, color: "#262626", lineHeight: 1.7 }}>
                       {c.detail.map((d) => <li key={d}>{d}</li>)}
                     </ul>
                   )}
@@ -647,7 +650,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
               ))}
             </div>
 
-            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
+            <div style={{ fontSize: 11.5, color: "#262626", lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: "#f8fafc" }}>
               {paymentsReady() ? "결제를 마쳐야 예약이 접수돼요. 20분 안에 결제하지 않으면 날짜가 풀려요." : "카드 결제는 준비 중이에요. 지금은 예약이 먼저 접수되고, 결제 방법은 따로 안내해 드려요."}<br />
               {FREE_CANCEL_NOTICE}<br />
               펫츠로드는 통신판매중개자이며 숙박 계약의 당사자는 숙소입니다.
@@ -660,13 +663,13 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
         {step === 3 && (
           <div style={{ display: "grid", gap: 12, textAlign: "center", padding: isPage ? "28px 16px" : "10px 0", maxWidth: isPage ? 520 : undefined, margin: "0 auto" }}>
             <CheckCircle2 size={38} color="#3B2A20" style={{ margin: "0 auto" }} />
-            <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#222" }}>{result?.status === "confirmed" ? "예약이 확정됐어요" : "예약을 보냈어요"}</div>
-            <div style={{ fontSize: 13, color: "#555", lineHeight: 1.7 }}>
+            <div className="ggk-logo" style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>{result?.status === "confirmed" ? "예약이 확정됐어요" : "예약을 보냈어요"}</div>
+            <div style={{ fontSize: 13, color: "#1a1a1a", lineHeight: 1.7 }}>
               {result?.status === "confirmed" ? "즐거운 여행 되세요!" : "숙소가 24시간 안에 확정해요.\n확정되지 않으면 자동으로 취소되고 전액 돌려드려요.".split("\n").map((l) => <span key={l}>{l}<br /></span>)}
               주문·예약 내역에서 확인할 수 있어요.
             </div>
             <a href="/orders?tab=stay" style={{ ...primary(false), textDecoration: "none", display: "block" }}>주문·예약 내역 보기</a>
-            <button onClick={onClose} style={{ border: "none", background: "transparent", color: "#5c5c5c", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>닫기</button>
+            <button onClick={onClose} style={{ border: "none", background: "transparent", color: "#262626", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>닫기</button>
           </div>
         )}
       </div>
