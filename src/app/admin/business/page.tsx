@@ -41,9 +41,9 @@ export default function AdminBusiness() {
   const mixTotal = state.mix.premium + state.mix.store + state.mix.local;
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="business" />
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14, wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button onClick={() => update(defaults())} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, border: "1px solid #ddd", background: "white", fontSize: 12, fontWeight: 700, color: "#555", cursor: "pointer" }}><RotateCcw size={12} />처음 값으로</button>
         </div>

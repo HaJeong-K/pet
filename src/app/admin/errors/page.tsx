@@ -71,10 +71,10 @@ export default function AdminErrorsPage() {
   const selection = useSelection(pager.items.map((e) => e.id));
 
   return (
-    <div className="ggk-body" style={{ minHeight: "100dvh", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="errors" onRefresh={fetchErrors} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
+      <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>최근 200건</span>
         </div>

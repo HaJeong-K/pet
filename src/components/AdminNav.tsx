@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { ArrowLeft, LayoutDashboard, Flag, FileText, RefreshCw, BarChart3, BadgeCheck, Crown, AlertTriangle, TrendingUp, ShieldCheck, ScanSearch, Users, HeartHandshake, Handshake, Calculator, BedDouble, Route } from "lucide-react";
 
-// ── 관리자 페이지 공통 틀 — 사장님 센터(/owner)와 같은 구성입니다.
-//   위 고정 막대(로고·관리자 센터·새로고침), 넓은 화면은 왼쪽 묶음 메뉴, 좁은 화면은 옆으로 미는 메뉴,
-//   그리고 화면마다 아이콘·제목·한 줄 설명. 새로고침 버튼(onRefresh)을 넘기면 위 막대에 나옵니다.
+// ── 관리자 페이지 공통 틀 — 사장님 센터(/owner)·마이페이지(/mypage)와 똑같은 구성입니다.
+//   전체 폭 위 고정 막대(로고 | 관리자 센터 · 새로고침) → 그 아래 넓은 화면은 왼쪽 묶음 메뉴(252px) + 본문,
+//   좁은 화면은 옆으로 미는 메뉴 + 본문. 본문 맨 위에는 화면마다 아이콘·제목·한 줄 설명.
+//   틀(AdminFrame)은 admin/layout.tsx가 한 번만 그리고, 각 화면은 <AdminNav active onRefresh />로
+//   새로고침 버튼만 등록합니다(AdminNav 자체는 화면에 아무것도 그리지 않습니다).
+//   ⚠ 각 화면의 바깥 상자는 높이·폭·배경·바깥 여백을 정하지 말고 내용만 두세요 — 폭·여백·스크롤은 틀이 정합니다.
 
 const TABS = [
   { key: "dashboard", href: "/admin", label: "대시보드", icon: LayoutDashboard },
@@ -62,8 +67,42 @@ const TAB_DESC: Record<TabKey, string> = {
 /** 탭 줄을 옆으로 넘겨 둔 위치 — 관리자 화면 사이를 옮겨 다녀도 유지합니다(새로고침하면 처음으로). */
 let lastScrollLeft: number | null = null;
 
-export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefresh?: () => void }) {
+/** 주소로 지금 화면(탭)을 찾습니다. /admin 은 대시보드, 나머지는 가장 길게 맞는 주소. */
+function tabOfPath(pathname: string): TabKey {
+  const path = pathname.replace(/\/+$/, "") || "/admin";
+  let best: (typeof TABS)[number] = TABS[0];
+  for (const t of TABS) {
+    if (t.href === "/admin") continue;
+    if ((path === t.href || path.startsWith(t.href + "/")) && t.href.length > best.href.length) best = t;
+  }
+  return best.key;
+}
+
+// 화면(page)이 넘긴 새로고침 함수를 틀의 위 막대 버튼에 연결합니다.
+type RefreshCtx = { setRefresh: (fn: (() => void) | null) => void };
+const AdminRefreshContext = createContext<RefreshCtx | null>(null);
+
+/** 각 관리자 화면에서 부르는 자리표시 — 새로고침 버튼만 등록하고 화면에는 아무것도 그리지 않습니다. */
+export default function AdminNav({ onRefresh }: { active: TabKey; onRefresh?: () => void }) {
+  const ctx = useContext(AdminRefreshContext);
+  const latest = useRef(onRefresh);
+  useEffect(() => { latest.current = onRefresh; });
+  const has = !!onRefresh;
+  useEffect(() => {
+    if (!ctx) return;
+    ctx.setRefresh(has ? () => latest.current?.() : null);
+    return () => ctx.setRefresh(null);
+  }, [ctx, has]);
+  return null;
+}
+
+/** 관리자 화면 전체 틀(admin/layout.tsx에서 한 번만 그립니다). */
+export function AdminFrame({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "/admin";
+  const active = tabOfPath(pathname);
+  const [refresh, setRefreshFn] = useState<(() => void) | null>(null);
+  const [ctx] = useState<RefreshCtx>(() => ({ setRefresh: (fn) => setRefreshFn(() => fn) }));
   const [counts, setCounts] = useState<{ reports: number; tips: number; owners: number; premium: number; review: number; inquiries: number }>({ reports: 0, tips: 0, owners: 0, premium: 0, review: 0, inquiries: 0 });
 
   useEffect(() => {
@@ -89,12 +128,10 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
       setCounts({ reports: reportsCount ?? 0, tips: tipsCount ?? 0, owners: ownersCount ?? 0, premium: (premiumCount ?? 0) + (Number(extra.bannerRequests) || 0), review: reviewCount ?? 0, inquiries: Number(extra.fresh) || 0 });
     };
     fetchCounts();
-  }, []);
+    // 틀은 화면을 옮겨도 그대로 남아 있어서, 화면을 옮길 때마다 처리 대기 숫자를 다시 셉니다.
+  }, [pathname]);
 
-  // 탭 줄은 화면마다 새로 그려져서, 휴대폰에서 줄을 옆으로 넘긴 뒤 탭을 누르면 줄이 다시 맨 앞으로
-  // 돌아가 버렸습니다. 넘겨 둔 가로 위치를 기억했다가(lastScrollLeft) 그려지자마자 그대로 되돌려서,
-  // 다른 탭으로 옮겨도 줄이 움직이지 않게 합니다.
-  // 주소를 직접 열었을 때처럼 현재 탭이 화면 밖이면, 그 탭이 보일 만큼만 옮깁니다.
+  // 휴대폰 메뉴 줄: 넘겨 둔 가로 위치를 지키고, 지금 탭이 화면 밖이면 보일 만큼만 옮깁니다.
   const rowRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
@@ -102,113 +139,127 @@ export default function AdminNav({ active, onRefresh }: { active: TabKey; onRefr
     if (!row) return;
     if (lastScrollLeft != null) row.scrollLeft = lastScrollLeft;
     if (btn) {
-      const left = btn.offsetLeft - row.offsetLeft, right = left + btn.offsetWidth;
-      if (left < row.scrollLeft) row.scrollLeft = Math.max(0, left - 8);
-      else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth + 8;
+      const rb = row.getBoundingClientRect(), bb = btn.getBoundingClientRect();
+      if (bb.left < rb.left) row.scrollLeft -= rb.left - bb.left + 14;
+      else if (bb.right > rb.right) row.scrollLeft += bb.right - rb.right + 14;
     }
     lastScrollLeft = row.scrollLeft;
-  }, [active]);
+    // 처리 대기 숫자(빨간 배지)가 늦게 붙으면 칩 폭이 늘어나 지금 탭이 밀려나므로, 숫자가 바뀔 때도 다시 맞춥니다.
+  }, [active, counts]);
+
+  // 화면을 옮기면 본문을 맨 위부터 보여 줍니다(틀이 스크롤 칸이라 저절로 올라가지 않습니다).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [pathname]);
 
   const badgeOf = (key: TabKey) => key === "reports" ? counts.reports : key === "tips" ? counts.tips : key === "owners" ? counts.owners : key === "premium" ? counts.premium : key === "review" ? counts.review : key === "inquiries" ? counts.inquiries : 0;
-  const Badge = ({ n, on }: { n: number; on: boolean }) => n > 0 ? <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center", lineHeight: "19px" }}>{n}</span> : null;
   const activeTab = TABS.find((t) => t.key === active)!;
   const ActiveIcon = activeTab.icon;
   const groupOf = GROUPS.find((g) => (g.keys as readonly string[]).includes(active))?.title ?? "";
+  const go = (href: string) => { if (href !== pathname) router.push(href); };
 
   return (
-    <>
-      <style>{`
-        .ad-side { display: none; }
-        .ad-top { position: sticky; top: 0; z-index: 30; height: 58px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; box-sizing: border-box; }
-        .ad-chips { display: flex; flex-shrink: 0; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
-        .ad-chips::-webkit-scrollbar { display: none; }
-        .ad-title { flex-shrink: 0; width: 100%; max-width: 1200px; margin: 0 auto; padding: 18px clamp(14px, 4vw, 28px) 0; box-sizing: border-box; }
-        .ad-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #2A1C14; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
-        .ad-item:hover { background: #EDECEB; }
-        .ad-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32, 0.18); }
-        .ad-top-logo { display: flex; align-items: center; }
-        @media (min-width: 980px) {
-          .ad-page { padding-left: 252px; }
-          .ad-chips, .ad-top-logo, .ad-top-sep { display: none; }
-          .ad-title { padding-top: 28px; }
-          .ad-side { position: fixed; top: 0; left: 0; bottom: 0; width: 252px; z-index: 40; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; background: #F7F6F5; border-right: 1px solid #E7E6E5; }
-        }
-      `}</style>
+    <AdminRefreshContext.Provider value={ctx}>
+      {/* 사이트 전체의 body가 overflow:hidden(지도 화면용)이라, 이 틀 자체를 스크롤 칸으로 둡니다(사장님 센터와 같음). */}
+      <div ref={scrollRef} className="ggk-body ad-shell">
+        <style>{`
+          .ad-shell { height: 100dvh; overflow-y: auto; background: #F4F3F2; color: #2A1C14; }
+          .ad-top { position: sticky; top: 0; z-index: 30; height: 58px; display: flex; align-items: center; gap: 12px; padding: 0 clamp(14px, 3vw, 28px); background: rgba(255,255,255,0.94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #E7E6E5; box-sizing: border-box; }
+          .ad-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
+          .ad-side { display: none; }
+          .ad-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
+          .ad-chips::-webkit-scrollbar { display: none; }
+          .ad-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); box-sizing: border-box; }
+          .ad-inner { max-width: 1120px; }
+          .ad-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #2A1C14; font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: left; text-decoration: none; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
+          .ad-item:hover { background: #EDECEB; }
+          .ad-item[aria-current="page"] { background: #3B2A20; color: white; font-weight: 800; box-shadow: 0 6px 16px rgba(59, 42, 32, 0.18); }
+          @media (min-width: 980px) {
+            .ad-grid { grid-template-columns: 252px minmax(0, 1fr); }
+            .ad-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
+            .ad-chips { display: none; }
+            .ad-main { padding-top: 28px; }
+          }
+        `}</style>
 
-      {/* 왼쪽 메뉴(넓은 화면) */}
-      <aside className="ad-side ggk-body">
-        <div style={{ height: 58, flexShrink: 0, display: "flex", alignItems: "center", padding: "0 18px", borderBottom: "1px solid #E7E6E5", background: "white" }}>
-          <a href="/" aria-label="펫츠로드 메인" style={{ display: "flex" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ height: 26, width: "auto", display: "block" }} />
-          </a>
-        </div>
-        <div style={{ padding: "18px 14px 14px", display: "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ padding: 14, borderRadius: 16, background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", marginBottom: 18 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.16)", fontSize: 11, fontWeight: 800 }}>
-              <BadgeCheck size={11} color="#F6D7BE" />펫츠로드 운영
-            </div>
-            <div className="ggk-logo" style={{ fontSize: 16.5, fontWeight: 800, marginTop: 8 }}>관리자 센터</div>
-          </div>
-          {GROUPS.map((g) => (
-            <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 800, color: "#4A3F38", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
-              <div style={{ display: "grid", gap: 2 }}>
-                {TABS.filter((t) => (g.keys as readonly string[]).includes(t.key)).map((tab) => {
-                  const Icon = tab.icon;
-                  const on = tab.key === active;
-                  return (
-                    <button key={tab.key} className="ad-item" aria-current={on ? "page" : undefined} onClick={() => router.push(tab.href)}>
-                      <Icon size={16} />{tab.label}<Badge n={badgeOf(tab.key)} on={on} />
-                    </button>
-                  );
-                })}
-              </div>
-            </nav>
-          ))}
-          <a className="ad-item" href="/" style={{ marginTop: "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14 }}><ArrowLeft size={16} />메인 페이지로 돌아가기</a>
-        </div>
-      </aside>
-
-      {/* 위 고정 막대 */}
-      <header className="ad-top ggk-body">
-        <a href="/" aria-label="펫츠로드 메인" className="ad-top-logo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/petsroad_lockup.png" alt="펫츠로드" style={{ height: 24, width: "auto", display: "block" }} />
-        </a>
-        <span className="ad-top-sep" style={{ width: 1, height: 18, background: "#E0DFDE" }} />
-        <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>관리자 센터</span>
-        {onRefresh && (
-          <button onClick={onRefresh} title="새로고침" aria-label="새로고침" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, height: 34, padding: "0 12px", border: "1px solid #E0DFDE", borderRadius: 10, background: "white", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#2A1C14", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-            <RefreshCw size={14} />새로고침
-          </button>
-        )}
-      </header>
-
-      {/* 휴대폰 메뉴(옆으로 밀어 보기) */}
-      <div ref={rowRef} className="ad-chips ggk-body" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const on = tab.key === active;
-          const n = badgeOf(tab.key);
-          return (
-            <button key={tab.key} ref={on ? activeRef : undefined} aria-current={on ? "page" : undefined} onClick={() => router.push(tab.href)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999, border: on ? "1px solid #3B2A20" : "1px solid #E0DFDE", background: on ? "#3B2A20" : "white", color: on ? "white" : "#2A1C14", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}>
-              <Icon size={14} />{tab.label}
-              {n > 0 && <span style={{ minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center" }}>{n}</span>}
+        {/* 위 고정 막대 */}
+        <header className="ad-top">
+          <Link href="/" aria-label="펫츠로드 지도로" style={{ display: "flex", alignItems: "center" }}>
+            <Image src="/icons/petsroad_lockup.png" alt="펫츠로드" width={721} height={231} style={{ height: 26, width: "auto" }} priority />
+          </Link>
+          <span style={{ width: 1, height: 18, background: "#E0DFDE" }} />
+          <span className="ggk-logo" style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 10, background: "#FBEDE3", border: "1px solid #EECFBB", fontSize: 14.5, fontWeight: 800, color: "#3B2A20", whiteSpace: "nowrap" }}>관리자 센터</span>
+          {refresh && (
+            <button onClick={refresh} title="새로고침" aria-label="새로고침" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, height: 34, padding: "0 12px", border: "1px solid #E0DFDE", borderRadius: 10, background: "white", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#2A1C14", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+              <RefreshCw size={14} />새로고침
             </button>
-          );
-        })}
-      </div>
+          )}
+        </header>
 
-      {/* 화면 제목 — 사장님 센터와 같은 모양 */}
-      <div className="ad-title ggk-body">
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4A3F38" }}>관리자 센터<span style={{ margin: "0 6px", color: "#C9C3BE" }}>/</span>{groupOf}</div>
-        <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
-          <span style={{ width: 36, height: 36, borderRadius: 11, background: "#FBEDE3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ActiveIcon size={18} color="#3B2A20" /></span>
-          {activeTab.label}
-        </h1>
-        <p style={{ margin: "8px 0 0", fontSize: 14, color: "#2A1C14", lineHeight: 1.6 }}>{TAB_DESC[active]}</p>
+        <div className="ad-grid">
+          {/* 왼쪽 메뉴(넓은 화면) */}
+          <aside className="ad-side">
+            <div style={{ padding: 14, borderRadius: 16, background: "linear-gradient(160deg,#8A5A3E 0%,#A0704F 100%)", color: "white", marginBottom: 18 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,0.14)", fontSize: 11, fontWeight: 800 }}>
+                <BadgeCheck size={11} color="#F6D7BE" />펫츠로드 운영
+              </div>
+              <div className="ggk-logo" style={{ fontSize: 16.5, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>관리자 센터</div>
+            </div>
+            {GROUPS.map((g) => (
+              <nav key={g.title} aria-label={g.title} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 800, color: "#4A3F38", letterSpacing: "0.3px", padding: "0 12px 6px" }}>{g.title}</div>
+                <div style={{ display: "grid", gap: 2 }}>
+                  {TABS.filter((t) => (g.keys as readonly string[]).includes(t.key)).map((tab) => {
+                    const Icon = tab.icon;
+                    const on = tab.key === active;
+                    const n = badgeOf(tab.key);
+                    return (
+                      <button key={tab.key} className="ad-item" aria-current={on ? "page" : undefined} onClick={() => go(tab.href)}>
+                        <Icon size={16} />{tab.label}
+                        {n > 0 && <span aria-label={`${n}건`} style={{ marginLeft: "auto", minWidth: 19, padding: "0 6px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 11, fontWeight: 800, textAlign: "center", lineHeight: "19px" }}>{n}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
+            ))}
+            <Link href="/" className="ad-item" style={{ marginTop: "auto", borderTop: "1px solid #E7E6E5", borderRadius: 0, paddingTop: 14 }}>
+              <ArrowLeft size={16} />메인 페이지로 돌아가기
+            </Link>
+          </aside>
+
+          <div style={{ minWidth: 0 }}>
+            {/* 휴대폰 메뉴(옆으로 밀어 보기) */}
+            <div ref={rowRef} className="ad-chips" onScroll={(e) => { lastScrollLeft = e.currentTarget.scrollLeft; }}>
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                const on = tab.key === active;
+                const n = badgeOf(tab.key);
+                return (
+                  <button key={tab.key} ref={on ? activeRef : undefined} aria-current={on ? "page" : undefined} onClick={() => go(tab.href)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 5, padding: "9px 14px", borderRadius: 999, border: on ? "1px solid #3B2A20" : "1px solid #E0DFDE", background: on ? "#3B2A20" : "white", color: on ? "white" : "#2A1C14", fontSize: 13, fontWeight: 700, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    <Icon size={14} />{tab.label}
+                    {n > 0 && <span style={{ marginLeft: 2, minWidth: 17, padding: "0 5px", borderRadius: 999, background: on ? "#F6D7BE" : "#DC2626", color: on ? "#3B2A20" : "white", fontSize: 10.5, fontWeight: 800, lineHeight: "17px", textAlign: "center" }}>{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <main className="ad-main">
+              <div className="ad-inner">
+                {/* 화면 제목 — 사장님 센터와 같은 모양 */}
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#4A3F38" }}>관리자 센터<span style={{ margin: "0 6px", color: "#C9C3BE" }}>/</span>{groupOf}</div>
+                  <h1 className="ggk-logo" style={{ display: "flex", alignItems: "center", gap: 10, margin: "8px 0 0", fontSize: "clamp(21px, 2.4vw, 26px)", fontWeight: 800, color: "#1f1a12", letterSpacing: "-0.4px" }}>
+                    <span style={{ width: 36, height: 36, borderRadius: 11, background: "#FBEDE3", display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ActiveIcon size={18} color="#3B2A20" /></span>
+                    {activeTab.label}
+                  </h1>
+                  <p style={{ margin: "8px 0 0", fontSize: 14, color: "#2A1C14", lineHeight: 1.6 }}>{TAB_DESC[active]}</p>
+                </div>
+                {children}
+              </div>
+            </main>
+          </div>
+        </div>
       </div>
-    </>
+    </AdminRefreshContext.Provider>
   );
 }

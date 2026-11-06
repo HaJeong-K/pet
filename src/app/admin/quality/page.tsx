@@ -54,9 +54,9 @@ export default function AdminQuality() {
   for (const i of report?.issues || []) issueCountByPlace.set(i.placeId, (issueCountByPlace.get(i.placeId) || 0) + 1);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="quality" onRefresh={load} />
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
+      <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>
             {report ? `마지막 점검 ${new Date(report.checkedAt).toLocaleString("ko-KR")} · 장소 ${report.placesChecked}곳 · 사진 ${report.imagesChecked}장` : "직접 등록·제보된 장소를 매주 자동 점검해요"}

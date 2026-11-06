@@ -114,12 +114,13 @@ export default function AdminPremiumPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F4F3F2", overflow:"hidden", alignItems:"center" }}>
+      <div>
         <AdminNav active="premium" onRefresh={() => { fetchRequests(); setPlacesRefresh((n) => n + 1); }} />
-        <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
+        {/* 폭·여백·스크롤은 관리자 공통 틀(AdminFrame)이 정합니다. 위 상태 탭은 내려도 보이게 붙여 둡니다. */}
+        <div>
 
-          <div style={{ padding:"16px 28px 10px", flexShrink:0 }}>
-            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
+          <div style={{ position:"sticky", top:58, zIndex:5, background:"#F4F3F2", padding:"8px 0 10px", margin:"-8px 0 0" }}>
+            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", overflowX:"auto", scrollbarWidth:"none" }}>
               {([
                 { key:"active",   label:"이용 중 가게", count: null, icon: <Crown size={13}/>, activeColor:"#B8860B", activeBg:"#ffe9c2" },
                 { key:"banners",  label:"배너 관리", count: bannerPending, icon: <Megaphone size={13}/>, activeColor:"#7c3aed", activeBg:"#f3f0ff" },
@@ -134,7 +135,7 @@ export default function AdminPremiumPage() {
                     onClick={() => setActiveFilter(tab.key)}
                     className="ggk-body"
                     style={{
-                      flex:1, padding:"9px 8px", borderRadius:10, border:"none",
+                      flex:"1 0 auto", whiteSpace:"nowrap", padding:"9px 10px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
                       fontWeight:700, fontSize:12, color: isActive ? "#111" : "#5c5c5c",
                       cursor:"pointer",
@@ -160,7 +161,7 @@ export default function AdminPremiumPage() {
             </div>
           </div>
 
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
+          <div>
             {activeFilter === "active" ? (
               <PremiumPlacesPanel refreshKey={placesRefresh} />
             ) : activeFilter === "banners" ? (

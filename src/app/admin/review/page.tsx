@@ -88,9 +88,9 @@ export default function AdminReview() {
   );
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="review" onRefresh={load} />
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
+      <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           {data?.ready && <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: data.pending.length ? "#FEF3C7" : "#F8E6D9", color: data.pending.length ? "#92400E" : "#85482A" }}>대기 {data.pending.length}건</span>}
         </div>

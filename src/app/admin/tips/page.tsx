@@ -353,13 +353,14 @@ export default function AdminProposalsPage() {
     <>
       <style>{STYLES}</style>
 
-      <div className="ggk-body" style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"#F4F3F2", overflow:"hidden", alignItems:"center" }}>
+      <div>
         <AdminNav active="tips" onRefresh={fetchProposals} />
-        <div style={{ width:"100%", maxWidth:"1200px", display:"flex", flexDirection:"column", flex:1, minHeight:0, overflow:"hidden" }}>
+        {/* 폭·여백·스크롤은 관리자 공통 틀(AdminFrame)이 정합니다. 위 상태 탭은 내려도 보이게 붙여 둡니다. */}
+        <div>
 
           {/* ── 3단 필터 탭 ── */}
-          <div style={{ padding:"16px 28px 10px", flexShrink:0 }}>
-            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px" }}>
+          <div style={{ position:"sticky", top:58, zIndex:5, background:"#F4F3F2", padding:"8px 0 10px", margin:"-8px 0 0" }}>
+            <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", overflowX:"auto", scrollbarWidth:"none" }}>
               {([
                 { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#A05A32", activeBg:"#F8E6D9" },
                 { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
@@ -373,7 +374,7 @@ export default function AdminProposalsPage() {
                     onClick={() => setActiveFilter(tab.key)}
                     className="ggk-body"
                     style={{
-                      flex:1, padding:"9px 8px", borderRadius:10, border:"none",
+                      flex:"1 0 auto", whiteSpace:"nowrap", padding:"9px 10px", borderRadius:10, border:"none",
                       background: isActive ? "white" : "transparent",
                       fontWeight:700, fontSize:12, color: isActive ? "#111" : "#5c5c5c",
                       cursor:"pointer",
@@ -398,7 +399,7 @@ export default function AdminProposalsPage() {
           </div>
 
           {/* ── 리스트 ── */}
-          <div style={{ flex:1, minHeight:0, overflowY:"auto", padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", scrollbarWidth:"thin" }}>
+          <div>
             {loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayList.length === 0 ? (

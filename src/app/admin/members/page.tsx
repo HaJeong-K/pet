@@ -114,9 +114,9 @@ export default function AdminMembers() {
   const pager = usePaged(list, `${filter}|${sort}|${query}`);
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="members" onRefresh={load} />
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
+      <div>
         <p style={{ fontSize: 12.5, color: "#555", lineHeight: 1.65, margin: "0 0 14px" }}>
           가입 회원의 활동과 신고받은 횟수예요. 신고는 신고된 글의 작성자 기준으로 세요. 미처리 신고는 신고 관리에서 처리해요.
         </p>

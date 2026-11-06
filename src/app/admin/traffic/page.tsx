@@ -10,9 +10,9 @@ import TrafficCard from "@/components/admin/TrafficCard";
 
 export default function AdminTrafficPage() {
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="traffic" />
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", display: "grid", gap: 14, wordBreak: "keep-all" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 14, wordBreak: "keep-all" }}>
         <div>
           <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555", lineHeight: 1.7 }}>
             채널별로 몇 명이 들어와서, 다시 오고, 회원이 됐는지 봅니다.<br />

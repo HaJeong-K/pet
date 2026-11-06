@@ -637,31 +637,15 @@ export default function AdminReportsPage() {
     <>
       <style>{STYLES}</style>
 
-      {/* 전체 페이지: 중앙 정렬 컨테이너 */}
-      <div className="ggk-body" style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100dvh",
-        background: "#F4F3F2",
-        overflow: "hidden",
-        alignItems: "center",      // 수평 중앙
-      }}>
+      {/* 폭·여백·스크롤은 관리자 공통 틀(AdminFrame)이 정합니다. 위 상태 탭은 내려도 보이게 붙여 둡니다. */}
+      <div>
 
         <AdminNav active="reports" onRefresh={() => { fetchReports(); fetchResolvedReports(); }} />
 
-        {/* ── 내부 콘텐츠: 관리자 대시보드와 동일한 최대 폭 1200px ── */}
-        <div style={{
-          width: "100%",
-          maxWidth: "1200px",
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          minHeight: 0,
-          overflow: "hidden",
-        }}>
+        <div>
 
           {/* ── 필터 탭 ── */}
-          <div style={{ padding:"16px 28px 8px", flexShrink:0, display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ position:"sticky", top:58, zIndex:5, background:"#F4F3F2", padding:"8px 0 8px", margin:"-8px 0 0", display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", flex: 1 }}>
               {([
                 { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#dc2626" },
@@ -701,7 +685,7 @@ export default function AdminReportsPage() {
           </div>
 
           {/* ── 유형 필터 칩: 장소 정보/이미지 오류/댓글·답글/커뮤니티로 나눠서 한눈에 보기 ── */}
-          <div style={{ padding:"4px 28px 12px", flexShrink:0, display:"flex", gap:8, flexWrap:"wrap" }}>
+          <div style={{ padding:"4px 0 12px", display:"flex", gap:8, flexWrap:"wrap" }}>
             {REPORT_GROUPS.map((g) => {
               const Icon = g.icon;
               const count = baseReports.filter(g.match).length;
@@ -737,14 +721,7 @@ export default function AdminReportsPage() {
           </div>
 
           {/* ── 리스트 영역 ── */}
-          <div style={{
-            flex:1,
-            minHeight:0,
-            overflowY:"auto",
-            padding:"0 clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)",
-            scrollbarWidth:"thin",
-            scrollbarColor:"#d1d5db transparent",
-          }}>
+          <div>
 
             {loading ? (
               <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>

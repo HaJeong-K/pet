@@ -119,10 +119,10 @@ export default function AdminKpi() {
     : [];
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="kpi" onRefresh={() => load(months)} />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)" }}>
+      <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: "#5c5c5c" }}>지원사업 보고용 · 한국 시간 기준 월별 집계</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>

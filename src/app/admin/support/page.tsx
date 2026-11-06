@@ -51,9 +51,9 @@ export default function AdminSupportOrgs() {
   };
 
   return (
-    <div className="ggk-body" style={{ height: "100dvh", overflowY: "auto", background: "#F4F3F2" }}>
+    <div>
       <AdminNav active="support" onRefresh={load} />
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px clamp(14px, 4vw, 28px) var(--ggk-tabbar-space)", wordBreak: "keep-all" }}>
+      <div style={{ wordBreak: "keep-all" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <a href="/shelter-notices/support" target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#A05A32" }}>방문자 화면 보기 →</a>
         </div>
