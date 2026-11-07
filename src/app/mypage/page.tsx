@@ -336,6 +336,9 @@ export default function MyPage() {
     const { error } = await supabase.from("users").update({ nickname: newNickname }).eq("auth_user_id", session.user.id);
     if (error) { setNickMsg({ok:false,text:"변경 실패. 다시 시도해주세요."}); return; }
     await supabase.auth.updateUser({ data: { full_name: newNickname, nickname: newNickname, name: newNickname } });
+    // 내가 쓴 커뮤니티 글·댓글, 장소 후기·답글의 닉네임도 같이 바꿉니다(2026-11-07)
+    await fetch("/api/me/nickname-sync", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null);
+    setMyPosts((prev) => prev.map((x) => ({ ...x, nickname: newNickname })));
     setUserProfile((p: any) => ({ ...p, nickname: newNickname }));
     setNickMsg({ok:true,text:"닉네임이 변경되었습니다!"});
     setTimeout(() => { setShowSettings(false); setSettingView("menu"); setNickMsg(null); setNewNickname(""); setNickChecked(false); }, 1200);
