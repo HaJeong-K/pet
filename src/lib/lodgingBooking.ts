@@ -14,8 +14,6 @@ import { PET_SIZES, PET_SPECIES, PET_WEIGHT_MAX, EXTRA_QTY_MAX, extraBasis, extr
 /** 한 번에 숙박할 수 있는 최대 박 수 / 며칠 뒤까지 예약을 받는지 */
 export const STAY_MAX_NIGHTS = 14;
 export const BOOK_AHEAD_DAYS = 180;
-/** 한 손님이 한 숙소에 동시에 걸어 둘 수 있는 진행 중인 예약 수 */
-export const OPEN_STAYS_PER_GUEST = 2;
 export const STAY_PETS_MAX = 10;
 
 const DAY_MS = 86_400_000;

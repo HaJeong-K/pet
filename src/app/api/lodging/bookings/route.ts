@@ -10,7 +10,7 @@ import { STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
 import { sendOwnerPush } from "@/lib/server/ownerPush";
 import { notifyAdmin } from "@/lib/server/notify";
 import { createRateLimiter } from "@/lib/server/rateLimit";
-import { canChangeStay, cleanStayRequest, kstToday, OPEN_STAYS_PER_GUEST, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
+import { canChangeStay, cleanStayRequest, kstToday, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel } from "@/lib/lodgingBooking";
 import { cancelOutcome, refundSchedule, type PeakPeriod } from "@/lib/lodgingPolicy";
 import { won } from "@/lib/ownerPlans";
 import { paymentInfoOf, paymentsEnabled } from "@/lib/server/payments";
@@ -125,7 +125,9 @@ export async function POST(req: NextRequest) {
   // 24시간이 지난 확인 대기·20분 안에 결제하지 않은 예약은 먼저 풀어 줍니다
   await expireStaleRequests(r.roomId).catch(() => 0);
   // 같은 손님이 결제창을 닫고 다시 예약하는 경우 — 먼저 넣은 결제 대기 예약이 날짜를 막지 않게 지웁니다
-  await db.from("lodging_bookings").delete().eq("room_id", r.roomId).eq("guest_auth_user_id", user.id).eq("status", "pending_payment");
+  //   날짜가 겹치는 것만 지웁니다(다른 날짜로 따로 예약 중인 결제 대기는 그대로 둠, 2026-11-07)
+  await db.from("lodging_bookings").delete().eq("room_id", r.roomId).eq("guest_auth_user_id", user.id).eq("status", "pending_payment")
+    .lt("check_in", r.checkOut).gt("check_out", r.checkIn);
   const days = await roomDays(r.roomId, r.checkIn, r.checkOut, { withIcal: true }).catch(() => []);
   // 반려동물 추가 요금은 마리마다(크기·종류별), 부가 옵션은 숙소가 정한 요금으로 다시 계산합니다
   const petNightly = petsNightlyTotal(profile, r.pets);
@@ -133,9 +135,8 @@ export async function POST(req: NextRequest) {
   if ("error" in q) return fail(q.error, 400);
   if ((await heldOverlaps(r.roomId, r.checkIn, r.checkOut)).length > 0) return fail(FULL_MESSAGE, 409);
 
-  const { count } = await db.from("lodging_bookings").select("id", { count: "exact", head: true })
-    .eq("place_id", placeId).eq("guest_auth_user_id", user.id).in("status", ["requested", "confirmed"]).gte("check_out", kstToday());
-  if ((count ?? 0) >= OPEN_STAYS_PER_GUEST) return fail("이 숙소에 진행 중인 예약이 이미 있어요. 먼저 그 예약을 확인해 주세요.", 409);
+  // 같은 손님이 같은 숙소의 다른 날짜를 여러 번 예약하는 것은 막지 않습니다(2026-11-07 대표 결정 — 예전 "진행 중 2건" 제한 없앰).
+  //   같은 날짜가 겹치는 경우는 위의 heldOverlaps(이미 찬 날짜)에서 막힙니다.
 
   // 즉시 확정 숙소는 결제와 함께 바로 확정됩니다(계약서 제8조 제3항).
   const { data: flags } = await db.from("lodging_profiles").select("instant_confirm").eq("place_id", placeId).maybeSingle();
