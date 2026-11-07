@@ -621,22 +621,16 @@ export default function PlaceDetail({
   // ── ★ 관리자 댓글/답글 삭제
   const handleAdminDeleteReview = async (reviewId: string) => {
     if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("reviews").update({
-      is_admin_deleted: true,
-      deleted: true,
-    }).eq("id", reviewId);
-    if (error) { console.error(error); return; }
+    const error = await commentApi("DELETE", { kind: "review", id: reviewId, admin: true });
+    if (error) { alert(error); return; }
     setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, is_admin_deleted: true, deleted: true } : r));
     setOpenedMenuId(null);
   };
 
   const handleAdminDeleteReply = async (replyId: string) => {
     if (!confirm("관리자 권한으로 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("review_replies").update({
-      is_admin_deleted: true,
-      deleted: true,
-    }).eq("id", replyId);
-    if (error) { console.error(error); return; }
+    const error = await commentApi("DELETE", { kind: "reply", id: replyId, admin: true });
+    if (error) { alert(error); return; }
     setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, is_admin_deleted: true, deleted: true } : r));
     setOpenedReplyMenuId(null);
   };
@@ -763,44 +757,30 @@ export default function PlaceDetail({
     await fetchReplies();
   };
 
+  // 좋아요 — 서버가 좋아요 표에 넣고/빼고 실제 수로 다시 세어 돌려줍니다(2026-11-07)
+  const toggleLike = async (kind: "review" | "reply", id: string, liked: boolean): Promise<number | null> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    const res = await fetch("/api/place-comments", { method: "PUT", headers, body: JSON.stringify({ kind, id, like: !liked, userKey: getUserKey() }) }).catch(() => null);
+    if (!res?.ok) return null;
+    const j = await res.json().catch(() => ({}));
+    return typeof j.likes === "number" ? j.likes : null;
+  };
+
   const likeReview = async (reviewId: string) => {
-    const userKey = getUserKey();
-    const review  = reviews.find((r) => r.id === reviewId);
-    if (!review) return;
     const isLiked = likedReviewIds.has(String(reviewId));
-    if (isLiked) {
-      await supabase.from("review_likes").delete().eq("review_id", reviewId).eq("user_key", userKey);
-      const newLikes = Math.max(0, (review.likes || 0) - 1);
-      await supabase.from("reviews").update({ likes: newLikes }).eq("id", reviewId);
-      setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, likes: newLikes } : r));
-      setLikedReviewIds((prev) => { const next = new Set(prev); next.delete(String(reviewId)); return next; });
-    } else {
-      await supabase.from("review_likes").insert([{ review_id: reviewId, user_key: userKey }]);
-      const newLikes = (review.likes || 0) + 1;
-      await supabase.from("reviews").update({ likes: newLikes }).eq("id", reviewId);
-      setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, likes: newLikes } : r));
-      setLikedReviewIds((prev) => new Set(prev).add(String(reviewId)));
-    }
+    const likes = await toggleLike("review", reviewId, isLiked);
+    if (likes == null) return;
+    setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, likes } : r));
+    setLikedReviewIds((prev) => { const next = new Set(prev); if (isLiked) next.delete(String(reviewId)); else next.add(String(reviewId)); return next; });
   };
 
   const likeReply = async (replyId: string) => {
-    const userKey = getUserKey();
-    const reply   = replies.find((r) => r.id === replyId);
-    if (!reply) return;
     const isLiked = likedReplyIds.has(String(replyId));
-    if (isLiked) {
-      await supabase.from("reply_likes").delete().eq("reply_id", replyId).eq("user_key", userKey);
-      const newLikes = Math.max(0, (reply.likes || 0) - 1);
-      await supabase.from("review_replies").update({ likes: newLikes }).eq("id", replyId);
-      setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, likes: newLikes } : r));
-      setLikedReplyIds((prev) => { const next = new Set(prev); next.delete(String(replyId)); return next; });
-    } else {
-      await supabase.from("reply_likes").insert([{ reply_id: replyId, user_key: userKey }]);
-      const newLikes = (reply.likes || 0) + 1;
-      await supabase.from("review_replies").update({ likes: newLikes }).eq("id", replyId);
-      setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, likes: newLikes } : r));
-      setLikedReplyIds((prev) => new Set(prev).add(String(replyId)));
-    }
+    const likes = await toggleLike("reply", replyId, isLiked);
+    if (likes == null) return;
+    setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, likes } : r));
+    setLikedReplyIds((prev) => { const next = new Set(prev); if (isLiked) next.delete(String(replyId)); else next.add(String(replyId)); return next; });
   };
 
   const closeAll = () => {

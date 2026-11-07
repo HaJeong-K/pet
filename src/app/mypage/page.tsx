@@ -497,13 +497,16 @@ export default function MyPage() {
   };
 
   const handleDeleteReview = async (reviewId: string) => {
-    await supabase.from("reviews").update({ deleted: true }).eq("id", reviewId);
+    // 후기 표는 서버로만 고칩니다(/api/place-comments)
+    const res = await fetch("/api/place-comments", { method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ kind: "review", id: reviewId }) }).catch(() => null);
+    if (!res?.ok) { alert("지우지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
     setMyReviews(prev => prev.filter(r => r.id !== reviewId));
     setDeletingReviewId(null);
   };
 
   const handleDeleteReply = async (replyId: string) => {
-    await supabase.from("review_replies").update({ deleted: true }).eq("id", replyId);
+    const res = await fetch("/api/place-comments", { method: "DELETE", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ kind: "reply", id: replyId }) }).catch(() => null);
+    if (!res?.ok) { alert("지우지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
     setMyReviewReplies(prev => prev.filter(r => r.id !== replyId));
   };
 

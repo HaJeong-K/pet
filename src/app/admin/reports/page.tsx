@@ -426,16 +426,15 @@ export default function AdminReportsPage() {
   const handleAdminDelete = async (type: "review"|"reply", targetId: string, reportId: number) => {
     if (!confirm("해당 내용을 삭제하시겠습니까?")) return;
 
-    if (type === "review") {
-      await supabase.from("reviews").update({
-        is_admin_deleted: true,
-        content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
-      }).eq("id", targetId);
-    } else {
-      await supabase.from("review_replies").update({
-        is_admin_deleted: true,
-        content: "부적절한 내용으로 관리자에 의해 삭제되었습니다.",
-      }).eq("id", targetId);
+    // 후기 표는 서버로만 고칩니다(/api/place-comments, 관리자 확인)
+    {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      const res = await fetch("/api/place-comments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${s?.access_token ?? ""}` },
+        body: JSON.stringify({ kind: type, id: targetId, admin: true, adminContent: "부적절한 내용으로 관리자에 의해 삭제되었습니다." }),
+      }).catch(() => null);
+      if (!res?.ok) { alert("삭제하지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
     }
 
     // ★ 해당 target_id의 모든 신고를 한꺼번에 처리 (id 하나만 처리하던 것 수정)
