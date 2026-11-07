@@ -108,6 +108,18 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 }) {
   const today = kstToday();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  // 단계가 바뀌면(날짜·반려동물 → 예약자·결제 → 완료) 맨 위부터 보여 줍니다(2026-11-07)
+  //   예전엔 스크롤 위치가 그대로 남아 결제 단계가 중간("규정을 어기면" 안내)부터 보였습니다.
+  const topRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let el: HTMLElement | null = topRef.current;
+    while (el) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+    window.scrollTo({ top: 0 });
+  }, [step]);
   const [roomId, setRoomId] = useState(initialRoomId);
   const room = rooms.find((r) => r.id === roomId) ?? rooms[0];
   const [month, setMonth] = useState(today.slice(0, 7));
@@ -273,7 +285,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
 
   const isPage = variant === "page";
   const body = (
-      <div onClick={(e) => e.stopPropagation()} className={isPage ? "ggk-book-page ggk-readable" : "ggk-readable"} style={isPage
+      <div ref={topRef} onClick={(e) => e.stopPropagation()} className={isPage ? "ggk-book-page ggk-readable" : "ggk-readable"} style={isPage
         ? { width: "100%", boxSizing: "border-box", wordBreak: "keep-all" }
         : { width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: "white", borderRadius: "20px 20px 0 0", padding: "18px 18px 24px", boxSizing: "border-box", wordBreak: "keep-all" }}>
         {isPage && (
