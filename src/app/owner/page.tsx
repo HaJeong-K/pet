@@ -220,7 +220,7 @@ export default function OwnerPage() {
         .oc-side { display: none; }
         .oc-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 14px clamp(14px, 3vw, 28px) 0; }
         .oc-chips::-webkit-scrollbar { display: none; }
-        .oc-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(var(--ggk-tabbar-space) + 12px); }
+        .oc-main { min-width: 0; padding: 20px clamp(14px, 3vw, 36px) calc(28px + env(safe-area-inset-bottom, 0px)); }
         .oc-store-top { display: none; }
         .oc-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; border: none; background: transparent; color: #4a4437; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; transition: background .12s ease, color .12s ease; }
         .oc-item:hover { background: #EDECEB; }
@@ -229,7 +229,7 @@ export default function OwnerPage() {
         @media (min-width: 720px) { .oc-store-top { display: flex; } .oc-top-map { margin-left: 12px; } }
         @media (min-width: 980px) {
           .oc-grid { grid-template-columns: 252px minmax(0, 1fr); }
-          .oc-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px var(--ggk-tabbar-space); box-sizing: border-box; }
+          .oc-side { display: flex; flex-direction: column; position: sticky; top: 58px; height: calc(100dvh - 58px); overflow-y: auto; border-right: 1px solid #E7E6E5; background: #F9F8F7; padding: 18px 14px 24px; box-sizing: border-box; }
           .oc-chips { display: none; }
           .oc-main { padding-top: 28px; }
         }
@@ -401,7 +401,7 @@ function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }
         .owner-print-only { display: none; }
       `}</style>
       {/* 폭 1040px — 메뉴가 8개(배너 광고 포함)까지 늘어 760px에서는 메뉴 줄과 배너 미리보기가 좁았습니다 */}
-      {wide ? children : <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) var(--ggk-tabbar-space)", boxSizing: "border-box" }}>{children}</div>}
+      {wide ? children : <div style={{ width: "100%", maxWidth: 1040, margin: "0 auto", padding: "0 clamp(14px, 3vw, 24px) calc(28px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box" }}>{children}</div>}
     </div>
   );
 }
@@ -712,6 +712,8 @@ function ReportTab({ placeId, isPreview }: { placeId: number; isPreview: boolean
   const printDetailed = async () => {
     if (printing) return;
     setPrinting(true);
+    // 화면에 이미 받아 둔 상세 보고서가 있으면 다시 받지 않고 바로 인쇄합니다
+    if (detail) { window.setTimeout(() => { window.print(); setPrinting(false); }, 100); return; }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`/api/owner/report${isPreview ? `?placeId=${placeId}` : ""}`, { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {}, cache: "no-store" });

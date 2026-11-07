@@ -71,18 +71,20 @@ export default function RootLayout({
             @import url(...)로 불러오면 Tailwind v4 PostCSS 처리 순서와 충돌해
             "@import rules must precede all rules" 빌드 에러가 났었습니다. */}
         {/* 글꼴 파일을 받는 서버에도 미리 연결해 둡니다(글꼴이 늦게 바뀌어 보이는 시간을 줄임). */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* ⚠ 속도: 웹 글꼴 — 사이트 전체를 Noto Sans KR 하나로 통일했습니다(PC·폰 같은 글꼴).
             예전에는 본문 Noto Sans KR(굵기 4종) + 제목 Pretendard를 따로 받았는데, 한글 글꼴은 글자를 조각으로 나눠
             두는 방식이라 조각이 1,324개나 됐고, 그걸 화면에 적용하는 계산만 느린 폰에서 1초 넘게 걸렸습니다.
             굵기를 한 파일로 다루는 방식(wght@400..800)으로 바꿔 조각을 124개로 줄였습니다(입양 카드 문구용 손글씨
-            Gaegu 124개 포함 248개).
+            Gaegu는 입양 카드가 보일 때 따로 받습니다 — src/lib/useHandwritingFont.ts).
+            입양 공고 화면은 글자가 섞여 보이지 않도록 기다리지 않고 바로 붙입니다(2026-11-07).
             또 <link rel="stylesheet">로 넣으면 글꼴 목록을 다 받을 때까지 화면에 아무것도 그려지지 않으므로, 화면이
             다 뜬 뒤 한가할 때 붙입니다 — 글자는 기기 글꼴로 먼저 보이다가 바뀝니다(안드로이드는 기기 글꼴이 같은
             계열이라 거의 티가 나지 않습니다). */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var u="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400..800&family=Gaegu:wght@700&display=swap";var done=false;function add(){if(done)return;done=true;var l=document.createElement("link");l.rel="stylesheet";l.href=u;document.head.appendChild(l);}function soon(){if(window.requestIdleCallback){requestIdleCallback(add,{timeout:2500});}else{setTimeout(add,300);}}if(document.readyState==="complete"){soon();}else{window.addEventListener("load",soon);}setTimeout(add,6000);})();`,
+            __html: `(function(){var u="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400..800&display=swap";var done=false;function add(){if(done)return;done=true;var l=document.createElement("link");l.rel="stylesheet";l.href=u;document.head.appendChild(l);}function soon(){if(window.requestIdleCallback){requestIdleCallback(add,{timeout:2500});}else{setTimeout(add,300);}}if(location.pathname.indexOf("/shelter-notices")===0){add();}else if(document.readyState==="complete"){soon();}else{window.addEventListener("load",soon);}setTimeout(add,6000);})();`,
           }}
         />
         {/* 불러오는 화면의 로고 그림 — 화면이 그려지자마자 보이도록 미리 받습니다. */}
@@ -131,7 +133,7 @@ export default function RootLayout({
           <ErrorReporter />
           {/* 로그인한 회원이 들어온 날을 하루에 한 번 기록합니다(회원 레벨의 방문 조건). 화면에는 아무것도 그리지 않습니다. */}
           <MemberVisitPing />
-          {/* 아이디 찾기용 이름·휴대폰 번호가 없는 회원에게 한 번 묻기(간편가입·사장님·기존 회원) */}
+          {/* 이름·휴대폰 번호가 없는 회원에게 묻기(가끔 + 예약·주문·글쓰기 전에는 필수 — src/lib/requireContact.ts) */}
           <ContactPrompt />
           {children}
           {modal}

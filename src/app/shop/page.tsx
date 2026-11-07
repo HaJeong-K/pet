@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { siteUrl } from "@/lib/siteUrl";
 import ShopClient from "./ShopClient";
+import { GET as listStores } from "@/app/api/store/list/route";
+
+// 속도(2026-11-07): 서버가 가게 목록을 채워서 보냅니다 — 화면이 뜨는 순간 목록이 보입니다. 1분마다 새로 만들어 둡니다.
+export const revalidate = 60;
 
 // ── 쇼핑 탭(/shop) ──
 // 동네 반려동물 가게가 올린 상품을 모아 보고, 미리 예약해 두었다가 가게에서 받아 가는 화면입니다(예약 포장).
@@ -16,6 +20,7 @@ export const metadata: Metadata = {
   openGraph: { title, description, url: `${siteUrl}/shop`, siteName: "펫츠로드", locale: "ko_KR", type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
 };
 
-export default function ShopPage() {
-  return <ShopClient />;
+export default async function ShopPage() {
+  const initial = await listStores().then((r) => (r.ok ? r.json() : null)).then((d) => d?.stores ?? null).catch(() => null);
+  return <ShopClient initial={initial} />;
 }

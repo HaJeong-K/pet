@@ -10,6 +10,7 @@ import { toHttps } from "@/lib/imageUrl";
 import { WRITABLE_BOARDS, postTypesFor, findBoard } from "@/lib/communityBoards";
 import { reviewStatusOf, notifyPostReview, HELD_MESSAGE } from "@/lib/postReview";
 
+import { ensureContact } from "@/lib/requireContact";
 // 게시판·말머리 목록은 커뮤니티 목록과 같은 파일을 씁니다(예전엔 여기에 따로 적어 둬서 서로 어긋난 적이 있음).
 const BOARDS = [{ id: "all", label: "게시판 선택" }, ...WRITABLE_BOARDS];
 
@@ -124,8 +125,9 @@ function CommunityWritePageContent() {
   // 글 등록
   // ─────────────────────────────
   const handleSubmit = async () => {
-    console.log("handleSubmit 실행");
     if (loading) return;
+    // 커뮤니티 글쓰기는 이름·휴대폰을 등록한 회원만(2026-11-07)
+    if (!(await ensureContact("커뮤니티에 글을 쓰려면 이름과 휴대폰 번호 등록이 필요해요. 다른 회원에게는 보이지 않아요."))) return;
 
     if (boardId === "all") {
       alert("게시판을 선택해주세요.");

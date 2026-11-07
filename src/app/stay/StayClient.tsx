@@ -70,10 +70,11 @@ function StayImage({ stay }: { stay: Stay }) {
   );
 }
 
-export default function StayClient() {
+export default function StayClient({ initial = null }: { initial?: Stay[] | null }) {
   const router = useRouter();
   const area = useUserArea();
-  const [stays, setStays] = useState<Stay[] | null>(null);
+  // 서버가 미리 채워 보낸 목록으로 바로 시작하고(로딩 그림 없음), 뒤에서 최신 목록을 한 번 더 받습니다
+  const [stays, setStays] = useState<Stay[] | null>(initial);
   const [query, setQuery] = useState("");
   const [showAllPicks, setShowAllPicks] = useState(false);
   const [region, setRegion] = useState(NEARBY);
@@ -84,7 +85,7 @@ export default function StayClient() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/lodging/list").then((r) => r.json()).then((d) => { if (!cancelled) setStays(d.items ?? []); }).catch(() => { if (!cancelled) setStays([]); });
+    fetch("/api/lodging/list").then((r) => r.json()).then((d) => { if (!cancelled) setStays(d.items ?? []); }).catch(() => { if (!cancelled) setStays((prev) => prev ?? []); });
     return () => { cancelled = true; };
   }, []);
 

@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
 
   // 가입 정보가 있으면 그 이름·전화로 받습니다(주문 화면에서 고칠 수 없습니다)
   const { data: saved } = await db.from("user_contacts").select("name, phone").eq("auth_user_id", user.id).maybeSingle();
-  const contact = cleanReservationContact(saved?.name && saved?.phone ? { ...body, name: saved.name, phone: saved.phone } : body);
+  // 회원 이름·휴대폰이 등록돼 있어야 주문할 수 있습니다(2026-11-07)
+  if (!saved?.name || !saved?.phone) return fail("이름과 휴대폰 번호를 먼저 등록해 주세요.", 400);
+  const contact = cleanReservationContact({ ...body, name: saved.name, phone: saved.phone });
   if ("error" in contact) return fail(contact.error, 400);
   const options = cleanOrderOptions(body, await storeOrderModes(placeId), contact.pickupAt);
   if ("error" in options) return fail(options.error, 400);

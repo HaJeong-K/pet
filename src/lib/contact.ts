@@ -1,6 +1,6 @@
 // src/lib/contact.ts
 //
-// 회원 이름·휴대폰 번호(아이디 찾기 전용) — 입력 정리와 확인을 한곳에서 합니다.
+// 회원 이름·휴대폰 번호(아이디 찾기 + 예약·주문 확인 연락, 2026-11-07 목적 추가) — 입력 정리와 확인을 한곳에서 합니다.
 // 저장은 user_contacts 표(본인만 읽고 쓰기, scripts/sql/user-contacts.sql)에 하고,
 // 아이디 찾기는 이름 + 번호가 둘 다 맞을 때만 서버(/api/auth/find-id)가 알려 줍니다.
 
@@ -23,5 +23,5 @@ export function formatPhone(v: string): string {
 export const normalizeName = (v: string) => v.trim().replace(/\s+/g, " ").slice(0, 30);
 export const isValidName = (v: string) => normalizeName(v).length >= 2;
 
-/** 아이디 찾기용 안내 문구 — 가입·입력 화면에서 같은 말로 씁니다 */
-export const CONTACT_USE_NOTE = "이름과 휴대폰 번호는 아이디(이메일)를 찾을 때만 쓰여요.";
+/** 이름·휴대폰 이용 목적 안내 문구 — 가입·입력 화면에서 같은 말로 씁니다 */
+export const CONTACT_USE_NOTE = "이름과 휴대폰 번호는 아이디(이메일) 찾기와 예약·주문 확인 연락에 쓰여요.";

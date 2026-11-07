@@ -171,12 +171,14 @@ export default function TabBar() {
     };
   }, [pathname, isLoggedIn, isAdmin, isOwner, collapsed]);
 
-  // 탭바는 소개 화면(서비스 소개·광고 제휴·입점 안내)에서만 숨깁니다 — 다른 화면은 탭바로 오가므로 항상 보입니다(2026-11-04 대표 요청).
+  // 탭바는 소개 화면(서비스 소개·광고 제휴·입점 안내)과 사장님 센터에서만 숨깁니다 — 다른 화면은 탭바로 오가므로 항상 보입니다(2026-11-04 대표 요청).
   // 가리는 게 불편하면 탭바를 왼쪽·오른쪽 끝으로 접어 둘 수 있습니다(아래 collapsed).
   const hideTabBar =
     pathname === "/about" ||
     pathname === "/partnership" ||
-    pathname.startsWith("/partner/");
+    pathname.startsWith("/partner/") ||
+    // 사장님 센터는 왼쪽 메뉴·위 막대로 오가므로 아래 탭바가 필요 없습니다(2026-11-07 대표 요청)
+    pathname.startsWith("/owner");
 
   if (hideTabBar) return null;
 

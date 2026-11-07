@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PlaceDetailClient from "./PlaceDetailClient";
+import OpenAsModal from "./OpenAsModal";
 import { PageFooter } from "@/components/SiteFooter";
 import { siteUrl } from "@/lib/siteUrl";
 import { getPlaceMeta, placeShareDescription, placeShareImage } from "@/lib/server/placeMeta";
@@ -48,10 +49,13 @@ export async function generateMetadata({
   };
 }
 
-export default function PlaceDetailPage() {
-  // 바로 열었을 때(공유 링크 등)만 이 화면이 쓰여 아래에 푸터를 붙입니다. 지도 위 창으로 열 때는 @modal 쪽이라 붙지 않습니다.
+export default async function PlaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  // 바로 열었을 때(공유 링크·새 탭·새로고침)만 이 화면이 쓰입니다. 지도 위 창으로 열 때는 @modal 쪽입니다.
+  //   2026-11-07: 바로 들어와도 지도 위 장소 창으로 옮깁니다(OpenAsModal). 아래 내용은 검색엔진용으로 남겨 둡니다.
   return (
     <>
+      <OpenAsModal id={id} />
       <PlaceDetailClient />
       <PageFooter overTabBar={false} />
     </>

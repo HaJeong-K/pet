@@ -28,7 +28,8 @@ const PAGES_UNDER_TABBAR = [
   // 관리자 화면들은 공통 틀(AdminNav)의 본문 칸이 아래 여백을 맡습니다(아래 "관리자 화면" 검사)
   "components/AdminNav.tsx",
   "app/partnership/page.tsx", "app/partner/lodging/page.tsx", "components/lodging/StayFrame.tsx",
-  "app/owner/page.tsx", "app/shelter-notices/ShelterNoticesClient.tsx",
+  // 사장님 센터(app/owner)는 탭바를 숨겨서 빠집니다(2026-11-07)
+  "app/shelter-notices/ShelterNoticesClient.tsx",
   "app/shelter-notices/support/SupportClient.tsx", "app/shelter-notices/support/[id]/ShelterDetailClient.tsx",
 ];
 

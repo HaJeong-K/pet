@@ -16,20 +16,8 @@ import { setGuideInterest, type GuideInterest } from "@/lib/pageGuides";
 import BrandLogo from "@/components/brand/BrandLogo";
 
 const CONTACT_EMAIL = "infoker12@naver.com";
-/** 끝까지 봤거나 "다시 보지 않기"를 눌렀는지(기기에 계속 남음). 소개 내용을 크게 바꾸면 끝의 숫자를 올립니다. */
-const NEVER_KEY = "ggk_intro_never_v3";
-/** 이번 방문에서 이미 봤는지(앱·탭을 닫으면 지워짐) */
-const SESSION_KEY = "ggk_intro_seen_v3";
-
-/** 소개를 띄워야 하면 true */
-export function shouldShowWelcomeIntro(): boolean {
-  try {
-    if (localStorage.getItem(NEVER_KEY)) return false;
-    return !sessionStorage.getItem(SESSION_KEY);
-  } catch {
-    return true; // 저장소를 못 쓰는 환경(사생활 보호 모드 등)에서는 그냥 보여 줍니다
-  }
-}
+import { INTRO_NEVER_KEY as NEVER_KEY, INTRO_SESSION_KEY as SESSION_KEY, shouldShowWelcomeIntro } from "@/lib/welcomeIntroGate";
+export { shouldShowWelcomeIntro };
 
 const BRAND = "#A05A32", BROWN = "#8B5E3C", PAGE_BG = "#F4F3F2", INK = "#2F2A24";
 const whiteCard: React.CSSProperties = { background: "white", borderRadius: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" };

@@ -44,10 +44,11 @@ const iconOf = (name: string) => CATEGORY_ICON.find(([re]) => re.test(name))?.[1
 // 사진이 없을 때 쓰는 기본 그림은 대표 사진으로 쓰지 않습니다
 const thumbOf = (s: ShopStore) => s.preview.find((p) => p.featured && p.image)?.image ?? s.preview.find((p) => p.image)?.image ?? (s.image && !s.image.includes("default-place") ? s.image : null);
 
-export default function ShopClient() {
+export default function ShopClient({ initial = null }: { initial?: ShopStore[] | null }) {
   const router = useRouter();
   const area = useUserArea();
-  const [stores, setStores] = useState<ShopStore[] | null>(null);
+  // 서버가 미리 채워 보낸 목록으로 바로 시작하고(로딩 그림 없음), 뒤에서 최신 목록을 한 번 더 받습니다
+  const [stores, setStores] = useState<ShopStore[] | null>(initial);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState<string | null>(null);
@@ -64,7 +65,7 @@ export default function ShopClient() {
       .then(async (r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => { if (!cancelled) setStores(data.stores ?? []); })
       // 불러오지 못한 것을 "가게가 없다"고 보여 주지 않습니다
-      .catch(() => { if (!cancelled) { setFailed(true); setStores([]); } });
+      .catch(() => { if (!cancelled && !initial) { setFailed(true); setStores([]); } });
     return () => { cancelled = true; };
   }, []);
 
@@ -93,12 +94,13 @@ export default function ShopClient() {
         /* 분류 버튼은 작게 줄여 한 줄에 모두 — 휴대폰에서 다 안 들어가면 옆으로 밀어서 봅니다 */
         .shop-cats { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
         .shop-cats::-webkit-scrollbar { display: none; }
-        .shop-cats > button { flex: 0 0 62px; }
+        /* 휴대폰: 이름이 두 줄로 깨지지 않게 글자 길이만큼 넓힙니다(옆으로 밀어서 봄) */
+        .shop-cats > button { flex: 0 0 auto; min-width: 62px; padding-left: 6px !important; padding-right: 6px !important; white-space: nowrap; }
         @media (min-width: 720px) {
           .shop-thumb { width: 200px; aspect-ratio: 4 / 3; }
           .shop-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
           .shop-cats { display: flex; gap: 4px; overflow: visible; }
-          .shop-cats > button { flex: 1 1 0; min-width: 0; }
+          .shop-cats > button { flex: 1 1 0; min-width: 0; white-space: normal; }
         }
       `}</style>
       {/* 머리말 + 검색 — 탭 화면 공통 머리말(src/components/PageHero.tsx) */}

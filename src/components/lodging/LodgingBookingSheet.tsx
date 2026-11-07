@@ -26,6 +26,8 @@ import TimePicker from "@/components/TimePicker";
 import { extraBasis, extraPerNight, extraUnitLabel, PET_SIZES, PET_SPECIES, petPolicySummary, roomPriceText, type LodgingProfile, type PetSize, type PetSpecies, type RoomInput } from "@/lib/lodgingRules";
 import { CASH_RECEIPT_TYPES, cleanCashReceiptNumber, PET_NOTE_MAX, type CashReceiptType, type PetGender, type StayPaymentMethod, addDays, daysBetween, kstToday, nightsOf, petNightFee, petsAllowed, petsNightlyTotal, quoteStay, stayDayLabel, STAY_MAX_NIGHTS, BOOK_AHEAD_DAYS, type RoomDay, type StayPet } from "@/lib/lodgingBooking";
 import { refundSchedule } from "@/lib/lodgingPolicy";
+import { ensureContact, getMyContact } from "@/lib/requireContact";
+import { formatPhone } from "@/lib/contact";
 import { maxUsableStamps, STAMP_VALUE_WON, STAMPS_ENABLED, stampDiscount } from "@/lib/memoryStamps";
 
 export type GuestRoom = RoomInput & { id: number };
@@ -145,6 +147,15 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const extraCap = (x: (typeof extraOptions)[number]) => (extraBasis(x) === "person" ? guests : extraBasis(x) === "pet" ? Math.max(1, pets.length) : x.max);
   const picks = extraOptions.filter((x) => (extraQty[x.id] ?? 0) > 0).map((x) => ({ id: x.id, qty: Math.min(extraQty[x.id], extraCap(x)), ...(extraPerNight(x) ? { days: daysFor(x.id) } : {}) }));
   const [form, setForm] = useState({ paymentMethod: "card" as StayPaymentMethod, cashType: "none" as CashReceiptType, cashNumber: "", name: "", phone: "", email: "", memo: "", sameGuest: true, stayGuestName: "", stayGuestPhone: "", arrivalMethod: "" as ArrivalMethod | "", arrivalTime: "" });
+  // 예약자 이름·휴대폰은 회원 정보로 미리 채웁니다(고칠 수 있음)
+  useEffect(() => {
+    let cancelled = false;
+    getMyContact().then((c) => {
+      if (cancelled || !c) return;
+      setForm((f) => ({ ...f, name: f.name || c.name, phone: f.phone || formatPhone(c.phone) }));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const [consents, setConsents] = useState<StayConsentId[]>([]);
   const [openConsent, setOpenConsent] = useState<StayConsentId | null>(null);
   const allAgreed = consents.length === STAY_CONSENTS.length;
@@ -233,6 +244,8 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
     setBusy(true);
     setError(null);
     try {
+      // 회원 이름·휴대폰이 없으면 먼저 등록받습니다(예약 확인 연락용, 2026-11-07)
+      if (!(await ensureContact("숙소 예약 확인 연락을 받을 이름과 휴대폰 번호가 필요해요."))) { setBusy(false); return; }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("로그인한 뒤 예약할 수 있어요.");
       const res = await fetch("/api/lodging/bookings", {

@@ -679,11 +679,11 @@ export default function CommunityDetailPage() {
     const init = async () => {
       const { data: { session: sess } } = await supabase.auth.getSession();
       setSession(sess);
-      if (sess?.user) {
-        const { data } = await supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single();
-        setIsAdmin(!!data?.is_admin);
-      }
-      await Promise.all([fetchPost(), fetchComments(), fetchPostLikeStatus(sess?.user?.id)]);
+      // 속도: 관리자 여부·글·댓글·좋아요 상태를 한꺼번에 받습니다(예전엔 관리자 여부를 먼저 기다렸음)
+      const adminCheck = sess?.user
+        ? Promise.resolve(supabase.from("users").select("is_admin").eq("auth_user_id", sess.user.id).single()).then(({ data }) => setIsAdmin(!!data?.is_admin)).catch(() => {})
+        : Promise.resolve();
+      await Promise.all([adminCheck, fetchPost(), fetchComments(), fetchPostLikeStatus(sess?.user?.id)]);
       setLoading(false);
     };
     init();
@@ -1330,7 +1330,10 @@ export default function CommunityDetailPage() {
                   </div>
 
                   {/* 추천 / 비추천 버튼 */}
+                  {/* 휴대폰에서 글자가 두 줄로 깨지지 않게 — 버튼 글자는 한 줄로, 좁으면 간격·안쪽 여백을 줄입니다 */}
+                  <style>{`.ggk-post-actions > button { white-space: nowrap; flex-shrink: 0; } @media (max-width: 480px) { .ggk-post-actions { gap: 6px !important; } .ggk-post-actions > button { padding: 8px 11px !important; } }`}</style>
                   <div
+                    className="ggk-post-actions"
                     style={{
                       display: "flex",
                       justifyContent: "center",

@@ -95,6 +95,9 @@ export async function POST(req: NextRequest) {
   const user = await userOf(req);
   if (!user) return fail("로그인한 뒤 예약할 수 있어요.", 401);
   if (!allow(user.id)) return fail("예약을 너무 자주 넣었어요. 잠시 후 다시 시도해 주세요.", 429);
+  // 회원 이름·휴대폰이 등록돼 있어야 예약할 수 있습니다(예약 확인 연락용, 2026-11-07)
+  const { data: savedContact } = await db.from("user_contacts").select("name, phone").eq("auth_user_id", user.id).maybeSingle();
+  if (!savedContact?.name || !savedContact?.phone) return fail("이름과 휴대폰 번호를 먼저 등록해 주세요.", 400);
   const body = await req.json().catch(() => null);
   // 이용 규칙·취소 환불·개인정보 수집/제공·만 14세 동의는 cleanStayRequest가 모두 확인합니다
   const cleaned = cleanStayRequest(body);

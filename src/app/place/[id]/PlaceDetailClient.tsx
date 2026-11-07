@@ -58,6 +58,7 @@ import {
   Trees,       // 공원 구분
   Store,       // 사장님 답글 배지
   MapPinned,   // 내 경로에 추가
+  Shuffle,     // 비회원 닉네임 바꾸기
 } from "lucide-react";
 import AddToRouteSheet from "@/components/AddToRouteSheet";
 
@@ -324,7 +325,7 @@ export default function PlaceDetail({
     const { data: reviewData } = await supabase
       .from("reviews")
       .select(
-        "id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, password, sentiment_score"
+        "id, nickname, content, likes, created_at, auth_user_id, user_key, deleted, is_edited, is_admin_deleted, avatar_url, sentiment_score"
       )
       .eq("place_id", placeId)
       .order("id", { ascending: false });
@@ -367,7 +368,7 @@ export default function PlaceDetail({
     const { data: reviewIds } = await supabase.from("reviews").select("id").eq("place_id", placeId);
     if (!reviewIds || reviewIds.length === 0) { setReplies([]); return; }
     const ids = reviewIds.map((r) => r.id);
-    const { data: replyData2 } = await supabase.from("review_replies").select("*").in("review_id", ids).order("created_at", { ascending: true });
+    const { data: replyData2 } = await supabase.from("review_replies").select("id, review_id, nickname, content, likes, created_at, auth_user_id, is_edited, avatar_url, is_admin_deleted, user_key, deleted, is_owner").in("review_id", ids).order("created_at", { ascending: true });
     if (!replyData2) { setReplies([]); return; }
     const authIds = replyData2.map((r) => r.auth_user_id).filter(Boolean);
     const { data: userData } = authIds.length > 0
@@ -722,9 +723,19 @@ export default function PlaceDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, isPublicDataPlace, isCsvSourcedPublicData, deletingPlace]);
 
+  // ── 후기·답글 쓰기/고치기/지우기는 서버(/api/place-comments)에서 — 비회원 비밀번호를 화면이 읽지 않도록(2026-11-07)
+  const commentApi = async (method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>): Promise<string | null> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    const res = await fetch("/api/place-comments", { method, headers, body: JSON.stringify(body) }).catch(() => null);
+    if (!res) return "연결이 불안정해요. 다시 시도해 주세요.";
+    if (res.ok) return null;
+    const j = await res.json().catch(() => ({}));
+    return j.error || "처리하지 못했어요. 다시 시도해 주세요.";
+  };
+
   // ── 댓글 등록
   const handleSubmit = async () => {
-    if (!isLoggedIn) return; // 댓글은 로그인한 회원만
     if (!myNickname || !content) return;
 
     if (!session && !password) return;
@@ -732,38 +743,22 @@ export default function PlaceDetail({
     // 모든 장소는 Supabase reviews 테이블 하나로 저장합니다
     // (예전 AWS 리뷰 백엔드는 정식 배포 전이라 실제 데이터 없이 코드만 걷어냄).
     const userKey = getUserKey();
-    const authUserId = session?.user?.id ?? null;
 
-    const { error } = await supabase.from("reviews").insert([
-      {
-        place_id: placeId,
-        nickname: myNickname,
-        password: isLoggedIn ? null : password,
-        content,
-        likes: 0,
-        user_key: isLoggedIn ? null : userKey,
-        auth_user_id: authUserId,
-      },
-    ]);
-
-    if (error) {
-      console.error(error);
-      alert(error.message);
-      return;
-    }
+    const error = await commentApi("POST", { kind: "review", placeId, nickname: myNickname, content, password: isLoggedIn ? undefined : password, userKey: isLoggedIn ? undefined : userKey });
+    if (error) { alert(error); return; }
 
     setContent("");
+    setPassword("");
 
     await fetchReviews();
   };
 
   const handleReplySubmit = async (reviewId: string) => {
-    if (!isLoggedIn) return; // 답글도 로그인한 회원만
     if (!replyContent.trim()) return;
     if (!isLoggedIn && !replyPassword.trim()) return;
     const userKey = getUserKey();
-    const { error } = await supabase.from("review_replies").insert([{ review_id: reviewId, nickname: myNickname, password: isLoggedIn ? null : replyPassword, content: replyContent, auth_user_id: session?.user?.id ?? null, user_key: isLoggedIn ? null : userKey }]);
-    if (error) { console.error(error); alert(error.message); return; }
+    const error = await commentApi("POST", { kind: "reply", reviewId, nickname: myNickname, content: replyContent, password: isLoggedIn ? undefined : replyPassword, userKey: isLoggedIn ? undefined : userKey });
+    if (error) { alert(error); return; }
     setReplyContent(""); setReplyPassword(""); setReplyingId(null);
     await fetchReplies();
   };
@@ -837,9 +832,8 @@ export default function PlaceDetail({
   const handleEdit = async (reviewId: string) => {
     const review = reviews.find((r) => r.id === reviewId);
     if (!review || !editContent.trim()) return;
-    if (!session && editPassword !== review.password) { alert("비밀번호가 일치하지 않습니다."); return; }
-    const { error } = await supabase.from("reviews").update({ content: editContent, is_edited: true }).eq("id", reviewId);
-    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
+    const error = await commentApi("PATCH", { kind: "review", id: reviewId, content: editContent, password: editPassword });
+    if (error) { alert(error); return; }
     setReviews((prev) => prev.map((r) => r.id === reviewId ? { ...r, content: editContent, is_edited: true } : r));
     setEditingId(null);
   };
@@ -847,9 +841,8 @@ export default function PlaceDetail({
   const handleReplyEdit = async (replyId: string) => {
     const reply = replies.find((r) => r.id === replyId);
     if (!reply) return;
-    if (!isLoggedIn && reply.password && reply.password !== editReplyPassword) { alert("비밀번호가 일치하지 않습니다."); return; }
-    const { error } = await supabase.from("review_replies").update({ content: editReplyContent, is_edited: true }).eq("id", replyId);
-    if (error) { console.error(error); alert(error.message || "저장하지 못했어요. 다시 시도해 주세요."); return; }
+    const error = await commentApi("PATCH", { kind: "reply", id: replyId, content: editReplyContent, password: editReplyPassword });
+    if (error) { alert(error); return; }
     setReplies((prev) => prev.map((r) => r.id === replyId ? { ...r, content: editReplyContent, is_edited: true } : r));
     setEditingReplyId(null); setEditReplyContent(""); setEditReplyPassword("");
   };
@@ -857,11 +850,8 @@ export default function PlaceDetail({
   const handleDelete = async (reviewId: string) => {
     const review = reviews.find((r) => r.id === reviewId);
     if (!review) return;
-    if (!session && deletePassword !== review.password) { alert("비밀번호가 일치하지 않습니다."); return; }
-    const { error } = await supabase.from("reviews")
-      .update({ deleted: true })
-      .eq("id", reviewId);
-    if (error) { console.error(error); return; }
+    const error = await commentApi("DELETE", { kind: "review", id: reviewId, password: deletePassword });
+    if (error) { alert(error); return; }
     setDeletingId(null);
     await fetchReviews();
   };
@@ -871,23 +861,8 @@ export default function PlaceDetail({
 
     if (!reply) return;
 
-    if (
-      !isLoggedIn &&
-      reply.password &&
-      reply.password !== deleteReplyPassword
-    ) {
-      alert("비밀번호가 일치하지 않습니다.");
-      return;
-    }
-
-    const { error } = await supabase.from("review_replies")
-      .update({ deleted: true })
-      .eq("id", replyId);
-
-    if (error) {
-      console.error(error);
-      return;
-    }
+    const error = await commentApi("DELETE", { kind: "reply", id: replyId, password: deleteReplyPassword });
+    if (error) { alert(error); return; }
 
     setReplies((prev) => prev.filter((r) => r.id !== replyId));
 
@@ -1544,25 +1519,33 @@ export default function PlaceDetail({
           </div>
         </div>
 
-        {/* 댓글 작성 — 로그인한 회원만(보기는 누구나). 닉네임은 잘리지 않게 한 줄 전체를 씁니다. */}
-        {isLoggedIn && (
+        {/* 댓글 작성 — 회원·비회원 모두(대표 결정: 비회원도 닉네임 + 비밀번호로 후기를 남김. 2026-11-04에 잘못 막았던 것을 11-07 되돌림) */}
         <div style={{ padding:"10px", background:"#f5f6f8", borderRadius:"10px", marginBottom:"8px" }}>
-          <div className="ggk-body" style={{ fontSize:"12px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}>
-            <b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요
-          </div>
+          {isLoggedIn ? (
+            <div className="ggk-body" style={{ fontSize:"12px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}>
+              <b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요
+            </div>
+          ) : (
+            <div style={{ display:"grid", gridTemplateColumns:"minmax(0, 4fr) auto minmax(0, 6fr)", gap:"7px", marginBottom:"7px", alignItems:"stretch" }}>
+              <div title={myNickname} style={{ display:"flex", alignItems:"center", background:"white", padding:"7px 10px", borderRadius:"7px", border:"1px solid #ddd", fontSize:"12px", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", minWidth:0 }}>{myNickname}</div>
+              <button type="button" onClick={createRandomNickname} aria-label="닉네임 바꾸기" title="닉네임 바꾸기" style={{ width:"38px", height:"38px", borderRadius:"7px", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <Shuffle size={14} />
+              </button>
+              <input placeholder="비밀번호(수정·삭제용)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width:"100%", minWidth:0, padding:"7px 10px", borderRadius:"7px", border:"1px solid #ddd", fontSize:"12px", background:"white", boxSizing:"border-box" }} />
+            </div>
+          )}
           <div style={{ display:"flex", gap:"7px", alignItems:"stretch" }}>
             <textarea placeholder="댓글을 입력하세요" value={content} onChange={(e) => setContent(e.target.value)} style={{ flex:1, minHeight:"58px", padding:"8px 10px", borderRadius:"7px", background:"white", border:"1px solid #ddd", fontSize:"12px", resize:"none" }} />
-            <button onClick={handleSubmit} disabled={!content} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:!content?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: !content ? "#4f4a3f" : "white", cursor:!content?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
+            <button onClick={handleSubmit} disabled={!content || (!isLoggedIn && !password)} className="ggk-body" style={{ width:"52px", borderRadius:"7px", border:"none", background:(!content || (!isLoggedIn && !password))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: (!content || (!isLoggedIn && !password)) ? "#4f4a3f" : "white", cursor:(!content || (!isLoggedIn && !password))?"default":"pointer", fontSize:"12px", fontWeight:700 }}>
               등록
             </button>
           </div>
         </div>
-        )}
 
         {/* 비로그인 로그인 유도 */}
         {!isLoggedIn && (
           <div style={{ padding:"12px 14px", background:"#f5f6f8", borderRadius:"10px", marginBottom:"10px", textAlign:"center", border:"1px solid #eee" }}>
-            <div style={{ marginBottom:"10px", fontSize:"12px", color:"#555", lineHeight:1.6 }}>댓글은 로그인한 뒤에 남길 수 있어요.<br />찜과 숙소 예약·쇼핑 주문도 로그인 후 이용해 주세요.</div>
+            <div style={{ marginBottom:"10px", fontSize:"12px", color:"#555", lineHeight:1.6 }}>회원으로 댓글을 남기면 내 활동에 모이고 레벨 점수도 쌓여요.<br />찜과 숙소 예약·쇼핑 주문은 로그인 후 이용해 주세요.</div>
             <div style={{ display:"flex", justifyContent:"center", gap:"8px" }}>
               <button onClick={() => router.push(`/login?redirect=/place/${placeId}`)} className="ggk-body" style={{ padding:"8px 16px", borderRadius:"8px", border:"none", background:"linear-gradient(145deg,#2a2a2a,#111)", color:"white", fontWeight:700, cursor:"pointer", fontSize:"12px", boxShadow:"0 1px 5px rgba(0,0,0,0.18)" }}>로그인</button>
               <button onClick={() => router.push(`/signup?redirect=/place/${placeId}`)} className="ggk-body" style={{ padding:"8px 16px", borderRadius:"8px", border:"1px solid #ddd", background:"linear-gradient(145deg,#f5f6f8,#eaebee)", color:"#333", fontWeight:700, cursor:"pointer", fontSize:"12px", boxShadow:"0 1px 4px rgba(0,0,0,0.07)" }}>회원가입</button>
@@ -1657,20 +1640,22 @@ export default function PlaceDetail({
                   )}
 
                   {/* 답글 입력 */}
-                  {replyingId === r.id && !isLoggedIn && (
-                    <div className="ggk-body" style={{ marginTop:"8px", marginLeft:"28px", padding:"10px 12px", background:"#f5f6f8", borderRadius:"9px", fontSize:"11.5px", color:"#555" }}>
-                      답글은 로그인한 뒤에 남길 수 있어요.{" "}
-                      <button onClick={() => router.push(`/login?redirect=/place/${placeId}`)} style={{ border:"none", background:"none", padding:0, color:"#A05A32", fontWeight:700, cursor:"pointer", fontSize:"11.5px" }}>로그인하기</button>
-                    </div>
-                  )}
-                  {replyingId === r.id && isLoggedIn && (
+                  {replyingId === r.id && (
                     <div style={{ marginTop:"8px", marginLeft:"28px", padding:"10px", background:isPlaceOwner?"#FFFBEB":"#f8fafc", borderRadius:"9px", border:`1px solid ${isPlaceOwner?"#FDE68A":"#e2e8f0"}` }}>
                       {isPlaceOwner && (
                         <div className="ggk-body" style={{ display:"flex", alignItems:"center", gap:"4px", marginBottom:"7px", fontSize:"11px", fontWeight:700, color:"#92400E" }}>
                           <Store size={12} />사장님 답글로 등록돼요 — 고객에게 "사장님" 배지와 함께 보여요.
                         </div>
                       )}
-                      <div className="ggk-body" style={{ fontSize:"11px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}><b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요</div>
+                      {isLoggedIn ? (
+                        <div className="ggk-body" style={{ fontSize:"11px", color:"#555", marginBottom:"7px", wordBreak:"break-all" }}><b style={{ color:"#222" }}>{myNickname}</b> 님으로 남겨요</div>
+                      ) : (
+                        <div style={{ display:"grid", gridTemplateColumns:"minmax(0, 4fr) auto minmax(0, 6fr)", gap:"7px", marginBottom:"7px" }}>
+                          <div title={myNickname} style={{ display:"flex", alignItems:"center", background:"white", padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", fontSize:"11px", overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis", minWidth:0 }}>{myNickname}</div>
+                          <button type="button" onClick={createRandomNickname} aria-label="닉네임 바꾸기" style={{ width:"36px", height:"36px", borderRadius:"6px", border:"1px solid #ddd", background:"white", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}><Shuffle size={13} /></button>
+                          <input placeholder="비밀번호" type="password" value={replyPassword} onChange={(e) => setReplyPassword(e.target.value)} style={{ width:"100%", minWidth:0, padding:"6px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", fontSize:"11px", boxSizing:"border-box" }} />
+                        </div>
+                      )}
                       <div style={{ display:"flex", gap:"7px" }}>
                         <textarea placeholder={isPlaceOwner ? "방문해 주신 고객께 답글을 남겨 보세요" : "답글을 입력하세요"} value={replyContent} onChange={(e) => setReplyContent(e.target.value)} style={{ flex:1, minHeight:"52px", padding:"7px 9px", borderRadius:"6px", border:"1px solid #ddd", background:"white", resize:"none", fontSize:"11px", boxSizing:"border-box" }} />
                         <button disabled={!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())} onClick={() => handleReplySubmit(r.id)} className="ggk-body" style={{ width:"46px", borderRadius:"6px", border:"none", background:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"#ccc":"linear-gradient(145deg,#2a2a2a,#111)", color: (!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim())) ? "#4f4a3f" : "white", cursor:(!replyContent.trim()||(!isLoggedIn&&!replyPassword.trim()))?"default":"pointer", fontSize:"11px", fontWeight:700 }}>등록</button>

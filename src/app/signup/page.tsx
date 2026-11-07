@@ -25,7 +25,7 @@ function SignupPageContent() {
 
   const [email, setEmail] = useState("");
   const [nickname, setNickname] = useState("");
-  // 이름·휴대폰 번호 — 아이디(이메일) 찾기에만 씁니다(user_contacts 표, 본인만 읽기)
+  // 이름·휴대폰 번호 — 아이디(이메일) 찾기와 예약·주문 확인 연락에 씁니다(user_contacts 표, 본인만 읽기)
   const [realName, setRealName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -43,9 +43,11 @@ function SignupPageContent() {
   // ── 약관 동의 ──
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  // 만 14세 이상 확인(2026-11-07) — 만 14세 미만은 법정대리인 동의 절차가 없어 가입을 받지 않습니다
+  const [agreedAge14, setAgreedAge14] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const agreedAll = agreedTerms && agreedPrivacy;
+  const agreedAll = agreedTerms && agreedPrivacy && agreedAge14;
 
   const isValidEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -110,7 +112,7 @@ function SignupPageContent() {
     }
 
     if (!agreedAll) {
-      alert("이용약관과 개인정보 처리방침에 동의해주세요.");
+      alert("이용약관·개인정보 처리방침 동의와 만 14세 이상 확인이 필요해요.");
       return;
     }
 
@@ -150,6 +152,7 @@ function SignupPageContent() {
         data: {
           full_name: nickname,    // ← 이게 있어야 대시보드 Display name에 표시됨
           nickname,               // ← KakaoMap.tsx, page.tsx의 user_metadata 읽기용으로 유지
+          age14_confirmed_at: new Date().toISOString(), // 만 14세 이상 확인 시각
         },
       },
     });
@@ -307,7 +310,7 @@ function SignupPageContent() {
         )}
         {nicknameReserved && <p style={errorTextStyle}>{RESERVED_NICKNAME_MESSAGE}</p>}
 
-        {/* 이름 · 휴대폰 번호 — 아이디(이메일) 찾기 전용 */}
+        {/* 이름 · 휴대폰 번호 — 아이디(이메일) 찾기 + 예약·주문 확인 연락 */}
         <div style={{ display: "flex", gap: "8px" }}>
           <input
             id="signup-name"
@@ -421,6 +424,23 @@ function SignupPageContent() {
             <span>
               (필수) <button type="button" onClick={() => setShowPrivacyModal(true)} style={{ border: "none", background: "transparent", color: "var(--join-strong)", fontWeight: 700, textDecoration: "underline", cursor: "pointer", padding: 0, fontSize: 12.5 }}>개인정보 처리방침</button>에 동의합니다
             </span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#333", cursor: "pointer" }}>
+            <button
+              type="button"
+              onClick={() => setAgreedAge14((v) => !v)}
+              aria-pressed={agreedAge14}
+              aria-label="만 14세 이상입니다"
+              style={{
+                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                border: `1.5px solid ${agreedAge14 ? "var(--join-strong)" : "#ccc"}`,
+                background: agreedAge14 ? "var(--join-strong)" : "white",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0,
+              }}
+            >
+              {agreedAge14 && <Check size={12} color="white" />}
+            </button>
+            <span>(필수) 만 14세 이상입니다 <span style={{ color: "#6B5E55" }}>— 만 14세 미만은 가입할 수 없어요</span></span>
           </label>
         </div>
 

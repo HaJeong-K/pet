@@ -903,7 +903,7 @@ export default function MyPage() {
             {/* ── 주문·예약 내역 */}
             {activeSection === "orders" && <section id="orders" data-guide="mypage-orders"><OrdersPanel /></section>}
             {/* ── 내 레벨·점수 */}
-            {activeSection === "level" && <div style={{ background: "white", border: "1px solid #E7E6E5", borderRadius: 18, overflow: "hidden" }}><MemberLevelCard accessToken={session?.access_token} variant="card" /></div>}
+            {activeSection === "level" && <div style={{ background: "white", border: "1px solid #E7E6E5", borderRadius: 18, overflow: "hidden", paddingBottom: 12 }}><MemberLevelCard accessToken={session?.access_token} variant="card" /></div>}
 
 						{/* ── 찜한 장소 */}
 						{activeSection === "bookmarks" && (

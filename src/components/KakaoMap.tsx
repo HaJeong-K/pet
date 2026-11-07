@@ -38,7 +38,10 @@ import { openPlaceDetail as openPlaceDetailShared } from "@/lib/openPlace";
 import { trackEvent, extractRegion, getUserKey } from "@/lib/analytics";
 import { rememberInterest } from "@/lib/interestRegions";
 import { parkToPlace } from "@/lib/parkPlace";
-import WelcomeIntro, { shouldShowWelcomeIntro } from "@/components/WelcomeIntro";
+import dynamic from "next/dynamic";
+import { shouldShowWelcomeIntro } from "@/lib/welcomeIntroGate";
+// 첫 방문 소개는 띄울 때만 내려받습니다(지도 첫 화면 코드 줄이기)
+const WelcomeIntro = dynamic(() => import("@/components/WelcomeIntro"), { ssr: false });
 import PageGuide from "@/components/PageGuide";
 import { saveCourse, deleteSavedCourse, courseTitle, toSavedStops } from "@/lib/savedCourses";
 import { MAP_GUIDE_KEY, ROUTE_GUIDE_KEY, mapGuideSteps, routeGuideSteps } from "@/lib/pageGuides";
@@ -642,7 +645,8 @@ export default function KakaoMap() {
   const [showDemoNotice, setShowDemoNotice] = useState(false);
   const [demoNoticeChecked, setDemoNoticeChecked] = useState(false);
   useEffect(() => {
-    if (shouldShowWelcomeIntro()) setShowDemoNotice(true);
+    // 장소 링크(/place/번호 → /?placeId=)로 들어온 사람에게는 소개 대신 장소 창을 먼저 보여 줍니다
+    if (shouldShowWelcomeIntro() && !new URLSearchParams(window.location.search).get("placeId")) setShowDemoNotice(true);
     setDemoNoticeChecked(true);
   }, []);
 
@@ -1195,6 +1199,18 @@ export default function KakaoMap() {
       openPlaceDetail(found);
     }
   }, [searchParams, places]);
+  // 지도에 아직 안 불러온(멀리 있는) 장소라도 주소로 들어오면 장소 창을 엽니다 — /place/번호로 바로 들어온 경우(OpenAsModal)
+  useEffect(() => {
+    const placeId = searchParams.get("placeId");
+    if (!placeId || hasOpenedRef.current) return;
+    const t = window.setTimeout(() => {
+      if (hasOpenedRef.current) return;
+      hasOpenedRef.current = true;
+      router.push(`/place/${encodeURIComponent(placeId)}`);
+    }, 2500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ── filteredPlaces: debouncedSearch 사용
   //

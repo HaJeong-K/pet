@@ -15,13 +15,16 @@ export async function GET() {
   // 누구에게나 같은 응답이라 CDN이 1분 동안 대신 응답합니다(상품을 고친 뒤 최대 1분 늦게 보일 수 있음).
   const headers = { "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300" };
   try {
-    const { data: places, error } = await db.from("places")
-      .select("id, name, address, category, image_url, lat, lng, premium_plan, search_tags, store_order_modes, orders_closed_on")
-      .eq("is_premium", true).gt("premium_expires_at", new Date().toISOString()).limit(1000);
+    // 속도: 요금제 가게와 입점 승인 가게를 동시에 받습니다(예전엔 차례로 받아 1초 넘게 걸림)
+    const [{ data: places, error }, { data: partners }] = await Promise.all([
+      db.from("places")
+        .select("id, name, address, category, image_url, lat, lng, premium_plan, search_tags, store_order_modes, orders_closed_on")
+        .eq("is_premium", true).gt("premium_expires_at", new Date().toISOString()).limit(1000),
+      // 입점 승인된 가게(표가 없으면 빈 목록)
+      db.from("store_partners").select("linked_place_id, order_modes").eq("status", "approved").not("linked_place_id", "is", null).limit(1000),
+    ]);
     // 요금제 단계 칸이 아직 없으면 스토어 가게도 없습니다.
     if (error) return NextResponse.json({ stores: [] }, { headers, status: isMissingSchema(error) ? 200 : 500 });
-    // 입점 승인된 가게(표가 없으면 빈 목록)
-    const { data: partners } = await db.from("store_partners").select("linked_place_id, order_modes").eq("status", "approved").not("linked_place_id", "is", null).limit(1000);
     const modesOf = new Map((partners ?? []).map((p) => [Number(p.linked_place_id), p.order_modes as string[]]));
     const planPlaces = (places ?? []).filter((p) => planAtLeast(normalizePlan(p.premium_plan), "store"));
     const planIds = new Set(planPlaces.map((p) => Number(p.id)));
@@ -34,6 +37,8 @@ export async function GET() {
 
     const ids = storePlaces.map((p) => p.id);
     const run = (columns: string) => db.from("owner_products").select(columns).in("place_id", ids).eq("is_active", true).order("sort_order").order("id");
+    // 상품과 별점을 동시에 받습니다
+    const reviewsPromise = db.from("store_reviews").select("place_id, rating").in("place_id", ids).eq("hidden", false);
     let { data: products, error: productError } = await run(PRODUCT_COLUMNS);
     if (productError && isMissingSchema(productError)) ({ data: products, error: productError } = await run(PRODUCT_BASE_COLUMNS));
     if (productError) return NextResponse.json({ stores: [] }, { headers, status: 500 });
@@ -44,7 +49,7 @@ export async function GET() {
       if (list) list.push(product); else byPlace.set(Number(product.place_id), [product]);
     }
     // 가게별 별점(후기 표가 없으면 비어 있습니다)
-    const { data: reviewRows } = await db.from("store_reviews").select("place_id, rating").in("place_id", ids).eq("hidden", false);
+    const { data: reviewRows } = await reviewsPromise;
     const ratings = new Map<number, number[]>();
     for (const r of reviewRows ?? []) ratings.set(Number(r.place_id), [...(ratings.get(Number(r.place_id)) ?? []), r.rating]);
     const stores = storePlaces

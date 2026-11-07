@@ -18,6 +18,7 @@ import StoreReviewsList from "@/components/StoreReviewsList";
 import { canChangeStatus, groupProducts, isOpenStatus, ORDER_TYPE_LABEL, PARTY_SIZE_MAX, PICKUP_MAX_DAYS, RESERVATION_QTY_MAX, STATUS_LABEL, type OrderType, type ReservationLine, type ReservationStatus } from "@/lib/storeRules";
 import TimePicker from "@/components/TimePicker";
 
+import { ensureContact } from "@/lib/requireContact";
 type Product = {
   id: number; name: string; description: string | null; price: number;
   category?: string | null; image_url?: string | null; unit?: string | null; ingredients?: string | null; allergy?: string | null;
@@ -89,6 +90,8 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
     setBusy(true);
     setMessage(null);
     try {
+      // 회원 이름·휴대폰이 없으면 먼저 등록받습니다(주문 확인 연락용, 2026-11-07)
+      if (!(await ensureContact("주문 확인 연락을 받을 이름과 휴대폰 번호가 필요해요."))) { setBusy(false); return; }
       const res = await fetch("/api/store/reserve", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(await authHeader()) },

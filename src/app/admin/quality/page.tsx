@@ -86,96 +86,88 @@ export default function AdminQuality() {
           </div>
         )}
 
+        {/* 2026-11-07: 문제 목록을 따로 위에 띄우지 않고, "점검한 장소" 목록에서 문제가 있는 장소를 누르면 그 자리에서 상세 사유가 펼쳐집니다.
+            정상인 장소는 눌러도 아무 일이 없고(다른 화면으로 넘어가지 않음), 위 분류 칩은 그 문제가 있는 장소만 남깁니다. */}
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}><LogoLoader /></div>
         ) : !report ? (
           <div style={{ padding: 40, textAlign: "center", color: "#5c5c5c", fontSize: 13 }}>아직 점검 기록이 없어요. &quot;지금 점검&quot;을 눌러 보세요.</div>
-        ) : issues.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#A05A32", fontSize: 13, fontWeight: 700 }}>문제가 발견되지 않았어요 👍</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {issues.map((i, idx) => {
-              const key = `${i.kind}-${i.placeId}-${idx}`;
-              const open = openIssue === key;
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#222", marginBottom: 4 }}>
+              점검한 장소 {report.placesChecked}곳{report.issues.length > 0 ? ` · 문제 있는 장소 ${issueCountByPlace.size}곳` : ""}
+            </div>
+            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, marginBottom: 10, wordBreak: "keep-all" }}>
+              직접 등록했거나 제보로 들어온 장소만 점검해요. 문제가 있는 장소를 누르면 사유와 분류 근거가 아래에 펼쳐져요.<br />
+              지도에 보이는 공공데이터 장소(관광공사·식품안전나라 등)는 원본 기관 데이터라 여기서 고칠 수 없어 대상에서 빠져요.
+            </div>
+            {(() => {
+              // 장소 목록: 점검 내역이 있으면 그것을, 없으면(예전 기록) 문제 있는 장소만이라도
+              const listed = (report.checkedPlaces ?? []).map((p) => ({ id: p.id, name: p.name, address: (p.address ?? "") as string | null, photos: (p.photos ?? null) as number | null }));
+              const listedIds = new Set(listed.map((p) => p.id));
+              // 목록(처음 몇 곳만 저장)에 빠진 문제 장소도 위쪽에 꼭 보이게 — 문제 있는 장소를 먼저
+              const issueOnly = [...new Map((report.issues || []).filter((i) => !listedIds.has(i.placeId)).map((i) => [i.placeId, { id: i.placeId, name: i.placeName, address: null as string | null, photos: null as number | null }])).values()];
+              const placeRows = [...issueOnly, ...listed].sort((a, b) => Number((issueCountByPlace.get(b.id) || 0) > 0) - Number((issueCountByPlace.get(a.id) || 0) > 0));
+              const rows = filter === "all" ? placeRows : placeRows.filter((p) => issues.some((i) => i.placeId === p.id));
+              if (placeRows.length === 0) return <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#5c5c5c" }}>아직 직접 등록·제보된 장소가 없어요.</div>;
+              if (rows.length === 0) return <div style={{ padding: 30, textAlign: "center", color: "#A05A32", fontSize: 13, fontWeight: 700 }}>이 분류의 문제가 있는 장소는 없어요 👍</div>;
               return (
-                <div key={key} style={{ borderRadius: 12, background: "white", border: `1px solid ${open ? "#D9C2B2" : "#eee"}`, overflow: "hidden" }}>
-                  {/* 누르면 아래에 분류 근거(점검에 쓴 실제 값과 기준)가 열립니다 */}
-                  <button onClick={() => setOpenIssue(open ? null : key)} aria-expanded={open} style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: "none", background: "transparent",
-                    cursor: "pointer", textAlign: "left", fontFamily: "inherit", flexWrap: "wrap",
-                  }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: KIND_LABEL[i.kind].bg, color: KIND_LABEL[i.kind].color, flexShrink: 0 }}>
-                      {KIND_LABEL[i.kind].label}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{i.placeName}</span>
-                    <span style={{ fontSize: 13, color: "#2A1C14" }}>{i.detail}</span>
-                    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2A1C14", flexShrink: 0 }}>
-                      #{i.placeId} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                    </span>
-                  </button>
-                  {open && (
-                    <div style={{ padding: "4px 14px 14px", borderTop: "1px solid #F1EAE4", background: "#FCFAF8" }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 800, color: "#85482A", margin: "10px 0 6px" }}>분류 근거</div>
-                      {i.evidence?.length ? (
-                        <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "minmax(110px, auto) 1fr", gap: "6px 12px", fontSize: 13, lineHeight: 1.55 }}>
-                          {i.evidence.map((e) => (
-                            <div key={e.label} style={{ display: "contents" }}>
-                              <dt style={{ color: "#4A3F38", fontWeight: 700 }}>{e.label}</dt>
-                              <dd style={{ margin: 0, color: "#111", wordBreak: "break-all" }}>{e.value}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      ) : (
-                        <div style={{ fontSize: 13, color: "#2A1C14" }}>이 점검 기록에는 근거가 저장돼 있지 않아요. &quot;지금 점검&quot;을 한 번 누르면 근거가 함께 저장돼요.</div>
-                      )}
-                      <a href={`/place/${i.placeId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 13, fontWeight: 800, color: "#A05A32" }}>장소 열어 보기 ↗</a>
-                    </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {rows.map((p) => {
+                    const placeIssues = (report.issues || []).filter((i) => i.placeId === p.id && (filter === "all" || i.kind === filter));
+                    const bad = issueCountByPlace.get(p.id) || 0;
+                    const key = String(p.id);
+                    const open = bad > 0 && openIssue === key;
+                    return (
+                      <div key={p.id} style={{ borderRadius: 12, background: "white", border: `1px solid ${open ? "#D9C2B2" : "#eee"}`, overflow: "hidden" }}>
+                        <button type="button" onClick={() => { if (bad) setOpenIssue(open ? null : key); }} aria-expanded={bad ? open : undefined} disabled={!bad} style={{
+                          width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: "none", background: "transparent",
+                          cursor: bad ? "pointer" : "default", textAlign: "left", fontFamily: "inherit", color: "inherit",
+                        }}>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, flexShrink: 0, background: bad ? "#fee2e2" : "#FCF1E9", color: bad ? "#b91c1c" : "#85482A" }}>
+                            {bad ? `문제 ${bad}건` : "정상"}
+                          </span>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                            {p.address !== null && <div style={{ fontSize: 11.5, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.address || "주소 없음"}</div>}
+                          </div>
+                          {p.photos != null && <span style={{ fontSize: 11.5, color: "#666", flexShrink: 0 }}>사진 {p.photos}장</span>}
+                          <span style={{ fontSize: 11, color: "#6e6e6e", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3 }}>#{p.id}{bad ? (open ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : null}</span>
+                        </button>
+                        {open && (
+                          <div style={{ padding: "4px 14px 14px", borderTop: "1px solid #F1EAE4", background: "#FCFAF8", display: "grid", gap: 12 }}>
+                            {placeIssues.map((i, idx) => (
+                              <div key={`${i.kind}-${idx}`}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "10px 0 6px" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: KIND_LABEL[i.kind].bg, color: KIND_LABEL[i.kind].color }}>{KIND_LABEL[i.kind].label}</span>
+                                  <span style={{ fontSize: 13.5, fontWeight: 700, color: "#111" }}>{i.detail}</span>
+                                </div>
+                                {i.evidence?.length ? (
+                                  <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "minmax(110px, auto) 1fr", gap: "6px 12px", fontSize: 13, lineHeight: 1.55 }}>
+                                    {i.evidence.map((e) => (
+                                      <div key={e.label} style={{ display: "contents" }}>
+                                        <dt style={{ color: "#4A3F38", fontWeight: 700 }}>{e.label}</dt>
+                                        <dd style={{ margin: 0, color: "#111", wordBreak: "break-all" }}>{e.value}</dd>
+                                      </div>
+                                    ))}
+                                  </dl>
+                                ) : (
+                                  <div style={{ fontSize: 13, color: "#2A1C14" }}>이 점검 기록에는 근거가 저장돼 있지 않아요. &quot;지금 점검&quot;을 한 번 누르면 근거가 함께 저장돼요.</div>
+                                )}
+                              </div>
+                            ))}
+                            <a href={`/place/${p.id}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, fontWeight: 800, color: "#A05A32" }}>장소 열어 보기 ↗</a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {report.checkedPlaces && report.placesChecked > report.checkedPlaces.length && (
+                    <div style={{ fontSize: 11.5, color: "#5c5c5c", textAlign: "center", padding: 6 }}>처음 {report.checkedPlaces.length}곳만 보여요.</div>
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
-
-        {/* 점검한 장소 내역 — 무엇을 점검했는지 바로 볼 수 있게 합니다. */}
-        {report && !loading && (
-          <div style={{ marginTop: 22 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#222", marginBottom: 4 }}>점검한 장소 {report.placesChecked}곳</div>
-            <div style={{ fontSize: 11.5, color: "#5c5c5c", lineHeight: 1.6, marginBottom: 10, wordBreak: "keep-all" }}>
-              직접 등록했거나 제보로 들어온 장소만 점검해요. 지도에 보이는 공공데이터 장소(관광공사·식품안전나라 등)는 원본 기관 데이터라 여기서 고칠 수 없어 대상에서 빠져요.
-            </div>
-            {!report.checkedPlaces ? (
-              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#5c5c5c" }}>
-                이 점검 기록에는 장소 내역이 없어요. &quot;지금 점검&quot;을 한 번 누르면 내역이 보여요.
-              </div>
-            ) : report.checkedPlaces.length === 0 ? (
-              <div style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #eee", fontSize: 12, color: "#5c5c5c" }}>아직 직접 등록·제보된 장소가 없어요.</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {report.checkedPlaces.map((p) => {
-                  const bad = issueCountByPlace.get(p.id) || 0;
-                  return (
-                    <a key={p.id} href={`/place/${p.id}`} target="_blank" rel="noopener noreferrer" style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 12, background: "white",
-                      border: "1px solid #eee", textDecoration: "none", color: "inherit",
-                    }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 999, flexShrink: 0, background: bad ? "#fee2e2" : "#FCF1E9", color: bad ? "#b91c1c" : "#85482A" }}>
-                        {bad ? `문제 ${bad}건` : "정상"}
-                      </span>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#222", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                        <div style={{ fontSize: 11.5, color: "#5c5c5c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.address || "주소 없음"}</div>
-                      </div>
-                      <span style={{ fontSize: 11.5, color: "#666", flexShrink: 0 }}>사진 {p.photos}장</span>
-                      <span style={{ fontSize: 11, color: "#6e6e6e", flexShrink: 0 }}>#{p.id}</span>
-                    </a>
-                  );
-                })}
-                {report.placesChecked > report.checkedPlaces.length && (
-                  <div style={{ fontSize: 11.5, color: "#5c5c5c", textAlign: "center", padding: 6 }}>처음 {report.checkedPlaces.length}곳만 보여요.</div>
-                )}
-              </div>
-            )}
+            })()}
           </div>
         )}
       </div>

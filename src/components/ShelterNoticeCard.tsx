@@ -4,6 +4,7 @@ import { useState, type CSSProperties } from "react";
 import { shelterImageSrc } from "@/lib/shelterImage";
 import Link from "next/link";
 import { PawPrint } from "lucide-react";
+import { useHandwritingFont } from "@/lib/useHandwritingFont";
 
 export type ShelterNoticeLite = {
   desertionNo: string;
@@ -46,6 +47,7 @@ export default function ShelterNoticeCard({
   const urgent = notice.daysLeft <= 2;
   // 사진을 끝내 못 받으면(정부 서버 응답 없음 등) 깨진 그림 표시 대신 발자국 그림으로 바꿉니다.
   const [imageFailed, setImageFailed] = useState(false);
+  const fontReady = useHandwritingFont(phrase);
 
   return (
     <div style={cardStyle}>
@@ -75,6 +77,9 @@ export default function ShelterNoticeCard({
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
+            // 손글씨 글자를 모두 받은 뒤 한 번에 보여 줍니다(글자마다 따로 바뀌어 보이지 않게)
+            opacity: fontReady ? 1 : 0,
+            transition: "opacity 0.15s",
           }}
         >
           {phrase}
