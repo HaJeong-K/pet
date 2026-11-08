@@ -342,6 +342,8 @@ export default function CommunityDetailPage() {
   const [saved, setSaved] = useState(false);
   const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  // 공유 고르기(카카오톡 / 링크 복사 / 다른 앱) — 2026-11-08
+  const [shareOpen, setShareOpen] = useState(false);
   useEffect(() => {
     const userId = session?.user?.id;
     if (!userId) return;
@@ -367,14 +369,43 @@ export default function CommunityDetailPage() {
       : await supabase.from("community_saves").delete().eq("post_id", Number(postId));
     if (error) { setSaved(!next); alert("저장하지 못했어요. 다시 시도해 주세요."); }
   };
-  const sharePost = async () => {
-    const url = window.location.href;
+  // 공유 주소는 항상 이 글 주소(검색어·해시 없이)
+  const postUrl = () => `${window.location.origin}/community/post/${postId}`;
+  const sharePost = () => setShareOpen((v) => !v);
+  const shareKakao = () => {
+    setShareOpen(false);
+    const Kakao = (window as any).Kakao;
+    if (!Kakao) { alert("카카오톡 공유를 불러오는 중이에요. 잠시 후 다시 눌러 주세요."); return; }
+    if (!Kakao.isInitialized()) Kakao.init(process.env.NEXT_PUBLIC_KAKAO_JS_KEY);
+    const url = postUrl();
+    const photo = (post as any)?.image_urls?.[0] as string | undefined;
+    const excerpt = (post?.content || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    Kakao.Share.sendDefault({
+      objectType: "feed",
+      content: {
+        title: post?.title || "펫츠로드 커뮤니티",
+        description: excerpt || "반려동물 동반 지역 커뮤니티 — 펫츠로드",
+        imageUrl: photo && photo.startsWith("https://") ? photo : `${window.location.origin}/og-default.png`,
+        // 기본 공유 그림은 크기를 알려 줘야 카톡이 가운데만 잘라 보여 주지 않습니다
+        ...(photo && photo.startsWith("https://") ? {} : { imageWidth: 1200, imageHeight: 630 }),
+        link: { mobileWebUrl: url, webUrl: url },
+      },
+      buttons: [{ title: "글 보기", link: { mobileWebUrl: url, webUrl: url } }],
+    });
+  };
+  const copyPostLink = async () => {
+    setShareOpen(false);
     try {
-      if (navigator.share) { await navigator.share({ title: post?.title, url }); return; }
-      await navigator.clipboard.writeText(url);
-      setShareMessage("링크를 복사했어요.");
-      window.setTimeout(() => setShareMessage(null), 2000);
-    } catch { /* 공유 창을 닫은 경우 */ }
+      await navigator.clipboard.writeText(postUrl());
+      setShareMessage("링크를 복사했어요");
+    } catch {
+      window.prompt("아래 주소를 복사해 주세요", postUrl());
+    }
+    window.setTimeout(() => setShareMessage(null), 2000);
+  };
+  const shareOther = async () => {
+    setShareOpen(false);
+    try { await navigator.share({ title: post?.title, url: postUrl() }); } catch { /* 공유 창을 닫은 경우 */ }
   };
   const blockUser = async (targetId: string | null | undefined, nickname: string | null | undefined) => {
     const userId = session?.user?.id;
@@ -1353,9 +1384,23 @@ export default function CommunityDetailPage() {
                       <Bookmark size={14} fill={saved ? "#6F3D24" : "none"} />{saved ? "저장됨" : "저장"}
                     </button>
 
-                    <button onClick={sharePost} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: "#444" }}>
-                      <Share2 size={14} />{shareMessage ?? "공유"}
-                    </button>
+                    <span style={{ position: "relative", display: "inline-flex" }}>
+                      <button onClick={sharePost} aria-expanded={shareOpen} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "999px", border: shareOpen ? "1px solid #A05A32" : "1px solid #e5e7eb", background: "white", cursor: "pointer", fontSize: "12px", fontWeight: 700, color: "#444", fontFamily: "inherit" }}>
+                        <Share2 size={14} />{shareMessage ?? "공유"}
+                      </button>
+                      {shareOpen && (
+                        <>
+                          <span onClick={() => setShareOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                          <span role="menu" style={{ position: "absolute", bottom: "calc(100% + 8px)", right: 0, zIndex: 41, minWidth: 168, background: "white", borderRadius: 14, border: "1px solid #E7E1DC", boxShadow: "0 10px 28px rgba(42,28,20,0.16)", padding: 6, display: "grid", gap: 2 }}>
+                            <button role="menuitem" onClick={shareKakao} style={shareItem}><span style={{ width: 22, height: 22, borderRadius: 7, background: "#FEE500", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 900, color: "#3B1E1E" }}>K</span>카카오톡으로 공유</button>
+                            <button role="menuitem" onClick={copyPostLink} style={shareItem}><span style={{ width: 22, height: 22, borderRadius: 7, background: "#F1EFEE", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Share2 size={12} color="#3B2A20" /></span>링크 복사</button>
+                            {typeof navigator !== "undefined" && "share" in navigator && (
+                              <button role="menuitem" onClick={shareOther} style={shareItem}><span style={{ width: 22, height: 22, borderRadius: 7, background: "#F1EFEE", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#3B2A20" }}>⋯</span>다른 앱으로 공유</button>
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </span>
                   </div>
                 </>
               )}
@@ -2023,3 +2068,5 @@ const cancelBtnCom: React.CSSProperties = {
   background: "white", cursor: "pointer", fontSize: "12px",
   fontFamily: "'Noto Sans KR', sans-serif",
 };
+
+const shareItem: React.CSSProperties = { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "9px 10px", borderRadius: 10, border: "none", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#2A1C14", textAlign: "left", fontFamily: "inherit", whiteSpace: "nowrap" };

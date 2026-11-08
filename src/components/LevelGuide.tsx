@@ -75,13 +75,29 @@ export default function LevelGuide() {
       {/* 2. 점수 */}
       <div style={{ borderRadius: 18, border: `1px solid ${LINE}`, background: "white", padding: "20px 18px" }}>
         <SectionTitle no="STEP 2" title="이렇게 하면 점수를 받아요" sub="지도를 실제로 넓혀 주는 활동일수록 점수가 커요. 글·댓글처럼 쉽게 늘릴 수 있는 활동은 하루에 받을 수 있는 횟수가 정해져 있어요." />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(128px, 1fr))", gap: 8 }}>
+        {/* 가장 큰 점수(첫 칸)는 맨 위에 넓게, 나머지 6개는 PC 3칸×2줄 · 휴대폰 2칸×3줄로 딱 맞게(2026-11-08 — 예전엔 6개+1개로 끊겨 보임) */}
+        <style>{`.ggk-lg-points { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); } .ggk-lg-points > .ggk-lg-top { grid-column: 1 / -1; } @media (min-width: 560px) { .ggk-lg-points { grid-template-columns: repeat(3, minmax(0, 1fr)); } }`}</style>
+        <div className="ggk-lg-points">
           {ACTIVITY_ORDER.map((type, i) => {
             const rule = POINT_RULES[type];
             const Icon = ACTIVITY_ICON[type];
             const top = i === 0;
+            if (top) {
+              return (
+                <div key={type} className="ggk-lg-top" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "#F9EFE8", border: "1px solid #EBC8B1" }}>
+                  <span style={{ width: 38, height: 38, borderRadius: 11, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon size={18} color="#F3DA9B" />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800 }}>{rule.label}</div>
+                    <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{rule.dailyLimit ? `하루 ${rule.dailyLimit}번까지` : "가장 큰 점수"}</div>
+                  </div>
+                  <span className="ggk-logo" style={{ fontSize: 22, fontWeight: 800, color: BRAND, flexShrink: 0 }}>+{rule.points}</span>
+                </div>
+              );
+            }
             return (
-              <div key={type} style={{ padding: "13px 13px 12px", borderRadius: 14, background: top ? "#F9EFE8" : "#FCFBF8", border: `1px solid ${top ? "#EBC8B1" : LINE}` }}>
+              <div key={type} style={{ padding: "13px 13px 12px", borderRadius: 14, background: "#FCFBF8", border: `1px solid ${LINE}`, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <span style={{ width: 30, height: 30, borderRadius: 9, background: top ? BRAND : "#EBEAE9", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Icon size={15} color={top ? "#F3DA9B" : "#6b604d"} />

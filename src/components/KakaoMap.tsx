@@ -3386,6 +3386,9 @@ const courseMeta = (route: RouteResult) => ({
         title: "펫츠로드",
         description: "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
         imageUrl: `${window.location.origin}/og-default.png`,
+        // 이미지 크기를 알려 줘야 카톡이 가운데만 잘라 보여 주지 않고 가로로 넓게 다 보여 줍니다(2026-11-08)
+        imageWidth: 1200,
+        imageHeight: 630,
         link: { mobileWebUrl: window.location.href, webUrl: window.location.href },
       },
       buttons: [{ title: "지도 열기", link: { mobileWebUrl: window.location.href, webUrl: window.location.href } }],

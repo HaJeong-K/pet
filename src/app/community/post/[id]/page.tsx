@@ -36,7 +36,8 @@ export async function generateMetadata({
           description,
           url: `${siteUrl}/community/post/${postId}`,
           siteName: "펫츠로드",
-          images: [{ url: image, alt: post.title }],
+          // 기본 공유 그림은 크기를 함께 알려 줘야 메신저가 가운데만 잘라 보여 주지 않습니다
+          images: [{ url: image, alt: post.title, ...(image === DEFAULT_IMAGE ? { width: 1200, height: 630 } : {}) }],
           locale: "ko_KR",
           type: "article",
         },

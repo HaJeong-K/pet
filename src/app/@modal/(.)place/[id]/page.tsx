@@ -216,6 +216,8 @@ export default function ModalPage() {
           ? `${placeAddress ? placeAddress + " · " : ""}반려동물과 함께 갈 수 있는 곳이에요.`
           : "나의 가족인 반려동물과 함께 추억을 나눌 장소를 찾아보세요.",
         imageUrl: placePhoto ?? `${window.location.origin}/api/og/place/${placeId}`,
+        // 사진이 없을 때 쓰는 공유 카드(1200×630)는 크기를 알려 줘야 카톡이 가운데만 잘라 보여 주지 않습니다(2026-11-08)
+        ...(placePhoto ? {} : { imageWidth: 1200, imageHeight: 630 }),
         link: {
           mobileWebUrl: shareUrl,
           webUrl: shareUrl,

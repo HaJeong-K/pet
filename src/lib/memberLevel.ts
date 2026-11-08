@@ -264,3 +264,6 @@ export function updateLevel(previous: LevelState | null, input: LevelInput): Lev
     progress: next ? Math.min(1, Math.max(0, (points - earned.minPoints) / span)) : 1,
   };
 }
+
+/** 닉네임 옆 배지에서 "운영진"을 뜻하는 값(관리자 계정의 글·댓글) — 실제 단계(1~6)와 겹치지 않게 0 */
+export const ADMIN_BADGE_LEVEL = 0;

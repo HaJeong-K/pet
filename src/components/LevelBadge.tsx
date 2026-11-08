@@ -2,7 +2,8 @@
 //
 // 회원 레벨 배지 — 닉네임 옆(작게)과 마이페이지(크게)에서 함께 씁니다.
 // 단계 이름·색은 src/lib/memberLevel.ts의 MEMBER_LEVELS를 그대로 씁니다.
-import { MEMBER_LEVELS } from "@/lib/memberLevel";
+import { ADMIN_BADGE_LEVEL, MEMBER_LEVELS } from "@/lib/memberLevel";
+import { RoleMark } from "@/components/NoticeMarks";
 
 export default function LevelBadge({ level, size = "small", onDark = false }: {
   /** 단계 번호(1~6). 없거나 범위를 벗어나면 아무것도 그리지 않습니다 */
@@ -11,6 +12,8 @@ export default function LevelBadge({ level, size = "small", onDark = false }: {
   /** 어두운 바탕(마이페이지 초록 배너) 위에 올릴 때 — 흰 테두리를 둡니다 */
   onDark?: boolean;
 }) {
+  // 관리자 계정이 쓴 글·댓글 — 레벨 대신 공지와 같은 "운영진" 표시(useMemberLevels가 넘겨줌)
+  if (level === ADMIN_BADGE_LEVEL) return <RoleMark label="운영진" />;
   const info = level != null ? MEMBER_LEVELS[Math.round(level) - 1] : undefined;
   if (!info) return null;
   const large = size === "large";
