@@ -883,14 +883,14 @@ export default function PlaceDetail({
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
     try {
-      const userKey = getUserKey();
-      await supabase.from("reactions").delete().eq("place_id", placeId).eq("user_key", userKey).in("type", ["like", "dislike"]);
+      const next = voteReaction === type ? null : type;
+      const res = await fetch("/api/place-reactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ placeId, userKey: getUserKey(), type: next }) }).catch(() => null);
+      if (!res?.ok) { alert("잠시 후 다시 눌러 주세요."); return; }
       if (voteReaction === type) {
         setVoteReaction(null);
         if (type === "like") setLikesCount((p) => Math.max(0, p - 1));
         else setDislikesCount((p) => Math.max(0, p - 1));
       } else {
-        await supabase.from("reactions").insert([{ place_id: placeId, user_key: userKey, type }]);
         if (voteReaction === "like") setLikesCount((p) => Math.max(0, p - 1));
         if (voteReaction === "dislike") setDislikesCount((p) => Math.max(0, p - 1));
         setVoteReaction(type);

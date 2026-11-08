@@ -8,6 +8,7 @@
 //   · 비밀번호 찾기 : 가입 이메일로 비밀번호 다시 정하기 메일 보내기 → /reset-password
 // 색은 회원가입 화면(오트밀 + 머스터드, components/brand/JoinLayout.tsx의 oat)과 같은 계열입니다.
 
+import { checkEmailExists } from "@/lib/emailCheck";
 import { useState, useSyncExternalStore, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -210,7 +211,7 @@ function LoginPageContent() {
     const target = resetEmail.trim();
     if (!isValidEmail(target)) { setResetMsg({ ok: false, text: "이메일 주소를 다시 확인해 주세요." }); return; }
     setSending(true);
-    const { data: kind } = await supabase.rpc("check_email_exists", { p_email: target });
+    const { data: kind } = await checkEmailExists(target);
     if (kind === "none") {
       setSending(false);
       setResetMsg({ ok: false, text: "이 이메일로 가입된 계정이 없어요. 아이디 찾기를 이용해 보세요." });

@@ -1,5 +1,6 @@
 "use client";
 
+import { checkEmailExists } from "@/lib/emailCheck";
 import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -60,9 +61,7 @@ function SignupPageContent() {
 
     setIsCheckingEmail(true);
 
-    const { data, error } = await supabase.rpc("check_email_exists", {
-      p_email: email,
-    });
+    const { data, error } = await checkEmailExists(email);
 
     setIsCheckingEmail(false);
 

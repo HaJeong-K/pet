@@ -1,5 +1,6 @@
 "use client";
 
+import { checkEmailExists } from "@/lib/emailCheck";
 import { useState, useEffect } from "react";
 import OwnerBizInfoFields, { useOwnerBizInfo, requestOwnerAutoVerify } from "@/components/OwnerBizInfoFields";
 import { isCompleteBizInfo } from "@/lib/ownerBizInfo";
@@ -136,7 +137,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
   const checkEmailDuplicate = async () => {
     if (!email || !isValidEmail(email)) return;
     setIsCheckingEmail(true);
-    const { data, error } = await supabase.rpc("check_email_exists", { p_email: email });
+    const { data, error } = await checkEmailExists(email);
     setIsCheckingEmail(false);
     if (error) {
       console.error("이메일 중복검사 오류:", error);
