@@ -193,7 +193,7 @@ export default function StayClient({ initial = null }: { initial?: Stay[] | null
             {bookable.length > 0 && (
               <section style={{ marginTop: 30 }}>
                 <h2 className="ggk-logo" style={{ margin: 0, fontSize: 20, fontWeight: 800, color: INK }}>펫츠로드에서 바로 예약</h2>
-                <div style={{ fontSize: 14, color: SUB, marginTop: 4 }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.</div>
+                <div style={{ fontSize: 14, color: SUB, marginTop: 4, lineHeight: 1.6 }}>날짜를 고르고 반려동물 정보만 적으면 예약 끝.<br />추가 요금까지 한 번에 결제, <b style={{ color: INK }}>현장 결제 없음</b></div>
                 <div className="stay-picks" style={{ marginTop: 18 }}>
                   {(showAllPicks ? bookable : bookable.slice(0, PICKS)).map((s) => (
                     <button key={s.id} data-guide="stay-card" onClick={() => open(s)} style={{ minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", padding: 0, border: `1px solid ${LINE}`, borderRadius: 14, overflow: "hidden", background: "white", cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: INK }}>

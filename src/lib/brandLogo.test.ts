@@ -23,7 +23,7 @@ describe("로고 고정", () => {
     expect(existsSync(join(process.cwd(), "public", LOGO_SRC))).toBe(true);
   });
   it("로고 그림 주소는 BrandLogo에서만 쓴다", () => {
-    const offenders = all.filter((f) => f.path !== "components/brand/BrandLogo.tsx" && /petsroad_(lockup|logo)\w*\.png/.test(f.text)).map((f) => f.path);
+    const offenders = all.filter((f) => f.path !== "components/brand/BrandLogo.tsx" && /petsroad_(lockup|logo)\w*\.(png|svg)/.test(f.text)).map((f) => f.path);
     expect(offenders).toEqual([]);
   });
 });

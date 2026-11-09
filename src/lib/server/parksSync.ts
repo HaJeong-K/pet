@@ -91,6 +91,20 @@ export async function syncParks(): Promise<{ fetched: number; upserted: number }
     await sleep(200);
   }
 
+  // 관리번호(manageNo)는 전국에서 하나뿐인 번호가 아닙니다 — 관리 기관이 다르면 같은 번호를 씁니다
+  // (예: 대구 "두류공원"(두류공원관리사무소)과 "한빛어린이공원"(달서구청)이 둘 다 27290-00179).
+  // 예전에는 번호만 보고 같은 공원으로 여겨 두류공원 같은 큰 공원이 빠졌습니다(2026-11-09 수정).
+  // 이미 저장된 공원은 번호(=장소 번호)가 바뀌지 않게 원래 키를 그대로 쓰고,
+  // 같은 번호에 이름이 다른 공원만 "번호|이름" 키로 따로 저장합니다.
+  const existingName = new Map<string, string>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("parks").select("source_key, name").range(from, from + 999);
+    if (error) throw new Error(`기존 공원 목록 읽기 실패: ${error.message}`);
+    for (const r of data ?? []) existingName.set(r.source_key, r.name);
+    if (!data || data.length < 1000) break;
+  }
+  const plainOwner = new Map<string, string>(); // 이번 동기화에서 원래 키를 차지한 공원 이름
+
   const seen = new Set<string>();
   const rows: any[] = [];
   for (const item of all) {
@@ -101,12 +115,17 @@ export async function syncParks(): Promise<{ fetched: number; upserted: number }
     if (!name || !Number.isFinite(latNum) || !Number.isFinite(lngNum) || (latNum === 0 && lngNum === 0)) continue;
     const manageNo = pick(item, "manageNo", "MANAGE_NO").trim();
     const address = pick(item, "rdnmadr", "RDNMADR", "lnmadr", "LNMADR").trim();
-    const dedupe = manageNo || `${name}|${address}`;
-    if (seen.has(dedupe)) continue;
-    seen.add(dedupe);
+    const base = `park-${manageNo || `${name}|${address}`}`;
+    const stored = existingName.get(base);
+    const owner = plainOwner.get(base);
+    const takesPlain = stored ? stored === name : (owner === undefined || owner === name);
+    const sourceKey = takesPlain ? base : `${base}|${name}`;
+    if (takesPlain) plainOwner.set(base, name);
+    if (seen.has(sourceKey)) continue;
+    seen.add(sourceKey);
     const parkAr = pick(item, "parkAr", "PARK_AR");
     rows.push({
-      source_key: `park-${dedupe}`,
+      source_key: sourceKey,
       name,
       category: pick(item, "parkSe", "PARK_SE").trim() || "공원",
       address,

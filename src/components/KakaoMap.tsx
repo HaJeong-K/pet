@@ -726,9 +726,12 @@ export default function KakaoMap() {
     setShowRecommendPanel(false);
     setShowRoutePanel(false);
   };
+  // 손잡이뿐 아니라 패널 제목 줄을 잡고 끌어도 올라오게 합니다(2026-11-09 — 손잡이가 작아 잘 안 잡혔음).
+  // 제목 줄 안의 버튼·입력칸을 누른 것은 끌기로 보지 않아 그 버튼은 그대로 눌립니다.
   const onSheetPointerDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, select, textarea, [data-no-sheet-drag]") && e.target !== e.currentTarget) return;
     sheetDragRef.current = { startY: e.clientY, startPx: sheetPx, moved: false };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* 이미 끝난 포인터 */ }
   };
   const onSheetPointerMove = (e: React.PointerEvent) => {
     const d = sheetDragRef.current;
@@ -788,17 +791,20 @@ export default function KakaoMap() {
     boxSizing: "border-box",
     transition: sheetDragPx == null ? "height 0.25s ease" : "none",
   });
+  const sheetDragProps = {
+    onPointerDown: onSheetPointerDown,
+    onPointerMove: onSheetPointerMove,
+    onPointerUp: onSheetPointerUp,
+    onPointerCancel: () => { sheetDragRef.current = null; setSheetDragPx(null); },
+  };
   const renderSheetHandle = () => (
     <div
-      onPointerDown={onSheetPointerDown}
-      onPointerMove={onSheetPointerMove}
-      onPointerUp={onSheetPointerUp}
-      onPointerCancel={() => { sheetDragRef.current = null; setSheetDragPx(null); }}
+      {...sheetDragProps}
       role="button"
       aria-label={sheetSnap === "full" ? "목록 줄이기" : "목록 더 보기"}
       title={sheetClosable ? "끌어서 크기 조절 · 끝까지 내리면 닫혀요" : "끌어서 크기 조절"}
       style={{
-        position: "sticky", top: 0, zIndex: 3, height: 22, background: "white",
+        position: "sticky", top: 0, zIndex: 3, height: 28, background: "white",
         display: "flex", alignItems: "center", justifyContent: "center",
         touchAction: "none", cursor: "grab",
       }}
@@ -4285,7 +4291,9 @@ const courseMeta = (route: RouteResult) => ({
       >
         {isNarrowScreen && renderSheetHandle()}
         <div
+          {...(isNarrowScreen ? sheetDragProps : {})}
           style={{
+            ...(isNarrowScreen ? { touchAction: "none" as const } : {}),
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",

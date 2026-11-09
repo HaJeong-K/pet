@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 같이가개 안드로이드 앱 파일(APK) 만들기 — Git Bash에서 `bash mobile/android/build-apk.sh`
+# 펫츠로드 안드로이드 앱 파일(APK) 만들기 — Git Bash에서 `bash mobile/android/build-apk.sh`
 # 하는 일: ① 앱 빌드(Gradle) ② 정렬(zipalign) ③ 서명 열쇠로 서명(apksigner) ④ 서명 확인
 # 필요한 것: 자바 17, Android SDK(기본 위치 C:/Users/<사용자>/android-sdk), 서명 열쇠(keys/ — git에 올리지 않음)
 set -euo pipefail
@@ -10,7 +10,7 @@ BUILD_TOOLS="$SDK/build-tools/35.0.0"
 KEYSTORE="keys/gachigagae-release.jks"
 PASSWORD_FILE="keys/keystore-password.txt"
 VERSION="$(grep -o '"appVersionName": *"[^"]*"' twa-manifest.json | sed 's/.*"\([^"]*\)"$/\1/')"
-OUT="gachigagae-$VERSION.apk"
+OUT="petsroad-$VERSION.apk"
 
 [ -d "$BUILD_TOOLS" ] || { echo "Android SDK를 찾을 수 없어요: $BUILD_TOOLS"; exit 1; }
 [ -f "$KEYSTORE" ] && [ -f "$PASSWORD_FILE" ] || { echo "서명 열쇠가 없어요: $KEYSTORE (백업해 둔 keys 폴더를 이 자리에 넣어 주세요)"; exit 1; }

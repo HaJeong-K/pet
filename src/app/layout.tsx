@@ -88,7 +88,7 @@ export default function RootLayout({
           }}
         />
         {/* 불러오는 화면의 로고 그림 — 화면이 그려지자마자 보이도록 미리 받습니다. */}
-        <link rel="preload" as="image" href="/icons/logo_mark.png" />
+        <link rel="preload" as="image" href="/icons/logo_mark.svg" />
         {/* ⚠ 속도("지도 먼저"): 지도 엔진(카카오맵)을 다른 코드보다 먼저 받고, 지도 화면으로 들어온 경우에는 엔진이
             준비되는 즉시 지도부터 그립니다 — 화면의 나머지 코드(검색·목록·버튼 등)가 준비되기를 기다리지 않습니다.
             지난번 위치가 저장돼 있으면 그곳, 없으면 서울시청이 가운데입니다. 이렇게 먼저 만든 지도는 KakaoMap.tsx의

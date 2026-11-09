@@ -21,8 +21,8 @@
     "path": "./keys/gachigagae-release.jks",
     "alias": "gachigagae"
   },
-  "appVersionName": "0.1.6",
-  "appVersionCode": 7,
+  "appVersionName": "0.1.7",
+  "appVersionCode": 8,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://gachigagae.vercel.app/manifest.webmanifest",

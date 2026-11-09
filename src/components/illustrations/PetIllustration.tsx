@@ -1,12 +1,12 @@
 "use client";
 
 // 펫츠로드 로고 그림(핀 속 슈나우저) — 빈 화면("아직 찜한 장소가 없어요" 등)에 쓰는 작은 그림입니다.
-// 앱 아이콘·헤더 로고·공유 그림과 같은 핀 로고 하나로 통일했습니다(public/icons/logo_mark.png).
+// 앱 아이콘·헤더 로고·공유 그림과 같은 핀 로고 하나로 통일했습니다(public/icons/logo_mark.svg).
 // 예전의 손그림 슈나우저 두 마리 그림은 더 이상 쓰지 않습니다.
 
 type Variant = "empty" | "hero" | "success" | "search" | "header";
 
-const MARK_SRC = "/icons/logo_mark.png";
+const MARK_SRC = "/icons/logo_mark.svg"; // 벡터 — 확대해도 깨지지 않음(2026-11-09)
 /** 그림의 가로:세로 비율(304×360) */
 const MARK_RATIO = 360 / 304;
 

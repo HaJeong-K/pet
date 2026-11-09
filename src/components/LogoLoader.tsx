@@ -5,7 +5,7 @@
 // 예전에는 "불러오는 중..." 글자만 있거나 회색 뼈대 화면이었습니다.
 // (움직임을 줄이도록 설정한 기기에서는 튀지 않고 가만히 있습니다.)
 
-const MARK_SRC = "/icons/logo_mark.png";
+const MARK_SRC = "/icons/logo_mark.svg"; // 벡터 — 확대해도 깨지지 않음(2026-11-09)
 
 export default function LogoLoader({
   label = "불러오는 중…",

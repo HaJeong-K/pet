@@ -137,6 +137,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             {place.category && <span style={tag}>{place.category}</span>}
             {place.premium && <span style={{ ...tag, background: "#FEF3C7", color: "#92400E", display: "inline-flex", alignItems: "center", gap: 3 }}><Crown size={11} />PREMIUM</span>}
             <span style={{ ...tag, background: BLUE, color: "white" }}>펫츠로드 바로 예약</span>
+            {/* 반려동물·추가 인원 요금까지 예약할 때 모두 결제 → 현장에서 따로 내지 않음(2026-11-08) */}
+            <span title="반려동물·추가 인원 요금까지 예약할 때 모두 결제해요" style={{ ...tag, background: "white", color: BLUE, border: `1px solid ${BLUE}`, padding: "3px 8px" }}>현장 추가 요금 없음</span>
           </div>
           <h1 className="ggk-logo" style={{ margin: "8px 0 0", fontSize: 23, fontWeight: 800, color: "#222", lineHeight: 1.35 }}>{place.name}</h1>
           <button onClick={() => jump("stay-reviews")} style={{ marginTop: 6, padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}>

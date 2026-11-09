@@ -345,7 +345,13 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
       >
         <AdRailLeft />
 
+        {/* 휴대폰: 쇼핑·입양 탭처럼 화면 전체가 함께 스크롤(머리말·게시판 고르기가 위에 고정되지 않게) — 2026-11-09 */}
+        <style>{`@media (max-width: 767px) {
+          .ggk-cm-shell { height: auto !important; overflow: visible !important; }
+          .ggk-cm-feed { flex: none !important; overflow: visible !important; }
+        }`}</style>
         <div
+          className="ggk-cm-shell"
           style={{
             // 가운데 칸 고정 — 좌우 광고 레일은 좁은 화면에서 display:none이라 칸을 차지하지 않아, 지정하지 않으면
             // 본문이 폭 0px인 첫 칸으로 밀려 휴대폰에서 화면이 텅 비어 보였습니다.
@@ -773,6 +779,7 @@ export default function CommunityClient({ initial = null }: { initial?: Communit
               메인 피드(main-col)와 광고 사이드바(side-col)를 한 컨테이너 안에서
               나란히 배치합니다 (기존엔 컨테이너 바깥 좌우에 별도 광고바가 있었습니다). */}
           <div
+            className="ggk-cm-feed"
             style={{
               flex: 1,
               padding: "16px 28px 0px",
