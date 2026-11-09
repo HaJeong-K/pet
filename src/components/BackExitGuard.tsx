@@ -8,6 +8,9 @@
 //   · 뒤로 가기 1번 → 지킴이 칸이 빠지며 바로 아래 칸으로 → 화면은 그대로 두고 안내만 띄움
 //   · 2초 안에 또 → 더 내려갈 기록이 없어 안드로이드 앱이 닫힘
 //   · 2초가 지나면 지킴이 칸을 다시 올림
+//   ⚠ 아래 칸 밑에 예전 기록이 더 남아 있으면 두 번째 뒤로 가기가 이전 화면으로 가 버립니다(2026-11-09 실제 발생).
+//     그래서 첫 번째 뒤로 가기 때 이 페이지 안에서 쌓인 기록의 맨 처음 칸까지 한 번에 내려가 그 칸을
+//     지금 화면으로 바꿔 둡니다 → 두 번째 뒤로 가기 때 더 내려갈 곳이 없어 앱이 닫힙니다. 지나온 기록도 이때 모두 정리됩니다.
 // 아래 탭은 앱·휴대폰에서 기록을 쌓지 않고 바꿔 끼우므로(TabBar — router.replace) 탭을 오가도 기록이 늘지 않습니다.
 // 상세 화면(장소·글 등)에서는 뒤로 가기가 원래대로 이전 화면으로 갑니다.
 // 설치한 앱에서만 동작합니다(일반 브라우저에서는 뒤로 가기를 막지 않음 — src/lib/appMode.ts).
@@ -29,6 +32,7 @@ export default function BackExitGuard() {
   const lastLength = useRef(0);
   const armedTimer = useRef<number | null>(null);
   const viaPop = useRef(false);
+  const jumpingToFirst = useRef(false); // 맨 처음 칸으로 내려가는 중
 
   const pushGuard = () => {
     const st = (window.history.state as HistState) ?? {};
@@ -43,17 +47,41 @@ export default function BackExitGuard() {
     enabled.current = true;
     lastLength.current = window.history.length;
 
+    const cleanSaved = () => {
+      const saved = guardedState.current;
+      const clean: Record<string, unknown> = { ...(saved ?? {}) };
+      delete clean[FLAG];
+      return clean;
+    };
+
     const onPop = (e: PopStateEvent) => {
       const path = window.location.pathname;
+      if (jumpingToFirst.current) {
+        // 맨 처음 칸에 도착 — 라우터가 그 칸의 옛 화면으로 이동하지 않게 막고, 지금 화면으로 바꿔 둡니다.
+        e.stopImmediatePropagation();
+        jumpingToFirst.current = false;
+        window.history.replaceState(cleanSaved(), "", guardedUrl.current ?? window.location.href);
+        return;
+      }
       if (inGuardSlot.current && guardedPath.current && isRootTabPath(guardedPath.current)) {
         // 지킴이 칸이 빠졌습니다 → 화면은 그대로 두고(라우터가 이동하지 않게) 안내를 띄웁니다.
         e.stopImmediatePropagation();
         inGuardSlot.current = false;
-        const saved = guardedState.current;
-        if (saved) {
-          const clean: Record<string, unknown> = { ...saved };
-          delete clean[FLAG];
-          window.history.replaceState(clean, "", guardedUrl.current ?? window.location.href);
+        window.history.replaceState(cleanSaved(), "", guardedUrl.current ?? window.location.href);
+        // 이 칸 밑에 기록이 더 있으면 맨 처음 칸으로 한 번에 내려갑니다(크롬 Navigation API — 안드로이드 앱은 크롬으로 동작).
+        // 같은 페이지 안에서 쌓인 기록까지만 내려갑니다 — 새로 불러온 페이지(로그인 이동·새로고침 등)의 기록으로 넘어가면
+        // 그 페이지를 다시 불러오게 되므로 그 앞에서 멈춥니다.
+        type NavEntry = { index: number; sameDocument: boolean };
+        const nav = (window as unknown as { navigation?: { currentEntry?: NavEntry; entries?: () => NavEntry[] } }).navigation;
+        const cur = nav?.currentEntry;
+        if (cur && nav?.entries && cur.index > 0) {
+          const list = nav.entries();
+          let first = cur.index;
+          while (first > 0 && list[first - 1]?.sameDocument) first--;
+          if (first < cur.index) {
+            jumpingToFirst.current = true;
+            window.history.go(first - cur.index);
+          }
         }
         setToast(true);
         if (armedTimer.current) window.clearTimeout(armedTimer.current);
