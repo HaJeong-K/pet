@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Map, Users, ShieldCheck, User, LogIn, PawPri
 import { getOwnerTab, getOwnerTabOnServer, setOwnerTab, subscribeOwnerTab } from "@/lib/ownerTab";
 import { supabase } from "@/lib/supabase";
 import { playBark } from "@/lib/ownerAlertSound";
+import { isMobileLike } from "@/lib/appMode";
 import { isMissingOwnerKind, ownerKindOf } from "@/lib/ownerKind";
 
 /** 아래 탭에 필요한 내 계정 정보(사장님 유형 칸이 아직 없으면 유형 없이 — 가게로 봅니다) */
@@ -199,6 +200,10 @@ export default function TabBar() {
   // 대시보드·예약·상품·광고는 바로 누를 수 있게 하고, 마지막 칸으로 손님 화면(지도)에 돌아갑니다.
   const inOwnerCenter = pathname.startsWith("/owner") && (isOwner || isAdmin);
 
+  // 휴대폰·앱에서는 탭을 오가도 방문 기록을 쌓지 않습니다(바꿔 끼우기) — 다른 앱처럼 뒤로 가기가 탭 사이를 거슬러 가지 않고,
+  // 탭 첫 화면에서 뒤로 가기 두 번이면 앱이 닫힙니다(src/components/BackExitGuard.tsx). PC 브라우저는 그대로 쌓습니다.
+  const goTab = (path: string) => (isMobileLike() ? router.replace(path) : router.push(path));
+
   const activeTab = inOwnerCenter ? `owner-${ownerTab}` : getActiveTab();
 
   const tabs = inOwnerCenter && isOwner && isLodgingOwner ? [
@@ -206,36 +211,36 @@ export default function TabBar() {
     { key: "owner-stays",        label: "예약",     icon: CalendarDays,  onClick: () => setOwnerTab("stays"),        isReport: false, badge: waitingReservations },
     { key: "owner-lodging",      label: "객실",     icon: BedDouble,     onClick: () => setOwnerTab("lodging"),      isReport: false },
     { key: "owner-ads",          label: "광고",     icon: Crown,         onClick: () => setOwnerTab("ads"),          isReport: false },
-    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => router.push("/"),            isReport: false },
+    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => goTab("/"),            isReport: false },
   ] : inOwnerCenter ? [
     { key: "owner-dashboard",    label: "홈",       icon: Store,         onClick: () => setOwnerTab("dashboard"),    isReport: false },
     { key: "owner-reservations", label: "예약",     icon: ClipboardList, onClick: () => setOwnerTab("reservations"), isReport: false, badge: waitingReservations },
     { key: "owner-products",     label: "상품",     icon: Package,       onClick: () => setOwnerTab("products"),     isReport: false },
     { key: "owner-ads",          label: "광고",     icon: Crown,         onClick: () => setOwnerTab("ads"),          isReport: false },
-    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => router.push("/"),            isReport: false },
+    { key: "owner-exit",         label: "손님 화면", icon: Map,           onClick: () => goTab("/"),            isReport: false },
   ] : [
-    { key: "map",       label: "맵",      icon: Map,      onClick: () => router.push("/"),                isReport: false },
+    { key: "map",       label: "맵",      icon: Map,      onClick: () => goTab("/"),                isReport: false },
     // 반려동물 동반 숙소 찾기·예약(/stay) — 숙박 앱처럼 쓰고 싶은 사람을 위한 탭
-    { key: "stay",      label: "숙소",     icon: BedDouble, onClick: () => router.push("/stay"),          isReport: false },
+    { key: "stay",      label: "숙소",     icon: BedDouble, onClick: () => goTab("/stay"),          isReport: false },
     // 동네 가게가 올린 상품을 모아 보고 예약 포장을 넣는 화면(/shop)
     // ⚠ 순서(2026-11-06 대표 결정): 지도 · 숙소 · 쇼핑 · 커뮤니티 · 입양 · 마이페이지 — 수익이 나는 숙소·쇼핑을 첫 화면 바로 옆에 둡니다.
-    { key: "shop",      label: "쇼핑",     icon: ShoppingBag, onClick: () => router.push("/shop"),         isReport: false },
-    { key: "community", label: "커뮤니티", icon: Users,    onClick: () => router.push("/community"),       isReport: false },
+    { key: "shop",      label: "쇼핑",     icon: ShoppingBag, onClick: () => goTab("/shop"),         isReport: false },
+    { key: "community", label: "커뮤니티", icon: Users,    onClick: () => goTab("/community"),       isReport: false },
     // 유기동물 보호소 공고(전체 목록·지역 알림) — 탭으로 유지(2026-11-06 대표 결정)
-    { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => router.push("/shelter-notices"), isReport: false },
+    { key: "adopt",     label: "입양",     icon: PawPrint, onClick: () => goTab("/shelter-notices"), isReport: false },
     ...(isAdmin ? [
-      { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => router.push("/admin"), isReport: true },
+      { key: "admin", label: "관리자", icon: ShieldCheck, onClick: () => goTab("/admin"), isReport: true },
     ] : []),
     // 인증된 사장님 전용 — 가게 성과·후기 답글·광고 상품(관리자 탭과 같은 자리).
     // 관리자에게도 보여서, 사장님 화면을 그대로 확인하고 사장님 요청이 있을 때 대신 처리할 수 있습니다.
     ...(isOwner || isAdmin ? [
-      { key: "owner", label: "사장님", icon: Store, onClick: () => router.push("/owner"), isReport: false, badge: waitingReservations + unansweredReviews },
+      { key: "owner", label: "사장님", icon: Store, onClick: () => goTab("/owner"), isReport: false, badge: waitingReservations + unansweredReviews },
     ] : []),
     {
       key:      isLoggedIn ? "mypage" : "login",
       label:    isLoggedIn ? "마이페이지" : "로그인",
       icon:     isLoggedIn ? User : LogIn,
-      onClick:  () => router.push(isLoggedIn ? "/mypage" : "/login"),
+      onClick:  () => (isLoggedIn ? goTab("/mypage") : router.push("/login")),
       isReport: false,
       badge:    isLoggedIn ? unreadNotices : 0,
     },
