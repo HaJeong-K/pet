@@ -33,7 +33,7 @@ const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 800, color: "#4
 const fmtDate = (s: string) => new Date(s).toLocaleDateString("ko-KR", { month: "long", day: "numeric" });
 const REQUEST_LABEL: Record<ChangeRequest["status"], { text: string; bg: string; color: string }> = {
   pending: { text: "확인 중", bg: "#FEF3C7", color: "#92400E" },
-  approved: { text: "승인됨", bg: "#DCFCE7", color: "#15803D" },
+  approved: { text: "승인됨", bg: "#FCF1E9", color: "#85482A" },
   rejected: { text: "거절됨", bg: "#FEE2E2", color: "#B91C1C" },
 };
 
@@ -218,7 +218,7 @@ export default function OwnerBannerEditor({ placeId, isPreview, canAct }: { plac
             : <>배너는 2주에 한 번 바꿀 수 있어요. <b style={{ color: "#B45309" }}>{allowance.nextChangeAt ? fmtDate(allowance.nextChangeAt) : ""}</b>부터 다시 바꿀 수 있어요({allowance.daysLeft}일 남음).</>}
         </span>
       </div>
-      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c", lineHeight: 1.55 }}>{message.text}</div>}
+      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c", lineHeight: 1.55 }}>{message.text}</div>}
 
       {/* 한도 변경 요청 — 잘못 저장했을 때 */}
       {saved && !isPreview && canAct && !allowance.allowed && (

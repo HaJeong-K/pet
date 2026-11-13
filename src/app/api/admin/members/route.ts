@@ -3,13 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { deleteAccount } from "@/lib/server/deleteAccount";
 import { isMissingOwnerKind, ownerKindOf } from "@/lib/ownerKind";
-import { APPEAL_DAYS, countsAsStrike, isBlocking, nextSanction, type SanctionRow } from "@/lib/sanctions";
+import { countsAsStrike, isBlocking, nextSanction, type SanctionRow } from "@/lib/sanctions";
 import { notifyGuest } from "@/lib/server/guestNotify";
+import { applySanction, authorOfContent } from "@/lib/server/sanctions";
 
 // 관리자 전용: 가입 회원 관리
 //   GET                         → 가입 회원 목록 + 회원별 활동(후기·답글·글·댓글 수)과 신고받은 횟수, 관리자가 지운 글 수
 //   POST { action: "remove", authUserId } → 강제 탈퇴(되돌릴 수 없음 — 관리자 본인·다른 관리자는 불가)
 //   POST { action: "sanction", authUserId, reason, severe? } → 위반 1회 기록 + 단계별 제재(경고 → 7일 → 30일 → 영구, src/lib/sanctions.ts). 회원에게 알림
+//        authUserId 대신 { contentType, contentId }(신고된 글)를 주면 그 글의 작성자에게 적용(신고 화면에서 씀)
 //   POST { action: "lift", authUserId, reason } → 진행 중인 제재 해제(이의 인정 — 위반 횟수에서도 빠짐)
 //   제재 표: scripts/sql/member-sanctions.sql (실행 전이면 제재 기능만 꺼져 있음)
 // 신고는 "어떤 글이 신고됐는지"만 저장돼 있어서, 그 글의 작성자를 찾아 회원별로 셉니다.
@@ -122,7 +124,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const adminUser = await requireAdmin(req);
   if (!adminUser) return NextResponse.json({ error: "관리자 권한 없음" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { action?: string; authUserId?: string; reason?: string; severe?: boolean };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; authUserId?: string; reason?: string; severe?: boolean; contentType?: string; contentId?: string };
+  if (body.action === "sanction" && !body.authUserId && body.contentType && body.contentId) {
+    const author = await authorOfContent(String(body.contentType), String(body.contentId));
+    if (!author) return NextResponse.json({ error: "비회원이 쓴 글이거나 작성자를 찾을 수 없어 위반을 기록할 수 없어요." }, { status: 400 });
+    body.authUserId = author;
+  }
   if (!["remove", "sanction", "lift"].includes(body.action ?? "") || !body.authUserId) return NextResponse.json({ error: "요청이 올바르지 않아요." }, { status: 400 });
   if (body.authUserId === adminUser.id) return NextResponse.json({ error: "본인 계정에는 할 수 없어요." }, { status: 400 });
 
@@ -147,19 +154,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    const step = nextSanction(list.filter((r) => countsAsStrike(r)).length, !!body.severe);
-    const endsAt = step.stage === "suspend" && step.days ? new Date(Date.now() + step.days * 86_400_000).toISOString() : null;
-    const { error } = await supabaseAdmin.from("member_sanctions").insert({
-      auth_user_id: body.authUserId, stage: step.stage, days: step.days, reason, severe: !!body.severe, ends_at: endsAt, created_by: adminUser.id,
-    });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    const appeal = `이의가 있으면 ${APPEAL_DAYS}일 안에 문의하기로 알려 주세요.`;
-    const notice =
-      step.stage === "warning" ? { title: "운영정책 위반 경고", body: `사유: ${reason} · 같은 위반이 반복되면 글쓰기가 제한돼요. ${appeal}` } :
-      step.stage === "suspend" ? { title: `${step.days}일 동안 글쓰기가 제한돼요`, body: `사유: ${reason} · 글·댓글·후기 작성이 ${step.days}일 동안 제한돼요. ${appeal}` } :
-      { title: "글쓰기가 영구 제한됐어요", body: `사유: ${reason} · 글·댓글·후기 작성이 영구 제한돼요. ${appeal}` };
-    await notifyGuest(body.authUserId, { kind: "sanction", ...notice, url: "/mypage" });
-    return NextResponse.json({ ok: true, applied: step.label });
+    const result = await applySanction({ authUserId: body.authUserId, reason, severe: !!body.severe, adminId: adminUser.id });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json({ ok: true, applied: result.applied });
   }
 
   try {

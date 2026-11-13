@@ -350,7 +350,7 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
                   </div>
                   {canAct && (
                     <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
-                      {detail && <button onClick={() => quick({ id: p.id, sold_out: !p.sold_out })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: p.sold_out ? "#15803D" : "#B91C1C", cursor: "pointer", fontFamily: "inherit" }}>{p.sold_out ? "품절 풀기" : "품절"}</button>}
+                      {detail && <button onClick={() => quick({ id: p.id, sold_out: !p.sold_out })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: p.sold_out ? "#85482A" : "#B91C1C", cursor: "pointer", fontFamily: "inherit" }}>{p.sold_out ? "품절 풀기" : "품절"}</button>}
                       <button onClick={() => quick({ id: p.id, is_active: !p.is_active })} disabled={busy !== ""} style={{ padding: "6px 10px", borderRadius: 9, border: "1px solid #e2e4e8", background: "white", fontSize: 11.5, fontWeight: 700, color: "#555", cursor: "pointer", fontFamily: "inherit" }}>{p.is_active ? "판매 중지" : "다시 판매"}</button>
                     </div>
                   )}

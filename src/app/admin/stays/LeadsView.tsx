@@ -21,7 +21,7 @@ const STATUS: Record<LeadStatus, { label: string; bg: string; color: string }> =
   contacted: { label: "연락함", bg: "#DBEAFE", color: "#1D4ED8" },
   interested: { label: "관심 있음", bg: "#FEF3C7", color: "#92400E" },
   declined: { label: "거절", bg: "#FEE2E2", color: "#991B1B" },
-  joined: { label: "입점함", bg: "#DCFCE7", color: "#166534" },
+  joined: { label: "입점함", bg: "#FCF1E9", color: "#85482A" },
 };
 const card: React.CSSProperties = { background: "white", borderRadius: 14, border: "1px solid #E7E6E5", padding: "12px 14px" };
 const PAGE = 40;
@@ -92,7 +92,7 @@ export default function LeadsView() {
           ))}
         </div>
       </div>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
       {rows && list.length === 0 && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>조건에 맞는 숙소가 없어요.</div>}
       {list.slice(0, limit).map((r) => {

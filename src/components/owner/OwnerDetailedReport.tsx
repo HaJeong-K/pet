@@ -75,7 +75,7 @@ function CompareTable({ ours, other, oursLabel, otherLabel }: { ours: Metrics; o
             <td style={tdS}>{label(k)}</td>
             <td style={{ ...tdS, textAlign: "right", fontWeight: 800 }}>{n(ours[k])}</td>
             <td style={{ ...tdS, textAlign: "right" }}>{n(other[k])}</td>
-            <td style={{ ...tdS, textAlign: "right", fontWeight: 700, color: ours[k] >= other[k] ? "#15803D" : "#B91C1C" }}>{changeText(ours[k], other[k])}</td>
+            <td style={{ ...tdS, textAlign: "right", fontWeight: 700, color: ours[k] >= other[k] ? "#85482A" : "#B91C1C" }}>{changeText(ours[k], other[k])}</td>
           </tr>
         ))}
       </tbody>
@@ -134,7 +134,7 @@ export default function OwnerDetailedReport({ r, screen = false }: { r: Detailed
             <div key={k} style={{ border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 10px" }}>
               <div style={{ fontSize: 11, color: SUB, fontWeight: 700 }}>{k}</div>
               <div style={{ fontSize: 22, fontWeight: 900 }}>{n(v)}</div>
-              <div style={{ fontSize: 11, color: v >= p ? "#15803D" : "#B91C1C", fontWeight: 700 }}>직전 30일 {n(p)} → {changeText(v, p)}</div>
+              <div style={{ fontSize: 11, color: v >= p ? "#85482A" : "#B91C1C", fontWeight: 700 }}>직전 30일 {n(p)} → {changeText(v, p)}</div>
               <div style={{ fontSize: 11, color: SUB }}>하루 평균 {dayAvg(v)}</div>
             </div>
           ))}
@@ -205,7 +205,7 @@ export default function OwnerDetailedReport({ r, screen = false }: { r: Detailed
                   <td style={{ ...tdS, fontWeight: 700 }}>{k === "views" ? "상세 조회" : "클릭"}</td>
                   <td style={{ ...tdS, textAlign: "right", fontWeight: 800 }}>{n(sum(last7, k))}</td>
                   <td style={{ ...tdS, textAlign: "right" }}>{n(sum(prev7, k))}</td>
-                  <td style={{ ...tdS, textAlign: "right", fontWeight: 700, color: sum(last7, k) >= sum(prev7, k) ? "#15803D" : "#B91C1C" }}>{changeText(sum(last7, k), sum(prev7, k))}</td>
+                  <td style={{ ...tdS, textAlign: "right", fontWeight: 700, color: sum(last7, k) >= sum(prev7, k) ? "#85482A" : "#B91C1C" }}>{changeText(sum(last7, k), sum(prev7, k))}</td>
                 </tr>
               ))}
             </tbody>

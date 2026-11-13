@@ -77,7 +77,7 @@ export default function PremiumCancelDialog({ plan, expiresText, offerAvailable,
             <div className="ggk-logo" style={{ fontSize: 19, fontWeight: 800, color: "#222", paddingRight: 36 }}>정말 해지할까요?</div>
             {refundAmount > 0 ? (
               <div style={{ fontSize: 13, color: "#555", marginTop: 10, lineHeight: 1.75 }}>
-                지금 해지하면 <b style={{ color: "#15803D" }}>{won(refundAmount)}</b>을 돌려드려요.<br />
+                지금 해지하면 <b style={{ color: "#85482A" }}>{won(refundAmount)}</b>을 돌려드려요.<br />
                 <span style={{ fontSize: 12, color: "#5c5c5c" }}>{refundText}</span><br />
                 환불되는 대신 {PLAN_NAME[plan]} 혜택은 <b>해지한 날 바로</b> 끝나고, 아래 혜택이 사라져요.
               </div>

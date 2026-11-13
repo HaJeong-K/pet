@@ -70,7 +70,7 @@ function FieldRow({
 
   const displayValue = () => {
     if (fieldKey === "large_dog") {
-      if (value === true)  return <span style={{ color:"#15803d", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><CheckCircle2 size={13}/>가능</span>;
+      if (value === true)  return <span style={{ color:"#85482A", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><CheckCircle2 size={13}/>가능</span>;
       if (value === false) return <span style={{ color:"#dc2626", fontWeight:600, display:"flex", alignItems:"center", gap:4 }}><XCircle size={13}/>불가</span>;
       return <span style={{ color:"#707070" }}>미입력</span>;
     }
@@ -364,7 +364,7 @@ export default function AdminProposalsPage() {
               {([
                 { key:"pending",  label:"미처리",   count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#A05A32", activeBg:"#F8E6D9" },
                 { key:"on_hold",  label:"보류",      count: onHoldList.length,   icon: <PauseCircle size={13}/>,  activeColor:"#f59e0b", activeBg:"#fef3c7" },
-                { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
+                { key:"approved", label:"처리완료",  count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#A05A32", activeBg:"#FCF1E9" },
                 { key:"deleted",  label:"삭제됨",    count: deletedList.length,  icon: <Trash2 size={13}/>,       activeColor:"#6b7280", activeBg:"#e5e7eb" },
               ] as const).map((tab) => {
                 const isActive = activeFilter === tab.key;
@@ -425,7 +425,7 @@ export default function AdminProposalsPage() {
                     background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
                     border:`1.5px solid ${
                       tip.status === "pending"  ? "#C9966E" :
-                      tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
+                      tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#EBC8B1"
                     }`,
                     boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
                   }}>
@@ -440,10 +440,10 @@ export default function AdminProposalsPage() {
                       padding:"11px 16px",
                       background:
                         tip.status === "pending"  ? "#F4F3F2" :
-                        tip.status === "on_hold"  ? "#fffbeb" : tip.status === "deleted" ? "#f3f4f6" : "#f0fdf4",
+                        tip.status === "on_hold"  ? "#fffbeb" : tip.status === "deleted" ? "#f3f4f6" : "#FCF1E9",
                       borderBottom:`1px solid ${
                         tip.status === "pending"  ? "#C9966E" :
-                        tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#bbf7d0"
+                        tip.status === "on_hold"  ? "#fde68a" : tip.status === "deleted" ? "#d1d5db" : "#EBC8B1"
                       }`,
                       display:"flex", alignItems:"center", justifyContent:"space-between",
                     }}>
@@ -492,10 +492,10 @@ export default function AdminProposalsPage() {
                           fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
                           background:
                             tip.status === "pending"  ? "#F8E6D9" :
-                            tip.status === "on_hold"  ? "#fef3c7" : tip.status === "deleted" ? "#e5e7eb" : "#dcfce7",
+                            tip.status === "on_hold"  ? "#fef3c7" : tip.status === "deleted" ? "#e5e7eb" : "#FCF1E9",
                           color:
                             tip.status === "pending"  ? "#85482A" :
-                            tip.status === "on_hold"  ? "#92400e" : tip.status === "deleted" ? "#4b5563" : "#15803d",
+                            tip.status === "on_hold"  ? "#92400e" : tip.status === "deleted" ? "#4b5563" : "#85482A",
                           display:"flex", alignItems:"center", gap:4,
                         }}>
                           {tip.status === "pending"  && <><AlertCircle size={9}/>검토 대기</>}
@@ -560,8 +560,8 @@ export default function AdminProposalsPage() {
                               <div style={{ display:"flex", gap:5 }}>
                                 {[{v:"true",label:"가능"},{v:"false",label:"불가"}].map(opt => (
                                   <button key={opt.v} onClick={() => setEditValue(opt.v)} style={{
-                                    padding:"4px 14px", borderRadius:8, border:`1.5px solid ${editValue===opt.v?(opt.v==="true"?"#16a34a":"#dc2626"):"#ddd"}`,
-                                    background: editValue===opt.v ? (opt.v==="true"?"#16a34a":"#dc2626") : "white",
+                                    padding:"4px 14px", borderRadius:8, border:`1.5px solid ${editValue===opt.v?(opt.v==="true"?"#85482A":"#dc2626"):"#ddd"}`,
+                                    background: editValue===opt.v ? (opt.v==="true"?"#85482A":"#dc2626") : "white",
                                     color: editValue===opt.v ? "white" : "#555",
                                     fontSize:11, fontWeight:600, cursor:"pointer",
                                     display:"flex", alignItems:"center", gap:4,
@@ -593,7 +593,7 @@ export default function AdminProposalsPage() {
                           {tip.pet_zone && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"inline-flex", alignItems:"center", gap:4 }}><PetZoneIcon zone={tip.pet_zone} /> {PET_ZONE_LABEL[tip.pet_zone]}</span>}
                           {tip.hours    && <span style={{ fontSize:11, color:"#444", background:"#f5f6f8", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4 }}><Clock size={11} color="#888"/>{tip.hours}</span>}
                           {tip.large_dog !== null && tip.large_dog !== undefined && (
-                            <span style={{ fontSize:11, padding:"4px 10px", borderRadius:999, fontWeight:600, background: tip.large_dog?"#dcfce7":"#fee2e2", color: tip.large_dog?"#15803d":"#dc2626", display:"flex", alignItems:"center", gap:4 }}>
+                            <span style={{ fontSize:11, padding:"4px 10px", borderRadius:999, fontWeight:600, background: tip.large_dog?"#FCF1E9":"#fee2e2", color: tip.large_dog?"#85482A":"#dc2626", display:"flex", alignItems:"center", gap:4 }}>
                               {tip.large_dog ? <CheckCircle2 size={11}/>:<XCircle size={11}/>}
                               {tip.large_dog ? "대형견 가능":"대형견 불가"}
                             </span>
@@ -703,10 +703,10 @@ export default function AdminProposalsPage() {
                             onClick={() => handleApprove(tip)}
                             style={{
                               flex:1, padding:"10px 14px", borderRadius:11, border:"none",
-                              background:"linear-gradient(135deg, #22c55e, #16a34a)",
+                              background:"linear-gradient(135deg, #A05A32, #85482A)",
                               color:"white", fontWeight:700, cursor:"pointer", fontSize:12,
                               display:"flex", alignItems:"center", justifyContent:"center", gap:5,
-                              boxShadow:"0 2px 8px rgba(34,197,94,0.35)",
+                              boxShadow:"0 2px 8px rgba(160,90,50,0.35)",
                               fontFamily:"'Noto Sans KR', sans-serif",
                             }}
                           >
@@ -734,9 +734,9 @@ export default function AdminProposalsPage() {
 
                       {/* 처리완료 안내 */}
                       {tip.status === "approved" && (
-                        <div style={{ padding:"9px 12px", background:"#f0fdf4", borderRadius:10, border:"1px solid #bbf7d0", display:"flex", alignItems:"center", gap:6 }}>
-                          <CheckCircle size={14} color="#16a34a" />
-                          <span style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>지도에 장소가 등록되었습니다</span>
+                        <div style={{ padding:"9px 12px", background:"#FCF1E9", borderRadius:10, border:"1px solid #EBC8B1", display:"flex", alignItems:"center", gap:6 }}>
+                          <CheckCircle size={14} color="#85482A" />
+                          <span style={{ fontSize:12, color:"#85482A", fontWeight:600 }}>지도에 장소가 등록되었습니다</span>
                         </div>
                       )}
                     </div>

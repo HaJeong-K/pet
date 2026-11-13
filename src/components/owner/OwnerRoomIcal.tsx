@@ -87,7 +87,7 @@ export default function OwnerRoomIcal({ roomId, placeId, isPreview, canAct }: { 
         </div>
         <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 5 }}>이 주소를 다른 사이트의 &ldquo;달력 가져오기(iCal)&rdquo;에 넣어 주세요. 손님 이름·연락처는 담기지 않고 날짜만 담겨요.</div>
       </div>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
     </div>
   );
 }

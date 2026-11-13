@@ -42,8 +42,8 @@ export default function PartnershipForm() {
 
   if (done) {
     return (
-      <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #bbf7d0", padding: "34px 18px", textAlign: "center", scrollMarginTop: 70 }}>
-        <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#15803D" }}>문의가 접수되었습니다</div>
+      <div id="inquiry" style={{ marginTop: 20, background: "white", borderRadius: 22, border: "1px solid #EBC8B1", padding: "34px 18px", textAlign: "center", scrollMarginTop: 70 }}>
+        <div className="ggk-logo" style={{ fontSize: 17, fontWeight: 800, color: "#85482A" }}>문의가 접수되었습니다</div>
         <div style={{ marginTop: 10, fontSize: 13.5, color: "#1a1a1a", lineHeight: 1.8, whiteSpace: "pre-line" }}>{`남겨 주신 연락처로 회신드리겠습니다.
 영업일 기준 2~3일 안에 연락드립니다.`}</div>
       </div>

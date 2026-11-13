@@ -1,5 +1,6 @@
 "use client";
 
+import { shortDate } from "@/lib/dateText";
 import dynamic from "next/dynamic";
 import LogoLoader from "@/components/LogoLoader";
 import LevelBadge from "@/components/LevelBadge";
@@ -8,7 +9,8 @@ import MyNotificationsCard from "@/components/MyNotificationsCard";
 import OwnerBadge from "@/components/OwnerBadge";
 import OrdersPanel from "@/components/OrdersPanel";
 import { isReservedNickname, RESERVED_NICKNAME_MESSAGE } from "@/lib/nicknameRules";
-import { ReceiptText } from "lucide-react";
+import { ReceiptText, UserRoundX } from "lucide-react";
+import MyBlockedUsers from "@/components/MyBlockedUsers";
 import MemoryStampsCard from "@/components/stamps/MemoryStampsCard";
 import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import PageGuide from "@/components/PageGuide";
@@ -68,10 +70,7 @@ const getProfileColor = (nickname: string) => {
   return profileColors[code % profileColors.length];
 };
 
-const formatDate = (s: string) => {
-  const d = new Date(s);
-  return `${String(d.getFullYear()).slice(2)}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
-};
+const formatDate = shortDate;
 
 const inp: React.CSSProperties = {
   width: "100%", padding: "11px 13px", borderRadius: "10px",
@@ -80,7 +79,7 @@ const inp: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-type MySection = "home" | "orders" | "notifications" | "bookmarks" | "routes" | "courses" | "posts" | "saved" | "reviews" | "level";
+type MySection = "home" | "orders" | "notifications" | "bookmarks" | "routes" | "courses" | "posts" | "saved" | "reviews" | "level" | "blocks";
 const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof Home }[] = [
   { key: "home", label: "한눈에 보기", desc: "내 활동과 알림, 최근 주문·예약을 한 화면에서 확인해요.", Icon: Home },
   { key: "orders", label: "주문·예약 내역", desc: "숙소 예약과 쇼핑 주문의 결제 내역을 보고, 취소·후기까지 여기서 해요.", Icon: ReceiptText },
@@ -92,12 +91,13 @@ const MY_SECTIONS: { key: MySection; label: string; desc: string; Icon: typeof H
   { key: "saved", label: "저장한 글", desc: "커뮤니티에서 저장해 둔 글을 모아 봐요.", Icon: Bookmark },
   { key: "reviews", label: "작성한 댓글", desc: "장소 후기와 커뮤니티 댓글을 모아 봐요.", Icon: PawPrint },
   { key: "level", label: "내 레벨·점수", desc: "지금 단계와 다음 단계까지 남은 점수, 점수 받는 법을 확인해요.", Icon: Award },
+  { key: "blocks", label: "차단한 회원", desc: "커뮤니티에서 차단한 회원을 보고 해제해요.", Icon: UserRoundX },
 ];
 const MY_GROUPS: { title: string; keys: MySection[] }[] = [
   { title: "홈", keys: ["home"] },
   { title: "이용 내역", keys: ["orders", "notifications"] },
   { title: "내 활동", keys: ["bookmarks", "routes", "courses", "posts", "saved", "reviews"] },
-  { title: "내 정보", keys: ["level"] },
+  { title: "내 정보", keys: ["level", "blocks"] },
 ];
 
 export default function MyPage() {
@@ -893,6 +893,7 @@ export default function MyPage() {
             )}
             {/* ── 알림 */}
             {activeSection === "notifications" && <MyNotificationsCard full />}
+            {activeSection === "blocks" && <MyBlockedUsers />}
             {/* ── 내 경로 — 직접 만든 코스(장소 상세의 "내 경로에 추가") */}
             {activeSection === "routes" && (
               myRoutes.length === 0 ? (
@@ -1485,8 +1486,8 @@ export default function MyPage() {
 
                   {!isOAuthUser && (
                     <button className="setting-row" onClick={() => setSettingView("password")} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"11px 10px", borderRadius:11, border:"none", background:"#f8fafc", cursor:"pointer", marginBottom:7, fontFamily:"'Noto Sans KR',sans-serif" }}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:"#f0fdf4", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        <Lock size={15} color="#22c55e" />
+                      <div style={{ width:32, height:32, borderRadius:9, background:"#FCF1E9", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <Lock size={15} color="#A05A32" />
                       </div>
                       <div style={{ flex:1, textAlign:"left", fontSize:13, fontWeight:600, color:"#222" }}>비밀번호 변경</div>
                       <ChevronRight size={14} color="#bbb" />
@@ -1551,7 +1552,7 @@ export default function MyPage() {
                   </button>
                 </div>
                 {nickMsg && (
-                  <div style={{ fontSize:11, color: nickMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                  <div style={{ fontSize:11, color: nickMsg.ok ? "#85482A" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                     {nickMsg.ok && <Check size={12}/>}{nickMsg.text}
                   </div>
                 )}
@@ -1586,7 +1587,7 @@ export default function MyPage() {
                   </div>
                 ))}
                 {pwMsg && (
-                  <div style={{ fontSize:11, color: pwMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                  <div style={{ fontSize:11, color: pwMsg.ok ? "#85482A" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                     {pwMsg.ok && <Check size={12}/>}{pwMsg.text}
                   </div>
                 )}
@@ -1664,7 +1665,7 @@ export default function MyPage() {
                           style={{ ...inp, marginBottom:9, resize:"vertical", fontFamily:"'Noto Sans KR',sans-serif" }}
                         />
                         {premiumMsg && (
-                          <div style={{ fontSize:11, color: premiumMsg.ok ? "#15803d" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
+                          <div style={{ fontSize:11, color: premiumMsg.ok ? "#85482A" : "#dc2626", marginBottom:10, display:"flex", alignItems:"center", gap:3 }}>
                             {premiumMsg.ok && <Check size={12}/>}{premiumMsg.text}
                           </div>
                         )}

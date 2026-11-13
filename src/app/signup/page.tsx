@@ -509,7 +509,7 @@ const errorTextStyle = {
 };
 
 const successTextStyle = {
-  color: "#15803d",
+  color: "#85482A",
   fontSize: "13px",
   marginTop: "4px",
   marginBottom: "10px",

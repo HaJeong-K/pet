@@ -38,7 +38,7 @@ export const INQUIRY_STATUSES = [
   { id: "new", label: "접수", bg: "#FEF3C7", color: "#92400E" },
   { id: "discuss", label: "협의 필요", bg: "#DBEAFE", color: "#1D4ED8" },
   { id: "progress", label: "진행 중", bg: "#f3f0ff", color: "#7c3aed" },
-  { id: "done", label: "완료", bg: "#DCFCE7", color: "#15803D" },
+  { id: "done", label: "완료", bg: "#FCF1E9", color: "#85482A" },
   { id: "rejected", label: "반려", bg: "#FEE2E2", color: "#B91C1C" },
 ] as const;
 export type InquiryStatus = (typeof INQUIRY_STATUSES)[number]["id"];

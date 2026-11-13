@@ -5,6 +5,7 @@ import ContactPrompt from "@/components/ContactPrompt";
 import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import BackExitGuard from "@/components/BackExitGuard";
+import AppAlert from "@/components/AppAlert";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import ErrorReporter from "@/components/ErrorReporter";
 import MemberVisitPing from "@/components/MemberVisitPing";
@@ -141,6 +142,8 @@ export default function RootLayout({
           <TabBar />
           {/* 앱에서 탭 첫 화면 뒤로 가기 두 번 → 종료(src/components/BackExitGuard.tsx) */}
           <BackExitGuard />
+          {/* 브라우저 기본 알림창 대신 펫츠로드 안내 창(src/components/AppAlert.tsx) */}
+          <AppAlert />
         </AuthProvider>
       </body>
     </html>

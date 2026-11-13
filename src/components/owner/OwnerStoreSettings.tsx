@@ -150,7 +150,7 @@ export default function OwnerStoreSettings({ placeId, isPreview, canAct, showMod
           <button type="button" onClick={addTag} style={{ flexShrink: 0, padding: "0 16px", borderRadius: 10, border: "none", background: "#3B2A20", color: "white", fontSize: 14, fontWeight: 700, fontFamily: "inherit", cursor: "pointer" }}>추가</button>
         </div>
       )}
-      {message && <div role="status" style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: message.ok ? "#15803D" : "#B91C1C" }}>{message.text}</div>}
+      {message && <div role="status" style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: message.ok ? "#85482A" : "#B91C1C" }}>{message.text}</div>}
     </div>
   );
 }

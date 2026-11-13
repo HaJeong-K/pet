@@ -30,7 +30,7 @@ type Order = {
   canCancel: boolean; canRequestCancel: boolean; canReview: boolean;
 };
 const STATUS_TONE: Partial<Record<ReservationStatus, { bg: string; color: string }>> = {
-  pending_payment: { bg: "#FEE2E2", color: "#B91C1C" }, requested: { bg: "#FEF3C7", color: "#92400E" }, accepted: { bg: "#DCFCE7", color: "#15803D" }, ready: { bg: "#DBEAFE", color: "#1D4ED8" }, no_show: { bg: "#FEE2E2", color: "#B91C1C" },
+  pending_payment: { bg: "#FEE2E2", color: "#B91C1C" }, requested: { bg: "#FEF3C7", color: "#92400E" }, accepted: { bg: "#FCF1E9", color: "#85482A" }, ready: { bg: "#DBEAFE", color: "#1D4ED8" }, no_show: { bg: "#FEE2E2", color: "#B91C1C" },
 };
 const button = (kind: "primary" | "plain" | "danger", disabled = false): React.CSSProperties => ({
   padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center",
@@ -86,7 +86,7 @@ export default function MyStoreOrders() {
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      {message && <div role="status" style={{ fontSize: 13.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 13.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {detail && <OrderDetailSheet order={detail as unknown as OrderView} onClose={() => setDetail(null)} />}
       {orders.map((o) => {
         const tone = STATUS_TONE[o.status] ?? { bg: "#f1f5f9", color: "#5f6672" };

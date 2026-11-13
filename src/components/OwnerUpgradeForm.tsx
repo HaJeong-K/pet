@@ -315,7 +315,7 @@ export default function OwnerUpgradeForm({
 
       {selectedPlace && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "#f0f9f4", border: "1px solid #bbf0d1", marginBottom: 10, fontSize: 12 }}>
-          <Check size={14} color="#22c55e" />
+          <Check size={14} color="#A05A32" />
           <span style={{ flex: 1 }}>{selectedPlace.name} · {selectedPlace.address}</span>
           <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#666", cursor: "pointer", fontSize: 11 }}>취소</button>
         </div>

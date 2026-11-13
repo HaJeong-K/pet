@@ -1,5 +1,6 @@
 "use client";
 
+import { shortDateTime } from "@/lib/dateText";
 import OwnerBadge from "@/components/OwnerBadge";
 import { infoLines } from "@/lib/infoLines";
 import PlaceStampButton from "@/components/stamps/PlaceStampButton";
@@ -87,15 +88,7 @@ const getProfileColor = (nickname: string) => {
   return profileColors[charCode % profileColors.length];
 };
 
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const yy  = String(date.getFullYear()).slice(2);
-  const mm  = String(date.getMonth() + 1).padStart(2, "0");
-  const dd  = String(date.getDate()).padStart(2, "0");
-  const hh  = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${yy}-${mm}-${dd} ${hh}:${min}`;
-};
+const formatDate = shortDateTime;
 
 const sortBtn = (active: boolean) => ({
   padding: "5px 11px",

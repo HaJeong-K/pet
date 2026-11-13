@@ -84,7 +84,7 @@ export default function AdminSupportOrgs() {
                 </div>
               ))}
             </div>
-            {message && <div role="status" style={{ marginTop: 12, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
+            {message && <div role="status" style={{ marginTop: 12, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
               <button onClick={add} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "11px 16px", borderRadius: 11, border: "1px solid #D3D2D1", background: "white", fontSize: 13, fontWeight: 700, color: "#555", cursor: "pointer" }}>
                 <Plus size={14} /> 단체 추가

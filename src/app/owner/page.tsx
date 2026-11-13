@@ -442,7 +442,7 @@ function ReviewsTab({ placeId, isPreview }: { placeId: number; isPreview: boolea
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "#666" }}>
                 <b style={{ color: "#444" }}>{r.nickname}</b>
                 <span>{fmtDate(r.created_at)}</span>
-                <span style={{ fontWeight: 800, color: r.ownerReplied ? "#15803d" : "#B45309" }}>{r.ownerReplied ? "답글 완료" : "답글 대기"}</span>
+                <span style={{ fontWeight: 800, color: r.ownerReplied ? "#85482A" : "#B45309" }}>{r.ownerReplied ? "답글 완료" : "답글 대기"}</span>
               </div>
               <div style={{ marginTop: 3, fontSize: 13, color: "#333", lineHeight: 1.55, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }}>{r.content}</div>
             </div>
@@ -688,7 +688,7 @@ function AdsTab({ placeId, isPreview, canAct, lodging }: { placeId: number; isPr
               <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 3 }} />
               <span>위 요금과 기간을 확인했고, 유료 기간의 금액은 안내받은 계좌로 입금한 뒤 적용된다는 점에 동의해요.</span>
             </label>
-            {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#15803d" : "#b91c1c" }}>{message.text}</div>}
+            {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
             <button onClick={apply} disabled={busy || !canAct || !agree} style={{ marginTop: 12, width: "100%", padding: "13px 0", borderRadius: 12, border: "none", background: busy || !canAct || !agree ? "#D4D3D2" : "#B45309", color: busy || !canAct || !agree ? "#4f4a3f" : "white", fontSize: 14, fontWeight: 800, cursor: busy || !canAct || !agree ? "default" : "pointer" }}>
               {busy ? "신청 중…" : `${unit(months)} 신청하기`}
             </button>

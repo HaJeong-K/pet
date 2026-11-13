@@ -24,7 +24,7 @@ type Report = {
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const btn = (color: string, disabled: boolean): React.CSSProperties => ({ padding: "8px 12px", borderRadius: 9, border: "none", background: disabled ? "#D4D3D2" : color, color: disabled ? "#4f4a3f" : "white", fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" });
 const STATUS_COLOR: Record<ReviewReportStatus, { bg: string; color: string }> = {
-  pending: { bg: "#FEF3C7", color: "#92400E" }, kept: { bg: "#DCFCE7", color: "#166534" }, hidden: { bg: "#E0E7FF", color: "#3730A3" }, deleted: { bg: "#FEE2E2", color: "#991B1B" },
+  pending: { bg: "#FEF3C7", color: "#92400E" }, kept: { bg: "#FCF1E9", color: "#85482A" }, hidden: { bg: "#E0E7FF", color: "#3730A3" }, deleted: { bg: "#FEE2E2", color: "#991B1B" },
 };
 
 export default function ReviewReportsView() {
@@ -54,7 +54,7 @@ export default function ReviewReportsView() {
     if (action !== "keep" && !note) { setMessage({ ok: false, text: "가리거나 삭제할 때는 사유를 적어 주세요(사장님 화면에 보여요)." }); return; }
     const ban = action !== "keep" && !!bans[r.id];
     const label = action === "keep" ? "문제 없음으로 유지" : action === "hide" ? "가리기" : "삭제";
-    if (busy || !window.confirm(`후기 #${r.id}를 ${label}할까요?${ban ? "\n작성자는 앞으로 숙박 후기를 쓸 수 없어요." : ""}`)) return;
+    if (busy || !window.confirm(`후기 #${r.id}를 ${label}할까요?${ban ? "\n작성자에게 위반 1회가 기록되고 단계에 맞는 제재가 적용돼요." : ""}`)) return;
     setBusy(true);
     setMessage(null);
     try { await call({ method: "POST", body: JSON.stringify({ id: r.id, action, note, ban }) }); setMessage({ ok: true, text: `${label} 처리했어요.` }); await load(); }
@@ -64,7 +64,7 @@ export default function ReviewReportsView() {
 
   return (
     <>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-guest-review-reports.sql</b>을 실행해 주세요.</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
       {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>신고된 숙박 후기가 없어요.</div>}
@@ -85,7 +85,7 @@ export default function ReviewReportsView() {
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#555" }}>
                 <span style={{ display: "inline-flex", gap: 1 }}>{[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? "#F59E0B" : "none"} color={i <= r.rating ? "#F59E0B" : "#D4D3D2"} />)}</span>
                 {r.guest_display_name ?? "손님"} · {r.room_name} · {stayDayLabel(r.created_at.slice(0, 10))} 작성
-                {r.writer_banned && <b style={{ color: "#b91c1c" }}>· 작성자 후기 제한 중</b>}
+                {r.writer_banned && <b style={{ color: "#b91c1c" }}>· 작성자 작성 제한 중</b>}
               </div>
               <div style={{ fontSize: 13, color: "#333", marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-line" }}>{r.content}</div>
               {r.owner_reply && <div style={{ fontSize: 12, color: "#666", marginTop: 6, lineHeight: 1.6 }}><b>사장님 답글:</b> {r.owner_reply}</div>}
@@ -98,7 +98,7 @@ export default function ReviewReportsView() {
                 <textarea value={notes[r.id] ?? ""} onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))} rows={2} placeholder="처리 사유(가리기·삭제는 필수 — 사장님 화면에 보여요)" style={{ width: "100%", padding: "8px 10px", borderRadius: 9, border: "1px solid #ddd", fontSize: 12.5, boxSizing: "border-box", fontFamily: "inherit" }} />
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#444", cursor: "pointer" }}>
                   <input type="checkbox" checked={!!bans[r.id]} onChange={(e) => setBans((b) => ({ ...b, [r.id]: e.target.checked }))} />
-                  가리기·삭제하면서 작성자의 숙박 후기 작성도 제한(제재)
+                  가리기·삭제하면서 작성자에게 위반 1회 기록(경고 → 7일 → 30일 → 영구 정지)
                 </label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <button disabled={busy} onClick={() => act(r, "keep")} style={btn("#A05A32", busy)}>유지(문제 없음)</button>

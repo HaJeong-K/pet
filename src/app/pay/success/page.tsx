@@ -46,7 +46,7 @@ function Confirm() {
   if (!state) return <div style={card}><LogoLoader /><div style={{ marginTop: 12, fontSize: 14, color: "#5F4D3A" }}>결제를 확인하고 있어요</div></div>;
   return (
     <div style={card}>
-      {state.ok ? <CheckCircle2 size={38} color="#15803D" style={{ margin: "0 auto" }} /> : <CircleAlert size={38} color="#B4412B" style={{ margin: "0 auto" }} />}
+      {state.ok ? <CheckCircle2 size={38} color="#85482A" style={{ margin: "0 auto" }} /> : <CircleAlert size={38} color="#B4412B" style={{ margin: "0 auto" }} />}
       <h1 className="ggk-logo" style={{ margin: "12px 0 0", fontSize: 21, fontWeight: 800 }}>{state.ok ? "결제가 완료됐어요" : "결제가 완료되지 않았어요"}</h1>
       <p style={{ margin: "8px 0 0", fontSize: 14, color: "#5F4D3A", lineHeight: 1.65 }}>{state.text}</p>
       <a href={`/orders?tab=${state.tab}`} style={link}>주문·예약 내역 보기</a>

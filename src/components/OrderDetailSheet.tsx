@@ -257,7 +257,7 @@ export function OrderDetailSheet({ order: o, onClose }: { order: OrderView; onCl
         ]),
   ];
   const subtotal = o.items.reduce((sum, l) => sum + l.price * l.qty, 0);
-  const tone = cancelled ? { color: "#B42318", background: "#FEE2E2" } : o.status === "completed" ? { color: "#1D4F91", background: "#E3EDFA" } : { color: "#15803D", background: "#DCFCE7" };
+  const tone = cancelled ? { color: "#B42318", background: "#FEE2E2" } : o.status === "completed" ? { color: "#1D4F91", background: "#E3EDFA" } : { color: "#85482A", background: "#FCF1E9" };
   return (
     <Shell title={o.place?.name ?? "쇼핑 주문"} number={`O${o.id}`} createdAt={o.created_at} badge={{ label: STATUS_LABEL[o.status], ...tone }} onClose={onClose}>
       <section style={{ paddingBottom: 16 }}><Steps steps={steps} /></section>

@@ -52,9 +52,6 @@ export async function POST(req: NextRequest) {
   const cleaned = cleanReview(await req.json().catch(() => null));
   if ("error" in cleaned) return fail(cleaned.error, 400);
   const r = cleaned.review;
-  // 신고 검토 결과 숙박 후기 작성이 제한된 계정
-  const { data: ban } = await db.from("lodging_review_bans").select("auth_user_id").eq("auth_user_id", user.id).maybeSingle();
-  if (ban) return fail("운영 정책 위반으로 숙박 후기를 남길 수 없는 계정이에요. 고객센터로 문의해 주세요.", 403);
   const blocked = await writeBlockMessage(user.id);
   if (blocked) return fail(blocked, 403);
 

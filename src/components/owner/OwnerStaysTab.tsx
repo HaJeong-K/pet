@@ -333,8 +333,40 @@ function SettlementSummary({ bookings, today }: { bookings: Booking[]; today: st
           </div>
         ))}
       </div>
+      {/* 정산 내역서 — 세무 처리용으로 엑셀에서 열리는 파일(CSV)로 내려받습니다(2026-11-13) */}
+      <button onClick={() => downloadSettlement(bookings, today)} disabled={!bookings.some((b) => b.fee_amount != null || b.payout_amount != null)}
+        style={{ marginTop: 12, padding: "9px 14px", borderRadius: 10, border: "1px solid #DDDCDB", background: "white", color: "#3B2A20", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+        정산 내역서 내려받기(엑셀)
+      </button>
     </div>
   );
+}
+
+/** 정산 내역서(CSV) — 결제·환불·수수료·정산 금액이 있는 예약을 체크인 순으로 */
+function downloadSettlement(bookings: Booking[], today: string) {
+  const rows = bookings
+    .filter((b) => b.fee_amount != null || b.payout_amount != null)
+    .sort((a, b) => a.check_in.localeCompare(b.check_in));
+  const header = ["예약번호", "객실", "예약자", "체크인", "체크아웃", "박수", "예약 상태", "결제 금액", "환불 금액", "수수료율(%)", "수수료", "정산 금액", "정산 상태", "정산 예정일", "정산 완료일"];
+  const cell = (v: unknown) => {
+    const text = v == null ? "" : String(v);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const lines = rows.map((b) => [
+    b.id, b.room_name, b.guest_name, b.check_in, b.check_out, b.nights, STAY_STATUS[b.status]?.label ?? b.status,
+    b.total, b.refund_amount ?? 0, b.fee_rate ?? "", b.fee_amount ?? 0, b.payout_amount ?? 0,
+    PAYOUT_LABEL[b.payout_status ?? ""] ?? "", b.payout_due_on ?? "", (b.paid_out_at ?? "").slice(0, 10),
+  ].map(cell).join(","));
+  // 엑셀이 한글을 깨뜨리지 않게 BOM을 붙입니다.
+  const blob = new Blob(["\uFEFF" + [header.join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `펫츠로드_정산내역_${today}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 /* ── 예약 달력 ── */
@@ -468,7 +500,7 @@ function StayCalendar({ rooms, call, canAct }: { rooms: Room[]; call: (path: str
           </div>
         </div>
       )}
-      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
     </div>
   );
 }

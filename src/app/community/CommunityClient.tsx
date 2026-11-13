@@ -48,7 +48,7 @@ const FONT_STYLE = `
 const POST_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   "방문후기": { bg: "#eff6ff", color: "#2563eb" },
   "질문":     { bg: "#fef2f2", color: "#dc2626" },
-  "정보공유": { bg: "#f0fdf4", color: "#15803d" },
+  "정보공유": { bg: "#FCF1E9", color: "#85482A" },
   "산책친구": { bg: "#fdece2", color: "#c2540c" },
   "업체소식": { bg: "#fffbeb", color: "#b45309" },
   // 유기동물 게시판 — 급한 글(실종·목격)이 눈에 띄도록
@@ -56,7 +56,7 @@ const POST_TYPE_STYLE: Record<string, { bg: string; color: string }> = {
   "임시보호": { bg: "#f5f3ff", color: "#6d28d9" },
   "실종":     { bg: "#fef2f2", color: "#dc2626" },
   "목격·구조": { bg: "#fff7ed", color: "#c2410c" },
-  "입양후기": { bg: "#f0fdf4", color: "#15803d" },
+  "입양후기": { bg: "#FCF1E9", color: "#85482A" },
   "나눔":     { bg: "#ecfeff", color: "#0e7490" },
   "구해요":   { bg: "#f0f9ff", color: "#0369a1" },
   __default:  { bg: "#f5f6f8", color: "#555" },

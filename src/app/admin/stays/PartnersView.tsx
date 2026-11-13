@@ -18,7 +18,7 @@ type Partner = {
   owner: { email: string | null; owner_business_name: string | null; owner_phone: string | null; owner_biz_no: string | null } | null;
 };
 
-const STATUS = { pending: { label: "심사 대기", bg: "#FEF3C7", color: "#92400E" }, approved: { label: "승인", bg: "#DCFCE7", color: "#166534" }, rejected: { label: "반려", bg: "#FEE2E2", color: "#991B1B" } };
+const STATUS = { pending: { label: "심사 대기", bg: "#FEF3C7", color: "#92400E" }, approved: { label: "승인", bg: "#FCF1E9", color: "#85482A" }, rejected: { label: "반려", bg: "#FEE2E2", color: "#991B1B" } };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
 const btn = (kind: "primary" | "danger", disabled: boolean): React.CSSProperties => ({
   padding: "8px 12px", borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
@@ -62,7 +62,7 @@ export default function PartnersView() {
 
   return (
     <>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-partners.sql</b>을 실행해 주세요.</div>}
       {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
       {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>입점 신청이 없어요.</div>}

@@ -71,7 +71,7 @@ export { default as ProductsTab } from "@/components/owner/OwnerProductsTab";
 const STATUS_STYLE: Record<ReservationStatus, { bg: string; color: string }> = {
   requested: { bg: "#FEF3C7", color: "#92400E" },
   accepted: { bg: "#DBEAFE", color: "#1D4ED8" },
-  ready: { bg: "#DCFCE7", color: "#15803D" },
+  ready: { bg: "#FCF1E9", color: "#85482A" },
   completed: { bg: "#f1f5f9", color: "#64748b" },
   rejected: { bg: "#FEE2E2", color: "#B91C1C" },
   cancelled: { bg: "#f1f5f9", color: "#5f6672" },
@@ -167,7 +167,7 @@ export function ReservationsTab({ placeId, isPreview, canAct, onGoAds, onCount }
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingTop: 8, borderTop: "1px dashed #eee", fontSize: 12.5, color: "#555", flexWrap: "wrap" }}>
         {r.pickup_at && <span>{r.order_type === "dine_in" ? "방문 시간" : "가지러 올 시간"} <b style={{ color: "#B45309" }}>{fmtDateTime(r.pickup_at)}</b></span>}
-        {PAYMENT_STATUS_LABEL[r.payment_status ?? ""] && <span style={{ fontWeight: 700, color: "#15803D" }}>{PAYMENT_STATUS_LABEL[r.payment_status ?? ""]}</span>}
+        {PAYMENT_STATUS_LABEL[r.payment_status ?? ""] && <span style={{ fontWeight: 700, color: "#85482A" }}>{PAYMENT_STATUS_LABEL[r.payment_status ?? ""]}</span>}
         <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, color: "#222" }}>{(r.discount ?? 0) > 0 ? `쿠폰 ${won(r.discount ?? 0)} 할인 · ` : ""}합계 {won(r.total)}</span>
       </div>
       {r.memo && <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.55, wordBreak: "break-word" }}>요청: {r.memo}</div>}

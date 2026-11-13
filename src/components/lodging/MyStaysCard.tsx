@@ -158,7 +158,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
           {s.canReportIssue && <button onClick={() => { setIssueFor(issueFor === s.id ? null : s.id); setIssue({ kind: "", detail: "" }); }} style={button("plain")}>문제 있어요</button>}
           {s.cancelNow && <button onClick={() => cancel(s)} disabled={busy} style={button("danger", busy)}>예약 취소</button>}
           {s.canReview && <a href={`/stay/${s.place_id}#stay-reviews`} style={{ ...button("primary"), background: "#B45309", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>숙박 후기 쓰기</a>}
-          {s.reviewed && <span style={{ fontSize: 12, color: "#15803D", fontWeight: 700, alignSelf: "center" }}>후기를 남겼어요</span>}
+          {s.reviewed && <span style={{ fontSize: 12, color: "#85482A", fontWeight: 700, alignSelf: "center" }}>후기를 남겼어요</span>}
         </div>
 
         {issueFor === s.id && (
@@ -185,7 +185,7 @@ export default function MyStaysCard({ showEmpty = false }: { showEmpty?: boolean
         <div className="ggk-logo" style={{ fontSize: 16, fontWeight: 800, color: "#222" }}>내 숙박 예약</div>
         {open.length > 0 && <span style={{ fontSize: 12, color: "#5c5c5c" }}>진행 중 {open.length}건</span>}
       </div>
-      {message && <div role="status" style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ marginBottom: 8, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       <div style={{ display: "grid", gap: 8 }}>
         {open.map(row)}
         {detail && <StayDetailSheet stay={detail as unknown as StayView} onClose={() => setDetail(null)} />}

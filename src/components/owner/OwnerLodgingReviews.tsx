@@ -76,7 +76,7 @@ export default function OwnerLodgingReviews({ placeId, isPreview, canAct }: { pl
         펫츠로드에서 예약하고 이용한 손님의 별점 후기예요.<br />
         답글은 숙소 화면에 &ldquo;사장님 답글&rdquo;로 보이고, 문제 있는 후기는 신고하면 관리자가 검토해요.
       </div>
-      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {reviews === null && <div style={{ marginTop: 12, fontSize: 13, color: "#6e6e6e" }}>불러오는 중…</div>}
       {reviews?.length === 0 && <div style={{ marginTop: 12, fontSize: 13, color: "#6e6e6e" }}>아직 숙박 후기가 없어요.</div>}
 

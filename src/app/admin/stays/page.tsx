@@ -87,7 +87,7 @@ export default function AdminStays() {
           ))}
         </div>
         {view === "orders" ? <StoreOrdersView /> : view === "store" ? <StorePartnersView /> : view === "partners" ? <PartnersView /> : view === "reviews" ? <ReviewReportsView /> : view === "leads" ? <LeadsView /> : <>
-        {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+        {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
         {!ready && <div style={{ ...card, color: "#9a3412", fontSize: 13 }}>Supabase SQL 편집기에서 <b>scripts/sql/lodging-settlement.sql</b>을 실행해 주세요.</div>}
         {rows === null && <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>}
         {rows?.length === 0 && ready && <div style={{ ...card, textAlign: "center", color: "#6e6e6e", fontSize: 13 }}>처리할 예약이 없어요.</div>}
@@ -146,7 +146,7 @@ export default function AdminStays() {
                 {b.payment_status === "unpaid" && b.status !== "declined" && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_paid" }, "결제를 확인했어요.", `${b.guest_name}님의 ${won(b.total)} 결제를 확인했나요?\n(결제대행 연동 전 임시 기능)`)} style={btn("plain", busy)}>결제 확인</button>}
                 {b.payout_status === "scheduled" && (b.payout_amount ?? 0) > 0 && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_paid_out" }, "정산을 보냄으로 표시했어요.", `숙소 계좌로 ${won(b.payout_amount ?? 0)}을 보냈나요?`)} style={btn("primary", busy)}>정산 보냄</button>}
                 {b.refund_amount > 0 && b.paid_at && !b.refund_done_at && <button disabled={busy} onClick={() => act({ id: b.id, action: "mark_refunded" }, "환불을 보냄으로 표시했어요. 손님에게 알렸어요.", `${b.guest_name}님에게 ${won(b.refund_amount)}을 돌려줬나요?\n(결제대행 연동 전 임시 — 직접 환불한 뒤 눌러 주세요)`)} style={btn("primary", busy)}>환불 보냄</button>}
-                {b.refund_done_at && <span style={{ fontSize: 12, color: "#15803D", fontWeight: 700, alignSelf: "center" }}>환불 보냄 · {b.refund_done_at.slice(0, 10)}{b.refund_done_by ? ` · ${b.refund_done_by}` : ""}</span>}
+                {b.refund_done_at && <span style={{ fontSize: 12, color: "#85482A", fontWeight: 700, alignSelf: "center" }}>환불 보냄 · {b.refund_done_at.slice(0, 10)}{b.refund_done_by ? ` · ${b.refund_done_by}` : ""}</span>}
               </div>
             </div>
           );

@@ -270,6 +270,13 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
             • 환불은 이용하지 않은 기간에 대해 관계 법령과 신청 화면의 안내에 따릅니다.
           </FooterSection>
 
+          <FooterSection title="제8조의3 (이용 제한)">
+            • 회사는 회원이 본 약관 또는 커뮤니티 운영정책을 위반한 경우, 위반의 정도와 횟수에 따라 경고, 기간을 정한 작성 제한, 영구 정지의 조치를 할 수 있습니다.<br />
+            • 이용 제한의 구체적인 기준과 절차는 커뮤니티 운영정책 &ldquo;4. 신고 및 제재&rdquo;에서 정합니다.<br />
+            • 회사는 이용 제한을 하는 경우 그 사유와 기간을 회원에게 알립니다. 회원은 알림을 받은 날부터 {APPEAL_DAYS}일 안에 이의를 제기할 수 있고, 이의가 정당하면 회사는 바로 이용 제한을 해제합니다.<br />
+            • 작성 제한 중에도 이미 결제한 예약·주문의 이용과 취소·환불은 그대로 할 수 있습니다.
+          </FooterSection>
+
           <FooterSection title="제9조 (면책조항)">
             회사는 천재지변 등 불가항력으로 서비스를 제공할 수 없는 경우 책임이 면제됩니다. 이용자 간 또는 이용자와 제3자 간 분쟁에 개입할 의무가 없으며, 이용자가 게재한 정보의 신뢰도·정확성을 보증하지 않습니다.
           </FooterSection>
@@ -280,7 +287,7 @@ export function TermsModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
             <div style={{ fontSize: 11, color: "#5c5c5c", lineHeight: 1.7 }}>
-              본 이용약관은 <strong>2026년 10월 5일</strong>부터 적용됩니다.<br />
+              본 이용약관은 <strong>2026년 10월 5일</strong>부터 적용됩니다. (제8조의3 추가: <strong>2026년 11월 13일</strong>)<br />
               문의사항이 있으시면 <strong>{ADMIN_EMAIL}</strong>로 연락해 주세요.
             </div>
           </div>
@@ -395,6 +402,10 @@ export default function SiteFooter() {
           <button onClick={() => setShowPolicy(true)} style={{ border: "none", background: "transparent", fontSize: 11, color: "#6b7280", cursor: "pointer" }}>
             커뮤니티 운영정책
           </button>
+          <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
+          <a href="/help" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
+            고객센터
+          </a>
           <span style={{ fontSize: 10, color: "#6b7078" }}>|</span>
           <a href="/partnership" style={{ fontSize: 11, color: "#6b7280", fontWeight: 700, textDecoration: "none", padding: 0 }}>
             광고·제휴 문의

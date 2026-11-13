@@ -128,7 +128,7 @@ export default function OwnerAlertCard({ placeId, isPreview }: { placeId: number
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <BellRing size={16} color="#B45309" />
         <div className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#222" }}>새 예약 알림</div>
-        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: on ? "#DCFCE7" : "#f1f2f4", color: on ? "#15803D" : "#555" }}>{on ? "이 기기 켜짐" : "이 기기 꺼짐"}</span>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: on ? "#FCF1E9" : "#f1f2f4", color: on ? "#85482A" : "#555" }}>{on ? "이 기기 켜짐" : "이 기기 꺼짐"}</span>
       </div>
       <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.65 }}>
         켜 두면 손님이 예약을 넣을 때 이 기기 상단바에 알림이 쌓여요. 사이트를 닫아 두어도 와요.

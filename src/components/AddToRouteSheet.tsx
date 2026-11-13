@@ -81,7 +81,7 @@ export default function AddToRouteSheet({ stop, onClose }: { stop: SavedStop; on
           <input value={newName} onChange={(e) => setNewName(e.target.value.slice(0, MY_ROUTE_TITLE_MAX))} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="새 경로 이름 — 예: 강릉 1박 2일 댕댕 여행" style={{ flex: 1, minWidth: 0, padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, fontFamily: "inherit" }} />
           <button onClick={create} disabled={busy || !newName.trim()} style={{ padding: "0 14px", borderRadius: 10, border: "none", background: busy || !newName.trim() ? "#D4D3D2" : "#A05A32", color: busy || !newName.trim() ? "#4f4a3f" : "white", fontSize: 13, fontWeight: 800, cursor: busy || !newName.trim() ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>만들고 담기</button>
         </div>
-        {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}{message.ok && <> <a href="/mypage#routes" style={{ color: "#85482A" }}>마이페이지에서 보기</a></>}</div>}
+        {message && <div role="status" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}{message.ok && <> <a href="/mypage#routes" style={{ color: "#85482A" }}>마이페이지에서 보기</a></>}</div>}
       </div>
     </div>,
     document.body,

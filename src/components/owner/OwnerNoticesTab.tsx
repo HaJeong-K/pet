@@ -134,7 +134,7 @@ export default function OwnerNoticesTab({ placeId, isPreview, canAct }: { placeI
               {busy ? "저장하는 중…" : editId ? "고친 내용 저장" : "공지 올리기"}
             </button>
           </div>
-          {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+          {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
           {!canAct && <div style={{ fontSize: 12, color: "#666" }}>보기 전용이에요.</div>}
         </div>
       </div>

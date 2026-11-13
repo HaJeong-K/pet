@@ -31,7 +31,7 @@ type StoreData = { enabled: boolean; orderModes?: OrderType[]; products: Product
 const STATUS_COLOR: Record<ReservationStatus, { bg: string; color: string }> = {
   requested: { bg: "#FEF3C7", color: "#92400E" },
   accepted: { bg: "#DBEAFE", color: "#1D4ED8" },
-  ready: { bg: "#DCFCE7", color: "#15803D" },
+  ready: { bg: "#FCF1E9", color: "#85482A" },
   completed: { bg: "#f1f5f9", color: "#64748b" },
   rejected: { bg: "#FEE2E2", color: "#B91C1C" },
   cancelled: { bg: "#f1f5f9", color: "#5f6672" },
@@ -247,7 +247,7 @@ export default function PlaceStoreSection({ placeId, isLoggedIn }: { placeId: nu
         </div>
       )}
 
-      {message && <div role="status" className="ggk-body" style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c", lineHeight: 1.5 }}>{message.text}</div>}
+      {message && <div role="status" className="ggk-body" style={{ marginTop: 9, fontSize: 12, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c", lineHeight: 1.5 }}>{message.text}</div>}
 
       {data.mine.length > 0 && (
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed #E7E6E5" }}>

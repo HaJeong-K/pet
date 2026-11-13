@@ -27,8 +27,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const cleaned = cleanStoreReview(body);
   if ("error" in cleaned) return fail(cleaned.error, 400);
-  const { data: ban } = await db.from("lodging_review_bans").select("auth_user_id").eq("auth_user_id", user.id).maybeSingle();
-  if (ban) return fail("운영 정책 위반으로 후기를 남길 수 없는 계정이에요. 고객센터로 문의해 주세요.", 403);
   const blocked = await writeBlockMessage(user.id);
   if (blocked) return fail(blocked, 403);
   const { data: order } = await db.from("place_reservations").select("id, place_id, customer_name, order_type, status, updated_at").eq("id", cleaned.reservationId).eq("customer_auth_user_id", user.id).maybeSingle();

@@ -213,13 +213,13 @@ export const AFFINITY_TIER_LABEL: Record<AffinityTier, string> = {
 };
 
 export const AFFINITY_TIER_COLOR: Record<AffinityTier, string> = {
-  green: "#22c55e",
+  green: "#A05A32",
   yellow: "#eab308",
   red: "#ef4444",
 };
 
 export const AFFINITY_TIER_BG: Record<AffinityTier, string> = {
-  green: "#f0fdf4",
+  green: "#FCF1E9",
   yellow: "#FBFAF9",
   red: "#fef2f2",
 };

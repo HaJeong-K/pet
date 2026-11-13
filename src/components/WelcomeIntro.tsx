@@ -143,7 +143,7 @@ function NearbyArt() {
 
 function OrdersArt() {
   const rows = [
-    { name: "숲속 독채 · 1박", state: "예약 확정", bg: "#DCFCE7", color: "#15803D", action: "취소 신청" },
+    { name: "숲속 독채 · 1박", state: "예약 확정", bg: "#FCF1E9", color: "#85482A", action: "취소 신청" },
     { name: "테라스 카페 · 포장", state: "준비 완료", bg: "#DBEAFE", color: "#1D4ED8", action: "영수증" },
     { name: "동반 식당 · 매장 식사", state: "이용 완료", bg: "#EDECEB", color: "#5a5141", action: "후기 쓰기" },
   ];

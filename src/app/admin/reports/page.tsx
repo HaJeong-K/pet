@@ -51,7 +51,7 @@ const CATEGORY_COLOR: Record<string, { bg: string; color: string }> = {
   no_pets:       { bg: "#fef9c3", color: "#854d0e" },
   changed:       { bg: "#eff6ff", color: "#1d4ed8" },
   wrong_info:    { bg: "#fef3c7", color: "#92400e" },
-  different:     { bg: "#f0fdf4", color: "#15803d" },
+  different:     { bg: "#FCF1E9", color: "#85482A" },
   wrong_image:   { bg: "#ede9fe", color: "#6d28d9" },
   duplicate:     { bg: "#EFEEED", color: "#6b4a2f" },
   inappropriate: { bg: "#fff1f2", color: "#be123c" },
@@ -579,6 +579,23 @@ export default function AdminReportsPage() {
   };
 
   /* ── 보류 처리 ── */
+  // 신고된 글의 작성자에게 위반 1회 기록 → 단계에 맞는 제재(경고 → 7일 → 30일 → 영구, src/lib/sanctions.ts)
+  // 글 삭제와는 따로입니다 — 위반을 기록한 뒤 [내용 삭제]로 글도 지워 주세요.
+  const handleSanctionAuthor = async (type: string, targetId: string) => {
+    const reason = window.prompt("작성자에게 위반 1회를 기록합니다(경고 → 7일 → 30일 → 영구 정지 순서로 자동 적용).\n작성자에게 그대로 전달되는 사유를 적어 주세요.");
+    if (reason == null) return;
+    if (reason.trim().length < 2) { alert("사유를 적어 주세요."); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { alert("로그인이 필요해요."); return; }
+    const res = await fetch("/api/admin/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action: "sanction", contentType: type, contentId: String(targetId), reason: reason.trim() }),
+    });
+    const json = await res.json().catch(() => ({}));
+    alert(res.ok ? `작성자에게 적용했어요: ${json.applied}` : json.error || "처리하지 못했어요.");
+  };
+
   const handleResolve = async (reportId: number) => {
     // 글·장소를 그대로 두고 신고만 닫는 경우 = 기각
     await supabase.from("reports").update(resolvedAs("dismissed")).eq("id", reportId);
@@ -651,7 +668,7 @@ export default function AdminReportsPage() {
             <div style={{ display:"flex", background:"#e8eaed", borderRadius:12, padding:"3px", gap:"3px", flex: 1 }}>
               {([
                 { key:"pending", label:"미처리",  count: reports.length,         icon: AlertCircle,  color:"#dc2626" },
-                { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#15803d" },
+                { key:"done",    label:"처리완료", count: resolvedReports.length, icon: CheckCircle,  color:"#85482A" },
               ] as const).map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeFilter === tab.key;
@@ -675,8 +692,8 @@ export default function AdminReportsPage() {
                     {tab.label}
                     <span style={{
                       fontSize:10, fontWeight:800, padding:"1px 7px", borderRadius:999,
-                      background: isActive ? (tab.key === "pending" ? "#fee2e2" : "#dcfce7") : "#f0f2f5",
-                      color: isActive ? (tab.key === "pending" ? "#dc2626" : "#15803d") : "#666",
+                      background: isActive ? (tab.key === "pending" ? "#fee2e2" : "#FCF1E9") : "#f0f2f5",
+                      color: isActive ? (tab.key === "pending" ? "#dc2626" : "#85482A") : "#666",
                     }}>
                       {tab.count}
                     </span>
@@ -729,10 +746,10 @@ export default function AdminReportsPage() {
               <div style={{ textAlign:"center", padding:"60px 0", color:"#707070", fontSize:13 }}><LogoLoader /></div>
             ) : displayReports.length === 0 ? (
               <div style={{ textAlign:"center", padding:"80px 0" }}>
-                <div style={{ width:64, height:64, borderRadius:20, background: activeFilter === "pending" ? "#fee2e2" : "#dcfce7", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+                <div style={{ width:64, height:64, borderRadius:20, background: activeFilter === "pending" ? "#fee2e2" : "#FCF1E9", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
                   {activeFilter === "pending"
                     ? <Flag size={28} color="#fca5a5" />
-                    : <CheckCircle size={28} color="#22c55e" />}
+                    : <CheckCircle size={28} color="#A05A32" />}
                 </div>
                 <div className="ggk-logo" style={{ fontSize:15, fontWeight:800, color:"#222", marginBottom:6 }}>
                   {activeFilter === "pending" ? "미처리 신고가 없습니다" : "처리완료 내역이 없습니다"}
@@ -828,7 +845,7 @@ export default function AdminReportsPage() {
                         )}
 
                         {activeFilter === "done" && (
-                          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#dcfce7", color:"#15803d", display:"flex", alignItems:"center", gap:3 }}>
+                          <span style={{ fontSize:10, padding:"3px 8px", borderRadius:999, fontWeight:700, background:"#FCF1E9", color:"#85482A", display:"flex", alignItems:"center", gap:3 }}>
                             <CheckCircle size={9} /> 처리완료
                           </span>
                         )}
@@ -1091,8 +1108,19 @@ export default function AdminReportsPage() {
                               background:"white", color:"#555", fontWeight:700, cursor:"pointer", fontSize:12,
                               display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                               fontFamily:"'Noto Sans KR', sans-serif" }}>
-                            <CheckCircle size={14} color="#22c55e" />문제없음 · 기각
+                            <CheckCircle size={14} color="#A05A32" />문제없음 · 기각
                           </button>
+
+                          {/* 작성자 위반 기록(장소 신고 제외) */}
+                          {report.type !== "place" && (
+                            <button className="action-btn ggk-body" onClick={() => handleSanctionAuthor(report.type, report.target_id)}
+                              style={{ flex:1, padding:"10px 12px", borderRadius:11, border:"1px solid #3B2A20",
+                                background:"white", color:"#3B2A20", fontWeight:700, cursor:"pointer", fontSize:12,
+                                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+                                fontFamily:"'Noto Sans KR', sans-serif" }}>
+                              <Flag size={13} />작성자 위반 기록
+                            </button>
+                          )}
 
                           {/* 장소 댓글/답글 삭제 */}
                           {(report.type === "review" || report.type === "reply") && (

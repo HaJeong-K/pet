@@ -89,7 +89,7 @@ export default function BannerAdminPanel({ refreshKey = 0, onCount }: { refreshK
         <div style={{ ...card, padding: "11px 14px" }}>
           {done.map((r) => (
             <div key={r.id} style={{ display: "flex", gap: 8, fontSize: 11.5, color: "#666", lineHeight: 1.7, flexWrap: "wrap" }}>
-              <span style={chip(r.status === "approved" ? "#DCFCE7" : "#FEE2E2", r.status === "approved" ? "#15803D" : "#B91C1C")}>{r.status === "approved" ? "승인" : "거절"}</span>
+              <span style={chip(r.status === "approved" ? "#FCF1E9" : "#FEE2E2", r.status === "approved" ? "#85482A" : "#B91C1C")}>{r.status === "approved" ? "승인" : "거절"}</span>
               <b style={{ color: "#333" }}>{r.placeName}</b>
               <span style={{ flex: 1, minWidth: 0, wordBreak: "break-word" }}>{r.reason}{r.admin_note ? ` → ${r.admin_note}` : ""}</span>
               <span style={{ color: "#707070" }}>{r.processed_at ? fmt(r.processed_at) : ""}</span>

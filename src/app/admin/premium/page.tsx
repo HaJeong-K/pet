@@ -125,7 +125,7 @@ export default function AdminPremiumPage() {
                 { key:"active",   label:"이용 중 가게", count: null, icon: <Crown size={13}/>, activeColor:"#B8860B", activeBg:"#ffe9c2" },
                 { key:"banners",  label:"배너 관리", count: bannerPending, icon: <Megaphone size={13}/>, activeColor:"#7c3aed", activeBg:"#f3f0ff" },
                 { key:"pending",  label:"심사 대기", count: pendingList.length,  icon: <AlertCircle size={13}/>,  activeColor:"#B8860B", activeBg:"#ffe9c2" },
-                { key:"approved", label:"승인 완료", count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#22c55e", activeBg:"#dcfce7" },
+                { key:"approved", label:"승인 완료", count: approvedList.length, icon: <CheckCircle size={13}/>,  activeColor:"#A05A32", activeBg:"#FCF1E9" },
                 { key:"rejected", label:"거절",       count: rejectedList.length, icon: <XCircle size={13}/>,     activeColor:"#ef4444", activeBg:"#fee2e2" },
               ] as const).map((tab) => {
                 const isActive = activeFilter === tab.key;
@@ -182,19 +182,19 @@ export default function AdminPremiumPage() {
               <>{pager.items.map((req) => (
                 <div key={req.id} className="premium-card" style={{
                   background:"white", borderRadius:20, marginBottom:16, overflow:"hidden",
-                  border:`1.5px solid ${req.status === "pending" ? "#f3d9a4" : req.status === "approved" ? "#bbf7d0" : "#fecaca"}`,
+                  border:`1.5px solid ${req.status === "pending" ? "#f3d9a4" : req.status === "approved" ? "#EBC8B1" : "#fecaca"}`,
                   boxShadow:"0 3px 12px rgba(0,0,0,0.05)",
                 }}>
                   <div style={{
                     padding:"11px 16px",
-                    background: req.status === "pending" ? "#fff8ec" : req.status === "approved" ? "#f0fdf4" : "#fff5f5",
-                    borderBottom:`1px solid ${req.status === "pending" ? "#f3d9a4" : req.status === "approved" ? "#bbf7d0" : "#fecaca"}`,
+                    background: req.status === "pending" ? "#fff8ec" : req.status === "approved" ? "#FCF1E9" : "#fff5f5",
+                    borderBottom:`1px solid ${req.status === "pending" ? "#f3d9a4" : req.status === "approved" ? "#EBC8B1" : "#fecaca"}`,
                     display:"flex", alignItems:"center", justifyContent:"space-between",
                   }}>
                     <span style={{
                       fontSize:10, padding:"3px 10px", borderRadius:999, fontWeight:700,
-                      background: req.status === "pending" ? "#ffe9c2" : req.status === "approved" ? "#dcfce7" : "#fee2e2",
-                      color: req.status === "pending" ? "#92650a" : req.status === "approved" ? "#15803d" : "#dc2626",
+                      background: req.status === "pending" ? "#ffe9c2" : req.status === "approved" ? "#FCF1E9" : "#fee2e2",
+                      color: req.status === "pending" ? "#92650a" : req.status === "approved" ? "#85482A" : "#dc2626",
                       display:"flex", alignItems:"center", gap:4,
                     }}>
                       {req.status === "pending"  && <><AlertCircle size={9}/>심사 대기</>}
@@ -280,9 +280,9 @@ export default function AdminPremiumPage() {
                     )}
 
                     {req.status === "approved" && (
-                      <div style={{ padding:"9px 12px", background:"#f0fdf4", borderRadius:10, border:"1px solid #bbf7d0", display:"flex", alignItems:"center", gap:6 }}>
-                        <CheckCircle size={14} color="#16a34a" />
-                        <span style={{ fontSize:12, color:"#15803d", fontWeight:600 }}>프리미엄이 적용되었습니다</span>
+                      <div style={{ padding:"9px 12px", background:"#FCF1E9", borderRadius:10, border:"1px solid #EBC8B1", display:"flex", alignItems:"center", gap:6 }}>
+                        <CheckCircle size={14} color="#85482A" />
+                        <span style={{ fontSize:12, color:"#85482A", fontWeight:600 }}>프리미엄이 적용되었습니다</span>
                       </div>
                     )}
                   </div>

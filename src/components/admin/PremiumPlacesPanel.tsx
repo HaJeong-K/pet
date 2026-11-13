@@ -101,7 +101,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span className="ggk-logo" style={{ fontSize: 15, fontWeight: 800, color: "#111", wordBreak: "break-all" }}>{place.name}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: place.active ? (soon ? "#FEF3C7" : "#dcfce7") : "#f1f2f4", color: place.active ? (soon ? "#92400E" : "#15803d") : "#555" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: place.active ? (soon ? "#FEF3C7" : "#FCF1E9") : "#f1f2f4", color: place.active ? (soon ? "#92400E" : "#85482A") : "#555" }}>
                 {place.active ? (soon ? `만료 임박 · ${place.daysLeft}일 남음` : `이용 중 · ${place.daysLeft}일 남음`) : "만료됨"}
               </span>
               <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: PLAN_COLOR[place.plan].bg, color: PLAN_COLOR[place.plan].color }}>{PLAN_NAME[place.plan]}</span>
@@ -131,7 +131,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
             <button disabled={busy || !place.active} onClick={() => adjust(-1)} aria-label={`${dayCount}일 줄이기`} title={place.active ? `${dayCount}일 줄이기` : "이미 끝난 프리미엄은 줄일 수 없어요"} style={{ width: 40, height: 38, border: "none", background: place.active ? "#fff5f5" : "#f5f5f5", color: place.active ? "#dc2626" : "#707070", cursor: place.active ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}><Minus size={15} /></button>
             <input type="number" min={1} max={PREMIUM_ADJUST_DAYS_MAX} value={days} onChange={(e) => setDays(e.target.value)} aria-label="조절할 날짜 수" style={{ width: 62, height: 38, border: "none", borderLeft: "1px solid #eee", textAlign: "right", fontSize: 14, fontWeight: 800, fontFamily: "inherit", padding: "0 2px 0 6px", boxSizing: "border-box" }} />
             <span style={{ height: 38, lineHeight: "38px", fontSize: 13, color: "#666", padding: "0 10px 0 2px", borderRight: "1px solid #eee" }}>일</span>
-            <button disabled={busy} onClick={() => adjust(1)} aria-label={`${dayCount}일 늘리기`} title={`${dayCount}일 늘리기`} style={{ width: 40, height: 38, border: "none", background: "#f0fdf4", color: "#15803d", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={15} /></button>
+            <button disabled={busy} onClick={() => adjust(1)} aria-label={`${dayCount}일 늘리기`} title={`${dayCount}일 늘리기`} style={{ width: 40, height: 38, border: "none", background: "#FCF1E9", color: "#85482A", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={15} /></button>
           </div>
           <div style={{ display: "inline-flex", gap: 4 }}>
             {DAY_PRESETS.map((n) => (
@@ -140,7 +140,7 @@ function PlaceCard({ place, data, onChanged }: { place: PremiumPlace; data: Pane
           </div>
         </div>
         <div style={{ fontSize: 11.5, color: "#666", marginTop: 7, lineHeight: 1.6 }}>
-          {dayCount > 0 && plus && !("error" in plus) && <>+ 누르면 만료 <b style={{ color: "#15803d" }}>{fmt(plus.expiresAt)}</b></>}
+          {dayCount > 0 && plus && !("error" in plus) && <>+ 누르면 만료 <b style={{ color: "#85482A" }}>{fmt(plus.expiresAt)}</b></>}
           {dayCount > 0 && place.active && minus && !("error" in minus) && <> · − 누르면 {minus.ended ? <b style={{ color: "#dc2626" }}>바로 종료</b> : <>만료 <b style={{ color: "#dc2626" }}>{fmt(minus.expiresAt)}</b></>}</>}
           {!place.active && <> · 끝난 가게는 + 를 누르면 오늘부터 다시 시작해요</>}
         </div>
@@ -270,7 +270,7 @@ export default function PremiumPlacesPanel({ refreshKey = 0 }: { refreshKey?: nu
   const banners = active.filter((p) => p.banner).length;
   const monthly = active.reduce((sum, p) => sum + PLAN_MONTHLY_PRICE[p.plan], 0);
   const summary: { label: string; value: string; color: string }[] = [
-    { label: "이용 중", value: `${active.length}곳`, color: "#15803d" },
+    { label: "이용 중", value: `${active.length}곳`, color: "#85482A" },
     { label: "7일 안에 만료", value: `${soon}곳`, color: soon > 0 ? "#b45309" : "#555" },
     { label: "배너 노출", value: `${banners}곳`, color: "#7c3aed" },
     { label: "정가 기준 월 합계", value: won(monthly), color: "#333" },

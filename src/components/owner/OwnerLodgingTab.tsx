@@ -469,7 +469,7 @@ export default function OwnerLodgingTab({ placeId, isPreview, canAct }: { placeI
           {canAct && (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button onClick={saveProfile} disabled={busy !== ""} style={{ ...primaryButton(busy !== ""), flex: "0 0 auto" }}>{busy === "profile" ? "저장 중…" : "동반 규정 저장"}</button>
-              {profileSaved && <span role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#15803D" }}>{profileSaved}</span>}
+              {profileSaved && <span role="status" style={{ fontSize: 12.5, fontWeight: 700, color: "#85482A" }}>{profileSaved}</span>}
             </div>
           )}
         </div>

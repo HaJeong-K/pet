@@ -80,7 +80,7 @@ export default function ReportFixPanel({ reportId, placeId, category, reason, on
           <button onClick={save} disabled={busy || changed.length === 0} style={{ padding: "11px 0", borderRadius: 11, border: "none", background: busy || changed.length === 0 ? "#D4D3D2" : "#3B2A20", color: busy || changed.length === 0 ? "#4f4a3f" : "white", fontSize: 13.5, fontWeight: 800, cursor: busy || changed.length === 0 ? "default" : "pointer", fontFamily: "inherit" }}>
             {busy ? "반영하는 중…" : changed.length ? `${changed.map((f) => f.label).join("·")} 반영하고 신고 닫기` : "바꿀 칸을 고쳐 주세요"}
           </button>
-          {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700, color: msg.ok ? "#15803D" : "#b91c1c" }}>{msg.text}</div>}
+          {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700, color: msg.ok ? "#85482A" : "#b91c1c" }}>{msg.text}</div>}
         </>
       )}
     </div>

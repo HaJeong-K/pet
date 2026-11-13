@@ -480,7 +480,7 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                           <input type="checkbox" checked={used} onChange={(e) => setQty(x.id, e.target.checked ? Math.max(1, Math.min(firstQty, cap)) : 0)} style={{ width: 19, height: 19, marginTop: 2, flexShrink: 0, accentColor: "#A05A32" }} />
                           <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontSize: 14.5, fontWeight: 800, color: "#1f1a12" }}>{x.name}</span>
-                            <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}>{x.price > 0 ? <><b>{won(x.price)}</b> · {extraUnitLabel(x)}</> : <b style={{ color: "#15803D" }}>무료</b>}</span>
+                            <span style={{ display: "block", fontSize: 13, color: "#3B2A20", marginTop: 2 }}>{x.price > 0 ? <><b>{won(x.price)}</b> · {extraUnitLabel(x)}</> : <b style={{ color: "#85482A" }}>무료</b>}</span>
                             {x.note && <span style={{ display: "block", fontSize: 12.5, color: "#2A1C14", marginTop: 2 }}>{x.note}</span>}
                           </span>
                         </label>
@@ -579,9 +579,9 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
             <div>
               <div style={label}>취소하면 돌려받는 금액</div>
               <div style={{ display: "grid", gap: 4, fontSize: 12.5, color: "#1a1a1a" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span>오늘({stayDayLabel(today)}) 안에 취소</span><b style={{ color: "#15803D" }}>{won(payTotal)} 전액</b></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span>오늘({stayDayLabel(today)}) 안에 취소</span><b style={{ color: "#85482A" }}>{won(payTotal)} 전액</b></div>
                 {schedule.filter((r) => r.until > today).map((r) => (
-                  <div key={r.until} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(r.until)}까지 취소</span><span style={{ fontWeight: 700, color: r.rate === 0 ? "#15803D" : "#B45309" }}>{r.rate === 0 ? `${won(r.refund)} 전액` : `${won(r.refund)} (${r.rate}% 공제)`}</span></div>
+                  <div key={r.until} style={{ display: "flex", justifyContent: "space-between" }}><span>{stayDayLabel(r.until)}까지 취소</span><span style={{ fontWeight: 700, color: r.rate === 0 ? "#85482A" : "#B45309" }}>{r.rate === 0 ? `${won(r.refund)} 전액` : `${won(r.refund)} (${r.rate}% 공제)`}</span></div>
                 ))}
                 <div style={{ fontSize: 11.5, color: "#262626", marginTop: 2 }}>공정거래위원회 소비자분쟁해결기준(숙박업)에 따릅니다. 체크인 날이 지나면 취소할 수 없어요.</div>
               </div>

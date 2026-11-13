@@ -97,7 +97,7 @@ function InquiryRow({ inquiry, open, onToggle, onChanged }: { inquiry: Inquiry; 
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={INQUIRY_NOTE_MAX} rows={4} placeholder={"통화 내용, 보낸 견적, 다음에 할 일을 적어 두세요.\n예: 10/15 통화 — 11월 한 달 배너 원함, 견적서 메일로 보냄. 10/20까지 답 기다리기"} style={{ width: "100%", marginTop: 7, padding: "11px 12px", borderRadius: 10, border: "1px solid #ddd", fontSize: 13.5, lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", resize: "vertical" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
             <button onClick={saveNote} disabled={busy !== "" || !noteDirty} style={{ padding: "9px 16px", borderRadius: 10, border: "none", background: noteDirty ? "#A05A32" : "#D4D3D2", color: "white", fontSize: 12.5, fontWeight: 800, cursor: noteDirty ? "pointer" : "default", fontFamily: "inherit" }}>{busy === "note" ? "저장 중…" : "메모 저장"}</button>
-            {saved && <span role="status" style={{ fontSize: 12, fontWeight: 700, color: "#15803D" }}>저장했어요</span>}
+            {saved && <span role="status" style={{ fontSize: 12, fontWeight: 700, color: "#85482A" }}>저장했어요</span>}
             {noteDirty && !saved && <span style={{ fontSize: 12, color: "#B45309" }}>저장하지 않은 내용이 있어요</span>}
           </div>
         </div>

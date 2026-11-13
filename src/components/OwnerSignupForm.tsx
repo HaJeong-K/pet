@@ -457,7 +457,7 @@ export default function OwnerSignupForm({ redirect = "/", initialKind = "store",
 
       {selectedPlace && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 10, background: "#f0f9f4", border: "1px solid #bbf0d1", marginBottom: 10, fontSize: 12 }}>
-          <Check size={14} color="#22c55e" />
+          <Check size={14} color="#A05A32" />
           <span style={{ flex: 1 }}>{selectedPlace.name} · {selectedPlace.address}</span>
           <button type="button" onClick={() => setSelectedPlace(null)} style={{ border: "none", background: "transparent", color: "#666", cursor: "pointer", fontSize: 11 }}>취소</button>
         </div>
@@ -544,7 +544,7 @@ const inputStyle = {
   border: "1px solid #ddd", boxSizing: "border-box" as const, fontSize: 14,
 };
 const errorTextStyle = { color: "#dc2626", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
-const successTextStyle = { color: "#15803d", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
+const successTextStyle = { color: "#85482A", fontSize: 13, marginTop: -6, marginBottom: 10, fontWeight: 500 };
 const eyeButtonStyle = {
   position: "absolute" as const, right: 14, top: "50%", transform: "translateY(-50%)",
   border: "none", background: "transparent", cursor: "pointer", padding: 0,

@@ -8,6 +8,7 @@
 //   ⑦ 위치: 주소·지도에서 보기(근처 동반 장소)·길찾기·전화
 // 아래에 "1박 ○원~ [객실 선택]" 띠가 붙어 있습니다. 바깥 틀은 StayFrame(좌우 광고·보호소 공고 칸).
 
+import NearbyStores from "@/components/lodging/NearbyStores";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, BedDouble, Check, ChevronDown, ChevronLeft, ChevronUp, ClipboardCheck, Clock, Copy, Crown, MapPin, Navigation, PawPrint, Phone, Share2, Star, Users } from "lucide-react";
@@ -220,7 +221,7 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
                         <div key={x.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, color: "#555" }}>
                           <span>{x.name}{x.note ? <span style={{ color: "#666" }}> · {x.note}</span> : null}</span>
                           {/* 0원으로 등록한 서비스는 손님에게 "무료"로 보여 줍니다 */}
-                          <b style={{ flexShrink: 0, color: x.price > 0 ? "#333" : "#15803D" }}>{x.price > 0 ? <>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{extraUnitLabel(x)}</span></> : "무료"}</b>
+                          <b style={{ flexShrink: 0, color: x.price > 0 ? "#333" : "#85482A" }}>{x.price > 0 ? <>{x.price.toLocaleString("ko-KR")}원 <span style={{ fontWeight: 500, color: "#666" }}>{extraUnitLabel(x)}</span></> : "무료"}</b>
                         </div>
                       ))}
                     </div>
@@ -299,6 +300,9 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
             </>
           )}
         </section>
+
+        {/* 근처 반려 가게 — 숙소 예약에서 쇼핑(포장·매장 식사)으로 이어지게(가까운 입점 가게가 있을 때만 보임) */}
+        <NearbyStores lat={place.lat != null ? Number(place.lat) : null} lng={place.lng != null ? Number(place.lng) : null} cardStyle={card} headingStyle={h2} />
 
         {/* 위치 */}
         <section id="stay-location" style={card}>

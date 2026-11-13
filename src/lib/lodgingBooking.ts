@@ -292,7 +292,7 @@ export type StayStatus = "pending_payment" | "requested" | "confirmed" | "declin
 export const STAY_STATUS: Record<StayStatus, { label: string; color: string; background: string }> = {
   pending_payment: { label: "결제 대기", color: "#B91C1C", background: "#FEE2E2" },
   requested: { label: "확인 대기", color: "#B45309", background: "#FEF3C7" },
-  confirmed: { label: "예약 확정", color: "#15803D", background: "#DCFCE7" },
+  confirmed: { label: "예약 확정", color: "#85482A", background: "#FCF1E9" },
   declined: { label: "거절", color: "#777", background: "#f1f2f4" },
   cancelled_by_guest: { label: "손님 취소", color: "#777", background: "#f1f2f4" },
   cancelled_by_owner: { label: "숙소 취소", color: "#B91C1C", background: "#FEE2E2" },

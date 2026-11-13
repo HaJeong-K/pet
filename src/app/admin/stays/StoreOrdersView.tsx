@@ -40,7 +40,7 @@ export default function StoreOrdersView() {
   if (!data) return <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>;
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       <div style={{ ...card, fontSize: 13, color: "#444" }}>이용 완료·노쇼로 가게에 정산할 결제 금액 합계 <b>{won(data.settled)}</b><br /><span style={{ fontSize: 12, color: "#666" }}>쇼핑 수수료를 정하면 가게별 정산 금액을 계산합니다.</span></div>
       {data.reports.map((r) => (
         <div key={r.id} style={{ ...card, background: "#FFF7ED" }}>

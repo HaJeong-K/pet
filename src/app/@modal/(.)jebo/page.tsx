@@ -611,16 +611,16 @@ export default function JeboModal() {
                   onClick={() => setLargeDog(true)}
                   style={{
                     flex: 1, padding: "9px 0", borderRadius: 10,
-                    border: `1.5px solid ${largeDog === true ? "#16a34a" : "#e2e4e8"}`,
-                    background: largeDog === true ? "linear-gradient(135deg, #22c55e, #16a34a)" : "white",
+                    border: `1.5px solid ${largeDog === true ? "#85482A" : "#e2e4e8"}`,
+                    background: largeDog === true ? "linear-gradient(135deg, #A05A32, #85482A)" : "white",
                     color: largeDog === true ? "white" : "#555",
                     fontWeight: 600, fontSize: 12, cursor: "pointer",
                     fontFamily: "'Noto Sans KR', sans-serif",
-                    boxShadow: largeDog === true ? "0 2px 8px rgba(22,163,74,0.28)" : "none",
+                    boxShadow: largeDog === true ? "0 2px 8px rgba(160,90,50,0.28)" : "none",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                   }}
                 >
-                  <CheckCircle2 size={14} color={largeDog === true ? "white" : "#22c55e"} />
+                  <CheckCircle2 size={14} color={largeDog === true ? "white" : "#A05A32"} />
                   가능
                 </button>
                 <button

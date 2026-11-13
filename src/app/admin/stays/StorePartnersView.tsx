@@ -16,7 +16,7 @@ type Partner = {
 const STATUS = {
   pending: { label: "새 신청", bg: "#FEF3C7", color: "#92400E" },
   consulting: { label: "상담 중", bg: "#DBEAFE", color: "#1D4ED8" },
-  approved: { label: "입점", bg: "#DCFCE7", color: "#15803D" },
+  approved: { label: "입점", bg: "#FCF1E9", color: "#85482A" },
   rejected: { label: "반려", bg: "#FEE2E2", color: "#B91C1C" },
 };
 const card: React.CSSProperties = { background: "white", borderRadius: 16, border: "1px solid #E7E6E5", padding: "14px 16px" };
@@ -57,7 +57,7 @@ export default function StorePartnersView() {
   if (rows === null) return <div style={{ ...card, textAlign: "center" }}><LogoLoader /></div>;
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#15803D" : "#b91c1c" }}>{message.text}</div>}
+      {message && <div role="status" style={{ fontSize: 12.5, fontWeight: 700, color: message.ok ? "#85482A" : "#b91c1c" }}>{message.text}</div>}
       {rows.length === 0 && <div style={{ ...card, textAlign: "center", color: "#666", fontSize: 13 }}>입점 상담 신청이 아직 없어요.</div>}
       {rows.map((r) => (
         <div key={r.id} style={card}>
