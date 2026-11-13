@@ -6,6 +6,7 @@
 // 문제(예: 마이페이지엔 운영정책 링크가 없었음, 문의 이메일이 서로 다른 값이었음)가
 // 있었는데, 이 컴포넌트 하나만 각 페이지에서 불러다 쓰면 항상 똑같습니다.
 
+import { APPEAL_DAYS, AUTO_HOLD_REPORTERS, SANCTION_STEPS, SEVERE_VIOLATIONS } from "@/lib/sanctions";
 import { STAMPS_ENABLED } from "@/lib/memoryStamps";
 import { useState } from "react";
 import { X, Mail, Check, Copy } from "lucide-react";
@@ -325,7 +326,18 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
             • 이용자는 부적절한 게시물·댓글을 신고할 수 있습니다.<br />
             • 게시판 이용 안내와 맞지 않을 수 있는 글(판매·분양·광고 의심 등)은 자동으로 감지되어, 운영진이 확인하기 전까지 공개되지 않을 수 있습니다. 문제가 없는 글은 확인 후 게시됩니다.<br />
             • 신고가 접수된 게시물은 운영진 검토 후 삭제 또는 비공개 처리될 수 있습니다.<br />
-            • 반복적으로 정책을 위반하는 회원은 이용 제한(경고 → 일시 정지 → 영구 정지) 조치를 받을 수 있습니다.
+            • 같은 글을 서로 다른 회원 {AUTO_HOLD_REPORTERS}명 이상이 신고하면, 운영진이 확인하기 전까지 그 글은 임시로 가려집니다.<br />
+            • 제재는 신고 횟수가 아니라 <strong>운영진이 위반으로 확인한 횟수</strong>를 기준으로 합니다(최근 1년 기준).<br />
+            {SANCTION_STEPS.map((step, i) => (
+              <span key={i}>&nbsp;&nbsp;– {i + 1 === SANCTION_STEPS.length ? `${i + 1}회 이상` : `${i + 1}회`}: {step.label}<br /></span>
+            ))}
+            • 작성 제한 기간에는 커뮤니티 글·댓글, 장소 후기·답글, 숙박·가게 후기를 쓸 수 없습니다. 읽기와 예약·주문은 그대로 이용할 수 있습니다.<br />
+            • 아래와 같은 중대한 위반은 횟수와 관계없이 바로 영구 정지될 수 있습니다.<br />
+            {SEVERE_VIOLATIONS.map((v, i) => (
+              <span key={i}>&nbsp;&nbsp;– {v}<br /></span>
+            ))}
+            • 사실과 다른 신고를 반복하는 것도 위반으로 봅니다.<br />
+            • 제재를 하면 사유와 기간을 알림으로 알려 드립니다. 이의가 있으면 알림을 받은 날부터 {APPEAL_DAYS}일 안에 문의해 주세요. 이의가 받아들여지면 제재를 해제하고 위반 횟수에서도 뺍니다.
           </FooterSection>
 
           <FooterSection title="5. 문의">
@@ -334,7 +346,7 @@ function CommunityPolicyModal({ onClose }: { onClose: () => void }) {
 
           <div style={{ marginTop: 16, padding: "12px 14px", background: "#f8f9fb", borderRadius: 10, border: "1px solid #e8eaed" }}>
             <div style={{ fontSize: 11, color: "#5c5c5c", lineHeight: 1.7 }}>
-              본 운영정책은 <strong>2026년 10월 5일</strong>부터 시행됩니다.
+              본 운영정책은 <strong>2026년 10월 5일</strong>부터 시행됩니다. (제재 기준 추가: <strong>2026년 11월 13일</strong>)
             </div>
           </div>
         </ModalShell>

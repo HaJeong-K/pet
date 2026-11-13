@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import AdminNav from "@/components/AdminNav";
 import LevelBadge from "@/components/LevelBadge";
-import { Users, Search, Flag, ShieldCheck, Store, BedDouble, UserX } from "lucide-react";
+import { Users, Search, Flag, ShieldCheck, Store, BedDouble, UserX, Gavel, Undo2 } from "lucide-react";
 import { ownerKindInfo, type OwnerKind } from "@/lib/ownerKind";
 
 // ── 회원 관리 ──
@@ -14,7 +14,16 @@ import { ownerKindInfo, type OwnerKind } from "@/lib/ownerKind";
 // 신고를 많이 받은 회원을 먼저 볼 수 있고, 문제가 계속되는 회원은 강제 탈퇴시킬 수 있습니다.
 // 숫자는 서버(/api/admin/members)가 셉니다 — 신고는 "신고된 글의 작성자" 기준입니다.
 
+type Sanction = {
+  /** 최근 1년 위반 횟수(해제 제외) */
+  strikes: number;
+  blocked: "suspend" | "ban" | null; blockedUntil: string | null;
+  /** 한 번 더 위반하면 적용될 조치 */
+  nextLabel: string;
+  history: { stage: string; days: number | null; reason: string; createdAt: string; endsAt: string | null; liftedAt: string | null }[];
+};
 type Member = {
+  sanction?: Sanction;
   authUserId: string; email: string | null; nickname: string | null; avatarUrl: string | null; createdAt: string | null;
   isAdmin: boolean; ownerStatus: string | null; ownerBusinessName: string | null;
   /** 사장님 유형 — 가게 / 숙소(src/lib/ownerKind.ts) */
@@ -54,10 +63,11 @@ export default function AdminMembers() {
   const [sort, setSort] = useState<Sort>("recent");
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sanctionsReady, setSanctionsReady] = useState(false);
 
   const load = async () => {
     setError(null);
-    try { setMembers((await call("GET")).members ?? []); } catch (e) { setError(e instanceof Error ? e.message : "불러오지 못했어요."); setMembers([]); }
+    try { const json = await call("GET"); setMembers(json.members ?? []); setSanctionsReady(!!json.sanctionsReady); } catch (e) { setError(e instanceof Error ? e.message : "불러오지 못했어요."); setMembers([]); }
   };
   useEffect(() => {
     // 대시보드에서 "신고 다수"로 넘어온 경우 등 주소의 ?filter= 값을 처음 한 번 반영합니다.
@@ -86,6 +96,31 @@ export default function AdminMembers() {
     };
     return [...filtered].sort(by[sort]);
   }, [members, filter, sort, query]);
+
+  // 위반 1회 기록 → 단계에 맞는 제재가 자동으로 정해집니다(경고 → 7일 → 30일 → 영구, src/lib/sanctions.ts)
+  const sanction = async (m: Member, severe: boolean) => {
+    if (busyId) return;
+    const name = m.nickname || m.email || "이 회원";
+    const willApply = severe ? "영구 정지(중대한 위반)" : m.sanction?.nextLabel ?? "경고";
+    const reason = window.prompt(`"${name}" 회원에게 [${willApply}] 조치를 합니다.\n회원에게 그대로 전달되는 사유를 적어 주세요.\n(예: 다른 회원 비방 댓글 반복)`);
+    if (reason == null) return;
+    if (reason.trim().length < 2) { alert("사유를 적어 주세요."); return; }
+    if (!window.confirm(`[${willApply}] 조치를 할까요?\n\n사유: ${reason.trim()}\n\n회원에게 알림이 가요.`)) return;
+    setBusyId(m.authUserId);
+    try { const r = await call("POST", { action: "sanction", authUserId: m.authUserId, reason: reason.trim(), severe }); alert(`적용했어요: ${r.applied}`); await load(); }
+    catch (e) { alert(e instanceof Error ? e.message : "처리하지 못했어요."); }
+    finally { setBusyId(null); }
+  };
+  const lift = async (m: Member) => {
+    if (busyId) return;
+    const reason = window.prompt("제재를 해제하는 사유를 적어 주세요.\n(해제하면 위반 횟수에서도 빠져요 — 이의가 받아들여진 경우에만)");
+    if (reason == null) return;
+    if (reason.trim().length < 2) { alert("사유를 적어 주세요."); return; }
+    setBusyId(m.authUserId);
+    try { await call("POST", { action: "lift", authUserId: m.authUserId, reason: reason.trim() }); await load(); }
+    catch (e) { alert(e instanceof Error ? e.message : "처리하지 못했어요."); }
+    finally { setBusyId(null); }
+  };
 
   const remove = async (m: Member) => {
     if (busyId) return;
@@ -160,6 +195,9 @@ export default function AdminMembers() {
                   {m.ownerStatus === "verified" && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: ownerKindInfo(m.ownerKind).background, color: ownerKindInfo(m.ownerKind).color }}>{m.ownerKind === "lodging" ? <BedDouble size={10} /> : <Store size={10} />}{ownerKindInfo(m.ownerKind).label} 사장님{m.ownerBusinessName ? ` · ${m.ownerBusinessName}` : ""}</span>}
                   {m.ownerStatus === "pending" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>{ownerKindInfo(m.ownerKind).label} 사장님 신청 중</span>}
                   {m.reported >= MANY_REPORTS && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEE2E2", color: "#b91c1c" }}><Flag size={10} />신고 다수</span>}
+                  {m.sanction?.blocked === "ban" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#2A1C14", color: "white" }}>영구 정지</span>}
+                  {m.sanction?.blocked === "suspend" && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEE2E2", color: "#b91c1c" }}>작성 제한 ~{fmtDate(m.sanction.blockedUntil)}</span>}
+                  {!m.sanction?.blocked && (m.sanction?.strikes ?? 0) > 0 && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "#FEF3C7", color: "#92400E" }}>위반 {m.sanction!.strikes}회</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: "#5c5c5c", marginTop: 2, wordBreak: "break-all" }}>{m.email || "이메일 없음"} · 가입 {fmtDate(m.createdAt)}{m.points != null ? ` · ${m.points.toLocaleString()}점` : ""}</div>
               </div>
@@ -173,6 +211,7 @@ export default function AdminMembers() {
               {stat("신고받음", m.reported, true)}
               {stat("미처리", m.reportedOpen, true)}
               {stat("관리자 삭제", m.adminDeleted, true)}
+              {sanctionsReady && stat("위반(1년)", m.sanction?.strikes ?? 0, true)}
             </div>
 
             {(m.reportedOpen > 0 || !m.isAdmin) && (
@@ -182,11 +221,35 @@ export default function AdminMembers() {
                     <Flag size={13} />미처리 신고 {m.reportedOpen}건 보러 가기
                   </button>
                 )}
+                {!m.isAdmin && sanctionsReady && m.sanction?.blocked !== "ban" && (
+                  <button onClick={() => sanction(m, false)} disabled={busyId === m.authUserId} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "1px solid #E7E1DC", background: "white", color: "#3B2A20", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    <Gavel size={13} />위반 기록 → {m.sanction?.nextLabel ?? "경고"}
+                  </button>
+                )}
+                {!m.isAdmin && sanctionsReady && m.sanction?.blocked !== "ban" && (
+                  <button onClick={() => sanction(m, true)} disabled={busyId === m.authUserId} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "1px solid #E7E1DC", background: "white", color: "#b91c1c", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    <Gavel size={13} />중대 위반 → 영구 정지
+                  </button>
+                )}
+                {!m.isAdmin && sanctionsReady && m.sanction?.blocked && (
+                  <button onClick={() => lift(m)} disabled={busyId === m.authUserId} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "1px solid #E7E1DC", background: "white", color: "#5c5c5c", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                    <Undo2 size={13} />제재 해제
+                  </button>
+                )}
                 {!m.isAdmin && (
                   <button onClick={() => remove(m)} disabled={busyId === m.authUserId} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 13px", borderRadius: 10, border: "1px solid #FECACA", background: "#FEF2F2", color: "#b91c1c", fontSize: 12.5, fontWeight: 700, cursor: "pointer", opacity: busyId === m.authUserId ? 0.6 : 1 }}>
                     <UserX size={13} />{busyId === m.authUserId ? "처리 중…" : "강제 탈퇴"}
                   </button>
                 )}
+              </div>
+            )}
+            {(m.sanction?.history.length ?? 0) > 0 && (
+              <div style={{ marginTop: 10, paddingTop: 9, borderTop: "1px dashed #eee", display: "grid", gap: 3 }}>
+                {m.sanction!.history.map((h, i) => (
+                  <div key={i} style={{ fontSize: 11.5, color: h.liftedAt ? "#9a9a9a" : "#5c5c5c", lineHeight: 1.5, textDecoration: h.liftedAt ? "line-through" : "none" }}>
+                    {fmtDate(h.createdAt)} · <b>{h.stage === "warning" ? "경고" : h.stage === "ban" ? "영구 정지" : `${h.days}일 작성 제한`}</b> · {h.reason}{h.liftedAt ? " (해제)" : ""}
+                  </div>
+                ))}
               </div>
             )}
           </div>

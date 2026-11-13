@@ -3,10 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/server/requireAdmin";
 import { deleteAccount } from "@/lib/server/deleteAccount";
 import { isMissingOwnerKind, ownerKindOf } from "@/lib/ownerKind";
+import { APPEAL_DAYS, countsAsStrike, isBlocking, nextSanction, type SanctionRow } from "@/lib/sanctions";
+import { notifyGuest } from "@/lib/server/guestNotify";
 
 // 관리자 전용: 가입 회원 관리
 //   GET                         → 가입 회원 목록 + 회원별 활동(후기·답글·글·댓글 수)과 신고받은 횟수, 관리자가 지운 글 수
 //   POST { action: "remove", authUserId } → 강제 탈퇴(되돌릴 수 없음 — 관리자 본인·다른 관리자는 불가)
+//   POST { action: "sanction", authUserId, reason, severe? } → 위반 1회 기록 + 단계별 제재(경고 → 7일 → 30일 → 영구, src/lib/sanctions.ts). 회원에게 알림
+//   POST { action: "lift", authUserId, reason } → 진행 중인 제재 해제(이의 인정 — 위반 횟수에서도 빠짐)
+//   제재 표: scripts/sql/member-sanctions.sql (실행 전이면 제재 기능만 꺼져 있음)
 // 신고는 "어떤 글이 신고됐는지"만 저장돼 있어서, 그 글의 작성자를 찾아 회원별로 셉니다.
 
 export const runtime = "nodejs";
@@ -72,6 +77,30 @@ export async function GET(req: NextRequest) {
     if (!rp.is_resolved) c.reportedOpen++;
   }
 
+  // 제재 기록(표가 아직 없으면 빈 채로 — sanctionsReady: false)
+  const sanctionRows = await supabaseAdmin.from("member_sanctions").select("auth_user_id, stage, days, reason, ends_at, lifted_at, created_at").order("created_at", { ascending: false }).limit(MAX_ROWS);
+  const sanctionsReady = !sanctionRows.error;
+  const sanctionsOf = new Map<string, (SanctionRow & { reason: string; days: number | null })[]>();
+  for (const row of sanctionRows.data ?? []) {
+    const list = sanctionsOf.get(row.auth_user_id as string) ?? [];
+    list.push(row as SanctionRow & { reason: string; days: number | null });
+    sanctionsOf.set(row.auth_user_id as string, list);
+  }
+  const sanctionInfo = (uid: string) => {
+    const list = sanctionsOf.get(uid) ?? [];
+    const strikes = list.filter((r) => countsAsStrike(r)).length;
+    const blocking = list.filter((r) => isBlocking(r));
+    const ban = blocking.find((r) => r.stage === "ban");
+    const until = blocking.filter((r) => r.stage === "suspend").map((r) => r.ends_at as string).sort().pop() ?? null;
+    return {
+      strikes,
+      blocked: ban ? "ban" as const : until ? "suspend" as const : null,
+      blockedUntil: ban ? null : until,
+      nextLabel: nextSanction(strikes).label,
+      history: list.slice(0, 5).map((r) => ({ stage: r.stage, days: r.days, reason: r.reason, createdAt: r.created_at, endsAt: r.ends_at, liftedAt: r.lifted_at })),
+    };
+  };
+
   const members = (users.data ?? []).map((u) => ({
     authUserId: u.auth_user_id as string,
     email: u.email as string | null,
@@ -85,20 +114,53 @@ export async function GET(req: NextRequest) {
     level: levelOf.get(u.auth_user_id as string)?.level ?? null,
     points: levelOf.get(u.auth_user_id as string)?.points ?? null,
     ...(byUser.get(u.auth_user_id as string) ?? empty()),
+    sanction: sanctionInfo(u.auth_user_id as string),
   }));
-  return NextResponse.json({ members });
+  return NextResponse.json({ members, sanctionsReady });
 }
 
 export async function POST(req: NextRequest) {
   const adminUser = await requireAdmin(req);
   if (!adminUser) return NextResponse.json({ error: "관리자 권한 없음" }, { status: 401 });
-  const body = (await req.json().catch(() => ({}))) as { action?: string; authUserId?: string };
-  if (body.action !== "remove" || !body.authUserId) return NextResponse.json({ error: "요청이 올바르지 않아요." }, { status: 400 });
-  if (body.authUserId === adminUser.id) return NextResponse.json({ error: "본인 계정은 여기서 탈퇴시킬 수 없어요." }, { status: 400 });
+  const body = (await req.json().catch(() => ({}))) as { action?: string; authUserId?: string; reason?: string; severe?: boolean };
+  if (!["remove", "sanction", "lift"].includes(body.action ?? "") || !body.authUserId) return NextResponse.json({ error: "요청이 올바르지 않아요." }, { status: 400 });
+  if (body.authUserId === adminUser.id) return NextResponse.json({ error: "본인 계정에는 할 수 없어요." }, { status: 400 });
 
   const { data: target } = await supabaseAdmin.from("users").select("is_admin").eq("auth_user_id", body.authUserId).maybeSingle();
   if (!target) return NextResponse.json({ error: "회원을 찾을 수 없어요." }, { status: 404 });
-  if (target.is_admin) return NextResponse.json({ error: "관리자 계정은 탈퇴시킬 수 없어요." }, { status: 400 });
+  if (target.is_admin) return NextResponse.json({ error: "관리자 계정에는 할 수 없어요." }, { status: 400 });
+
+  if (body.action === "sanction" || body.action === "lift") {
+    const reason = (body.reason ?? "").trim().slice(0, 300);
+    if (reason.length < 2) return NextResponse.json({ error: "사유를 적어 주세요." }, { status: 400 });
+    const NEED_SQL = "제재 표가 아직 없어요. scripts/sql/member-sanctions.sql을 먼저 실행해 주세요.";
+    const { data: rows, error: readError } = await supabaseAdmin.from("member_sanctions").select("id, stage, ends_at, lifted_at, created_at").eq("auth_user_id", body.authUserId);
+    if (readError) return NextResponse.json({ error: NEED_SQL }, { status: 503 });
+    const list = (rows ?? []) as (SanctionRow & { id: number })[];
+
+    if (body.action === "lift") {
+      const active = list.filter((r) => isBlocking(r)).map((r) => r.id);
+      if (active.length === 0) return NextResponse.json({ error: "진행 중인 제재가 없어요." }, { status: 400 });
+      const { error } = await supabaseAdmin.from("member_sanctions").update({ lifted_at: new Date().toISOString(), lift_reason: reason }).in("id", active);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      await notifyGuest(body.authUserId, { kind: "sanction", title: "이용 제한이 해제됐어요", body: `다시 글을 쓸 수 있어요. (${reason})`, url: "/mypage" });
+      return NextResponse.json({ ok: true });
+    }
+
+    const step = nextSanction(list.filter((r) => countsAsStrike(r)).length, !!body.severe);
+    const endsAt = step.stage === "suspend" && step.days ? new Date(Date.now() + step.days * 86_400_000).toISOString() : null;
+    const { error } = await supabaseAdmin.from("member_sanctions").insert({
+      auth_user_id: body.authUserId, stage: step.stage, days: step.days, reason, severe: !!body.severe, ends_at: endsAt, created_by: adminUser.id,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const appeal = `이의가 있으면 ${APPEAL_DAYS}일 안에 문의하기로 알려 주세요.`;
+    const notice =
+      step.stage === "warning" ? { title: "운영정책 위반 경고", body: `사유: ${reason} · 같은 위반이 반복되면 글쓰기가 제한돼요. ${appeal}` } :
+      step.stage === "suspend" ? { title: `${step.days}일 동안 글쓰기가 제한돼요`, body: `사유: ${reason} · 글·댓글·후기 작성이 ${step.days}일 동안 제한돼요. ${appeal}` } :
+      { title: "글쓰기가 영구 제한됐어요", body: `사유: ${reason} · 글·댓글·후기 작성이 영구 제한돼요. ${appeal}` };
+    await notifyGuest(body.authUserId, { kind: "sanction", ...notice, url: "/mypage" });
+    return NextResponse.json({ ok: true, applied: step.label });
+  }
 
   try {
     const result = await deleteAccount(body.authUserId, { unlinkKakao: true });

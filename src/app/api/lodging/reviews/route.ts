@@ -1,3 +1,4 @@
+import { writeBlockMessage } from "@/lib/server/sanctions";
 import { NextRequest, NextResponse } from "next/server";
 import { db, isMissingSchema, userOf } from "@/lib/server/ownerStore";
 import { kstToday, petLabel, type StayPet } from "@/lib/lodgingBooking";
@@ -54,6 +55,8 @@ export async function POST(req: NextRequest) {
   // 신고 검토 결과 숙박 후기 작성이 제한된 계정
   const { data: ban } = await db.from("lodging_review_bans").select("auth_user_id").eq("auth_user_id", user.id).maybeSingle();
   if (ban) return fail("운영 정책 위반으로 숙박 후기를 남길 수 없는 계정이에요. 고객센터로 문의해 주세요.", 403);
+  const blocked = await writeBlockMessage(user.id);
+  if (blocked) return fail(blocked, 403);
 
   const { data: b, error: findError } = await db.from("lodging_bookings").select("id, place_id, room_name, guest_name, check_out, nights, pets, status")
     .eq("id", r.bookingId).eq("guest_auth_user_id", user.id).maybeSingle();

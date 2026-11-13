@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, userOf } from "@/lib/server/ownerStore";
 import { checkCommentPassword, hashCommentPassword, isHashed } from "@/lib/server/commentPassword";
+import { writeBlockMessage } from "@/lib/server/sanctions";
 
 // /api/place-comments — 장소 후기(reviews)·답글(review_replies)의 모든 쓰기를 여기서만 합니다(2026-11-07)
 //   · 비회원 비밀번호는 암호화해 저장하고 확인도 여기서만 합니다(화면은 비밀번호 칸을 읽지 못함).
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
   const password = typeof body?.password === "string" ? body.password.slice(0, 64) : "";
   if (!nickname || !content) return fail("닉네임과 내용을 입력해 주세요.", 400);
   if (!user && !password) return fail("비밀번호를 입력해 주세요.", 400);
+  // 운영정책 위반으로 작성이 제한된 회원(src/lib/sanctions.ts)
+  const blocked = await writeBlockMessage(user?.id);
+  if (blocked) return fail(blocked, 403);
   const owner = user
     ? { auth_user_id: user.id, user_key: null, password: null }
     : { auth_user_id: null, user_key: text(body?.userKey, 80) || null, password: hashCommentPassword(password) };
