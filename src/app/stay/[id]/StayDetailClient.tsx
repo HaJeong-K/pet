@@ -8,6 +8,8 @@
 //   ⑦ 위치: 주소·지도에서 보기(근처 동반 장소)·길찾기·전화
 // 아래에 "1박 ○원~ [객실 선택]" 띠가 붙어 있습니다. 바깥 틀은 StayFrame(좌우 광고·보호소 공고 칸).
 
+import StayBookmarkButton from "@/components/lodging/StayBookmarkButton";
+import { rememberView } from "@/lib/recentViews";
 import NearbyStores from "@/components/lodging/NearbyStores";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -81,6 +83,8 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
     return () => io.disconnect();
   });
   const [copied, setCopied] = useState(false);
+  // 최근 본 숙소(이 기기에만 저장 — src/lib/recentViews.ts)
+  useEffect(() => { rememberView({ kind: "stay", id: place.id, name: place.name, image: place.photo ?? rooms[0]?.images?.[0] ?? null, sub: place.address }); }, [place.id, place.name, place.photo, place.address, rooms]);
 
   const loadReviews = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -127,7 +131,10 @@ export default function StayDetailClient({ place, profile, rooms }: { place: Sta
         )}
         <div style={{ position: "absolute", top: 12, left: 12, right: 12, display: "flex", justifyContent: "space-between" }}>
           <button onClick={() => (window.history.length > 1 ? router.back() : router.push("/stay"))} aria-label="뒤로" style={{ width: 38, height: 38, borderRadius: 999, border: "none", background: "rgba(255,255,255,0.92)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}><ChevronLeft size={20} /></button>
+          <span style={{ display: "flex", gap: 8 }}>
+          <StayBookmarkButton placeId={place.id} />
           <button onClick={share} aria-label="공유" style={{ height: 38, padding: "0 12px", borderRadius: 999, border: "none", background: "rgba(255,255,255,0.92)", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, fontFamily: "inherit", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}><Share2 size={15} />{copied ? "주소 복사됨" : "공유"}</button>
+          </span>
         </div>
       </div>
 

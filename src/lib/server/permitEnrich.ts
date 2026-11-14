@@ -13,6 +13,7 @@ import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { districtOf, permitApiKey, PermitQuotaError, queryPermit, roadPart, squash } from "@/lib/server/permitCoords";
 import { closedLongAgo, loadPermitRows } from "@/lib/server/permitPhones";
 import { PERMIT_PATHS, permitKindsFor, pickPermit, type PermitKind, type PermitMatch, type PermitRecord } from "@/lib/permitMatch";
+import { loadPermitExtras, mergePermitExtras, type PermitExtraMap } from "@/lib/server/permitExtras";
 
 const admin = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 const DAY = 86_400_000;
@@ -98,6 +99,7 @@ export async function runPermitEnrich(maxMs: number): Promise<{ checked: number;
     .sort((a, b) => Number(!!a.phone) - Number(!!b.phone) || (checkedAt.get(a.id) ?? 0) - (checkedAt.get(b.id) ?? 0));
 
   let checked = 0, matched = 0, phones = 0, closed = 0, next = 0;
+  const extras: PermitExtraMap = {}; // 업태·객실 수·인허가일 등(src/lib/server/permitExtras.ts)
   const worker = async () => {
     while (next < targets.length && Date.now() - startedAt < maxMs) {
       const place = targets[next++];
@@ -111,11 +113,13 @@ export async function runPermitEnrich(maxMs: number): Promise<{ checked: number;
       });
       if (!found) continue;
       matched++;
+      extras[String(place.id)] = found.extra ?? {};
       if (!place.phone && found.phone) phones++;
       if (found.status === "closed") { closed++; await reportClosed(db, place, found); }
     }
   };
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  await mergePermitExtras(extras);
   return { checked, matched, phones, closed, left: Math.max(0, targets.length - next), ...(exhausted.size ? { quotaFull: [...exhausted] } : {}) };
 }
 
@@ -151,4 +155,49 @@ export async function lookupPermitPhone(place: Target): Promise<string | null> {
   });
   if (found?.status === "closed") await reportClosed(db, place, found);
   return found?.phone ?? null;
+}
+
+/**
+ * 이미 맞춰 둔 장소의 추가 정보(업태·객실 수·인허가일·홈페이지)를 채웁니다 — 2026-11-13.
+ * 전화번호만 저장하던 때 맞춘 곳은 추가 정보가 없어서, 맞춘 업종 하나만 다시 조회해 보관소에 넣습니다.
+ * 아직 안 받은 곳부터, 정해진 시간(maxMs) 안에서. kinds를 주면 그 업종만.
+ */
+export async function backfillPermitExtras(maxMs: number, kinds?: PermitKind[]): Promise<{ checked: number; filled: number; left: number; quotaFull?: string[] }> {
+  const key = permitApiKey();
+  if (!key) return { checked: 0, filled: 0, left: 0 };
+  const startedAt = Date.now();
+  const db = admin();
+  resetExhaustedIfNewDay();
+  const [places, rows, have] = await Promise.all([
+    getMergedPublicDataPlaces() as Promise<{ id: number; name: string; address: string | null; category: string | null; phone: string | null }[]>,
+    loadPermitRows(db, ["place_id", "kind", "status"], true),
+    loadPermitExtras(true),
+  ]);
+  const placeOf = new Map(places.map((p) => [p.id, p]));
+  const targets = rows
+    .filter((r) => r.kind && r.status !== "closed" && !(String(r.place_id) in have) && (!kinds || kinds.includes(r.kind as PermitKind)))
+    .map((r) => ({ place: placeOf.get(Number(r.place_id)), kind: r.kind as PermitKind }))
+    .filter((t): t is { place: NonNullable<typeof t.place>; kind: PermitKind } => !!t.place?.address);
+
+  let checked = 0, filled = 0, next = 0;
+  let pending: PermitExtraMap = {};
+  const flush = async () => { const batch = pending; pending = {}; await mergePermitExtras(batch); };
+  const worker = async () => {
+    while (next < targets.length && Date.now() - startedAt < maxMs) {
+      const { place, kind } = targets[next++];
+      if (exhausted.has(kind)) continue;
+      let found: Awaited<ReturnType<typeof findInKind>>;
+      try {
+        found = await findInKind({ id: place.id, name: place.name, address: place.address!, category: place.category ?? "", phone: place.phone || null }, kind, key);
+      } catch (e) { if (e instanceof PermitQuotaError) exhausted.add(kind); continue; }
+      checked++;
+      // 못 찾았어도 빈 값으로 남겨 다시 묻지 않습니다
+      pending[String(place.id)] = found?.extra ?? {};
+      if (found?.extra && Object.keys(found.extra).length > 0) filled++;
+      if (Object.keys(pending).length >= 100) await flush();
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  await flush();
+  return { checked, filled, left: Math.max(0, targets.length - next), ...(exhausted.size ? { quotaFull: [...exhausted] } : {}) };
 }

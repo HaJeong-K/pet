@@ -1,5 +1,7 @@
 "use client";
 
+import { rememberView } from "@/lib/recentViews";
+import { POINT_RULES } from "@/lib/memberLevel";
 import { shortDateTime } from "@/lib/dateText";
 import OwnerBadge from "@/components/OwnerBadge";
 import { infoLines } from "@/lib/infoLines";
@@ -45,7 +47,7 @@ import { PLACE_GUIDE_KEY, PLACE_GUIDE_STEPS } from "@/lib/pageGuides";
 import {
   Heart, ThumbsUp, ThumbsDown, MoreVertical, MessageCircle,
   MapPin, Clock, PawPrint, Plus, Navigation,
-  ImageOff, ChefHat, LandPlot, Dog, Shield,
+  ImageOff, ChefHat, LandPlot, Dog, Shield, ShieldCheck,
   ChevronLeft, ChevronRight, Phone,
   Car,         // 주차
   Ticket,      // 입장료
@@ -217,6 +219,12 @@ export default function PlaceDetail({
   // 지도에서 누른 장소면 지도가 이미 들고 있던 데이터로 즉시 그립니다(체감상 바로 열림).
   // 최신 정보는 아래 데이터 로딩 effect가 뒤에서 받아와 바꿔 끼웁니다.
   const [place, setPlace]             = useState<any>(() => getRememberedPlace(placeId));
+  // 최근 본 곳(이 기기에만 저장 — src/lib/recentViews.ts)
+  useEffect(() => {
+    if (!place?.name || !Number.isFinite(Number(placeId))) return;
+    const image = typeof place.image_url === "string" && !place.image_url.includes("default-place") ? place.image_url : null;
+    rememberView({ kind: "place", id: Number(placeId), name: place.name, image, sub: place.category ?? null });
+  }, [placeId, place?.name, place?.image_url, place?.category]);
   // 장소 불러오기 상태 — 예전엔 장소를 못 찾거나 오류가 나도 place가 null로 남아 "로딩중..."이
   // 영원히 떠 있었습니다(모달의 새로고침을 눌러도 같은 결과라 안 되는 것처럼 보였음).
   const [loadState, setLoadState]     = useState<"loading" | "notFound" | "error">("loading");
@@ -1398,6 +1406,31 @@ export default function PlaceDetail({
             </div>
           </div>
 
+          {/* 인허가 정보 — 행정안전부 지방행정 인허가 데이터로 맞춘 장소만(영업 상태·업종·객실 수·영업 시작 연도) — 2026-11-13 */}
+          {(place as any).permit && (() => {
+            const permit = (place as any).permit as { status: string | null; checkedAt: string | null; bizType: string | null; rooms: number | null; since: string | null };
+            const parts = [
+              permit.status === "open" ? "영업 중" : permit.status === "suspended" ? "휴업" : permit.status === "closed" ? "폐업 신고됨" : null,
+              permit.bizType ? `업종 ${permit.bizType}` : null,
+              permit.rooms ? `객실 ${permit.rooms}개` : null,
+              permit.since ? `${permit.since.slice(0, 4)}년부터 영업` : null,
+            ].filter(Boolean);
+            if (parts.length === 0) return null;
+            return (
+              <div style={{ padding:"10px 12px", borderTop:"1px solid #eee" }}>
+                <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
+                  <ShieldCheck size={10} />인허가 정보
+                </div>
+                <div className="ggk-body" style={{ fontSize:"12px", color:"#222", fontWeight:500, lineHeight:1.6 }}>
+                  {parts.join(" · ")}
+                  <span style={{ display:"block", fontSize:"10.5px", color:"#6e6e6e", marginTop:2 }}>
+                    행정안전부 인허가 데이터 기준{permit.checkedAt ? ` · ${shortDateTime(permit.checkedAt).slice(0, 8)} 확인` : ""}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* 행6: 메모 (단독) */}
           <div style={{ padding:"10px 12px", borderTop:"1px solid #eee" }}>
             <div className="ggk-title" style={{ fontSize:"10px", color:"#6e6e6e", marginBottom:"3px", fontWeight:800, display:"flex", alignItems:"center", gap:"3px" }}>
@@ -1410,6 +1443,30 @@ export default function PlaceDetail({
           </>)}
 
         </div>
+
+        {/* 빈칸 채우기 권유 — 비어 있는 정보가 하나라도 있으면 "아는 것 하나만" 알려 달라고 묻습니다(2026-11-13).
+            기존 정보 제안 창(⋮ 메뉴의 정보 제안)을 그대로 엽니다 — 창은 바깥 틀(@modal/(.)place)이 갖고 있어 신호로 엽니다. */}
+        {(() => {
+          const missing: string[] = ([["hours", "영업시간"], ["phone", "전화번호"], ["closed_days", "휴무일"], ["parking", "주차"]] as const)
+            .filter(([key]) => !hasInfo((place as any)[key])).map(([, label]) => label as string);
+          if (place.large_dog == null) missing.push("대형견 가능 여부");
+          if (missing.length === 0 || isPlaceOwner) return null;
+          return (
+            <div data-guide="place-fill" style={{ marginTop: 12, padding: "13px 14px", borderRadius: 14, background: "#FCF1E9", border: "1px solid #EBC8B1" }}>
+              <div className="ggk-logo" style={{ fontSize: 14, fontWeight: 800, color: "#3B2A20", lineHeight: 1.45 }}>
+                비어 있는 정보가 {missing.length}개 있어요
+              </div>
+              <div className="ggk-body" style={{ marginTop: 4, fontSize: 12.5, color: "#5E5048", lineHeight: 1.6 }}>
+                {missing.join(" · ")}<br />
+                하나라도 아시면 알려 주세요. 확인 후 반영되면 <b style={{ color: "#A05A32" }}>레벨 점수 +{POINT_RULES.info_update_approved.points}점</b>이에요.
+              </div>
+              <button onClick={() => window.dispatchEvent(new CustomEvent("ggk-open-tip"))} className="ggk-body"
+                style={{ marginTop: 10, width: "100%", padding: "10px 0", borderRadius: 10, border: "none", background: "#3B2A20", color: "white", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>
+                아는 정보 알려 주기
+              </button>
+            </div>
+          );
+        })()}
 
         {/* 정보 확인 — 마지막 확인일(방문자·사장님·공공데이터)과 다녀온 사람의 "정보가 맞아요 / 달라졌어요" */}
         <PlaceFreshness placeId={placeId} placeName={place.name} isOwner={isPlaceOwner} phone={place.phone} />

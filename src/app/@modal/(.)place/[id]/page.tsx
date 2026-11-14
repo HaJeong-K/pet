@@ -155,6 +155,13 @@ export default function ModalPage() {
   const [tipMemo,       setTipMemo]       = useState("");
   const [isTipSubmitting, setIsTipSubmitting] = useState(false);
 
+  // 장소 상세 안의 "아는 정보 알려 주기"(빈칸 채우기 권유)가 보내는 신호로 정보 제안 창을 엽니다
+  useEffect(() => {
+    const open = () => setShowTipModal(true);
+    window.addEventListener("ggk-open-tip", open);
+    return () => window.removeEventListener("ggk-open-tip", open);
+  }, []);
+
   const tipHasAnyValue =
     tipHours.trim() || tipLargeDog || tipPhone.trim() ||
     tipWebsite.trim() || tipClosedDays.trim() || tipParking.trim() ||

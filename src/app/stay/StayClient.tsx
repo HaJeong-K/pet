@@ -9,6 +9,7 @@
 //   · 바깥 틀은 StayFrame — 다른 화면처럼 본문 최대 1000px + 넓은 화면의 좌우 광고·보호소 공고 칸.
 // 데이터는 /api/lodging/list(공공데이터 숙소 + 직접 등록된 숙소), 정렬·검색·필터는 여기서 합니다.
 
+import RecentViews from "@/components/RecentViews";
 import PageHero, { HeroSearch } from "@/components/PageHero";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -189,6 +190,9 @@ export default function StayClient({ initial = null }: { initial?: Stay[] | null
           <div style={{ padding: 60, textAlign: "center" }}><LogoLoader /></div>
         ) : (
           <>
+            {/* 최근 본 숙소(이 기기에 남은 기록이 있을 때만) */}
+            <RecentViews kind="stay" title="최근 본 숙소" style={{ marginTop: 26 }} />
+
             {/* 펫츠로드에서 바로 예약 — 가로로 밀지 않고 한눈에 보이게 칸으로 놓습니다 */}
             {bookable.length > 0 && (
               <section style={{ marginTop: 30 }}>

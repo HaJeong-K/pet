@@ -1,5 +1,6 @@
 "use client";
 
+import { TERMS_VERSION } from "@/components/TermsUpdateNotice";
 import { checkEmailExists } from "@/lib/emailCheck";
 import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
@@ -152,6 +153,7 @@ function SignupPageContent() {
           full_name: nickname,    // ← 이게 있어야 대시보드 Display name에 표시됨
           nickname,               // ← KakaoMap.tsx, page.tsx의 user_metadata 읽기용으로 유지
           age14_confirmed_at: new Date().toISOString(), // 만 14세 이상 확인 시각
+          terms_version: TERMS_VERSION, terms_confirmed_at: new Date().toISOString(), // 가입할 때 동의한 약관 버전
         },
       },
     });

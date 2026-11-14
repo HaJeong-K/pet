@@ -167,7 +167,8 @@ export default function ProductsTab({ placeId, isPreview, canAct, onGoAds }: { p
         <div style={{ fontSize: 12.5, color: "#5c5c5c", marginTop: 4, lineHeight: 1.7 }}>
           올린 상품은 <b style={{ color: "#555" }}>쇼핑 탭</b>과 우리 가게 상세 화면에 진열돼요.<br />
           손님이 직접 예약 주문을 넣으면 &ldquo;예약&rdquo; 메뉴에서 확정해 주세요.<br />
-          결제는 가게에서 받아요(건당 수수료 없음).
+          결제는 손님이 주문할 때 펫츠로드에서 미리 해요.<br />
+          주문 수수료는 입점 상담 때 안내해 드려요.
         </div>
         {state.enabled && (
           <a href="/shop" target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 9, padding: "7px 12px", borderRadius: 9, background: "#F8E6D9", fontSize: 12, fontWeight: 800, color: "#6F3D24", textDecoration: "none" }}>손님이 보는 쇼핑 탭 열어 보기 →</a>

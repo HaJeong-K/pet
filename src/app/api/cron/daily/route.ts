@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
-import { runPermitEnrich } from "@/lib/server/permitEnrich";
+import { backfillPermitExtras, runPermitEnrich } from "@/lib/server/permitEnrich";
+import { runKorEnrich } from "@/lib/server/korEnrich";
 import { NextRequest, NextResponse } from "next/server";
-import { rebuildPublicDataSnapshot } from "@/lib/publicDataAggregate";
+import { getMergedPublicDataPlaces, rebuildPublicDataSnapshot } from "@/lib/publicDataAggregate";
 import { enrichTourDetails } from "@/lib/server/tourDetails";
 import { runDbBackup } from "@/lib/server/dbBackup";
 import { fetchTourTargets } from "@/app/api/public-data/tour/route";
@@ -166,6 +167,17 @@ export async function GET(req: NextRequest) {
     const requested = Number(req.nextUrl.searchParams.get("ms"));
     const ms = only === "permits" && requested > 0 ? Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested) : PERMIT_ENRICH_MS;
     results.permits = await runJob(() => runPermitEnrich(ms));
+    // 예전에 맞춰 둔 곳의 업종·객실 수·영업 시작일(전화번호만 저장하던 때 맞춘 곳) — 남은 것이 있으면 조금씩 채웁니다
+    results.permitExtras = await runJob(() => backfillPermitExtras(only === "permits" ? 60_000 : 20_000));
+  }
+
+  // 관광공사 국문 관광정보로 음식점·카페·숙소의 영업시간·쉬는 날·주차·전화·사진 빈칸 채우기(src/lib/server/korEnrich.ts)
+  // 매주 금요일(한 번 확인한 곳은 30일 동안 다시 보지 않아 평소에는 금방 끝남). ?only=kor&ms=240000 로 길게 돌릴 수 있습니다.
+  if (want("kor")) {
+    const requested = Number(req.nextUrl.searchParams.get("ms"));
+    results.kor = only === "kor" || kstDay === 5
+      ? await runJob(async () => runKorEnrich(await getMergedPublicDataPlaces(), only === "kor" && requested > 0 ? Math.min(TOUR_DETAILS_MAX_MS_LIMIT, requested) : 60_000))
+      : { ok: true, ms: 0, skipped: "금요일에만 실행" };
   }
 
   // 관광공사 장소 상세(영업시간·전화·반려동물 동반 조건)를 아직 못 받은 곳부터 이어서 받습니다.

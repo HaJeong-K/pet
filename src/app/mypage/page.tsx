@@ -1,5 +1,6 @@
 "use client";
 
+import RecentViews from "@/components/RecentViews";
 import { shortDate } from "@/lib/dateText";
 import dynamic from "next/dynamic";
 import LogoLoader from "@/components/LogoLoader";
@@ -894,6 +895,7 @@ export default function MyPage() {
             {/* ── 알림 */}
             {activeSection === "notifications" && <MyNotificationsCard full />}
             {activeSection === "blocks" && <MyBlockedUsers />}
+            {activeSection === "home" && <RecentViews title="최근 본 곳" style={{ marginTop: 14, padding: "16px 16px 14px", borderRadius: 18, background: "white", border: "1px solid #E7E6E5" }} />}
             {/* ── 내 경로 — 직접 만든 코스(장소 상세의 "내 경로에 추가") */}
             {activeSection === "routes" && (
               myRoutes.length === 0 ? (

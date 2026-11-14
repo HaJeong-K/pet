@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMergedPublicDataPlaces } from "@/lib/publicDataAggregate";
 import { isParkPlaceId } from "@/lib/parkPlace";
 import { getParkAsPlace } from "@/lib/server/parkAsPlace";
+import { createClient } from "@supabase/supabase-js";
+import { loadPermitExtras } from "@/lib/server/permitExtras";
+
+/**
+ * 행정안전부 인허가 정보(영업 상태·확인한 날·업태·객실 수·영업 시작일) — 맞춰 둔 장소만.
+ * 목록 전체에 싣지 않고 장소 하나를 열 때만 붙입니다(지도 목록이 무거워지지 않게).
+ */
+async function permitInfoOf(placeId: number): Promise<Record<string, unknown> | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const [{ data: row }, extras] = await Promise.all([
+      db.from("public_place_permits").select("matched, status, checked_at").eq("place_id", placeId).maybeSingle(),
+      loadPermitExtras(),
+    ]);
+    if (!row?.matched) return null;
+    const extra = extras[String(placeId)] ?? {};
+    return { status: row.status, checkedAt: row.checked_at, bizType: extra.t ?? null, rooms: extra.r ?? null, since: extra.o ?? null, homepage: extra.h ?? null };
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 
@@ -32,5 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  return NextResponse.json(found);
+  const permit = await permitInfoOf(placeId);
+  // 홈페이지 칸이 비어 있으면 인허가 기록의 홈페이지로 채웁니다(원래 값은 바꾸지 않음)
+  return NextResponse.json({ ...found, website: found.website || permit?.homepage || null, permit });
 }

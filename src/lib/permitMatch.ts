@@ -31,9 +31,37 @@ export function permitKindsFor(category: string | null | undefined, name = ""): 
   return [];
 }
 
-export type PermitRecord = { BPLC_NM?: string; ROAD_NM_ADDR?: string; LOTNO_ADDR?: string; SALS_STTS_CD?: string; TELNO?: string; CLSBIZ_YMD?: string };
+export type PermitRecord = {
+  BPLC_NM?: string; ROAD_NM_ADDR?: string; LOTNO_ADDR?: string; SALS_STTS_CD?: string; TELNO?: string; CLSBIZ_YMD?: string;
+  // 전화번호 말고 더 받는 정보(2026-11-13) — 업태, 홈페이지, 객실 수, 인허가일
+  BZSTAT_SE_NM?: string; SNTTN_BZSTAT_NM?: string; HPG?: string; LCPMT_YMD?: string;
+  KSRM_CNT?: string | number | null; WSRM_CNT?: string | number | null; GSRM_CNT?: string | number | null;
+};
+/** 인허가 기록에서 뽑은 추가 정보 — t: 업태(한식 등), h: 홈페이지, r: 객실 수, o: 인허가일(YYYY-MM-DD). 없는 값은 넣지 않습니다 */
+export type PermitExtra = { t?: string; h?: string; r?: number; o?: string };
+
+// 업태가 분류 이름과 같거나 뜻이 없는 값이면 보여 주지 않습니다
+const VAGUE_TYPE = /^(기타|일반음식점|휴게음식점|제과점영업|숙박업|숙박업\s*기타|일반|해당없음|-)?$/;
+/** 홈페이지 주소 다듬기 — 주소 모양이 아니면 null */
+export function cleanHomepage(raw: string | null | undefined): string | null {
+  const text = (raw ?? "").trim();
+  if (!/^(https?:\/\/)?[A-Za-z0-9가-힣.-]+\.[A-Za-z]{2,}(\/\S*)?$/.test(text)) return null;
+  return /^https?:\/\//.test(text) ? text : `https://${text}`;
+}
+export function permitExtraOf(record: PermitRecord): PermitExtra {
+  const extra: PermitExtra = {};
+  const type = (record.BZSTAT_SE_NM || record.SNTTN_BZSTAT_NM || "").trim();
+  if (type && !VAGUE_TYPE.test(type)) extra.t = type;
+  const homepage = cleanHomepage(record.HPG);
+  if (homepage) extra.h = homepage;
+  const rooms = (Number(record.KSRM_CNT) || 0) + (Number(record.WSRM_CNT) || 0) || Number(record.GSRM_CNT) || 0;
+  if (rooms > 0 && rooms < 3000) extra.r = rooms;
+  const day = (record.LCPMT_YMD ?? "").replace(/\D/g, "");
+  if (day.length === 8 && Number(day.slice(0, 4)) >= 1950) extra.o = `${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6, 8)}`;
+  return extra;
+}
 export type PermitStatus = "open" | "suspended" | "closed";
-export type PermitMatch = { name: string; phone: string | null; status: PermitStatus; closedOn: string | null };
+export type PermitMatch = { name: string; phone: string | null; status: PermitStatus; closedOn: string | null; extra?: PermitExtra };
 
 const squash = (text: string) => text.replace(/\(.*?\)/g, "").replace(/[\s,()·.\-_'"&]/g, "").toLowerCase();
 /** 업종 꼬리말(동물병원·애견미용 등)은 빼고 비교합니다 — "행복동물병원"과 "행복"이 같은 가게로 보이도록 */
@@ -57,6 +85,8 @@ export function cleanPhone(raw: string | null | undefined): string | null {
   const d = (raw ?? "").replace(/\D/g, "");
   if (d.length === 8 && /^1[5-9]/.test(d)) return `${d.slice(0, 4)}-${d.slice(4)}`; // 1588-0000 같은 대표번호
   if (d.length < 9 || d.length > 12 || !d.startsWith("0") || /^0+$/.test(d)) return null;
+  // 안심번호(0507·0503 등 050X)는 네 자리 국번입니다: 0507-1367-9954
+  if (/^050\d/.test(d)) return d.length === 12 ? `${d.slice(0, 4)}-${d.slice(4, 8)}-${d.slice(8)}` : d.length === 11 ? `${d.slice(0, 4)}-${d.slice(4, 7)}-${d.slice(7)}` : null;
   if (d.startsWith("02")) return d.length === 9 ? `02-${d.slice(2, 5)}-${d.slice(5)}` : `02-${d.slice(2, 6)}-${d.slice(6)}`;
   return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 }
@@ -79,5 +109,5 @@ export function pickPermit(ourName: string, candidates: PermitRecord[], minScore
   if (phones.size > 1) return null;
   const pick = top[0];
   const status = statusOf(pick.SALS_STTS_CD);
-  return { name: pick.BPLC_NM ?? "", phone: cleanPhone(top.map((c) => c.TELNO).find((t) => cleanPhone(t)) ?? null), status, closedOn: status === "closed" ? pick.CLSBIZ_YMD || null : null };
+  return { name: pick.BPLC_NM ?? "", phone: cleanPhone(top.map((c) => c.TELNO).find((t) => cleanPhone(t)) ?? null), status, closedOn: status === "closed" ? pick.CLSBIZ_YMD || null : null, extra: permitExtraOf(pick) };
 }

@@ -81,7 +81,8 @@ export async function queryPermit(path: string, cond: string, value: string, key
   // 포털 키는 이미 주소용으로 바뀐(인코딩된) 모양으로 발급됩니다 — 그대로 붙입니다.
   const url = `https://apis.data.go.kr/1741000/${path}/info?serviceKey=${key}&pageNo=1&numOfRows=100&returnType=json&${encodeURIComponent(`cond[${cond}]`)}=${encodeURIComponent(value)}`;
   // 음식점(230만 건)처럼 큰 데이터는 주소 검색 한 번에 10초 넘게 걸리기도 합니다
-  const res = await fetch(url, { signal: AbortSignal.timeout(25_000) });
+  // 일반음식점(67만 건)은 주소 검색 한 번에 30초 넘게 걸립니다(2026-11-13 측정) — 25초로는 전부 시간 초과였습니다
+  const res = await fetch(url, { signal: AbortSignal.timeout(70_000) });
   if (!res.ok) throw new Error(`인허가 조회 실패 ${res.status}`);
   const json = await res.json().catch(() => null);
   const items = json?.response?.body?.items?.item ?? json?.response?.body?.items ?? [];

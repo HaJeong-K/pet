@@ -4,6 +4,7 @@ import StayDetailClient, { type StayPlace } from "./StayDetailClient";
 import { db } from "@/lib/server/ownerStore";
 import { getLodging } from "@/lib/server/lodgingStore";
 import { siteUrl } from "@/lib/siteUrl";
+import { roomLowestPrice } from "@/lib/lodgingRules";
 
 // 숙소 화면(/stay/번호) — 펫츠로드에 입점해 바로 예약되는 숙소의 숙박 앱식 화면입니다.
 //   사진 · 이름·별점 · 객실(→ /stay/번호/book) · 동반 조건 · 숙박 후기(별점) · 위치
@@ -42,5 +43,24 @@ export default async function StayPage({ params }: { params: Promise<{ id: strin
   const data = await load(id);
   if (!data) notFound();
   if (!data.place || !data.lodging?.ready || data.lodging.rooms.length === 0) redirect(`/place/${data.id}`);
-  return <StayDetailClient place={data.place} profile={data.lodging.profile} rooms={data.lodging.rooms} />;
+  // 검색엔진용 정보(구글·네이버가 숙소로 알아보게) — 이름·주소·전화·사진·좌표·반려동물 동반·가격대
+  const prices = data.lodging.rooms.map(roomLowestPrice).filter((n) => Number.isFinite(n) && n > 0);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    name: data.place.name,
+    url: `${siteUrl}/stay/${data.id}`,
+    petsAllowed: true,
+    ...(data.place.address ? { address: { "@type": "PostalAddress", streetAddress: data.place.address, addressCountry: "KR" } } : {}),
+    ...(data.place.phone ? { telephone: data.place.phone } : {}),
+    ...(data.place.photo ? { image: data.place.photo } : {}),
+    ...(data.place.lat != null && data.place.lng != null ? { geo: { "@type": "GeoCoordinates", latitude: Number(data.place.lat), longitude: Number(data.place.lng) } } : {}),
+    ...(prices.length ? { priceRange: `${Math.min(...prices).toLocaleString("ko-KR")}원~` } : {}),
+  };
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <StayDetailClient place={data.place} profile={data.lodging.profile} rooms={data.lodging.rooms} />
+    </>
+  );
 }

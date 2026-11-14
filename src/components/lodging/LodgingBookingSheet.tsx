@@ -134,8 +134,29 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
   const sizeOptions = PET_SIZES.filter((s) => !profile || profile.pet_sizes.length === 0 || profile.pet_sizes.includes(s.id));
   const dogBreeds = DOG_BREEDS.filter((b) => sizeOptions.some((s) => s.id === b.size));
   const newPet = (): PetForm => ({ species: speciesOptions[0]?.id ?? "dog", size: sizeOptions[0]?.id ?? "small", weight: "", kind: "", breed: "", breedText: "", age: "", ageUnit: "year", gender: "", neutered: "", note: "" });
-  const setPet = (i: number, patch: Partial<PetForm>) => setPets((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const setPet = (i: number, patch: Partial<PetForm>) => { petsTouched.current = true; setPets((all) => all.map((x, j) => (j === i ? { ...x, ...patch } : x))); };
   const [pets, setPets] = useState<PetForm[]>(() => [newPet()]);
+  // 내 반려동물 정보 — 지난 예약 때 적은 정보를 회원 정보(user_metadata.saved_pets)에 남겨 두고 다음 예약 때 미리 채웁니다(2026-11-13).
+  // 이 숙소가 받지 않는 종류·크기는 빼고, 숙소의 최대 마릿수까지만 채웁니다. 손님이 이미 적기 시작했으면 덮어쓰지 않습니다.
+  const [savePets, setSavePets] = useState(true);
+  const [petsPrefilled, setPetsPrefilled] = useState(false);
+  const petsTouched = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const saved = session?.user.user_metadata?.saved_pets as PetForm[] | undefined;
+      if (cancelled || petsTouched.current || !Array.isArray(saved) || saved.length === 0) return;
+      const usable = saved
+        .filter((p) => p && speciesOptions.some((o) => o.id === p.species) && (p.species !== "dog" || !p.size || sizeOptions.some((o) => o.id === p.size)))
+        .slice(0, Math.max(1, maxPets))
+        .map((p) => ({ ...newPet(), ...p }));
+      if (usable.length === 0) return;
+      setPets(usable);
+      setPetsPrefilled(true);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
   // 부가 옵션 — 고른 수(개수·인원·마리, 0이면 안 고름)
   const extraOptions = profile?.extras ?? [];
   const [extraQty, setExtraQty] = useState<Record<string, number>>({});
@@ -269,6 +290,8 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
       // 그 사이 다른 손님이 먼저 예약했으면 달력을 새로 받아 날짜 고르기로 돌아갑니다
       if (res.status === 409 && /먼저 예약/.test(json.error ?? "")) { await load(); setCheckIn(null); setCheckOut(null); setStep(1); }
       if (!res.ok) throw new Error(json.error || "예약하지 못했어요.");
+      // 다음 예약 때 미리 채우도록 반려동물 정보를 회원 정보에 남깁니다(손님이 끄면 남기지 않음)
+      if (savePets) await supabase.auth.updateUser({ data: { saved_pets: pets.slice(0, 5) } }).catch(() => null);
       // 선결제: 결제창으로 넘어갑니다. 끝나면 /pay/success로 돌아옵니다
       if (json.needsPayment) { await startPayment("lodging", Number(json.booking.id), form.paymentMethod); return; }
       setResult({ status: json.booking?.status ?? "requested" });
@@ -456,6 +479,11 @@ export default function LodgingBookingSheet({ placeName, placePhone, profile, ro
                 })}
               </div>
               {pets.length < maxPets && <button onClick={() => setPets((all) => [...all, newPet()])} style={{ marginTop: 10, border: "1px dashed #C9A48A", background: "white", color: "#3B2A20", borderRadius: 12, padding: "12px 0", width: "100%", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}><Plus size={15} />반려동물 한 마리 더 추가</button>}
+              <label style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 10, fontSize: 12.5, color: "#444", cursor: "pointer" }}>
+                <input type="checkbox" checked={savePets} onChange={(e) => setSavePets(e.target.checked)} />
+                이 반려동물 정보를 저장해 다음 예약 때 자동으로 채우기
+              </label>
+              {petsPrefilled && <div style={{ marginTop: 6, fontSize: 12, color: "#85482A" }}>지난 예약 때 저장한 정보로 채웠어요. 달라진 점이 있으면 고쳐 주세요.</div>}
               {petProblem && <div role="status" style={{ marginTop: 8, fontSize: 12.5, fontWeight: 700, color: "#b91c1c" }}>{petProblem}</div>}
             </div>
 

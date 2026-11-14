@@ -6,6 +6,7 @@ import AuthGuard from "@/components/AuthGuard";
 import TabBar from "@/components/TabBar";
 import BackExitGuard from "@/components/BackExitGuard";
 import AppAlert from "@/components/AppAlert";
+import TermsUpdateNotice from "@/components/TermsUpdateNotice";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
 import ErrorReporter from "@/components/ErrorReporter";
 import MemberVisitPing from "@/components/MemberVisitPing";
@@ -144,6 +145,8 @@ export default function RootLayout({
           <BackExitGuard />
           {/* 브라우저 기본 알림창 대신 펫츠로드 안내 창(src/components/AppAlert.tsx) */}
           <AppAlert />
+          {/* 약관이 바뀌면 기존 회원에게 한 번 알리고 확인 시점을 남깁니다 */}
+          <TermsUpdateNotice />
         </AuthProvider>
       </body>
     </html>

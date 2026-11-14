@@ -21,7 +21,7 @@ describe("permitMatch", () => {
     expect(cleanPhone("")).toBeNull();
   });
   it("확실할 때만 고른다", () => {
-    expect(pickPermit("행복동물병원", [{ BPLC_NM: "행복동물병원", SALS_STTS_CD: "01", TELNO: "0531234567" }])).toEqual({ name: "행복동물병원", phone: "053-123-4567", status: "open", closedOn: null });
+    expect(pickPermit("행복동물병원", [{ BPLC_NM: "행복동물병원", SALS_STTS_CD: "01", TELNO: "0531234567" }])).toEqual({ name: "행복동물병원", phone: "053-123-4567", status: "open", closedOn: null, extra: {} });
     // 같은 건물에 이름이 안 맞는 가게만 있으면 고르지 않음
     expect(pickPermit("행복동물병원", [{ BPLC_NM: "튼튼약국", SALS_STTS_CD: "01", TELNO: "0531234567" }])).toBeNull();
     // 같은 이름 후보 둘이 번호가 다르면 고르지 않음

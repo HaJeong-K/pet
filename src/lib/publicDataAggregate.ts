@@ -17,6 +17,7 @@ import { fetchFoodsafetyPlaces } from "@/lib/foodsafetyPlaces";
 import { getTourPlaces } from "@/app/api/public-data/tour/route";
 import { getAllParks } from "@/lib/server/allParks";
 import { findParkDuplicateIds } from "@/lib/parkDuplicates";
+import { applyKorFill, loadKorFill } from "@/lib/server/korEnrich";
 import { countBySource, type MapCounts } from "@/lib/cronDigest";
 import { dedupeAcrossSources } from "@/lib/publicDataDedupe";
 import { loadPermitInfo } from "@/lib/server/permitPhones";
@@ -175,7 +176,9 @@ async function refresh(): Promise<any[]> {
       }
     }
   }
-  const visible = await fillPermitPhones(await dropParkDuplicates(await applyHidden(base ?? [])));
+  // 관광공사 국문 관광정보로 맞춘 영업시간·쉬는 날·주차·전화·사진(src/lib/server/korEnrich.ts) — 비어 있는 칸만
+  const korFills = await loadKorFill().catch(() => ({}));
+  const visible = applyKorFill(await fillPermitPhones(await dropParkDuplicates(await applyHidden(base ?? []))), korFills);
   cachedRaw = visible;
   cachedAt = Date.now();
   return visible;
